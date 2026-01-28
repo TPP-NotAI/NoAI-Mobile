@@ -1,0 +1,746 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:provider/provider.dart';
+import 'providers/auth_provider.dart';
+import 'providers/post_provider.dart';
+import 'providers/user_provider.dart';
+import 'providers/theme_provider.dart';
+import 'providers/feed_provider.dart';
+import 'providers/chat_provider.dart';
+import 'providers/language_provider.dart';
+import 'providers/notification_provider.dart';
+import 'services/storage_service.dart';
+import 'services/supabase_service.dart';
+import 'services/presence_service.dart';
+import 'models/view_enum.dart';
+import 'screens/auth/splash_screen.dart';
+import 'screens/auth/onboarding_screen.dart';
+import 'screens/auth/interests_selection_screen.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/auth/signup_screen.dart';
+import 'screens/auth/verification_screen.dart';
+import 'screens/auth/recovery_screen.dart';
+import 'screens/auth/human_verification_screen.dart';
+import 'screens/auth/phone_verification_screen.dart';
+import 'screens/feed/feed_screen.dart';
+import 'screens/explore_screen.dart';
+import 'screens/wallet/wallet_screen.dart';
+import 'screens/profile/profile_screen.dart';
+import 'screens/create/create_post_screen.dart';
+import 'screens/settings_screen.dart';
+import 'screens/notifications/notifications_screen.dart';
+import 'screens/chat/chat_list_screen.dart';
+import 'screens/support/contact_support_screen.dart';
+import 'config/app_constants.dart';
+import 'utils/platform_utils.dart';
+import 'widgets/adaptive/adaptive_navigation.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await StorageService().init();
+  await SupabaseService().initialize();
+  PresenceService().start();
+  runApp(const MyApp());
+}
+
+/* ───────────────────────────────────────────── */
+/* ROOT APP                                      */
+/* ───────────────────────────────────────────── */
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => PostProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => FeedProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => LanguageProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+      ],
+      child: Consumer<ThemeProvider>(
+        builder: (_, themeProvider, __) {
+          return MaterialApp(
+            title: AppConstants.appName,
+            debugShowCheckedModeBanner: false,
+            theme: themeProvider.theme,
+            home: const AuthWrapper(),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Wrapper that handles auth state and shows appropriate screen.
+class AuthWrapper extends StatefulWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
+    // Sync user when auth state changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // This check prevents the callback from running when the widget is no longer in the tree.
+      if (mounted) {
+        final userProvider = context.read<UserProvider>();
+        final feedProvider = context.read<FeedProvider>();
+
+        // Set up callback for real-time block list sync
+        userProvider.onBlockListChanged ??= (blocked, blockedBy) {
+          feedProvider.setBlockedUserIds(blocked, blockedBy);
+        };
+
+        // Set up callback for real-time mute list sync
+        userProvider.onMuteListChanged ??= (muted) {
+          feedProvider.setMutedUserIds(muted);
+        };
+
+        if (authProvider.currentUser != null &&
+            userProvider.currentUser?.id != authProvider.currentUser!.id) {
+          userProvider.setCurrentUser(authProvider.currentUser!);
+          // Refresh and start listening for notifications
+          final notificationProvider = context.read<NotificationProvider>();
+          notificationProvider.refreshNotifications(
+            authProvider.currentUser!.id,
+          );
+          notificationProvider.startListening(authProvider.currentUser!.id);
+          context.read<ChatProvider>().loadConversations();
+        } else if (authProvider.status == AuthStatus.unauthenticated &&
+            userProvider.currentUser != null) {
+          userProvider.clearCurrentUser();
+          context.read<NotificationProvider>().clear();
+        }
+
+        // Sync blocked user IDs to FeedProvider for filtering
+        feedProvider.setBlockedUserIds(
+          userProvider.blockedUserIds,
+          userProvider.blockedByUserIds,
+        );
+
+        // Sync muted user IDs to FeedProvider for filtering
+        feedProvider.setMutedUserIds(userProvider.mutedUserIds);
+
+        // Refresh user interests when authenticated
+        if (authProvider.status == AuthStatus.authenticated) {
+          feedProvider.refreshInterests();
+        }
+      }
+    });
+
+    switch (authProvider.status) {
+      case AuthStatus.initial:
+        // Show splash while checking auth state
+        return SplashScreen(onComplete: () {});
+      case AuthStatus.loading:
+        // If password reset is pending, stay on recovery screen during loading
+        if (authProvider.isPasswordResetPending) {
+          return const AppNavigator(
+            key: ValueKey('recovery_navigator'),
+            initialView: ViewType.recover,
+          );
+        }
+        // Show splash while checking auth state
+        return SplashScreen(onComplete: () {});
+      case AuthStatus.authenticated:
+        // If password reset is pending, stay in auth flow but on recovery screen
+        if (authProvider.isPasswordResetPending) {
+          return const AppNavigator(
+            key: ValueKey('recovery_navigator'),
+            initialView: ViewType.recover,
+          );
+        }
+
+        /* 
+        // Enforce Human Verification (Disabled for development)
+        if (authProvider.currentUser != null &&
+            authProvider.currentUser!.verifiedHuman != 'verified') {
+          return const AppNavigator(
+            key: ValueKey('verification_navigator'),
+            initialView: ViewType.humanVerify,
+          );
+        }
+        */
+
+        // User is logged in and verified, show main app
+        return const MainShell();
+      case AuthStatus.unauthenticated:
+        // User needs to login, show auth flow
+        return const AppNavigator();
+    }
+  }
+}
+
+/* ───────────────────────────────────────────── */
+/* AUTH FLOW                                     */
+/* ───────────────────────────────────────────── */
+
+class AppNavigator extends StatefulWidget {
+  final ViewType? initialView;
+
+  const AppNavigator({super.key, this.initialView});
+
+  @override
+  State<AppNavigator> createState() => _AppNavigatorState();
+}
+
+class _AppNavigatorState extends State<AppNavigator> {
+  late ViewType _view;
+
+  @override
+  void initState() {
+    super.initState();
+    _view = widget.initialView ?? ViewType.splash;
+  }
+
+  void _go(ViewType v) => setState(() => _view = v);
+
+  @override
+  Widget build(BuildContext context) {
+    switch (_view) {
+      case ViewType.splash:
+        return SplashScreen(onComplete: () => _go(ViewType.onboarding));
+      case ViewType.onboarding:
+        return OnboardingScreen(onComplete: () => _go(ViewType.interests));
+      case ViewType.interests:
+        return InterestsSelectionScreen(onComplete: () => _go(ViewType.login));
+      case ViewType.login:
+        return LoginScreen(
+          onLogin: () => _go(ViewType.feed),
+          onSignup: () => _go(ViewType.signup),
+          onRecover: () => _go(ViewType.recover),
+        );
+      case ViewType.signup:
+        return SignupScreen(
+          onSignup: () => _go(ViewType.verify),
+          onLogin: () => _go(ViewType.login),
+        );
+      case ViewType.verify:
+        return VerificationScreen(onVerify: () => _go(ViewType.humanVerify));
+      case ViewType.humanVerify:
+        return HumanVerificationScreen(
+          onVerify: () => _go(ViewType.feed),
+          onPhoneVerify: () => _go(ViewType.phoneVerify),
+          onBack: context.read<AuthProvider>().isAuthenticated
+              ? null
+              : () => _go(ViewType.verify),
+        );
+      case ViewType.phoneVerify:
+        return PhoneVerificationScreen(
+          onVerify: () => _go(ViewType.feed),
+          onBack: () => _go(ViewType.humanVerify),
+        );
+      case ViewType.recover:
+        return RecoveryScreen(onBack: () => _go(ViewType.login));
+      default:
+        return const MainShell();
+    }
+  }
+}
+
+/* ───────────────────────────────────────────── */
+/* MAIN SHELL (ONE APPBAR)                        */
+/* ───────────────────────────────────────────── */
+
+class MainShell extends StatefulWidget {
+  const MainShell({super.key});
+
+  @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> {
+  int _index = 0;
+
+  void _onPostCreated() {
+    // Navigate back to feed after creating a post
+    setState(() => _index = 0);
+  }
+
+  List<Widget> get _screens => [
+    const FeedScreen(),
+    const ExploreScreen(),
+    CreatePostScreen(onPostCreated: _onPostCreated),
+    const WalletScreen(),
+    const ProfileScreen(),
+  ];
+
+  List<AdaptiveNavigationDestination> get _destinations => [
+    const AdaptiveNavigationDestination(
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home),
+      label: 'Home',
+    ),
+    const AdaptiveNavigationDestination(
+      icon: Icon(Icons.explore_outlined),
+      selectedIcon: Icon(Icons.explore),
+      label: 'Discover',
+    ),
+    const AdaptiveNavigationDestination(
+      icon: Icon(Icons.add_circle_outline),
+      selectedIcon: Icon(Icons.add_circle),
+      label: 'Create',
+    ),
+    const AdaptiveNavigationDestination(
+      icon: Icon(Icons.account_balance_wallet_outlined),
+      selectedIcon: Icon(Icons.account_balance_wallet),
+      label: 'Wallet',
+    ),
+    const AdaptiveNavigationDestination(
+      icon: Icon(Icons.person_outline),
+      selectedIcon: Icon(Icons.person),
+      label: 'Profile',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final isIOS = PlatformUtils.shouldUseCupertino(context);
+    final colors = Theme.of(context).colorScheme;
+
+    if (isIOS) {
+      return CupertinoTabScaffold(
+        tabBar: CupertinoTabBar(
+          currentIndex: _index,
+          onTap: (i) => setState(() => _index = i),
+          items: _destinations
+              .map(
+                (d) => BottomNavigationBarItem(
+                  icon: d.icon,
+                  activeIcon: d.selectedIcon ?? d.icon,
+                  label: d.label,
+                ),
+              )
+              .toList(),
+        ),
+        tabBuilder: (_, i) =>
+            CupertinoPageScaffold(child: SafeArea(child: _screens[i])),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: colors.background,
+      appBar: const NoaiAppBar(),
+      body: SafeArea(
+        child: IndexedStack(index: _index, children: _screens),
+      ),
+      bottomNavigationBar: AdaptiveNavigationBar(
+        currentIndex: _index,
+        destinations: _destinations,
+        onDestinationSelected: (i) => setState(() => _index = i),
+      ),
+    );
+  }
+}
+
+/* ───────────────────────────────────────────── */
+/* NOAI WEB-PARITY APP BAR                        */
+/* ───────────────────────────────────────────── */
+
+class NoaiAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const NoaiAppBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final themeProvider = context.watch<ThemeProvider>();
+    final user = context.watch<UserProvider>().currentUser;
+
+    return AppBar(
+      elevation: 0,
+      backgroundColor: colors.surface,
+      surfaceTintColor: colors.surface,
+      titleSpacing: 16,
+      title: Row(
+        children: [
+          const Text('🛡️', style: TextStyle(fontSize: 22)),
+          const SizedBox(width: 8),
+          Text(
+            'NOAI',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              color: colors.onSurface,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.chat_bubble_outline, color: colors.onSurface),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ChatListScreen()),
+            );
+          },
+        ),
+        Consumer<NotificationProvider>(
+          builder: (context, notificationProvider, child) {
+            final unreadCount = notificationProvider.unreadCount;
+            return IconButton(
+              icon: Stack(
+                children: [
+                  Icon(Icons.notifications_outlined, color: colors.onSurface),
+                  if (unreadCount > 0)
+                    Positioned(
+                      top: 2,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: colors.error,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: colors.surface, width: 1.5),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 8,
+                          minHeight: 8,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        IconButton(
+          icon: Icon(
+            themeProvider.isDarkMode
+                ? Icons.light_mode_outlined
+                : Icons.dark_mode_outlined,
+            color: colors.onSurface,
+          ),
+          onPressed: () => themeProvider.toggleTheme(),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: GestureDetector(
+            onTap: () => _showProfileSheet(context),
+            child: _ProfileAvatar(user: user, colors: colors),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+
+/* ───────────────────────────────────────────── */
+/* PROFILE AVATAR WITH LOADING FALLBACK          */
+/* ───────────────────────────────────────────── */
+
+class _ProfileAvatar extends StatefulWidget {
+  final dynamic user;
+  final ColorScheme colors;
+
+  const _ProfileAvatar({required this.user, required this.colors});
+
+  @override
+  State<_ProfileAvatar> createState() => _ProfileAvatarState();
+}
+
+class _ProfileAvatarState extends State<_ProfileAvatar> {
+  bool _imageLoaded = false;
+  bool _imageError = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // If no avatar URL, show icon only
+    if (widget.user?.avatar == null) {
+      return CircleAvatar(
+        radius: 16,
+        backgroundColor: widget.colors.surfaceContainerHighest,
+        child: Icon(Icons.person, size: 18, color: widget.colors.onSurface),
+      );
+    }
+
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor: widget.colors.surfaceContainerHighest,
+      child: Stack(
+        children: [
+          // Fallback icon shown while loading or on error
+          if (!_imageLoaded || _imageError)
+            Center(
+              child: Icon(
+                Icons.person,
+                size: 18,
+                color: widget.colors.onSurface.withOpacity(0.5),
+              ),
+            ),
+          // Actual image
+          ClipOval(
+            child: Image.network(
+              widget.user!.avatar,
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) {
+                  // Image loaded successfully
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && !_imageLoaded) {
+                      setState(() => _imageLoaded = true);
+                    }
+                  });
+                  return child;
+                }
+                // Still loading
+                return const SizedBox.shrink();
+              },
+              errorBuilder: (context, error, stackTrace) {
+                // Error loading image
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && !_imageError) {
+                    setState(() => _imageError = true);
+                  }
+                });
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* ───────────────────────────────────────────── */
+/* PROFILE MENU (WEB DROPDOWN → MOBILE SHEET)     */
+/* ───────────────────────────────────────────── */
+
+void _showProfileSheet(BuildContext context) {
+  final colors = Theme.of(context).colorScheme;
+  final user = context.read<UserProvider>().currentUser;
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: colors.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (_) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: colors.outlineVariant,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Profile header with avatar
+          if (user != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: colors.surfaceContainerHighest,
+                    child: user.avatar != null
+                        ? ClipOval(
+                            child: Image.network(
+                              user.avatar!,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) {
+                                      return child;
+                                    }
+                                    return Icon(
+                                      Icons.person,
+                                      size: 24,
+                                      color: colors.onSurface,
+                                    );
+                                  },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(
+                                  Icons.person,
+                                  size: 24,
+                                  color: colors.onSurface,
+                                );
+                              },
+                            ),
+                          )
+                        : Icon(Icons.person, size: 24, color: colors.onSurface),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.displayName,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: colors.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '@${user.username}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          _ProfileItem(
+            icon: Icons.person_outline,
+            label: 'My Profile',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ProfileScreen(showAppBar: true),
+                ),
+              );
+            },
+          ),
+          _ProfileItem(
+            icon: Icons.settings_outlined,
+            label: 'Settings',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
+          ),
+          _ProfileItem(
+            icon: Icons.help_outline,
+            label: 'Help & Support',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ContactSupportScreen()),
+              );
+            },
+          ),
+          const Divider(height: 28),
+          _ProfileItem(
+            icon: Icons.logout,
+            label: 'Sign Out',
+            destructive: true,
+            onTap: () {
+              // Close bottom sheet first
+              Navigator.pop(context);
+
+              // Show confirmation dialog
+              showDialog(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  backgroundColor: colors.surface,
+                  title: Text(
+                    'Sign Out',
+                    style: TextStyle(color: colors.onSurface),
+                  ),
+                  content: Text(
+                    'Are you sure you want to sign out?',
+                    style: TextStyle(color: colors.onSurface.withOpacity(0.7)),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        Navigator.pop(dialogContext);
+                        await context.read<AuthProvider>().signOut();
+                      },
+                      child: const Text(
+                        'Sign Out',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ProfileItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool destructive;
+
+  const _ProfileItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final color = destructive ? colors.error : colors.onSurface;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

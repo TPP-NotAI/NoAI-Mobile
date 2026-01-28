@@ -1,0 +1,45 @@
+/// Supabase configuration constants.
+///
+/// Replace the placeholder values with your actual Supabase project credentials.
+class SupabaseConfig {
+  // TODO: Add your Supabase project URL
+  static const String supabaseUrl = '';
+
+  // TODO: Add your Supabase anon/public key
+  static const String supabaseAnonKey = '';
+  // Table names matching the database schema
+  static const String profilesTable = 'profiles';
+  static const String postsTable = 'posts';
+  static const String commentsTable = 'comments';
+  static const String walletsTable = 'wallets';
+  static const String followsTable = 'follows';
+  static const String reactionsTable = 'reactions';
+  static const String notificationsTable = 'notifications';
+  static const String postMediaTable = 'post_media';
+  static const String tagsTable = 'tags';
+  static const String postTagsTable = 'post_tags';
+  static const String blocksTable = 'blocks';
+  static const String mentionsTable = 'mentions';
+  static const String roocoinTransactionsTable = 'roocoin_transactions';
+  static const String stakingPositionsTable = 'staking_positions';
+  static const String stakingRewardsTable = 'staking_rewards';
+  static const String moderationCasesTable = 'moderation_cases';
+  static const String appealsTable = 'appeals';
+  static const String userReportsTable = 'user_reports';
+  static const String humanVerificationsTable = 'human_verifications';
+  static const String dmThreadsTable = 'dm_threads';
+  static const String dmMessagesTable = 'dm_messages';
+  static const String dmParticipantsTable = 'dm_participants';
+  static const String notificationPreferencesTable = 'notification_preferences';
+  static const String trustEventsTable = 'trust_events';
+  static const String auditLogsTable = 'audit_logs';
+  static const String adminUsersTable = 'admin_users';
+  static const String adminPermissionsTable = 'admin_permissions';
+  static const String treasuryWalletTable = 'treasury_wallet';
+  static const String treasuryActionsTable = 'treasury_actions';
+  static const String platformConfigTable = 'platform_config';
+  static const String backgroundJobsTable = 'background_jobs';
+  static const String profileLinksTable = 'profile_links';
+  static const String bookmarksTable = 'bookmarks';
+  static const String repostsTable = 'reposts';
+}

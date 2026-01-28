@@ -1,0 +1,4 @@
+# Ignore sensitive configuration files
+lib/config/supabase_config.dart
+
+# General Dart/Flutter ignores...
