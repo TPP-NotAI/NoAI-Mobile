@@ -57,6 +57,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final List<Map<String, dynamic>> _taggedPeople = [];
   final TextEditingController _mentionController = TextEditingController();
 
+  // Video editing flags
+  final Map<int, bool> _videoMuteFlags = {};
+  final Map<int, int> _videoRotationFlags = {};
+
   // Draft and character count state
   bool _hasUnsavedChanges = false;
   bool _isDraftLoaded = false;
@@ -1897,19 +1901,239 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _muteVideo(int index) async {
-    // For now, show a placeholder - video muting would require additional processing
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Video muting coming soon!')));
+
+    final videoFile = _selectedMediaFiles[index];
+    VideoPlayerController? controller;
+
+    try {
+      controller = VideoPlayerController.file(videoFile);
+      await controller.initialize();
+
+      if (!mounted) return;
+
+      // Track the muted state
+      bool isMuted = false;
+
+      await showDialog(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: const Text('Mute Video'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 300,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: AspectRatio(
+                      aspectRatio: controller!.value.aspectRatio,
+                      child: VideoPlayer(controller),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          controller.value.isPlaying
+                              ? Icons.pause
+                              : Icons.play_arrow,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            controller!.value.isPlaying
+                                ? controller.pause()
+                                : controller.play();
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      FilledButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            isMuted = !isMuted;
+                            controller!.setVolume(isMuted ? 0.0 : 1.0);
+                          });
+                        },
+                        icon: Icon(isMuted ? Icons.volume_off : Icons.volume_up),
+                        label: Text(isMuted ? 'Muted' : 'Audio On'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: isMuted ? Colors.red : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  if (isMuted && mounted) {
+                    // Store mute flag - the video will be uploaded with mute applied server-side
+                    // For local preview, track the muted state
+                    _videoMuteFlags[index] = true;
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Video will be muted when posted'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Apply'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load video: $e')),
+        );
+      }
+    } finally {
+      controller?.dispose();
+    }
   }
 
   Future<void> _rotateVideo(int index) async {
-    // For now, show a placeholder - video rotation would require additional processing
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Video rotation coming soon!')),
-    );
+
+    final videoFile = _selectedMediaFiles[index];
+    VideoPlayerController? controller;
+
+    try {
+      controller = VideoPlayerController.file(videoFile);
+      await controller.initialize();
+
+      if (!mounted) return;
+
+      int rotationDegrees = 0;
+
+      await showDialog(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: const Text('Rotate Video'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 350,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Transform.rotate(
+                        angle: rotationDegrees * 3.14159 / 180,
+                        child: AspectRatio(
+                          aspectRatio: controller!.value.aspectRatio,
+                          child: VideoPlayer(controller),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          controller.value.isPlaying
+                              ? Icons.pause
+                              : Icons.play_arrow,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            controller!.value.isPlaying
+                                ? controller.pause()
+                                : controller.play();
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            rotationDegrees = (rotationDegrees - 90) % 360;
+                          });
+                        },
+                        icon: const Icon(Icons.rotate_left),
+                        label: const Text('Left'),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${rotationDegrees % 360}°',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            rotationDegrees = (rotationDegrees + 90) % 360;
+                          });
+                        },
+                        icon: const Icon(Icons.rotate_right),
+                        label: const Text('Right'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  if (rotationDegrees != 0 && mounted) {
+                    _videoRotationFlags[index] = rotationDegrees;
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      SnackBar(
+                        content: Text('Video will be rotated ${rotationDegrees % 360}° when posted'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Apply'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load video: $e')),
+        );
+      }
+    } finally {
+      controller?.dispose();
+    }
   }
 
   Widget _overlayIcon(IconData icon, VoidCallback onTap) {

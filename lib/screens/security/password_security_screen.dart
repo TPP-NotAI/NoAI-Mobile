@@ -61,6 +61,16 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
             onTap: () => _showResetPasswordDialog(context),
           ),
           const SizedBox(height: 24),
+          _buildSectionHeader(context, 'TWO-FACTOR AUTHENTICATION'),
+          _buildSettingsTile(
+            context,
+            icon: Icons.phonelink_lock,
+            iconColor: Colors.green,
+            title: 'Two-Factor Authentication (2FA)',
+            subtitle: 'Add an extra layer of security with email-based 2FA',
+            onTap: () => _show2FASetupDialog(context),
+          ),
+          const SizedBox(height: 24),
           _buildSectionHeader(context, 'SECURITY'),
           _buildInfoTile(
             context,
@@ -68,7 +78,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
             iconColor: Colors.green,
             title: 'Account Security Tips',
             content:
-                '• Use a strong, unique password\n• Never share your password\n• Enable two-factor authentication when available\n• Log out from shared devices',
+                '• Use a strong, unique password\n• Never share your password\n• Enable two-factor authentication\n• Log out from shared devices',
           ),
         ],
       ),
@@ -189,6 +199,312 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
               fontSize: 14,
               color: colors.onSurfaceVariant,
               height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _show2FASetupDialog(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final supabase = Supabase.instance.client;
+    final userEmail = supabase.auth.currentUser?.email ?? '';
+    bool isLoading = false;
+    bool codeSent = false;
+    bool is2FAEnabled = false;
+    final codeController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: colors.surface,
+            title: Text(
+              'Two-Factor Authentication',
+              style: TextStyle(color: colors.onSurface),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!codeSent && !is2FAEnabled) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.shield, color: Colors.green, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Protect your account by requiring a verification code when you sign in.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colors.onSurface.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'How it works:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: colors.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _build2FAStep(colors, '1', 'Click "Enable 2FA" below'),
+                    _build2FAStep(colors, '2', 'We\'ll send a code to $userEmail'),
+                    _build2FAStep(colors, '3', 'Enter the code to confirm'),
+                    _build2FAStep(colors, '4', 'Future logins will require a code'),
+                  ] else if (codeSent && !is2FAEnabled) ...[
+                    Text(
+                      'Enter the 6-digit code sent to:',
+                      style: TextStyle(
+                        color: colors.onSurface.withValues(alpha: 0.7),
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      userEmail,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: colors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: codeController,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        letterSpacing: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '000000',
+                        counterText: '',
+                        filled: true,
+                        fillColor: colors.surfaceContainerHighest,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: TextButton(
+                        onPressed: isLoading
+                            ? null
+                            : () async {
+                                setDialogState(() => isLoading = true);
+                                try {
+                                  await supabase.auth.resend(
+                                    type: OtpType.email,
+                                    email: userEmail,
+                                  );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('New code sent!'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Failed to resend: ${e.toString()}'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
+                                setDialogState(() => isLoading = false);
+                              },
+                        child: const Text('Resend Code'),
+                      ),
+                    ),
+                  ] else if (is2FAEnabled) ...[
+                    Center(
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check_circle,
+                              color: Colors.green,
+                              size: 48,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            '2FA Enabled!',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: colors.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Your account is now protected with two-factor authentication.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: colors.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              if (!is2FAEnabled)
+                TextButton(
+                  onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+              if (!codeSent && !is2FAEnabled)
+                FilledButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          setDialogState(() => isLoading = true);
+                          try {
+                            // Send OTP to user's email
+                            await supabase.auth.signInWithOtp(email: userEmail);
+                            setDialogState(() {
+                              codeSent = true;
+                              isLoading = false;
+                            });
+                          } catch (e) {
+                            setDialogState(() => isLoading = false);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Failed to send code: ${e.toString()}'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Enable 2FA'),
+                )
+              else if (codeSent && !is2FAEnabled)
+                FilledButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final code = codeController.text.trim();
+                          if (code.length != 6) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please enter a 6-digit code')),
+                            );
+                            return;
+                          }
+                          setDialogState(() => isLoading = true);
+                          try {
+                            await supabase.auth.verifyOTP(
+                              email: userEmail,
+                              token: code,
+                              type: OtpType.email,
+                            );
+                            setDialogState(() {
+                              is2FAEnabled = true;
+                              isLoading = false;
+                            });
+                          } catch (e) {
+                            setDialogState(() => isLoading = false);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Invalid code: ${e.toString()}'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Verify'),
+                )
+              else
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Done'),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _build2FAStep(ColorScheme colors, String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: colors.primary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                color: colors.onSurface.withValues(alpha: 0.7),
+              ),
             ),
           ),
         ],

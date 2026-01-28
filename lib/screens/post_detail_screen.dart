@@ -5,6 +5,7 @@ import '../models/comment.dart';
 import '../providers/auth_provider.dart';
 import '../providers/feed_provider.dart';
 import '../widgets/video_player_widget.dart';
+import '../widgets/report_sheet.dart';
 import '../utils/time_utils.dart';
 import 'create/edit_post_screen.dart';
 import '../widgets/full_screen_media_viewer.dart';
@@ -407,15 +408,36 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           const SizedBox(height: 16),
                           Row(
                             children: [
-                              Icon(
-                                Icons.favorite_border,
-                                size: 20,
-                                color: colors.onSurfaceVariant,
+                              // Like button
+                              InkWell(
+                                onTap: () {
+                                  feedProvider.toggleLike(_post.id);
+                                  setState(() {
+                                    final wasLiked = _post.isLiked;
+                                    _post = _post.copyWith(
+                                      likes: wasLiked ? _post.likes - 1 : _post.likes + 1,
+                                      isLiked: !wasLiked,
+                                    );
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _post.isLiked ? Icons.favorite : Icons.favorite_border,
+                                        size: 20,
+                                        color: _post.isLiked ? Colors.red : colors.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text('${_post.likes}'),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              const SizedBox(width: 4),
-                              Text('${_post.likes}'),
                               const SizedBox(width: 16),
-                              const SizedBox(width: 16),
+                              // Comment count
                               Icon(
                                 Icons.chat_bubble_outline,
                                 size: 20,
@@ -424,15 +446,59 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               const SizedBox(width: 4),
                               Text('${_post.comments}'),
                               const SizedBox(width: 16),
-                              Icon(
-                                Icons.repeat,
-                                size: 20,
-                                color: feedProvider.isReposted(_post.id)
-                                    ? const Color(0xFF10B981)
-                                    : colors.onSurfaceVariant,
+                              // Repost button
+                              InkWell(
+                                onTap: () {
+                                  final wasReposted = feedProvider.isReposted(_post.id);
+                                  feedProvider.toggleRepost(_post.id);
+                                  ScaffoldMessenger.of(context)
+                                    ..clearSnackBars()
+                                    ..showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          wasReposted ? 'Removed repost' : 'Reposted to your profile',
+                                        ),
+                                        duration: const Duration(seconds: 2),
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    );
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.repeat,
+                                        size: 20,
+                                        color: feedProvider.isReposted(_post.id)
+                                            ? const Color(0xFF10B981)
+                                            : colors.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text('${feedProvider.getRepostCount(_post.id)}'),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              const SizedBox(width: 4),
-                              Text('${feedProvider.getRepostCount(_post.id)}'),
+                              const Spacer(),
+                              // Report button (for non-authors)
+                              if (!isAuthor)
+                                InkWell(
+                                  onTap: () => _handleReportPost(context),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(
+                                      Icons.flag_outlined,
+                                      size: 20,
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ],
@@ -606,6 +672,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _handleReportPost(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => ReportSheet(
+        reportType: 'post',
+        referenceId: _post.id,
+        reportedUserId: _post.authorId,
+        username: _post.author.username,
       ),
     );
   }

@@ -25,6 +25,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController _bioController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _websiteController = TextEditingController();
+  final TextEditingController _twitterController = TextEditingController();
+  final TextEditingController _instagramController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
   final SupabaseService _supabase = SupabaseService();
 
@@ -51,8 +54,82 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _emailController.text = email ?? '';
           _phoneController.text = user.phone ?? '';
         });
+
+        _loadSocialLinks(user.id);
       }
     });
+  }
+
+  Future<void> _loadSocialLinks(String userId) async {
+    try {
+      final response = await _supabase.client
+          .from('profile_links')
+          .select()
+          .eq('user_id', userId);
+
+      if (response is List && mounted) {
+        setState(() {
+          for (final link in response) {
+            final platform = link['platform'] as String?;
+            final url = link['url'] as String? ?? '';
+            switch (platform) {
+              case 'website':
+                _websiteController.text = url;
+                break;
+              case 'twitter':
+                _twitterController.text = url;
+                break;
+              case 'instagram':
+                _instagramController.text = url;
+                break;
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load social links: $e');
+    }
+  }
+
+  Future<void> _saveSocialLinks(String userId) async {
+    final links = <Map<String, String>>[];
+
+    if (_websiteController.text.trim().isNotEmpty) {
+      links.add({
+        'user_id': userId,
+        'platform': 'website',
+        'url': _websiteController.text.trim(),
+      });
+    }
+    if (_twitterController.text.trim().isNotEmpty) {
+      links.add({
+        'user_id': userId,
+        'platform': 'twitter',
+        'url': _twitterController.text.trim(),
+      });
+    }
+    if (_instagramController.text.trim().isNotEmpty) {
+      links.add({
+        'user_id': userId,
+        'platform': 'instagram',
+        'url': _instagramController.text.trim(),
+      });
+    }
+
+    try {
+      // Delete existing links
+      await _supabase.client
+          .from('profile_links')
+          .delete()
+          .eq('user_id', userId);
+
+      // Insert new links
+      if (links.isNotEmpty) {
+        await _supabase.client.from('profile_links').insert(links);
+      }
+    } catch (e) {
+      debugPrint('Failed to save social links: $e');
+    }
   }
 
   @override
@@ -62,6 +139,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _bioController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _websiteController.dispose();
+    _twitterController.dispose();
+    _instagramController.dispose();
     super.dispose();
   }
 
@@ -335,6 +415,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     final success = await userProvider.updateProfile(user.id, updates);
+
+    // Save social links alongside profile
+    if (success) {
+      await _saveSocialLinks(user.id);
+    }
 
     if (mounted) {
       setState(() => _isLoading = false);
@@ -645,12 +730,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (context) => Padding(
+      builder: (sheetContext) => Padding(
         padding: EdgeInsets.fromLTRB(
           24,
           20,
           24,
-          MediaQuery.of(context).viewInsets.bottom + 40,
+          MediaQuery.of(sheetContext).viewInsets.bottom + 40,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -679,17 +764,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               style: TextStyle(color: colors.onSurfaceVariant),
             ),
             const SizedBox(height: 24),
-            _buildLinkInput(Icons.link, 'Website', 'https://yourwebsite.com'),
+            _buildLinkInput(Icons.link, 'Website', 'https://yourwebsite.com', _websiteController),
             const SizedBox(height: 16),
-            _buildLinkInput(Icons.alternate_email, 'Twitter / X', '@username'),
+            _buildLinkInput(Icons.alternate_email, 'Twitter / X', '@username', _twitterController),
             const SizedBox(height: 16),
-            _buildLinkInput(Icons.camera_alt_outlined, 'Instagram', 'username'),
+            _buildLinkInput(Icons.camera_alt_outlined, 'Instagram', 'username', _instagramController),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(sheetContext),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colors.primary,
                   foregroundColor: colors.onPrimary,
@@ -709,7 +794,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildLinkInput(IconData icon, String label, String hint) {
+  Widget _buildLinkInput(IconData icon, String label, String hint, TextEditingController controller) {
     final colors = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,6 +805,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         const SizedBox(height: 8),
         TextField(
+          controller: controller,
           decoration: InputDecoration(
             prefixIcon: Icon(icon, size: 20),
             hintText: hint,
