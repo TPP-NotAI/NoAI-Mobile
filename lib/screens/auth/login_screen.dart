@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/storage_service.dart';
+import '../../services/secure_storage_service.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
@@ -67,9 +68,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _loadRememberMe() async {
     final storage = StorageService();
+    final secureStorage = SecureStorageService();
     final rememberMe = storage.getBool(_rememberMeKey) ?? false;
     if (rememberMe) {
-      final savedEmail = storage.getString(_savedEmailKey) ?? '';
+      final savedEmail = await secureStorage.read(_savedEmailKey) ?? '';
       setState(() {
         _rememberMe = rememberMe;
         _emailController.text = savedEmail;
@@ -79,11 +81,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _saveRememberMe() async {
     final storage = StorageService();
+    final secureStorage = SecureStorageService();
     await storage.setBool(_rememberMeKey, _rememberMe);
     if (_rememberMe) {
-      await storage.setString(_savedEmailKey, _emailController.text.trim());
+      await secureStorage.write(_savedEmailKey, _emailController.text.trim());
     } else {
-      await storage.remove(_savedEmailKey);
+      await secureStorage.delete(_savedEmailKey);
     }
   }
 

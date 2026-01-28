@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/post_provider.dart';
@@ -37,6 +38,7 @@ import 'widgets/adaptive/adaptive_navigation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
   await StorageService().init();
   await SupabaseService().initialize();
   PresenceService().start();
