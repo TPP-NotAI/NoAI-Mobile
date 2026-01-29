@@ -9,6 +9,8 @@ import '../widgets/report_sheet.dart';
 import '../utils/time_utils.dart';
 import 'create/edit_post_screen.dart';
 import '../widgets/full_screen_media_viewer.dart';
+import '../widgets/mention_rich_text.dart';
+import '../widgets/mention_autocomplete_field.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -308,11 +310,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          Text(
-                            _post.content,
+                          MentionRichText(
+                            text: _post.content,
                             style: Theme.of(
                               context,
                             ).textTheme.bodyLarge?.copyWith(height: 1.6),
+                            onMentionTap: (username) =>
+                                navigateToMentionedUser(context, username),
                           ),
                           const SizedBox(height: 16),
                           if (_post.location != null &&
@@ -600,9 +604,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  comment.text,
+                                MentionRichText(
+                                  text: comment.text,
                                   style: Theme.of(context).textTheme.bodyMedium,
+                                  onMentionTap: (username) =>
+                                      navigateToMentionedUser(context, username),
                                 ),
                               ],
                             ),
@@ -633,7 +639,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: MentionAutocompleteField(
                       controller: _commentController,
                       decoration: InputDecoration(
                         hintText: 'Add a comment...',

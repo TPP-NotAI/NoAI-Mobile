@@ -8,6 +8,7 @@ import '../providers/feed_provider.dart';
 import '../providers/user_provider.dart';
 import '../repositories/comment_repository.dart';
 import 'comment_card.dart';
+import 'mention_autocomplete_field.dart';
 
 class CommentsSheet extends StatefulWidget {
   final Post post;
@@ -544,7 +545,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                     Row(
                       children: [
                         Expanded(
-                          child: TextField(
+                          child: MentionAutocompleteField(
                             controller: replyController,
                             autofocus: true,
                             maxLines: 3,
@@ -866,7 +867,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
+                      child: MentionAutocompleteField(
                         controller: _commentController,
                         focusNode: _commentFocus,
                         style: TextStyle(color: colors.onSurface),

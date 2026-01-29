@@ -15,6 +15,7 @@ import 'video_player_widget.dart';
 import 'full_screen_media_viewer.dart';
 import 'report_sheet.dart';
 import 'shimmer_loading.dart';
+import 'mention_rich_text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class PostCard extends StatelessWidget {
@@ -469,9 +470,10 @@ class _Content extends StatelessWidget {
             MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
           );
         },
-        child: Text(
-          post.content,
+        child: MentionRichText(
+          text: post.content,
           style: TextStyle(fontSize: 14, height: 1.4, color: colors.onSurface),
+          onMentionTap: (username) => navigateToMentionedUser(context, username),
         ),
       ),
     );

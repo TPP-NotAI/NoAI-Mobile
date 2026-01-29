@@ -14,6 +14,7 @@ import '../../providers/user_provider.dart';
 import '../../repositories/media_repository.dart';
 import '../../repositories/tag_repository.dart';
 import '../../repositories/mention_repository.dart';
+import '../../widgets/mention_autocomplete_field.dart';
 import '../../models/post.dart';
 import '../../services/supabase_service.dart';
 import '../../services/storage_service.dart';
@@ -836,8 +837,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         ...normalizedContentHashtags,
       }.toList();
 
-      // Get mentioned user IDs (defensive: accept 'user_id' or 'id', filter nulls)
-      final mentionedUserIds = _taggedPeople
+      // Get mentioned user IDs from tag-people picker
+      final taggedUserIds = _taggedPeople
           .map((p) {
             if (p['user_id'] != null) return p['user_id'].toString();
             if (p['id'] != null) return p['id'].toString();
@@ -845,6 +846,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           })
           .whereType<String>()
           .toList();
+
+      // Also extract inline @mentions from content text
+      final inlineMentionUsernames =
+          _mentionRepository.extractMentions(_contentController.text);
+      final inlineMentionUserIds = inlineMentionUsernames.isNotEmpty
+          ? await _mentionRepository.resolveUsernamesToIds(inlineMentionUsernames)
+          : <String>[];
+
+      // Merge both sources, deduplicate
+      final mentionedUserIds =
+          {...taggedUserIds, ...inlineMentionUserIds}.toList();
 
       // Create the post
       if (!mounted) return;
@@ -1130,7 +1142,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     const SizedBox(height: 20),
 
                     // Text input
-                    TextField(
+                    MentionAutocompleteField(
                       controller: _contentController,
                       maxLines: null,
                       minLines: _postType == 'Text' ? 8 : 5,

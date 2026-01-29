@@ -5,6 +5,7 @@ import '../providers/feed_provider.dart';
 import '../utils/time_utils.dart';
 import 'video_player_widget.dart';
 import 'full_screen_media_viewer.dart';
+import 'mention_rich_text.dart';
 
 class CommentCard extends StatefulWidget {
   final Comment comment;
@@ -150,12 +151,14 @@ class _CommentCardState extends State<CommentCard> {
                     if (currentComment.text.isNotEmpty &&
                         currentComment.text != '📷 Photo' &&
                         currentComment.text != '📹 Video')
-                      Text(
-                        currentComment.text,
+                      MentionRichText(
+                        text: currentComment.text,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colors.onSurface,
                           height: 1.4,
                         ),
+                        onMentionTap: (username) =>
+                            navigateToMentionedUser(context, username),
                       ),
 
                     // Media attachment
