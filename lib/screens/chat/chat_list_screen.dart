@@ -206,6 +206,9 @@ class _ConversationTile extends StatelessWidget {
       },
       child: ListTile(
         onTap: () async {
+          if (conversation.unreadCount > 0) {
+            await context.read<ChatProvider>().markAsRead(conversation.id);
+          }
           await Navigator.push(
             context,
             MaterialPageRoute(
@@ -313,14 +316,15 @@ class _ConversationTile extends StatelessWidget {
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
-    final difference = now.difference(dateTime);
+    final localDateTime = dateTime.toLocal();
+    final difference = now.difference(localDateTime);
 
     if (difference.inDays == 0) {
-      return DateFormat.Hm().format(dateTime);
+      return DateFormat.Hm().format(localDateTime);
     } else if (difference.inDays < 7) {
-      return DateFormat.E().format(dateTime);
+      return DateFormat.E().format(localDateTime);
     } else {
-      return DateFormat.Md().format(dateTime);
+      return DateFormat.Md().format(localDateTime);
     }
   }
 }

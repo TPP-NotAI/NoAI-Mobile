@@ -470,6 +470,47 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// Request a login OTP for phone-based authentication.
+  Future<bool> sendLoginOtp(String phoneNumber) async {
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.sendLoginOtp(phoneNumber);
+      return true;
+    } on AuthException catch (e) {
+      _error = _mapAuthError(e.message);
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Failed to send login code';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Verify the login OTP code and sign in.
+  Future<bool> verifyLoginOtp(String phoneNumber, String token) async {
+    _error = null;
+    _status = AuthStatus.loading;
+    notifyListeners();
+
+    try {
+      await _authService.verifyLoginOtp(phone: phoneNumber, token: token);
+      return true;
+    } on AuthException catch (e) {
+      _error = _mapAuthError(e.message);
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Failed to verify login code';
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Update user's verification status in the database.
   Future<bool> updateVerificationStatus(String method) async {
     try {

@@ -13,6 +13,7 @@ import 'providers/notification_provider.dart';
 import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'services/presence_service.dart';
+import 'services/deep_link_service.dart';
 import 'models/view_enum.dart';
 import 'screens/auth/splash_screen.dart';
 import 'screens/auth/onboarding_screen.dart';
@@ -32,6 +33,7 @@ import 'screens/settings_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/chat/chat_list_screen.dart';
 import 'screens/support/contact_support_screen.dart';
+import 'screens/support/faq_screen.dart';
 import 'config/app_constants.dart';
 import 'utils/platform_utils.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
@@ -64,6 +66,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        Provider(create: (_) => DeepLinkService()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (_, themeProvider, __) {
@@ -88,8 +91,12 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  bool _deepLinkHandled = false;
+
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeHandleDeepLink());
+
     final authProvider = context.watch<AuthProvider>();
 
     // Sync user when auth state changes
@@ -181,6 +188,23 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // User needs to login, show auth flow
         return const AppNavigator();
     }
+  }
+
+  void _maybeHandleDeepLink() {
+    if (_deepLinkHandled || !mounted) return;
+    final destination =
+        context.read<DeepLinkService>().consumePendingDestination();
+    if (destination == null) return;
+    _deepLinkHandled = true;
+
+    final screen = destination == DeepLinkDestination.helpCenter
+        ? const FAQScreen()
+        : const ContactSupportScreen();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 
@@ -13,6 +15,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
+  final Random _random = Random();
 
   String _selectedCategory = 'general';
   String _selectedPriority = 'normal';
@@ -40,24 +43,77 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Support ticket submitted successfully! We\'ll respond within 24 hours.',
-        ),
-        backgroundColor: Color(0xFF10B981),
-        duration: Duration(seconds: 3),
-      ),
-    );
+    final ticketReference = _generateTicketReference();
+    _resetForm();
+    FocusScope.of(context).unfocus();
 
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final scheme = Theme.of(dialogContext).colorScheme;
+        return AlertDialog(
+          backgroundColor: scheme.surface,
+          title: Text(
+            'Ticket Submitted',
+            style: TextStyle(color: scheme.onSurface),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'We received your request and will respond within 24 hours.',
+                style: TextStyle(
+                  color: scheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Ticket reference: $ticketReference',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: scheme.primary,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                'Close',
+                style: TextStyle(color: scheme.primary),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _resetForm() {
     _nameController.clear();
     _emailController.clear();
     _subjectController.clear();
     _messageController.clear();
+
+    if (!mounted) return;
     setState(() {
       _selectedCategory = 'general';
       _selectedPriority = 'normal';
     });
+  }
+
+  String _generateTicketReference() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final buffer = StringBuffer('NOAI-');
+    for (var i = 0; i < 6; i++) {
+      buffer.write(chars[_random.nextInt(chars.length)]);
+    }
+    return buffer.toString();
   }
 
   @override

@@ -4,6 +4,7 @@ import '../../config/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/storage_service.dart';
 import '../../services/secure_storage_service.dart';
+import 'phone_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
@@ -416,7 +417,43 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: OutlinedButton.icon(
+                  onPressed: _openPhoneLogin,
+                  icon: Icon(Icons.phone_android, color: scheme.onSurface),
+                  label: Text(
+                    'Login with phone number',
+                    style: TextStyle(
+                      color: scheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: scheme.surface,
+                    side: BorderSide(color: scheme.outline.withOpacity(0.4)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              Text(
+                'Phone login also satisfies the human-verification step.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: scheme.onSurface.withOpacity(0.6),
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 24),
 
               // Sign up link
               Row(
@@ -646,6 +683,15 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  void _openPhoneLogin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PhoneLoginScreen(onLogin: widget.onLogin),
+      ),
     );
   }
 

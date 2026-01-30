@@ -114,6 +114,23 @@ class AuthService {
     );
   }
 
+  /// Send OTP to phone number for login (human verification + sign-in).
+  Future<void> sendLoginOtp(String phoneNumber) async {
+    await _supabase.auth.signInWithOtp(phone: phoneNumber);
+  }
+
+  /// Verify phone OTP code for login.
+  Future<AuthResponse> verifyLoginOtp({
+    required String phone,
+    required String token,
+  }) async {
+    return await _supabase.auth.verifyOTP(
+      phone: phone,
+      token: token,
+      type: OtpType.sms,
+    );
+  }
+
   /// Verify OTP for recovery (password reset).
   Future<AuthResponse> verifyRecoveryOtp({
     required String email,
