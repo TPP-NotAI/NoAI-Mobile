@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
+import 'notification_repository.dart';
 
 /// Repository for repost operations.
 class RepostRepository {
   final _client = SupabaseService().client;
+  final _notificationRepository = NotificationRepository();
 
   /// Toggle repost on a post.
   /// Returns true if reposted, false if unreposted.
@@ -41,6 +43,38 @@ class RepostRepository {
         'user_id': userId,
       });
       debugPrint('RepostRepository: Insert successful');
+
+      // Notify the original post author
+      try {
+        final post = await _client
+            .from(SupabaseConfig.postsTable)
+            .select('author_id, title, body')
+            .eq('id', postId)
+            .single();
+
+        final postAuthorId = post['author_id'] as String;
+        if (postAuthorId != userId) {
+          final postTitle = post['title'] as String?;
+          final postBody = post['body'] as String?;
+          final preview = postTitle != null && postTitle.isNotEmpty
+              ? postTitle
+              : (postBody != null && postBody.length > 50
+                  ? '${postBody.substring(0, 50)}...'
+                  : postBody ?? '');
+
+          await _notificationRepository.createNotification(
+            userId: postAuthorId,
+            type: 'repost',
+            title: 'New Repost',
+            body: 'Someone reposted your post: "$preview"',
+            actorId: userId,
+            postId: postId,
+          );
+        }
+      } catch (e) {
+        debugPrint('RepostRepository: Error creating repost notification - $e');
+      }
+
       return true;
     }
   }

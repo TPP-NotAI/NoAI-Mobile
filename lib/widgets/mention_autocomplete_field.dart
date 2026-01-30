@@ -128,10 +128,12 @@ class _MentionAutocompleteFieldState extends State<MentionAutocompleteField> {
 
     Set<String> blockedUserIds = {};
     Set<String> blockedByUserIds = {};
+    Set<String> mutedUserIds = {};
     try {
       final userProvider = context.read<UserProvider>();
       blockedUserIds = userProvider.blockedUserIds;
       blockedByUserIds = userProvider.blockedByUserIds;
+      mutedUserIds = userProvider.mutedUserIds;
     } catch (_) {
       // UserProvider might not be available in all contexts
     }
@@ -141,6 +143,7 @@ class _MentionAutocompleteFieldState extends State<MentionAutocompleteField> {
       limit: 5,
       blockedUserIds: blockedUserIds,
       blockedByUserIds: blockedByUserIds,
+      mutedUserIds: mutedUserIds,
     );
 
     if (!mounted) return;

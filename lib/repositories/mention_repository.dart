@@ -132,16 +132,19 @@ class MentionRepository {
   }
 
   /// Search for users by username prefix (for @mention autocomplete).
-  /// Filters out blocked users if blockedUserIds and blockedByUserIds are provided.
+  /// Filters out blocked and muted users.
   Future<List<Map<String, dynamic>>> searchUsers(
     String query, {
     int limit = 10,
     Set<String> blockedUserIds = const {},
     Set<String> blockedByUserIds = const {},
+    Set<String> mutedUserIds = const {},
   }) async {
     try {
       final normalizedQuery = query.toLowerCase().trim();
       if (normalizedQuery.isEmpty) return [];
+
+      final allExcluded = {...blockedUserIds, ...blockedByUserIds, ...mutedUserIds};
 
       final response = await _client
           .from(SupabaseConfig.profilesTable)
@@ -150,14 +153,13 @@ class MentionRepository {
             'username.ilike.%$normalizedQuery%,display_name.ilike.%$normalizedQuery%',
           )
           .limit(
-            limit + blockedUserIds.length + blockedByUserIds.length,
+            limit + allExcluded.length,
           ); // Fetch extra to compensate for filtering
 
-      // Filter out blocked users
-      final allBlocked = {...blockedUserIds, ...blockedByUserIds};
+      // Filter out blocked and muted users
       final filtered = (response as List<dynamic>)
           .cast<Map<String, dynamic>>()
-          .where((user) => !allBlocked.contains(user['user_id']))
+          .where((user) => !allExcluded.contains(user['user_id']))
           .take(limit)
           .toList();
 

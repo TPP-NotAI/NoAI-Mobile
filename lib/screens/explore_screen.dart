@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../config/app_colors.dart';
 import '../providers/feed_provider.dart';
+import '../providers/user_provider.dart';
 import '../repositories/tag_repository.dart';
 import '../repositories/mention_repository.dart';
 import '../widgets/post_card.dart';
@@ -65,8 +66,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     setState(() => _isSearchingUsers = true);
 
+    Set<String> blockedUserIds = {};
+    Set<String> blockedByUserIds = {};
+    Set<String> mutedUserIds = {};
     try {
-      final results = await _mentionRepository.searchUsers(query);
+      final userProvider = context.read<UserProvider>();
+      blockedUserIds = userProvider.blockedUserIds;
+      blockedByUserIds = userProvider.blockedByUserIds;
+      mutedUserIds = userProvider.mutedUserIds;
+    } catch (_) {
+      // UserProvider might not be available
+    }
+
+    try {
+      final results = await _mentionRepository.searchUsers(
+        query,
+        blockedUserIds: blockedUserIds,
+        blockedByUserIds: blockedByUserIds,
+        mutedUserIds: mutedUserIds,
+      );
       if (mounted) {
         setState(() {
           _userSearchResults = results;

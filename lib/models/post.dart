@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'comment.dart';
 import '../config/supabase_config.dart';
-
 part 'post.g.dart';
 
 /// Represents a media attachment for a post
@@ -141,6 +140,9 @@ class Post {
   final String timestamp;
   final bool isNFT;
   final bool isLiked;
+  final String? userReaction; // Current user's reaction type (like, love, laugh, sad, angry, wow) or null
+  final Map<String, int> reactionCounts; // Breakdown: {'like': 5, 'love': 2, ...}
+  final int totalReactions; // Total count of all reactions
   final List<Comment>? commentList;
 
   // AI verification fields (matching web)
@@ -163,6 +165,9 @@ class Post {
     required this.timestamp,
     this.isNFT = false,
     this.isLiked = false,
+    this.userReaction,
+    this.reactionCounts = const {},
+    this.totalReactions = 0,
     this.commentList,
     this.aiConfidenceScore,
     this.detectionStatus,
@@ -192,6 +197,10 @@ class Post {
     String? timestamp,
     bool? isNFT,
     bool? isLiked,
+    String? userReaction,
+    bool clearUserReaction = false,
+    Map<String, int>? reactionCounts,
+    int? totalReactions,
     List<Comment>? commentList,
     double? aiConfidenceScore,
     String? detectionStatus,
@@ -214,6 +223,9 @@ class Post {
       timestamp: timestamp ?? this.timestamp,
       isNFT: isNFT ?? this.isNFT,
       isLiked: isLiked ?? this.isLiked,
+      userReaction: clearUserReaction ? null : (userReaction ?? this.userReaction),
+      reactionCounts: reactionCounts ?? this.reactionCounts,
+      totalReactions: totalReactions ?? this.totalReactions,
       commentList: commentList ?? this.commentList,
       aiConfidenceScore: aiConfidenceScore ?? this.aiConfidenceScore,
       detectionStatus: detectionStatus ?? this.detectionStatus,
@@ -250,26 +262,29 @@ class Post {
   }) {
     final profile = json['profiles'] as Map<String, dynamic>?;
 
-    // Parse reactions to check if current user liked this post
+    // Parse reactions - build per-type counts and find current user's reaction
     final reactions = json['reactions'] as List<dynamic>? ?? [];
 
     debugPrint(
       'Post.fromSupabase: Post ${json['id']} has ${reactions.length} reactions, currentUserId=$currentUserId',
     );
-    // for (final r in reactions) {
-    //   debugPrint('  Reaction: user_id=${r['user_id']}, reaction=${r['reaction']}');
-    // }
 
-    final isLiked =
-        currentUserId != null &&
-        reactions.any(
-          (r) => r['user_id'] == currentUserId && r['reaction'] == 'like',
-        );
+    // Build reaction counts map
+    final reactionCounts = <String, int>{};
+    String? userReaction;
+    for (final r in reactions) {
+      final type = r['reaction'] as String;
+      reactionCounts[type] = (reactionCounts[type] ?? 0) + 1;
+      if (currentUserId != null && r['user_id'] == currentUserId) {
+        userReaction = type;
+      }
+    }
 
-    // Count likes from reactions
-    final likesCount = reactions.where((r) => r['reaction'] == 'like').length;
+    final isLiked = userReaction == 'like';
+    final likesCount = reactionCounts['like'] ?? 0;
+    final totalReactions = reactions.length;
 
-    debugPrint('Post.fromSupabase: isLiked=$isLiked, likesCount=$likesCount');
+    debugPrint('Post.fromSupabase: userReaction=$userReaction, likesCount=$likesCount, totalReactions=$totalReactions');
 
     // Parse media list
     final mediaJson = json['post_media'] as List<dynamic>? ?? [];
@@ -324,6 +339,9 @@ class Post {
       timestamp: json['created_at'] ?? DateTime.now().toIso8601String(),
       isNFT: json['is_nft'] ?? false,
       isLiked: isLiked,
+      userReaction: userReaction,
+      reactionCounts: reactionCounts,
+      totalReactions: totalReactions,
       aiConfidenceScore: (json['ai_confidence_score'] as num?)?.toDouble(),
       detectionStatus: json['status'] as String?,
       reposter: json['reposter'] != null

@@ -301,6 +301,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         mentionRepository: _mentionRepository,
         blockedUserIds: userProvider.blockedUserIds,
         blockedByUserIds: userProvider.blockedByUserIds,
+        mutedUserIds: userProvider.mutedUserIds,
         onPeopleChanged: (people) {
           setState(() {
             _taggedPeople.clear();
@@ -2581,6 +2582,7 @@ class _TagPeopleSheet extends StatefulWidget {
   final Function(List<Map<String, dynamic>>) onPeopleChanged;
   final Set<String> blockedUserIds;
   final Set<String> blockedByUserIds;
+  final Set<String> mutedUserIds;
 
   const _TagPeopleSheet({
     required this.taggedPeople,
@@ -2588,6 +2590,7 @@ class _TagPeopleSheet extends StatefulWidget {
     required this.onPeopleChanged,
     this.blockedUserIds = const {},
     this.blockedByUserIds = const {},
+    this.mutedUserIds = const {},
   });
 
   @override
@@ -2623,6 +2626,7 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
       query,
       blockedUserIds: widget.blockedUserIds,
       blockedByUserIds: widget.blockedByUserIds,
+      mutedUserIds: widget.mutedUserIds,
     );
     if (mounted) {
       setState(() {

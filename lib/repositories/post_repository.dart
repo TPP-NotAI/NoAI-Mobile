@@ -512,8 +512,26 @@ class PostRepository {
   }
 
   /// Delete a post (soft delete by setting status to 'removed').
-  Future<bool> deletePost(String postId) async {
+  /// Validates ownership before deleting.
+  Future<bool> deletePost(String postId, {required String currentUserId}) async {
     try {
+      // RLS enforces this at DB level, but we check here for a clear error message
+      final post = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('author_id')
+          .eq('id', postId)
+          .maybeSingle();
+
+      if (post == null) {
+        debugPrint('PostRepository: Post not found');
+        return false;
+      }
+
+      if (post['author_id'] != currentUserId) {
+        debugPrint('PostRepository: Unauthorized - user does not own this post');
+        return false;
+      }
+
       await _client
           .from(SupabaseConfig.postsTable)
           .update({'status': 'removed'})
@@ -526,8 +544,20 @@ class PostRepository {
   }
 
   /// Unpublish a post (set status to 'draft').
-  Future<bool> unpublishPost(String postId) async {
+  /// Validates ownership before unpublishing.
+  Future<bool> unpublishPost(String postId, {required String currentUserId}) async {
     try {
+      final post = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('author_id')
+          .eq('id', postId)
+          .maybeSingle();
+
+      if (post == null || post['author_id'] != currentUserId) {
+        debugPrint('PostRepository: Unauthorized or post not found');
+        return false;
+      }
+
       await _client
           .from(SupabaseConfig.postsTable)
           .update({'status': 'draft'})
@@ -540,13 +570,27 @@ class PostRepository {
   }
 
   /// Update a post's content.
+  /// Validates ownership before updating.
   Future<bool> updatePost({
     required String postId,
+    required String currentUserId,
     String? body,
     String? title,
     String? location,
   }) async {
     try {
+      // RLS enforces this at DB level, but we check here for a clear error message
+      final post = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('author_id')
+          .eq('id', postId)
+          .maybeSingle();
+
+      if (post == null || post['author_id'] != currentUserId) {
+        debugPrint('PostRepository: Unauthorized or post not found');
+        return false;
+      }
+
       final updates = <String, dynamic>{
         'updated_at': DateTime.now().toIso8601String(),
       };

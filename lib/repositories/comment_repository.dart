@@ -380,15 +380,90 @@ class CommentRepository {
   }
 
   /// Delete a comment.
-  Future<bool> deleteComment(String commentId) async {
+  /// Validates ownership before deleting.
+  Future<bool> deleteComment(String commentId, {required String currentUserId}) async {
     try {
+      // RLS enforces this at DB level, but we check here for a clear error message
+      final comment = await _client
+          .from(SupabaseConfig.commentsTable)
+          .select('author_id')
+          .eq('id', commentId)
+          .maybeSingle();
+
+      if (comment == null) {
+        debugPrint('CommentRepository: Comment not found');
+        return false;
+      }
+
+      if (comment['author_id'] != currentUserId) {
+        debugPrint('CommentRepository: Unauthorized - user does not own this comment');
+        return false;
+      }
+
       await _client
           .from(SupabaseConfig.commentsTable)
           .delete()
           .eq('id', commentId);
       return true;
     } catch (e) {
+      debugPrint('CommentRepository: Error deleting comment - $e');
       return false;
+    }
+  }
+
+  /// Update a comment's content.
+  /// Validates ownership before updating.
+  Future<Comment?> updateComment({
+    required String commentId,
+    required String currentUserId,
+    required String newBody,
+    String? mediaUrl,
+    String? mediaType,
+  }) async {
+    try {
+      // RLS enforces this at DB level, but we check here for a clear error message
+      final existing = await _client
+          .from(SupabaseConfig.commentsTable)
+          .select('author_id')
+          .eq('id', commentId)
+          .maybeSingle();
+
+      if (existing == null || existing['author_id'] != currentUserId) {
+        debugPrint('CommentRepository: Unauthorized or comment not found');
+        return null;
+      }
+
+      final updates = <String, dynamic>{
+        'body': newBody,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      if (mediaUrl != null) updates['media_url'] = mediaUrl;
+      if (mediaType != null) updates['media_type'] = mediaType;
+
+      final response = await _client
+          .from(SupabaseConfig.commentsTable)
+          .update(updates)
+          .eq('id', commentId)
+          .select('''
+            *,
+            profiles!comments_author_id_fkey (
+              user_id,
+              username,
+              display_name,
+              avatar_url,
+              comments_visibility
+            ),
+            reactions!reactions_comment_id_fkey (
+              user_id,
+              reaction
+            )
+          ''')
+          .single();
+
+      return Comment.fromSupabase(response, currentUserId: currentUserId);
+    } catch (e) {
+      debugPrint('CommentRepository: Error updating comment - $e');
+      return null;
     }
   }
 

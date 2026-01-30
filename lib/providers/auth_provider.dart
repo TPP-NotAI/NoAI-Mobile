@@ -164,8 +164,27 @@ class AuthProvider with ChangeNotifier {
         _pendingUsername = null;
       }
 
+      // Check user account status - enforce bans/suspensions
+      if (_currentUser != null && _currentUser!.isBanned) {
+        debugPrint('AuthProvider: User is banned - signing out');
+        _error = 'Your account has been banned. Please contact support.';
+        _currentUser = null;
+        _status = AuthStatus.unauthenticated;
+        await _authService.signOut();
+        notifyListeners();
+        return;
+      }
+
+      if (_currentUser != null && _currentUser!.isSuspended) {
+        debugPrint('AuthProvider: User is suspended');
+        _error = 'Your account has been suspended. Please contact support.';
+        // Allow them to see the app but with restricted access
+      }
+
       _status = AuthStatus.authenticated;
-      _error = null;
+      _error = _currentUser?.isSuspended == true
+          ? 'Your account has been suspended. Some features are restricted.'
+          : null;
     } catch (e) {
       debugPrint('AuthProvider: Error loading user - $e');
       // Even if profile loading fails, user is still authenticated

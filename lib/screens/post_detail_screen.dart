@@ -131,11 +131,21 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (confirm == true && mounted) {
       final feedProvider = context.read<FeedProvider>();
       final success = await feedProvider.unpublishPost(_post.id);
-      if (success && mounted) {
-        Navigator.pop(context); // Go back to feed/profile
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Post unpublished')));
+      if (mounted) {
+        if (success) {
+          Navigator.pop(context); // Go back to feed/profile
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Post unpublished')));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Failed to unpublish post. You can only unpublish your own posts.',
+              ),
+            ),
+          );
+        }
       }
     }
   }
@@ -167,11 +177,21 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (confirm == true && mounted) {
       final feedProvider = context.read<FeedProvider>();
       final success = await feedProvider.deletePost(_post.id);
-      if (success && mounted) {
-        Navigator.pop(context); // Go back
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Post deleted')));
+      if (mounted) {
+        if (success) {
+          Navigator.pop(context); // Go back
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Post deleted')));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Failed to delete post. You can only delete your own posts.',
+              ),
+            ),
+          );
+        }
       }
     }
   }
@@ -419,7 +439,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   setState(() {
                                     final wasLiked = _post.isLiked;
                                     _post = _post.copyWith(
-                                      likes: wasLiked ? _post.likes - 1 : _post.likes + 1,
+                                      likes: wasLiked
+                                          ? _post.likes - 1
+                                          : _post.likes + 1,
                                       isLiked: !wasLiked,
                                     );
                                   });
@@ -430,9 +452,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   child: Row(
                                     children: [
                                       Icon(
-                                        _post.isLiked ? Icons.favorite : Icons.favorite_border,
+                                        _post.isLiked
+                                            ? Icons.favorite
+                                            : Icons.favorite_border,
                                         size: 20,
-                                        color: _post.isLiked ? Colors.red : colors.onSurfaceVariant,
+                                        color: _post.isLiked
+                                            ? Colors.red
+                                            : colors.onSurfaceVariant,
                                       ),
                                       const SizedBox(width: 4),
                                       Text('${_post.likes}'),
@@ -453,19 +479,25 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               // Repost button
                               InkWell(
                                 onTap: () {
-                                  final wasReposted = feedProvider.isReposted(_post.id);
+                                  final wasReposted = feedProvider.isReposted(
+                                    _post.id,
+                                  );
                                   feedProvider.toggleRepost(_post.id);
                                   ScaffoldMessenger.of(context)
                                     ..clearSnackBars()
                                     ..showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          wasReposted ? 'Removed repost' : 'Reposted to your profile',
+                                          wasReposted
+                                              ? 'Removed repost'
+                                              : 'Reposted to your profile',
                                         ),
                                         duration: const Duration(seconds: 2),
                                         behavior: SnackBarBehavior.floating,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                       ),
                                     );
@@ -483,7 +515,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                             : colors.onSurfaceVariant,
                                       ),
                                       const SizedBox(width: 4),
-                                      Text('${feedProvider.getRepostCount(_post.id)}'),
+                                      Text(
+                                        '${feedProvider.getRepostCount(_post.id)}',
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -608,7 +642,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   text: comment.text,
                                   style: Theme.of(context).textTheme.bodyMedium,
                                   onMentionTap: (username) =>
-                                      navigateToMentionedUser(context, username),
+                                      navigateToMentionedUser(
+                                        context,
+                                        username,
+                                      ),
                                 ),
                               ],
                             ),

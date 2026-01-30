@@ -23,6 +23,7 @@ class User {
   final String? postsVisibility; // everyone, followers, private
   final String? commentsVisibility; // everyone, followers, private
   final String? messagesVisibility; // everyone, followers, private
+  final String status; // active, suspended, banned
   final DateTime? createdAt;
   final DateTime? lastSeen;
 
@@ -45,9 +46,19 @@ class User {
     this.postsVisibility,
     this.commentsVisibility,
     this.messagesVisibility,
+    this.status = 'active',
     this.createdAt,
     this.lastSeen,
   });
+
+  /// Whether the user account is active.
+  bool get isActive => status == 'active';
+
+  /// Whether the user account is suspended.
+  bool get isSuspended => status == 'suspended';
+
+  /// Whether the user account is banned.
+  bool get isBanned => status == 'banned';
 
   /// Create a User from Supabase profile row.
   ///
@@ -79,6 +90,7 @@ class User {
       postsVisibility: profile['posts_visibility'] as String?,
       commentsVisibility: profile['comments_visibility'] as String?,
       messagesVisibility: profile['messages_visibility'] as String?,
+      status: profile['status'] as String? ?? 'active',
       // Counts would need separate queries or computed columns
       postsCount: 0,
       followersCount: 0,
@@ -108,6 +120,7 @@ class User {
     String? postsVisibility,
     String? commentsVisibility,
     String? messagesVisibility,
+    String? status,
     DateTime? createdAt,
     DateTime? lastSeen,
   }) {
@@ -130,6 +143,7 @@ class User {
       postsVisibility: postsVisibility ?? this.postsVisibility,
       commentsVisibility: commentsVisibility ?? this.commentsVisibility,
       messagesVisibility: messagesVisibility ?? this.messagesVisibility,
+      status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       lastSeen: lastSeen ?? this.lastSeen,
     );

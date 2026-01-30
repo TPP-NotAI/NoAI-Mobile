@@ -641,6 +641,136 @@ class FeedProvider with ChangeNotifier {
     }).toList();
   }
 
+  // Delete a comment (with ownership validation)
+  Future<bool> deleteComment(String postId, String commentId) async {
+    final userId = _currentUserId;
+    if (userId == null) return false;
+
+    final postIndex = _posts.indexWhere((p) => p.id == postId);
+    if (postIndex == -1) return false;
+
+    final post = _posts[postIndex];
+    if (post.commentList == null) return false;
+
+    // Optimistic: remove the comment locally
+    final originalComments = post.commentList!;
+    final updatedComments = _removeCommentRecursive(originalComments, commentId);
+    final removedCount = _countComments(originalComments) - _countComments(updatedComments);
+    _posts[postIndex] = post.copyWith(
+      commentList: updatedComments,
+      comments: post.comments - removedCount,
+    );
+    notifyListeners();
+
+    try {
+      final success = await _commentRepository.deleteComment(
+        commentId,
+        currentUserId: userId,
+      );
+      if (!success) {
+        // Revert on failure
+        _posts[postIndex] = post;
+        notifyListeners();
+        return false;
+      }
+      return true;
+    } catch (e) {
+      // Revert on error
+      _posts[postIndex] = post;
+      notifyListeners();
+      debugPrint('Failed to delete comment: $e');
+      return false;
+    }
+  }
+
+  // Update a comment's text (with ownership validation)
+  Future<bool> updateComment(String postId, String commentId, String newText) async {
+    final userId = _currentUserId;
+    if (userId == null) return false;
+
+    final postIndex = _posts.indexWhere((p) => p.id == postId);
+    if (postIndex == -1) return false;
+
+    final post = _posts[postIndex];
+    if (post.commentList == null) return false;
+
+    // Optimistic: update the comment text locally
+    final originalComments = post.commentList!;
+    final updatedComments = _updateCommentTextRecursive(
+      originalComments,
+      commentId,
+      newText,
+    );
+    _posts[postIndex] = post.copyWith(commentList: updatedComments);
+    notifyListeners();
+
+    try {
+      final result = await _commentRepository.updateComment(
+        commentId: commentId,
+        currentUserId: userId,
+        newBody: newText,
+      );
+      if (result == null) {
+        // Revert on failure
+        _posts[postIndex] = post.copyWith(commentList: originalComments);
+        notifyListeners();
+        return false;
+      }
+      return true;
+    } catch (e) {
+      // Revert on error
+      _posts[postIndex] = post.copyWith(commentList: originalComments);
+      notifyListeners();
+      debugPrint('Failed to update comment: $e');
+      return false;
+    }
+  }
+
+  // Helper: remove a comment recursively from nested comment list
+  List<Comment> _removeCommentRecursive(List<Comment> comments, String commentId) {
+    return comments
+        .where((c) => c.id != commentId)
+        .map((c) {
+          if (c.replies != null && c.replies!.isNotEmpty) {
+            return c.copyWith(
+              replies: _removeCommentRecursive(c.replies!, commentId),
+            );
+          }
+          return c;
+        })
+        .toList();
+  }
+
+  // Helper: update a comment's text recursively
+  List<Comment> _updateCommentTextRecursive(
+    List<Comment> comments,
+    String commentId,
+    String newText,
+  ) {
+    return comments.map((comment) {
+      if (comment.id == commentId) {
+        return comment.copyWith(text: newText);
+      } else if (comment.replies != null && comment.replies!.isNotEmpty) {
+        return comment.copyWith(
+          replies: _updateCommentTextRecursive(comment.replies!, commentId, newText),
+        );
+      }
+      return comment;
+    }).toList();
+  }
+
+  // Helper: count total comments including replies
+  int _countComments(List<Comment> comments) {
+    int count = 0;
+    for (final c in comments) {
+      count++;
+      if (c.replies != null) {
+        count += _countComments(c.replies!);
+      }
+    }
+    return count;
+  }
+
   // Bookmark functionality
   bool isBookmarked(String postId) {
     return _bookmarkedPostIds.contains(postId);
@@ -828,7 +958,13 @@ class FeedProvider with ChangeNotifier {
   }
 
   Future<bool> deletePost(String postId) async {
-    final success = await _postRepository.deletePost(postId);
+    final userId = _currentUserId;
+    if (userId == null) return false;
+
+    final success = await _postRepository.deletePost(
+      postId,
+      currentUserId: userId,
+    );
     if (success) {
       _posts.removeWhere((p) => p.id == postId);
       notifyListeners();
@@ -837,7 +973,13 @@ class FeedProvider with ChangeNotifier {
   }
 
   Future<bool> unpublishPost(String postId) async {
-    final success = await _postRepository.unpublishPost(postId);
+    final userId = _currentUserId;
+    if (userId == null) return false;
+
+    final success = await _postRepository.unpublishPost(
+      postId,
+      currentUserId: userId,
+    );
     if (success) {
       _posts.removeWhere((p) => p.id == postId);
       notifyListeners();
@@ -851,8 +993,12 @@ class FeedProvider with ChangeNotifier {
     String? title,
     String? location,
   }) async {
+    final userId = _currentUserId;
+    if (userId == null) return false;
+
     final success = await _postRepository.updatePost(
       postId: postId,
+      currentUserId: userId,
       body: body,
       title: title,
       location: location,
@@ -900,6 +1046,7 @@ class FeedProvider with ChangeNotifier {
       // 1. Update basic post details
       final updateSuccess = await _postRepository.updatePost(
         postId: postId,
+        currentUserId: userId,
         body: body,
         title: title,
         location: location,
