@@ -130,12 +130,47 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       itemCount: provider.notifications.length,
       itemBuilder: (context, index) {
         final notification = provider.notifications[index];
-        return NotificationTile(
-          notification: notification,
-          onTap: () {
-            provider.markAsRead(notification.id);
-            _handleNotificationNavigation(notification);
+        return Dismissible(
+          key: ValueKey(notification.id),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            color: Colors.red,
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: const Icon(Icons.delete, color: Colors.white),
+          ),
+          confirmDismiss: (direction) async {
+            return await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Delete Notification'),
+                content: const Text('Are you sure you want to delete this notification?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              ),
+            ) ?? false;
           },
+          onDismissed: (direction) {
+            provider.deleteNotification(notification.id);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Notification deleted')),
+            );
+          },
+          child: NotificationTile(
+            notification: notification,
+            onTap: () {
+              provider.markAsRead(notification.id);
+              _handleNotificationNavigation(notification);
+            },
+          ),
         );
       },
     );

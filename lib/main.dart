@@ -8,6 +8,7 @@ import 'providers/user_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/feed_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/dm_provider.dart';
 import 'providers/language_provider.dart';
 import 'providers/notification_provider.dart';
 import 'services/storage_service.dart';
@@ -22,6 +23,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/auth/verification_screen.dart';
 import 'screens/auth/recovery_screen.dart';
+import 'screens/auth/suspended_screen.dart';
 import 'screens/auth/human_verification_screen.dart';
 import 'screens/auth/phone_verification_screen.dart';
 import 'screens/feed/feed_screen.dart';
@@ -32,11 +34,13 @@ import 'screens/create/create_post_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/chat/chat_list_screen.dart';
+import 'screens/dm/dm_list_screen.dart';
 import 'screens/support/contact_support_screen.dart';
 import 'screens/support/faq_screen.dart';
 import 'config/app_constants.dart';
 import 'utils/platform_utils.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
+import 'screens/auth/banned_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,6 +68,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => FeedProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => DmProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         Provider(create: (_) => DeepLinkService()),
@@ -163,25 +168,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // Show splash while checking auth state
         return SplashScreen(onComplete: () {});
       case AuthStatus.authenticated:
-        // If password reset is pending, stay in auth flow but on recovery screen
-        if (authProvider.isPasswordResetPending) {
-          return const AppNavigator(
-            key: ValueKey('recovery_navigator'),
-            initialView: ViewType.recover,
-          );
+        final user = authProvider.currentUser;
+        if (user != null) {
+          // Handle suspended or banned users
+          if (user.status == 'suspended') {
+            return const SuspendedScreen();
+          } else if (user.status == 'banned') {
+            return const BannedScreen();
+          }
         }
-
-        /* 
-        // Enforce Human Verification (Disabled for development)
-        if (authProvider.currentUser != null &&
-            authProvider.currentUser!.verifiedHuman != 'verified') {
-          return const AppNavigator(
-            key: ValueKey('verification_navigator'),
-            initialView: ViewType.humanVerify,
-          );
-        }
-        */
-
         // User is logged in and verified, show main app
         return const MainShell();
       case AuthStatus.unauthenticated:
@@ -192,8 +187,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   void _maybeHandleDeepLink() {
     if (_deepLinkHandled || !mounted) return;
-    final destination =
-        context.read<DeepLinkService>().consumePendingDestination();
+    final destination = context
+        .read<DeepLinkService>()
+        .consumePendingDestination();
     if (destination == null) return;
     _deepLinkHandled = true;
 
@@ -201,10 +197,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         ? const FAQScreen()
         : const ContactSupportScreen();
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 }
 
@@ -412,32 +405,21 @@ class NoaiAppBar extends StatelessWidget implements PreferredSizeWidget {
             );
           },
         ),
+        // IconButton(
+        //   icon: Icon(Icons.mail_outline, color: colors.onSurface),
+        //   tooltip: 'Direct Messages',
+        //   onPressed: () {
+        //     Navigator.push(
+        //       context,
+        //       MaterialPageRoute(builder: (_) => const DmListScreen()),
+        //     );
+        //   },
+        // ),
         Consumer<NotificationProvider>(
           builder: (context, notificationProvider, child) {
             final unreadCount = notificationProvider.unreadCount;
             return IconButton(
-              icon: Stack(
-                children: [
-                  Icon(Icons.notifications_outlined, color: colors.onSurface),
-                  if (unreadCount > 0)
-                    Positioned(
-                      top: 2,
-                      right: 4,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: colors.error,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: colors.surface, width: 1.5),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 8,
-                          minHeight: 8,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              icon: Icon(Icons.notifications_outlined, color: colors.onSurface),
               onPressed: () {
                 Navigator.push(
                   context,

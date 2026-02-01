@@ -40,7 +40,7 @@ class PresenceService with WidgetsBindingObserver {
     try {
       await _supabase
           .from('profiles')
-          .update({'last_seen': DateTime.now().toIso8601String()})
+          .update({'last_active_at': DateTime.now().toIso8601String()})
           .eq('user_id', userId);
     } catch (e) {
       debugPrint('Error updating presence: $e');

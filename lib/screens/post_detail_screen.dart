@@ -29,6 +29,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   List<Comment> _comments = [];
   bool _loadingComments = true;
   bool _submittingComment = false;
+  bool _isTextExpanded = false;
+
+  static const int _maxLinesCollapsed = 4;
 
   @override
   void initState() {
@@ -330,13 +333,55 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          MentionRichText(
-                            text: _post.content,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodyLarge?.copyWith(height: 1.6),
-                            onMentionTap: (username) =>
-                                navigateToMentionedUser(context, username),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final textStyle = Theme.of(context)
+                                  .textTheme
+                                  .bodyLarge
+                                  ?.copyWith(height: 1.6);
+                              final textSpan = TextSpan(
+                                text: _post.content,
+                                style: textStyle,
+                              );
+                              final textPainter = TextPainter(
+                                text: textSpan,
+                                maxLines: _maxLinesCollapsed,
+                                textDirection: TextDirection.ltr,
+                              )..layout(maxWidth: constraints.maxWidth);
+                              final isOverflowing = textPainter.didExceedMaxLines;
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  MentionRichText(
+                                    text: _post.content,
+                                    style: textStyle,
+                                    maxLines: _isTextExpanded ? null : _maxLinesCollapsed,
+                                    overflow: TextOverflow.clip,
+                                    onMentionTap: (username) =>
+                                        navigateToMentionedUser(context, username),
+                                  ),
+                                  if (isOverflowing)
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _isTextExpanded = !_isTextExpanded;
+                                        });
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          _isTextExpanded ? 'Show less' : '... more',
+                                          style: TextStyle(
+                                            color: colors.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
                           ),
                           const SizedBox(height: 16),
                           if (_post.location != null &&
@@ -366,7 +411,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               runSpacing: 4,
                               children: _post.tags!.map((tag) {
                                 return Text(
-                                  '#${tag.tag}',
+                                  '#${tag.name}',
                                   style: TextStyle(
                                     color: colors.primary,
                                     fontWeight: FontWeight.bold,
@@ -388,6 +433,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                           animation,
                                           secondaryAnimation,
                                         ) => FullScreenMediaViewer(
+                                          post: _post,
                                           mediaUrl: _post.primaryMediaUrl!,
                                           isVideo: _isVideo(_post),
                                           heroTag: '',

@@ -76,10 +76,10 @@ class PostCard extends StatelessWidget {
                   children: post.tags!.map((tag) {
                     return GestureDetector(
                       onTap: onHashtagTap != null
-                          ? () => onHashtagTap!(tag.tag)
+                          ? () => onHashtagTap!(tag.name)
                           : null,
                       child: Text(
-                        '#${tag.tag}',
+                        '#${tag.name}',
                         style: TextStyle(
                           color: colors.primary,
                           fontWeight: FontWeight.bold,
@@ -447,34 +447,97 @@ class _MlScoreBadge extends StatelessWidget {
 /* ───────────────── CONTENT ───────────────── */
 // ...
 
-class _Content extends StatelessWidget {
+class _Content extends StatefulWidget {
   final Post post;
 
   const _Content({required this.post});
 
   @override
+  State<_Content> createState() => _ContentState();
+}
+
+class _ContentState extends State<_Content> {
+  bool _expanded = false;
+  static const int _maxLines = 3;
+
+  @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final post = widget.post;
 
     // Don't show anything if content is empty
     if (post.content.trim().isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final textStyle = TextStyle(
+      fontSize: 14,
+      height: 1.4,
+      color: colors.onSurface,
+    );
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final textSpan = TextSpan(text: post.content, style: textStyle);
+          final textPainter = TextPainter(
+            text: textSpan,
+            maxLines: _maxLines,
+            textDirection: TextDirection.ltr,
+          )..layout(maxWidth: constraints.maxWidth);
+          final isOverflowing = textPainter.didExceedMaxLines;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PostDetailScreen(post: post),
+                    ),
+                  );
+                },
+                child: _expanded || !isOverflowing
+                    ? MentionRichText(
+                        text: post.content,
+                        style: textStyle,
+                        onMentionTap: (username) =>
+                            navigateToMentionedUser(context, username),
+                      )
+                    : MentionRichText(
+                        text: post.content,
+                        style: textStyle,
+                        maxLines: _maxLines,
+                        overflow: TextOverflow.clip,
+                        onMentionTap: (username) =>
+                            navigateToMentionedUser(context, username),
+                      ),
+              ),
+              if (isOverflowing)
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _expanded = !_expanded;
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _expanded ? 'Show less' : '... more',
+                      style: TextStyle(
+                        color: colors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           );
         },
-        child: MentionRichText(
-          text: post.content,
-          style: TextStyle(fontSize: 14, height: 1.4, color: colors.onSurface),
-          onMentionTap: (username) => navigateToMentionedUser(context, username),
-        ),
       ),
     );
   }
@@ -496,7 +559,7 @@ class _MediaGridView extends StatelessWidget {
         String url = media.storagePath;
         if (!url.startsWith('http')) {
           url =
-              '${SupabaseConfig.supabaseUrl}/storage/v1/object/public/media/$url';
+              '${SupabaseConfig.supabaseUrl}/storage/v1/object/public/${SupabaseConfig.postMediaBucket}/$url';
         }
         items.add(_MediaItem(url: url, isVideo: media.mediaType == 'video'));
       }
@@ -758,6 +821,7 @@ class _MediaTile extends StatelessWidget {
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
             FullScreenMediaViewer(
+              post: post,
               mediaUrl: item.url,
               isVideo: item.isVideo,
               heroTag: '${post.id}_$index',

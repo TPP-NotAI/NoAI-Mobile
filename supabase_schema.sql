@@ -321,6 +321,7 @@ CREATE TABLE public.profiles (
   display_name text NOT NULL DEFAULT ''::text,
   bio text NOT NULL DEFAULT ''::text,
   avatar_url text,
+  phone_number text,
   website_url text,
   location text,
   status USER-DEFINED NOT NULL DEFAULT 'active'::user_status,

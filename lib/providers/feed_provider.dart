@@ -73,7 +73,7 @@ class FeedProvider with ChangeNotifier {
       bool hasMatchingInterest = false;
       if (post.tags != null && post.tags!.isNotEmpty) {
         for (final tag in post.tags!) {
-          if (interestSet.contains(tag.tag.toLowerCase())) {
+          if (interestSet.contains(tag.name.toLowerCase())) {
             hasMatchingInterest = true;
             break;
           }
@@ -270,27 +270,53 @@ class FeedProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update all instances of a post in the feed (original + reposts share the same post ID).
+  /// Returns the list of original posts at those indices for rollback, or empty if not found.
+  List<MapEntry<int, Post>> _updateAllInstances(
+    String postId,
+    Post Function(Post post) updater,
+  ) {
+    final originals = <MapEntry<int, Post>>[];
+    for (var i = 0; i < _posts.length; i++) {
+      if (_posts[i].id == postId) {
+        originals.add(MapEntry(i, _posts[i]));
+        _posts[i] = updater(_posts[i]);
+      }
+    }
+    return originals;
+  }
+
+  /// Revert optimistic updates using saved originals.
+  void _revertInstances(List<MapEntry<int, Post>> originals) {
+    for (final entry in originals) {
+      if (entry.key < _posts.length) {
+        _posts[entry.key] = entry.value;
+      }
+    }
+  }
+
   // Toggle like on a post
   Future<void> toggleLike(String postId) async {
     final userId = _currentUserId;
     if (userId == null) return;
 
-    final index = _posts.indexWhere((p) => p.id == postId);
-    if (index == -1) return;
+    final first = _posts.indexWhere((p) => p.id == postId);
+    if (first == -1) return;
 
-    final post = _posts[index];
-    final wasLiked = post.isLiked;
-    final newLikes = wasLiked ? post.likes - 1 : post.likes + 1;
+    final wasLiked = _posts[first].isLiked;
+    final newLikes = wasLiked ? _posts[first].likes - 1 : _posts[first].likes + 1;
 
-    // Optimistic update
-    _posts[index] = post.copyWith(likes: newLikes, isLiked: !wasLiked);
+    // Optimistic update — apply to ALL instances
+    final originals = _updateAllInstances(postId, (p) =>
+      p.copyWith(likes: newLikes, isLiked: !wasLiked),
+    );
     notifyListeners();
 
     try {
       await _reactionRepository.togglePostLike(postId: postId, userId: userId);
     } catch (e) {
       // Revert on failure
-      _posts[index] = post;
+      _revertInstances(originals);
       notifyListeners();
       debugPrint('Failed to toggle like: $e');
     }
@@ -891,7 +917,7 @@ class FeedProvider with ChangeNotifier {
   Future<Post?> createPost(
     String body, {
     String? title,
-    List<String>? mediaUrls,
+    List<File>? mediaFiles,
     List<String>? mediaTypes,
     List<String>? tags,
     String? location,
@@ -905,7 +931,7 @@ class FeedProvider with ChangeNotifier {
         authorId: userId,
         body: body,
         title: title,
-        mediaUrls: mediaUrls,
+        mediaFiles: mediaFiles,
         mediaTypes: mediaTypes,
         tags: tags,
         location: location,
@@ -1061,17 +1087,19 @@ class FeedProvider with ChangeNotifier {
 
       // 3. Add new media
       for (var i = 0; i < newMediaFiles.length; i++) {
-        final url = await _mediaRepository.uploadMedia(
+        final storagePath = await _mediaRepository.uploadMedia(
           file: newMediaFiles[i],
           userId: userId,
+          postId: postId,
           mediaType: newMediaTypes[i],
+          index: i,
         );
 
-        if (url != null) {
+        if (storagePath != null) {
           await _mediaRepository.createPostMedia(
             postId: postId,
             mediaType: newMediaTypes[i],
-            storagePath: url,
+            storagePath: storagePath,
             mimeType: _mediaRepository.getMimeType(
               newMediaFiles[i].path.split('.').last,
               newMediaTypes[i],

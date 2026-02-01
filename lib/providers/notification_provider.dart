@@ -178,6 +178,34 @@ class NotificationProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Delete a notification (removes from DB and local list)
+  Future<void> deleteNotification(String notificationId) async {
+    final index = _notifications.indexWhere((n) => n.id == notificationId);
+    NotificationModel? removed;
+    if (index != -1) {
+      removed = _notifications[index];
+      if (!removed.isRead) {
+        _unreadCount = _unreadCount > 0 ? _unreadCount - 1 : 0;
+      }
+      _notifications.removeAt(index);
+      notifyListeners();
+    }
+
+    try {
+      await _repository.deleteNotification(notificationId);
+    } catch (e) {
+      debugPrint('NotificationProvider: Error deleting notification - $e');
+      // Revert on failure
+      if (removed != null) {
+        _notifications.insert(index, removed);
+        if (!removed.isRead) {
+          _unreadCount++;
+        }
+        notifyListeners();
+      }
+    }
+  }
+
   /// Clear all notifications
   void clear() {
     stopListening();

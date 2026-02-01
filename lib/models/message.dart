@@ -5,35 +5,36 @@ part 'message.g.dart';
 @JsonSerializable()
 class Message {
   final String id;
-  @JsonKey(name: 'conversation_id')
+  @JsonKey(name: 'thread_id')
   final String conversationId;
   @JsonKey(name: 'sender_id')
   final String senderId;
+  @JsonKey(name: 'body')
   final String content;
-  @JsonKey(name: 'message_type')
-  final String messageType;
   @JsonKey(name: 'media_url')
   final String? mediaUrl;
+  @JsonKey(name: 'media_type')
+  final String? mediaType;
   @JsonKey(name: 'reply_to_id')
   final String? replyToId;
-  @JsonKey(name: 'reply_content')
-  final String? replyContent;
+  @JsonKey(name: 'status')
+  final String status;
+  @JsonKey(name: 'is_edited')
+  final bool isEdited;
   @JsonKey(name: 'created_at')
   final DateTime createdAt;
-  @JsonKey(name: 'is_read')
-  final bool isRead;
 
   Message({
     required this.id,
     required this.conversationId,
     required this.senderId,
     required this.content,
-    this.messageType = 'text',
     this.mediaUrl,
+    this.mediaType,
     this.replyToId,
-    this.replyContent,
+    this.status = 'sent',
+    this.isEdited = false,
     required this.createdAt,
-    this.isRead = false,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) =>
@@ -43,41 +44,50 @@ class Message {
   factory Message.fromSupabase(Map<String, dynamic> data) {
     return Message(
       id: data['id'] as String,
-      conversationId: data['conversation_id'] as String,
+      conversationId: data['thread_id'] as String,
       senderId: data['sender_id'] as String,
-      content: data['content'] as String,
-      messageType: data['message_type'] as String? ?? 'text',
+      content: data['body'] as String,
       mediaUrl: data['media_url'] as String?,
+      mediaType: data['media_type'] as String?,
       replyToId: data['reply_to_id'] as String?,
-      replyContent: data['reply_content'] as String?,
+      status: data['status'] as String? ?? 'sent',
+      isEdited: data['is_edited'] as bool? ?? false,
       createdAt: DateTime.parse(data['created_at'] as String),
-      isRead: data['is_read'] as bool? ?? false,
     );
   }
+
+  /// Convenience getter: derives message type from media_type for UI compatibility.
+  String get messageType => mediaType ?? 'text';
+
+  /// Convenience getter: treat 'read' status as isRead for UI compatibility.
+  bool get isRead => status == 'read';
+
+  /// Convenience getter: reply content not stored separately in schema.
+  String? get replyContent => null;
 
   Message copyWith({
     String? id,
     String? conversationId,
     String? senderId,
     String? content,
-    String? messageType,
     String? mediaUrl,
+    String? mediaType,
     String? replyToId,
-    String? replyContent,
+    String? status,
+    bool? isEdited,
     DateTime? createdAt,
-    bool? isRead,
   }) {
     return Message(
       id: id ?? this.id,
       conversationId: conversationId ?? this.conversationId,
       senderId: senderId ?? this.senderId,
       content: content ?? this.content,
-      messageType: messageType ?? this.messageType,
       mediaUrl: mediaUrl ?? this.mediaUrl,
+      mediaType: mediaType ?? this.mediaType,
       replyToId: replyToId ?? this.replyToId,
-      replyContent: replyContent ?? this.replyContent,
+      status: status ?? this.status,
+      isEdited: isEdited ?? this.isEdited,
       createdAt: createdAt ?? this.createdAt,
-      isRead: isRead ?? this.isRead,
     );
   }
 }

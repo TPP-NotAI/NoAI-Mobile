@@ -28,7 +28,7 @@ class ReactionRepository {
         .isFilter('post_id', null)
         .eq('comment_id', commentId)
         .eq('user_id', userId)
-        .eq('reaction', 'like')
+        .eq('reaction_type', 'like')
         .maybeSingle();
 
     debugPrint('ReactionRepository: Existing reaction = $existing');
@@ -42,7 +42,7 @@ class ReactionRepository {
           .isFilter('post_id', null)
           .eq('comment_id', commentId)
           .eq('user_id', userId)
-          .eq('reaction', 'like');
+          .eq('reaction_type', 'like');
       return false;
     } else {
       // Like - insert new reaction (post_id must be NULL for comment reactions)
@@ -51,7 +51,7 @@ class ReactionRepository {
         'post_id': null,
         'comment_id': commentId,
         'user_id': userId,
-        'reaction': 'like',
+        'reaction_type': 'like',
       });
       debugPrint('ReactionRepository: Insert successful');
 
@@ -98,7 +98,7 @@ class ReactionRepository {
         .eq('post_id', postId)
         .isFilter('comment_id', null)
         .eq('user_id', userId)
-        .eq('reaction', 'like')
+        .eq('reaction_type', 'like')
         .maybeSingle();
 
     debugPrint('ReactionRepository: Existing reaction = $existing');
@@ -112,7 +112,7 @@ class ReactionRepository {
           .eq('post_id', postId)
           .isFilter('comment_id', null)
           .eq('user_id', userId)
-          .eq('reaction', 'like');
+          .eq('reaction_type', 'like');
       return false;
     } else {
       // Like - insert new reaction (comment_id must be NULL for post reactions)
@@ -121,7 +121,7 @@ class ReactionRepository {
         'post_id': postId,
         'comment_id': null,
         'user_id': userId,
-        'reaction': 'like',
+        'reaction_type': 'like',
       });
       debugPrint('ReactionRepository: Insert successful');
 
@@ -168,7 +168,7 @@ class ReactionRepository {
         .isFilter('post_id', null)
         .eq('comment_id', commentId)
         .eq('user_id', userId)
-        .eq('reaction', 'like')
+        .eq('reaction_type', 'like')
         .maybeSingle();
 
     return response != null;
@@ -181,7 +181,7 @@ class ReactionRepository {
         .select('user_id')
         .isFilter('post_id', null)
         .eq('comment_id', commentId)
-        .eq('reaction', 'like');
+        .eq('reaction_type', 'like');
 
     return (response as List).length;
   }

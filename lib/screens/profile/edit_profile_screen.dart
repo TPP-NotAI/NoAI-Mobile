@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../config/supabase_config.dart';
 import '../../services/supabase_service.dart';
 import '../auth/human_verification_screen.dart';
 import '../auth/phone_verification_screen.dart';
@@ -349,9 +350,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
       final filePath = 'avatars/$fileName';
 
-      // Upload to Supabase Storage (using 'media' bucket)
+      // Upload to Supabase Storage (avatars bucket)
       await _supabase.client.storage
-          .from('media')
+          .from(SupabaseConfig.avatarBucket)
           .uploadBinary(
             filePath,
             bytes,
@@ -360,7 +361,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       // Get public URL
       final publicUrl = _supabase.client.storage
-          .from('media')
+          .from(SupabaseConfig.avatarBucket)
           .getPublicUrl(filePath);
 
       setState(() {

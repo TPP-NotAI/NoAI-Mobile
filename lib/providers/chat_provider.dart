@@ -86,10 +86,9 @@ class ChatProvider extends ChangeNotifier {
       await _chatService.sendMessage(
         conversationId,
         content,
-        type: type,
         mediaUrl: mediaUrl,
+        mediaType: type != 'text' ? type : null,
         replyToId: replyToId,
-        replyContent: replyContent,
       );
 
       // Refresh list to show last message
@@ -160,7 +159,7 @@ class ChatProvider extends ChangeNotifier {
         await _chatService.sendMessage(
           conversationId,
           '[Media]',
-          type: type,
+          mediaType: type,
           mediaUrl: mediaUrl,
         );
         await loadConversations();

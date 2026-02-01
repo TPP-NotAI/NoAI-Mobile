@@ -29,11 +29,11 @@ Map<String, dynamic> _$PostMediaToJson(PostMedia instance) => <String, dynamic>{
 };
 
 PostTag _$PostTagFromJson(Map<String, dynamic> json) =>
-    PostTag(id: json['id'] as String, tag: json['tag'] as String);
+    PostTag(id: json['id'] as String, name: json['name'] as String);
 
 Map<String, dynamic> _$PostTagToJson(PostTag instance) => <String, dynamic>{
   'id': instance.id,
-  'tag': instance.tag,
+  'name': instance.name,
 };
 
 PostAuthor _$PostAuthorFromJson(Map<String, dynamic> json) => PostAuthor(

@@ -5,6 +5,7 @@ import 'supabase_service.dart';
 import '../models/message.dart';
 import '../models/conversation.dart';
 import '../models/user.dart';
+import '../config/supabase_config.dart';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
@@ -20,12 +21,12 @@ class ChatService {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return [];
 
-    // Get conversation IDs where the user is a participant
+    // Get thread IDs where the user is a participant
     List<dynamic> participantsResponse = [];
     try {
       var query = _supabase
-          .from('conversation_participants')
-          .select('conversation_id')
+          .from('dm_participants')
+          .select('thread_id')
           .eq('user_id', userId);
 
       if (showArchived) {
@@ -38,42 +39,42 @@ class ChatService {
     } catch (e) {
       debugPrint('Archived filter failed, falling back: $e');
       final fallbackQuery = await _supabase
-          .from('conversation_participants')
-          .select('conversation_id')
+          .from('dm_participants')
+          .select('thread_id')
           .eq('user_id', userId);
       participantsResponse = fallbackQuery as List;
       if (showArchived) return [];
     }
 
-    final conversationIds = participantsResponse
-        .map((p) => p['conversation_id'] as String)
+    final threadIds = participantsResponse
+        .map((p) => p['thread_id'] as String)
         .toList();
 
-    if (conversationIds.isEmpty) return [];
+    if (threadIds.isEmpty) return [];
 
-    // Get conversation details and other participants
-    final conversationsResponse = await _supabase
-        .from('conversations')
+    // Get thread details and other participants
+    final threadsResponse = await _supabase
+        .from('dm_threads')
         .select('''
           *,
-          conversation_participants!inner(
+          dm_participants!inner(
             user_id,
             profiles:user_id(*)
           )
         ''')
-        .inFilter('id', conversationIds)
+        .inFilter('id', threadIds)
         .order('last_message_at', ascending: false);
 
     final List<Conversation> conversations = [];
 
-    for (var data in conversationsResponse as List) {
-      final convId = data['id'];
+    for (var data in threadsResponse as List) {
+      final threadId = data['id'];
 
       // Fetch last message
       final lastMessageResponse = await _supabase
-          .from('messages')
+          .from('dm_messages')
           .select()
-          .eq('conversation_id', convId)
+          .eq('thread_id', threadId)
           .order('created_at', ascending: false)
           .limit(1)
           .maybeSingle();
@@ -85,17 +86,17 @@ class ChatService {
 
       final lastMessage = Message.fromSupabase(lastMessageResponse);
 
-      // Fetch unread count
-      final unreadCountResponse = await _supabase
-          .from('messages')
-          .select('id')
-          .eq('conversation_id', convId)
-          .neq('sender_id', userId)
-          .eq('is_read', false);
+      // Get unread count from dm_participants
+      final participantData = await _supabase
+          .from('dm_participants')
+          .select('unread_count')
+          .eq('thread_id', threadId)
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      final unreadCount = (unreadCountResponse as List).length;
+      final unreadCount = participantData?['unread_count'] as int? ?? 0;
 
-      final participantsData = data['conversation_participants'] as List;
+      final participantsData = data['dm_participants'] as List;
       final participants = participantsData.map((p) {
         return User.fromSupabase(p['profiles'] as Map<String, dynamic>);
       }).toList();
@@ -114,48 +115,46 @@ class ChatService {
   }
 
   /// Archive a conversation for the current user.
-  Future<void> archiveConversation(String conversationId) async {
+  Future<void> archiveConversation(String threadId) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
 
     try {
       await _supabase
-          .from('conversation_participants')
+          .from('dm_participants')
           .update({'is_archived': true})
-          .eq('conversation_id', conversationId)
+          .eq('thread_id', threadId)
           .eq('user_id', userId);
     } catch (e) {
-      debugPrint(
-        'Archive failed: $e. It might be because is_archived column does not exist.',
-      );
+      debugPrint('Archive failed: $e');
     }
   }
 
   /// Unarchive a conversation for the current user.
-  Future<void> unarchiveConversation(String conversationId) async {
+  Future<void> unarchiveConversation(String threadId) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
 
     try {
       await _supabase
-          .from('conversation_participants')
+          .from('dm_participants')
           .update({'is_archived': false})
-          .eq('conversation_id', conversationId)
+          .eq('thread_id', threadId)
           .eq('user_id', userId);
     } catch (e) {
       debugPrint('Unarchive failed: $e');
     }
   }
 
-  /// Delete a conversation for the current user (removes participant record).
-  Future<void> deleteConversationForUser(String conversationId) async {
+  /// Delete a conversation for the current user (sets left_at timestamp).
+  Future<void> deleteConversationForUser(String threadId) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
 
     await _supabase
-        .from('conversation_participants')
-        .delete()
-        .eq('conversation_id', conversationId)
+        .from('dm_participants')
+        .update({'left_at': DateTime.now().toIso8601String()})
+        .eq('thread_id', threadId)
         .eq('user_id', userId);
   }
 
@@ -175,12 +174,10 @@ class ChatService {
     final otherUser = User.fromSupabase(otherUserResponse);
     final visibility = otherUser.messagesVisibility ?? 'everyone';
 
-    // If privacy is 'private', nobody can message them (except maybe logic for mutuals/admins, but keeping simple for now)
     if (visibility == 'private') {
       throw Exception('This user does not accept messages.');
     }
 
-    // If privacy is 'followers', check if current user follows them
     if (visibility == 'followers') {
       final followResponse = await _supabase
           .from('follows')
@@ -194,70 +191,63 @@ class ChatService {
       }
     }
 
-    // 2. Check if a 1:1 conversation already exists
-    // This is a bit tricky in Supabase without a custom RPC,
-    // but we can query for conversations where both users are participants.
-
-    // Get all conversation IDs for current user
-    final myConvs = await _supabase
-        .from('conversation_participants')
-        .select('conversation_id')
+    // 2. Check if a 1:1 thread already exists
+    final myThreads = await _supabase
+        .from('dm_participants')
+        .select('thread_id')
         .eq('user_id', currentUserId);
 
-    final myConvIds = (myConvs as List)
-        .map((c) => c['conversation_id'])
+    final myThreadIds = (myThreads as List)
+        .map((c) => c['thread_id'])
         .toList();
 
-    if (myConvIds.isNotEmpty) {
-      // Find if any of these also have the other user
-      final commonConvs = await _supabase
-          .from('conversation_participants')
-          .select('conversation_id')
+    if (myThreadIds.isNotEmpty) {
+      final commonThreads = await _supabase
+          .from('dm_participants')
+          .select('thread_id')
           .eq('user_id', otherUserId)
-          .inFilter('conversation_id', myConvIds);
+          .inFilter('thread_id', myThreadIds);
 
-      if ((commonConvs as List).isNotEmpty) {
-        final convId = commonConvs.first['conversation_id'];
+      if ((commonThreads as List).isNotEmpty) {
+        final threadId = commonThreads.first['thread_id'];
 
-        // Fetch the full conversation
-        final convData = await _supabase
-            .from('conversations')
+        final threadData = await _supabase
+            .from('dm_threads')
             .select('''
               *,
-              conversation_participants!inner(
+              dm_participants!inner(
                 user_id,
                 profiles:user_id(*)
               )
             ''')
-            .eq('id', convId)
+            .eq('id', threadId)
             .single();
 
-        final participants = (convData['conversation_participants'] as List)
+        final participants = (threadData['dm_participants'] as List)
             .map((p) {
               return User.fromSupabase(p['profiles'] as Map<String, dynamic>);
             })
             .toList();
 
-        return Conversation.fromSupabase(convData, participants: participants);
+        return Conversation.fromSupabase(threadData, participants: participants);
       }
     }
 
-    // Create new conversation
-    final newConv = await _supabase
-        .from('conversations')
-        .insert({})
+    // Create new thread
+    final newThread = await _supabase
+        .from('dm_threads')
+        .insert({'created_by': currentUserId})
         .select()
         .single();
 
-    final convId = newConv['id'];
+    final threadId = newThread['id'];
 
     // Add participants
-    await _supabase.from('conversation_participants').insert([
-      {'conversation_id': convId, 'user_id': currentUserId},
-      {'conversation_id': convId, 'user_id': otherUserId},
+    await _supabase.from('dm_participants').insert([
+      {'thread_id': threadId, 'user_id': currentUserId},
+      {'thread_id': threadId, 'user_id': otherUserId},
     ]);
 
-    // Already fetched other user above
     final currentUserResponse = await _supabase
         .from('profiles')
         .select()
@@ -266,20 +256,20 @@ class ChatService {
     final currentUser = User.fromSupabase(currentUserResponse);
 
     return Conversation.fromSupabase(
-      newConv,
+      newThread,
       participants: [currentUser, otherUser],
     );
   }
 
   /// Fetch messages for a conversation.
   Future<List<Message>> getMessages(
-    String conversationId, {
+    String threadId, {
     int limit = 50,
   }) async {
     final response = await _supabase
-        .from('messages')
+        .from('dm_messages')
         .select()
-        .eq('conversation_id', conversationId)
+        .eq('thread_id', threadId)
         .order('created_at', ascending: false)
         .limit(limit);
 
@@ -288,47 +278,53 @@ class ChatService {
 
   /// Send a message.
   Future<Message> sendMessage(
-    String conversationId,
+    String threadId,
     String content, {
-    String type = 'text',
     String? mediaUrl,
+    String? mediaType,
     String? replyToId,
-    String? replyContent,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
 
+    final insertData = <String, dynamic>{
+      'thread_id': threadId,
+      'sender_id': userId,
+      'body': content,
+    };
+
+    if (mediaUrl != null) insertData['media_url'] = mediaUrl;
+    if (mediaType != null) insertData['media_type'] = mediaType;
+    if (replyToId != null) insertData['reply_to_id'] = replyToId;
+
     final response = await _supabase
-        .from('messages')
-        .insert({
-          'conversation_id': conversationId,
-          'sender_id': userId,
-          'content': content,
-          'message_type': type,
-          'media_url': mediaUrl,
-          'reply_to_id': replyToId,
-          'reply_content': replyContent,
-        })
+        .from('dm_messages')
+        .insert(insertData)
         .select()
         .single();
 
-    // Update conversation's last_message_at
+    // Update thread's last_message_at and preview
     await _supabase
-        .from('conversations')
-        .update({'last_message_at': DateTime.now().toIso8601String()})
-        .eq('id', conversationId);
+        .from('dm_threads')
+        .update({
+          'last_message_at': DateTime.now().toIso8601String(),
+          'last_message_preview': content.length > 100
+              ? '${content.substring(0, 100)}...'
+              : content,
+        })
+        .eq('id', threadId);
 
     return Message.fromSupabase(response);
   }
 
   /// Delete a message.
   Future<void> deleteMessage(String messageId) async {
-    await _supabase.from('messages').delete().eq('id', messageId);
+    await _supabase.from('dm_messages').delete().eq('id', messageId);
   }
 
   /// Delete an entire conversation.
-  Future<void> deleteConversation(String conversationId) async {
-    await _supabase.from('conversations').delete().eq('id', conversationId);
+  Future<void> deleteConversation(String threadId) async {
+    await _supabase.from('dm_threads').delete().eq('id', threadId);
   }
 
   /// Upload media to Supabase Storage.
@@ -340,14 +336,16 @@ class ChatService {
       final path = '${DateTime.now().millisecondsSinceEpoch}.$extension';
 
       await _supabase.storage
-          .from('chat_media')
+          .from(SupabaseConfig.chatMediaBucket)
           .uploadBinary(
             path,
             bytes,
             fileOptions: FileOptions(contentType: 'image/$extension'),
           );
 
-      return _supabase.storage.from('chat_media').getPublicUrl(path);
+      return _supabase.storage
+          .from(SupabaseConfig.chatMediaBucket)
+          .getPublicUrl(path);
     } catch (e) {
       debugPrint('Error uploading media: $e');
       return null;
@@ -355,25 +353,28 @@ class ChatService {
   }
 
   /// Stream messages for a conversation.
-  Stream<List<Message>> subscribeToMessages(String conversationId) {
+  Stream<List<Message>> subscribeToMessages(String threadId) {
     return _supabase
-        .from('messages')
+        .from('dm_messages')
         .stream(primaryKey: ['id'])
-        .eq('conversation_id', conversationId)
+        .eq('thread_id', threadId)
         .order('created_at', ascending: false)
         .map((data) => data.map((m) => Message.fromSupabase(m)).toList());
   }
 
   /// Mark all messages in a conversation as read for the current user.
-  Future<void> markMessagesAsRead(String conversationId) async {
+  Future<void> markMessagesAsRead(String threadId) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
 
+    // Update the participant's unread count and last_read_at
     await _supabase
-        .from('messages')
-        .update({'is_read': true})
-        .eq('conversation_id', conversationId)
-        .neq('sender_id', userId)
-        .eq('is_read', false);
+        .from('dm_participants')
+        .update({
+          'unread_count': 0,
+          'last_read_at': DateTime.now().toIso8601String(),
+        })
+        .eq('thread_id', threadId)
+        .eq('user_id', userId);
   }
 }

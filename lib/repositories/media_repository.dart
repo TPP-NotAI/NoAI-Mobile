@@ -8,21 +8,23 @@ import '../services/supabase_service.dart';
 class MediaRepository {
   final _client = SupabaseService().client;
 
-  /// Upload a media file to Supabase Storage and return the public URL.
+  /// Upload a media file to Supabase Storage and return the relative storage path.
   Future<String?> uploadMedia({
     required File file,
     required String userId,
+    required String postId,
     required String mediaType, // 'image' or 'video'
+    int index = 0,
   }) async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final extension = file.path.split('.').last.toLowerCase();
-      final fileName = '${userId}_$timestamp.$extension';
-      final storagePath = 'posts/$userId/$fileName';
+      final fileName = '$timestamp-$index.$extension';
+      final storagePath = '$postId/$userId/$fileName';
 
-      // Upload to Supabase Storage bucket 'media'
+      // Upload to Supabase Storage bucket configured for post media
       await _client.storage
-          .from('media')
+          .from(SupabaseConfig.postMediaBucket)
           .upload(
             storagePath,
             file,
@@ -31,10 +33,10 @@ class MediaRepository {
             ),
           );
 
-      // Get public URL
-      final publicUrl = _client.storage.from('media').getPublicUrl(storagePath);
-      debugPrint('MediaRepository: Uploaded media to $publicUrl');
-      return publicUrl;
+      debugPrint('MediaRepository: Uploaded media to $storagePath');
+      // Return the relative storage path (not full URL)
+      // The display layer constructs the full public URL from this path
+      return storagePath;
     } catch (e) {
       debugPrint('MediaRepository: Error uploading media - $e');
       return null;
@@ -81,7 +83,9 @@ class MediaRepository {
       if (record != null) {
         final storagePath = record['storage_path'] as String;
         // Remove from storage
-        await _client.storage.from('media').remove([storagePath]);
+        await _client.storage
+            .from(SupabaseConfig.postMediaBucket)
+            .remove([storagePath]);
       }
 
       // Delete from database

@@ -91,9 +91,9 @@ class Comment {
     final isLiked =
         currentUserId != null &&
         reactions.any(
-          (r) => r['user_id'] == currentUserId && r['reaction'] == 'like',
+          (r) => r['user_id'] == currentUserId && r['reaction_type'] == 'like',
         );
-    final likesCount = reactions.where((r) => r['reaction'] == 'like').length;
+    final likesCount = reactions.where((r) => r['reaction_type'] == 'like').length;
 
     // Parse nested replies
     final repliesData = json['replies'] as List<dynamic>? ?? [];

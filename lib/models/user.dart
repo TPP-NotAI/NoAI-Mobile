@@ -75,7 +75,7 @@ class User {
       email: null, // Email is in auth.users, not profiles
       avatar: profile['avatar_url'] as String?,
       bio: profile['bio'] as String?,
-      phone: null, // Phone not in profiles
+      phone: profile['phone_number'] as String?, // Persisted via Supabase profile column
       isVerified: profile['verified_human'] == 'verified',
       verifiedHuman: profile['verified_human'] as String? ?? 'unverified',
       balance: (wallet?['balance_rc'] as num?)?.toDouble() ?? 0.0,
@@ -84,8 +84,8 @@ class User {
       createdAt: profile['created_at'] != null
           ? DateTime.parse(profile['created_at'] as String)
           : null,
-      lastSeen: profile['last_seen'] != null
-          ? DateTime.parse(profile['last_seen'] as String)
+      lastSeen: profile['last_active_at'] != null
+          ? DateTime.parse(profile['last_active_at'] as String)
           : null,
       postsVisibility: profile['posts_visibility'] as String?,
       commentsVisibility: profile['comments_visibility'] as String?,

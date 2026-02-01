@@ -17,7 +17,7 @@ class BookmarkRepository {
     // Check if bookmark exists
     final existing = await _client
         .from(SupabaseConfig.bookmarksTable)
-        .select('id')
+        .select('user_id')
         .eq('post_id', postId)
         .eq('user_id', userId)
         .maybeSingle();
@@ -52,7 +52,7 @@ class BookmarkRepository {
   }) async {
     final response = await _client
         .from(SupabaseConfig.bookmarksTable)
-        .select('id')
+        .select('user_id')
         .eq('post_id', postId)
         .eq('user_id', userId)
         .maybeSingle();

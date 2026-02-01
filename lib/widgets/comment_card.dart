@@ -321,15 +321,27 @@ class _CommentCardState extends State<CommentCard> {
                                 pageBuilder:
                                     (context, animation, secondaryAnimation) =>
                                         FullScreenMediaViewer(
-                                  mediaUrl: currentComment.mediaUrl!,
-                                  isVideo: currentComment.mediaType == 'video',
-                                  heroTag: '',
-                                ),
-                                transitionsBuilder: (context, animation,
-                                    secondaryAnimation, child) {
-                                  return FadeTransition(
-                                      opacity: animation, child: child);
-                                },
+                                          mediaUrl: currentComment.mediaUrl!,
+                                          isVideo:
+                                              currentComment.mediaType ==
+                                              'video',
+                                          heroTag: '',
+                                          post: provider.posts.firstWhere(
+                                            (post) => post.id == widget.postId,
+                                          ), // Pass the correct Post object
+                                        ),
+                                transitionsBuilder:
+                                    (
+                                      context,
+                                      animation,
+                                      secondaryAnimation,
+                                      child,
+                                    ) {
+                                      return FadeTransition(
+                                        opacity: animation,
+                                        child: child,
+                                      );
+                                    },
                               ),
                             );
                           },
@@ -349,7 +361,9 @@ class _CommentCardState extends State<CommentCard> {
                                         Container(
                                           padding: const EdgeInsets.all(8),
                                           decoration: BoxDecoration(
-                                            color: Colors.black.withValues(alpha: 0.5),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.5,
+                                            ),
                                             shape: BoxShape.circle,
                                           ),
                                           child: const Icon(
@@ -369,38 +383,42 @@ class _CommentCardState extends State<CommentCard> {
                                       currentComment.mediaUrl!,
                                       fit: BoxFit.cover,
                                       width: double.infinity,
-                                      loadingBuilder:
-                                          (context, child, loadingProgress) {
-                                        if (loadingProgress == null) return child;
+                                      loadingBuilder: (context, child, loadingProgress) {
+                                        if (loadingProgress == null)
+                                          return child;
                                         return Container(
                                           height: 150,
                                           color: colors.surfaceContainerHighest,
                                           child: Center(
                                             child: CircularProgressIndicator(
-                                              value: loadingProgress
+                                              value:
+                                                  loadingProgress
                                                           .expectedTotalBytes !=
                                                       null
                                                   ? loadingProgress
-                                                          .cumulativeBytesLoaded /
-                                                      loadingProgress
-                                                          .expectedTotalBytes!
+                                                            .cumulativeBytesLoaded /
+                                                        loadingProgress
+                                                            .expectedTotalBytes!
                                                   : null,
                                             ),
                                           ),
                                         );
                                       },
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Container(
-                                          height: 150,
-                                          color: colors.surfaceContainerHighest,
-                                          child: Center(
-                                            child: Icon(
-                                              Icons.broken_image,
-                                              color: colors.onSurfaceVariant,
-                                            ),
-                                          ),
-                                        );
-                                      },
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                            return Container(
+                                              height: 150,
+                                              color: colors
+                                                  .surfaceContainerHighest,
+                                              child: Center(
+                                                child: Icon(
+                                                  Icons.broken_image,
+                                                  color:
+                                                      colors.onSurfaceVariant,
+                                                ),
+                                              ),
+                                            );
+                                          },
                                     ),
                                   ),
                           ),
@@ -541,7 +559,11 @@ class _CommentCardState extends State<CommentCard> {
     );
   }
 
-  Widget _buildEditField(String commentId, ColorScheme colors, ThemeData theme) {
+  Widget _buildEditField(
+    String commentId,
+    ColorScheme colors,
+    ThemeData theme,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -549,9 +571,7 @@ class _CommentCardState extends State<CommentCard> {
           controller: _editController,
           autofocus: true,
           maxLines: null,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colors.onSurface,
-          ),
+          style: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface),
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(

@@ -6,19 +6,19 @@ import '../services/supabase_service.dart';
 /// Represents a trending tag with post count
 class TrendingTag {
   final String id;
-  final String tag;
+  final String name;
   final int postCount;
 
   TrendingTag({
     required this.id,
-    required this.tag,
+    required this.name,
     required this.postCount,
   });
 
   factory TrendingTag.fromSupabase(Map<String, dynamic> json) {
     return TrendingTag(
       id: json['id']?.toString() ?? '',
-      tag: json['tag']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
       postCount: json['post_count'] as int? ?? 0,
     );
   }
@@ -39,7 +39,7 @@ class TagRepository {
       final existing = await _client
           .from(SupabaseConfig.tagsTable)
           .select('id')
-          .eq('tag', normalizedTag)
+          .eq('name', normalizedTag)
           .maybeSingle();
 
       if (existing != null) {
@@ -49,7 +49,7 @@ class TagRepository {
       // Create new tag
       final newTag = await _client
           .from(SupabaseConfig.tagsTable)
-          .insert({'tag': normalizedTag})
+          .insert({'name': normalizedTag, 'slug': normalizedTag})
           .select('id')
           .single();
 
@@ -105,8 +105,8 @@ class TagRepository {
 
       final response = await _client
           .from(SupabaseConfig.tagsTable)
-          .select('id, tag')
-          .ilike('tag', '$normalizedQuery%')
+          .select('id, name')
+          .ilike('name', '$normalizedQuery%')
           .limit(limit);
 
       return (response as List<dynamic>)
@@ -124,7 +124,7 @@ class TagRepository {
       // Get tags with post counts using RPC or aggregate query
       final response = await _client
           .from(SupabaseConfig.tagsTable)
-          .select('id, tag, post_tags(count)')
+          .select('id, name, post_tags(count)')
           .limit(limit);
 
       final tags = (response as List<dynamic>).map((json) {
@@ -134,7 +134,7 @@ class TagRepository {
             : 0;
         return TrendingTag(
           id: json['id']?.toString() ?? '',
-          tag: json['tag']?.toString() ?? '',
+          name: json['name']?.toString() ?? '',
           postCount: count,
         );
       }).toList();
@@ -157,7 +157,7 @@ class TagRepository {
       final tagResponse = await _client
           .from(SupabaseConfig.tagsTable)
           .select('id')
-          .eq('tag', normalizedTag)
+          .eq('name', normalizedTag)
           .maybeSingle();
 
       if (tagResponse == null) return [];
@@ -190,7 +190,7 @@ class TagRepository {
             ),
             reactions!reactions_post_id_fkey (
               user_id,
-              reaction
+              reaction_type
             ),
             comments!comments_post_id_fkey (
               id
@@ -208,7 +208,7 @@ class TagRepository {
             post_tags (
               tags (
                 id,
-                tag
+                name
               )
             )
           ''')

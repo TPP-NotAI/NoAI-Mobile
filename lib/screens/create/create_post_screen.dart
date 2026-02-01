@@ -11,7 +11,6 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../providers/feed_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../repositories/media_repository.dart';
 import '../../repositories/tag_repository.dart';
 import '../../repositories/mention_repository.dart';
 import '../../widgets/mention_autocomplete_field.dart';
@@ -31,13 +30,14 @@ class CreatePostScreen extends StatefulWidget {
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
   final TextEditingController _contentController = TextEditingController();
+  final TextEditingController _titleController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
-  final MediaRepository _mediaRepository = MediaRepository();
   final TagRepository _tagRepository = TagRepository();
   final MentionRepository _mentionRepository = MentionRepository();
 
   late String _postType;
   bool _isPosting = false;
+  bool _certifyHumanGenerated = false;
 
   // Character limit constant
   static const int _maxCharacterLimit = 280;
@@ -78,6 +78,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       _loadDraft().then((_) {
         // Add listener after draft is loaded to prevent auto-save notifications
         _contentController.addListener(_onContentChanged);
+        _titleController.addListener(_onContentChanged);
       });
     });
   }
@@ -85,7 +86,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   @override
   void dispose() {
     _contentController.removeListener(_onContentChanged);
+    _titleController.removeListener(_onContentChanged);
     _contentController.dispose();
+    _titleController.dispose();
     _tagController.dispose();
     _mentionController.dispose();
     super.dispose();
@@ -407,11 +410,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     await _clearDraft();
     setState(() {
       _contentController.clear();
+      _titleController.clear();
       _selectedMediaFiles.clear();
       _selectedMediaTypes.clear();
       _selectedTags.clear();
       _taggedPeople.clear();
       _selectedLocation = null;
+      _certifyHumanGenerated = false;
       _hasUnsavedChanges = false;
       _isDraftLoaded = false;
     });
@@ -516,7 +521,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           : null,
       tags: _selectedTags.isNotEmpty
           ? _selectedTags
-                .map((tag) => PostTag(id: 'preview_tag_$tag', tag: tag))
+                .map((tag) => PostTag(id: 'preview_tag_$tag', name: tag))
                 .toList()
           : null,
       location: _selectedLocation,
@@ -678,7 +683,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             runSpacing: 4,
                             children: previewPost.tags!.map((tag) {
                               return Text(
-                                '#${tag.tag}',
+                                '#${tag.name}',
                                 style: TextStyle(
                                   color: Theme.of(context).colorScheme.primary,
                                   fontWeight: FontWeight.bold,
@@ -805,19 +810,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final userId = SupabaseService().currentUser?.id;
       if (userId == null) throw Exception('User not logged in');
 
-      // Upload media files
-      final List<String> uploadedUrls = [];
-      for (var i = 0; i < _selectedMediaFiles.length; i++) {
-        final url = await _mediaRepository.uploadMedia(
-          file: _selectedMediaFiles[i],
-          userId: userId,
-          mediaType: _selectedMediaTypes[i],
-        );
-        if (url != null) {
-          uploadedUrls.add(url);
-        }
-      }
-
       // Extract hashtags from content
       final rawContentHashtags =
           (await Future.value(
@@ -849,22 +841,29 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           .toList();
 
       // Also extract inline @mentions from content text
-      final inlineMentionUsernames =
-          _mentionRepository.extractMentions(_contentController.text);
+      final inlineMentionUsernames = _mentionRepository.extractMentions(
+        _contentController.text,
+      );
       final inlineMentionUserIds = inlineMentionUsernames.isNotEmpty
-          ? await _mentionRepository.resolveUsernamesToIds(inlineMentionUsernames)
+          ? await _mentionRepository.resolveUsernamesToIds(
+              inlineMentionUsernames,
+            )
           : <String>[];
 
       // Merge both sources, deduplicate
-      final mentionedUserIds =
-          {...taggedUserIds, ...inlineMentionUserIds}.toList();
+      final mentionedUserIds = {
+        ...taggedUserIds,
+        ...inlineMentionUserIds,
+      }.toList();
 
       // Create the post
       if (!mounted) return;
       final feedProvider = context.read<FeedProvider>();
+      final titleText = _titleController.text.trim();
       final post = await feedProvider.createPost(
         _contentController.text.trim(),
-        mediaUrls: uploadedUrls.isNotEmpty ? uploadedUrls : null,
+        title: titleText.isNotEmpty ? titleText : null,
+        mediaFiles: _selectedMediaFiles.isNotEmpty ? _selectedMediaFiles : null,
         mediaTypes: _selectedMediaTypes.isNotEmpty ? _selectedMediaTypes : null,
         tags: allTags.isNotEmpty ? allTags : null,
         location: _selectedLocation,
@@ -880,11 +879,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
         // Clear the form and draft
         _contentController.clear();
+        _titleController.clear();
         _selectedMediaFiles.clear();
         _selectedMediaTypes.clear();
         _selectedTags.clear();
         _taggedPeople.clear();
         _selectedLocation = null;
+        _certifyHumanGenerated = false;
         await _clearDraft();
         setState(() {
           _hasUnsavedChanges = false;
@@ -1015,7 +1016,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
-                    onPressed: !hasContent || _isPosting
+                    onPressed:
+                        !hasContent || _isPosting || !_certifyHumanGenerated
                         ? null
                         : _showPreviewDialog,
                     child: _isPosting
@@ -1142,6 +1144,21 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
                     const SizedBox(height: 20),
 
+                    // Optional title
+                    TextField(
+                      controller: _titleController,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Add a title (optional)',
+                        hintStyle: theme.textTheme.titleMedium?.copyWith(
+                          color: colors.onSurfaceVariant.withOpacity(0.5),
+                        ),
+                        border: InputBorder.none,
+                      ),
+                    ),
+
                     // Text input
                     MentionAutocompleteField(
                       controller: _contentController,
@@ -1175,6 +1192,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               : colors.onSurfaceVariant,
                         ),
                       ),
+                    ),
+
+                    // Human-generated content certification
+                    const SizedBox(height: 8),
+                    CheckboxListTile(
+                      value: _certifyHumanGenerated,
+                      onChanged: (value) {
+                        setState(() {
+                          _certifyHumanGenerated = value ?? false;
+                        });
+                      },
+                      title: Text(
+                        'I certify this content is human-generated.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      activeColor: colors.primary,
                     ),
 
                     // Media attachment section (only for Photo/Video)
@@ -1970,7 +2008,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             controller!.setVolume(isMuted ? 0.0 : 1.0);
                           });
                         },
-                        icon: Icon(isMuted ? Icons.volume_off : Icons.volume_up),
+                        icon: Icon(
+                          isMuted ? Icons.volume_off : Icons.volume_up,
+                        ),
                         label: Text(isMuted ? 'Muted' : 'Audio On'),
                         style: FilledButton.styleFrom(
                           backgroundColor: isMuted ? Colors.red : null,
@@ -2009,9 +2049,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load video: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e')));
       }
     } finally {
       controller?.dispose();
@@ -2092,7 +2132,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -2126,7 +2168,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     _videoRotationFlags[index] = rotationDegrees;
                     ScaffoldMessenger.of(this.context).showSnackBar(
                       SnackBar(
-                        content: Text('Video will be rotated ${rotationDegrees % 360}° when posted'),
+                        content: Text(
+                          'Video will be rotated ${rotationDegrees % 360}° when posted',
+                        ),
                         duration: const Duration(seconds: 2),
                       ),
                     );
@@ -2140,9 +2184,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load video: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e')));
       }
     } finally {
       controller?.dispose();
@@ -2516,12 +2560,12 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                         spacing: 8,
                         runSpacing: 8,
                         children: _suggestions.map((suggestion) {
-                          final isSelected = _tags.contains(suggestion.tag);
+                          final isSelected = _tags.contains(suggestion.name);
                           return ActionChip(
-                            label: Text('#${suggestion.tag}'),
+                            label: Text('#${suggestion.name}'),
                             onPressed: isSelected
                                 ? null
-                                : () => _addTag(suggestion.tag),
+                                : () => _addTag(suggestion.name),
                             backgroundColor: isSelected
                                 ? colors.primaryContainer
                                 : null,

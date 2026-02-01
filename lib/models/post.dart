@@ -61,9 +61,9 @@ class PostMedia {
 @JsonSerializable()
 class PostTag {
   final String id;
-  final String tag;
+  final String name;
 
-  PostTag({required this.id, required this.tag});
+  PostTag({required this.id, required this.name});
 
   factory PostTag.fromJson(Map<String, dynamic> json) =>
       _$PostTagFromJson(json);
@@ -72,7 +72,7 @@ class PostTag {
   factory PostTag.fromSupabase(Map<String, dynamic> json) {
     return PostTag(
       id: json['id']?.toString() ?? '',
-      tag: json['tag']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
     );
   }
 }
@@ -244,7 +244,7 @@ class Post {
     if (mediaList != null && mediaList!.isNotEmpty) {
       final path = mediaList!.first.storagePath;
       if (path.startsWith('http')) return path;
-      return '${SupabaseConfig.supabaseUrl}/storage/v1/object/public/media/$path';
+      return '${SupabaseConfig.supabaseUrl}/storage/v1/object/public/${SupabaseConfig.postMediaBucket}/$path';
     }
     return null;
   }
@@ -273,7 +273,7 @@ class Post {
     final reactionCounts = <String, int>{};
     String? userReaction;
     for (final r in reactions) {
-      final type = r['reaction'] as String;
+      final type = r['reaction_type'] as String;
       reactionCounts[type] = (reactionCounts[type] ?? 0) + 1;
       if (currentUserId != null && r['user_id'] == currentUserId) {
         userReaction = type;

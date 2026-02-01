@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../providers/feed_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../models/post.dart';
+import '../../config/supabase_config.dart';
 
 class EditPostScreen extends StatefulWidget {
   final Post post;
@@ -40,7 +41,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
     _existingMedia = List.from(widget.post.mediaList ?? []);
     _selectedLocation = widget.post.location;
     // Map PostTag objects to strings
-    _selectedTags = widget.post.tags?.map((t) => t.tag).toList() ?? [];
+    _selectedTags = widget.post.tags?.map((t) => t.name).toList() ?? [];
   }
 
   @override
@@ -226,7 +227,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
                                   // Assuming full URL or using primaryMediaUrl logic helper
                                   media.storagePath.startsWith('http')
                                       ? media.storagePath
-                                      : 'https://your-project-url.supabase.co/storage/v1/object/public/media/${media.storagePath}',
+                                      : '${SupabaseConfig.supabaseUrl}/storage/v1/object/public/${SupabaseConfig.postMediaBucket}/${media.storagePath}',
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) =>
                                       Container(

@@ -41,7 +41,7 @@ class CommentRepository {
           ),
           reactions!reactions_comment_id_fkey (
             user_id,
-            reaction
+            reaction_type
           )
         ''')
         .eq('post_id', postId)
@@ -169,7 +169,7 @@ class CommentRepository {
           ),
           reactions!reactions_comment_id_fkey (
             user_id,
-            reaction
+            reaction_type
           )
         ''')
         .eq('parent_comment_id', parentCommentId)
@@ -353,7 +353,7 @@ class CommentRepository {
 
       // Upload to Supabase Storage
       await _client.storage
-          .from('media')
+          .from(SupabaseConfig.commentMediaBucket)
           .upload(
             storagePath,
             file,
@@ -361,7 +361,9 @@ class CommentRepository {
           );
 
       // Get public URL
-      final publicUrl = _client.storage.from('media').getPublicUrl(storagePath);
+      final publicUrl = _client.storage
+          .from(SupabaseConfig.commentMediaBucket)
+          .getPublicUrl(storagePath);
       debugPrint('CommentRepository: Uploaded comment media to $publicUrl');
       return publicUrl;
     } catch (e) {
@@ -455,7 +457,7 @@ class CommentRepository {
             ),
             reactions!reactions_comment_id_fkey (
               user_id,
-              reaction
+              reaction_type
             )
           ''')
           .single();

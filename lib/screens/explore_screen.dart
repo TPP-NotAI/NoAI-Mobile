@@ -308,7 +308,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
               final tag = _trendingTags[index];
               return _TrendingTagChip(
                 tag: tag,
-                onTap: () => _openHashtagFeed(context, tag.tag),
+                onTap: () => _openHashtagFeed(context, tag.name),
               );
             },
           ),
@@ -391,8 +391,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
         // Search in hashtags
         if (p.tags != null) {
           for (final tag in p.tags!) {
-            if ('#${tag.tag}'.toLowerCase().contains(q) ||
-                tag.tag.toLowerCase().contains(q)) {
+            if ('#${tag.name}'.toLowerCase().contains(q) ||
+                tag.name.toLowerCase().contains(q)) {
               return true;
             }
           }
@@ -544,7 +544,7 @@ class _TrendingTagChip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '#${tag.tag}',
+                  '#${tag.name}',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,

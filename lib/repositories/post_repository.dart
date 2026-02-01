@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
 import '../models/post.dart';
@@ -38,7 +39,7 @@ class PostRepository {
           ),
           reactions!reactions_post_id_fkey (
             user_id,
-            reaction
+            reaction_type
           ),
           comments!comments_post_id_fkey (
             id
@@ -55,7 +56,7 @@ class PostRepository {
           post_tags (
             tags (
               id,
-              tag
+              name
             )
           ),
           mentions (
@@ -90,7 +91,7 @@ class PostRepository {
             ),
             reactions!reactions_post_id_fkey (
               user_id,
-              reaction
+              reaction_type
             ),
             comments!comments_post_id_fkey (
               id
@@ -107,7 +108,7 @@ class PostRepository {
             post_tags (
               tags (
                 id,
-                tag
+                name
               )
             ),
             mentions (
@@ -242,7 +243,7 @@ class PostRepository {
           ),
           reactions!reactions_post_id_fkey (
             user_id,
-            reaction
+            reaction_type
           ),
           comments!comments_post_id_fkey (
             id
@@ -259,7 +260,7 @@ class PostRepository {
           post_tags (
             tags (
               id,
-              tag
+              name
             )
           ),
           mentions (
@@ -307,7 +308,7 @@ class PostRepository {
           ),
           reactions!reactions_post_id_fkey (
             user_id,
-            reaction
+            reaction_type
           ),
           comments!comments_post_id_fkey (
             id
@@ -324,7 +325,7 @@ class PostRepository {
           post_tags (
             tags (
               id,
-              tag
+              name
             )
           ),
           mentions (
@@ -360,7 +361,7 @@ class PostRepository {
             ),
             reactions!reactions_post_id_fkey (
               user_id,
-              reaction
+              reaction_type
             ),
             comments!comments_post_id_fkey (
               id
@@ -377,7 +378,7 @@ class PostRepository {
             post_tags (
               tags (
                 id,
-                tag
+                name
               )
             ),
             mentions (
@@ -448,22 +449,22 @@ class PostRepository {
     required String body,
     String? title,
     String bodyFormat = 'plain',
-    List<String>? mediaUrls, // URLs of uploaded media
+    List<File>? mediaFiles,
     List<String>? mediaTypes, // 'image' or 'video' for each media
     List<String>? tags, // Tag names (hashtags/topics)
     String? location,
     List<String>? mentionedUserIds,
   }) async {
     try {
-      // Create the post first
-      final postData = {
+      // Create the post first to get the postId
+      final postData = <String, dynamic>{
         'author_id': authorId,
         'body': body,
         'title': title,
         'body_format': bodyFormat,
         'status': 'published',
-        'location': location, // Added location
       };
+      if (location != null) postData['location'] = location;
 
       final response = await _client
           .from(SupabaseConfig.postsTable)
@@ -473,17 +474,26 @@ class PostRepository {
 
       final postId = response['id'] as String;
 
-      // Add media attachments
-      if (mediaUrls != null && mediaUrls.isNotEmpty) {
-        for (var i = 0; i < mediaUrls.length; i++) {
+      // Upload media files and create post_media records
+      if (mediaFiles != null && mediaFiles.isNotEmpty) {
+        for (var i = 0; i < mediaFiles.length; i++) {
           final mediaType = (mediaTypes != null && i < mediaTypes.length)
               ? mediaTypes[i]
               : 'image';
-          await _mediaRepository.createPostMedia(
+          final storagePath = await _mediaRepository.uploadMedia(
+            file: mediaFiles[i],
+            userId: authorId,
             postId: postId,
             mediaType: mediaType,
-            storagePath: mediaUrls[i],
+            index: i,
           );
+          if (storagePath != null) {
+            await _mediaRepository.createPostMedia(
+              postId: postId,
+              mediaType: mediaType,
+              storagePath: storagePath,
+            );
+          }
         }
       }
 
