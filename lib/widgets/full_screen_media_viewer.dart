@@ -379,7 +379,7 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _buildStatButton(
-              icon: _isLiked ? Icons.thumb_up_alt : Icons.thumb_up_alt_outlined,
+              icon: _isLiked ? Icons.favorite : Icons.favorite_border,
               value: _formatCount(_likeCount),
               label: 'Likes',
               isActive: _isLiked,
@@ -408,7 +408,7 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
       onTap: onTap,
       child: Row(
         children: [
-          Icon(icon, size: 18, color: isActive ? Colors.blue : Colors.white70),
+          Icon(icon, size: 18, color: isActive ? Colors.red : Colors.white70),
           const SizedBox(width: 6),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,7 +416,7 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
               Text(
                 value,
                 style: TextStyle(
-                  color: isActive ? Colors.blue : Colors.white,
+                  color: isActive ? Colors.red : Colors.white,
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),

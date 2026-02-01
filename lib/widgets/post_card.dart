@@ -954,7 +954,7 @@ class _Actions extends StatelessWidget {
       child: Row(
         children: [
           _ActionButton(
-            icon: Icons.verified_outlined,
+            icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
             label: _format(post.likes),
             isLiked: post.isLiked,
             onTap: () => feedProvider.toggleLike(post.id),
@@ -1102,8 +1102,8 @@ class _ActionButton extends StatelessWidget {
     Color textColor;
 
     if (isLiked) {
-      iconColor = const Color(0xFF10B981);
-      textColor = const Color(0xFF10B981);
+      iconColor = Colors.red;
+      textColor = Colors.red;
     } else if (isBookmarked) {
       iconColor = colors.primary;
       textColor = colors.primary;
