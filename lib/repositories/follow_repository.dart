@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
+import '../models/user.dart' as app_models;
 import 'notification_repository.dart';
 
 /// Repository for managing follow relationships in Supabase.
@@ -84,6 +85,44 @@ class FollowRepository {
     } catch (e) {
       debugPrint('FollowRepository: Error getting following count - $e');
       return 0;
+    }
+  }
+
+  /// Get the list of users who follow a specific user.
+  Future<List<app_models.User>> getFollowers(String userId) async {
+    try {
+      final response = await _client
+          .from(SupabaseConfig.followsTable)
+          .select('follower_id, ${SupabaseConfig.profilesTable}!follows_follower_id_fkey(*, ${SupabaseConfig.walletsTable}(*))')
+          .eq('following_id', userId);
+
+      return (response as List).map((row) {
+        final profile = row[SupabaseConfig.profilesTable] as Map<String, dynamic>;
+        final wallet = profile[SupabaseConfig.walletsTable];
+        return app_models.User.fromSupabase(profile, wallet: wallet);
+      }).toList();
+    } catch (e) {
+      debugPrint('FollowRepository: Error getting followers list - $e');
+      return [];
+    }
+  }
+
+  /// Get the list of users that a specific user is following.
+  Future<List<app_models.User>> getFollowing(String userId) async {
+    try {
+      final response = await _client
+          .from(SupabaseConfig.followsTable)
+          .select('following_id, ${SupabaseConfig.profilesTable}!follows_following_id_fkey(*, ${SupabaseConfig.walletsTable}(*))')
+          .eq('follower_id', userId);
+
+      return (response as List).map((row) {
+        final profile = row[SupabaseConfig.profilesTable] as Map<String, dynamic>;
+        final wallet = profile[SupabaseConfig.walletsTable];
+        return app_models.User.fromSupabase(profile, wallet: wallet);
+      }).toList();
+    } catch (e) {
+      debugPrint('FollowRepository: Error getting following list - $e');
+      return [];
     }
   }
 

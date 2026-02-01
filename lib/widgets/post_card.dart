@@ -1288,10 +1288,15 @@ class _PostMenu extends StatelessWidget {
   }
 
   void _handleUnpublish(BuildContext context) async {
-    Navigator.pop(context); // Close menu
+    // Capture references before closing the bottom sheet
+    final feedProvider = context.read<FeedProvider>();
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    navigator.pop(); // Close menu
 
     final confirm = await showDialog<bool>(
-      context: context,
+      context: navigator.context,
       builder: (context) => AlertDialog(
         title: const Text('Unpublish Post?'),
         content: const Text(
@@ -1310,26 +1315,28 @@ class _PostMenu extends StatelessWidget {
       ),
     );
 
-    if (confirm == true && mounted(context)) {
-      final feedProvider = context.read<FeedProvider>();
+    if (confirm == true) {
       final success = await feedProvider.unpublishPost(post.id);
-      if (mounted(context)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success ? 'Post unpublished' : 'Failed to unpublish post',
-            ),
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            success ? 'Post unpublished' : 'Failed to unpublish post',
           ),
-        );
-      }
+        ),
+      );
     }
   }
 
   void _handleDelete(BuildContext context) async {
-    Navigator.pop(context); // Close menu
+    // Capture references before closing the bottom sheet
+    final feedProvider = context.read<FeedProvider>();
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    navigator.pop(); // Close menu
 
     final confirm = await showDialog<bool>(
-      context: context,
+      context: navigator.context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Post?'),
         content: const Text(
@@ -1351,16 +1358,13 @@ class _PostMenu extends StatelessWidget {
       ),
     );
 
-    if (confirm == true && mounted(context)) {
-      final feedProvider = context.read<FeedProvider>();
+    if (confirm == true) {
       final success = await feedProvider.deletePost(post.id);
-      if (mounted(context)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success ? 'Post deleted' : 'Failed to delete post'),
-          ),
-        );
-      }
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Post deleted' : 'Failed to delete post'),
+        ),
+      );
     }
   }
 

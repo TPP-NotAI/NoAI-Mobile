@@ -579,6 +579,91 @@ class PostRepository {
     }
   }
 
+  /// Republish a draft post (set status back to 'published').
+  /// Validates ownership before republishing.
+  Future<bool> republishPost(String postId, {required String currentUserId}) async {
+    try {
+      final post = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('author_id')
+          .eq('id', postId)
+          .maybeSingle();
+
+      if (post == null || post['author_id'] != currentUserId) {
+        debugPrint('PostRepository: Unauthorized or post not found');
+        return false;
+      }
+
+      await _client
+          .from(SupabaseConfig.postsTable)
+          .update({'status': 'published'})
+          .eq('id', postId);
+      return true;
+    } catch (e) {
+      debugPrint('PostRepository: Error republishing post - $e');
+      return false;
+    }
+  }
+
+  /// Fetch draft (unpublished) posts for a user.
+  Future<List<Post>> getDraftsByUser(String userId) async {
+    try {
+      final response = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('''
+            *,
+            profiles!posts_author_id_fkey (
+              user_id,
+              username,
+              display_name,
+              avatar_url,
+              verified_human,
+              posts_visibility
+            ),
+            reactions!reactions_post_id_fkey (
+              user_id,
+              reaction_type
+            ),
+            comments!comments_post_id_fkey (
+              id
+            ),
+            post_media (
+              id,
+              media_type,
+              storage_path,
+              mime_type,
+              width,
+              height,
+              duration_seconds
+            ),
+            post_tags (
+              tags (
+                id,
+                name
+              )
+            ),
+            mentions (
+              mentioned_user_id
+            )
+          ''')
+          .eq('author_id', userId)
+          .eq('status', 'draft')
+          .order('created_at', ascending: false);
+
+      return (response as List<dynamic>)
+          .map(
+            (json) => Post.fromSupabase(
+              json as Map<String, dynamic>,
+              currentUserId: userId,
+            ),
+          )
+          .toList();
+    } catch (e) {
+      debugPrint('PostRepository: Error fetching drafts - $e');
+      return [];
+    }
+  }
+
   /// Update a post's content.
   /// Validates ownership before updating.
   Future<bool> updatePost({

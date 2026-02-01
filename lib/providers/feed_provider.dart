@@ -24,6 +24,7 @@ class FeedProvider with ChangeNotifier {
       UserInterestsRepository();
 
   List<Post> _posts = [];
+  List<Post> _draftPosts = [];
   List<String>? _userInterests;
   bool _isLoading = false;
   bool _isRefreshing = false;
@@ -93,6 +94,9 @@ class FeedProvider with ChangeNotifier {
 
   /// Get unfiltered posts (for internal use).
   List<Post> get allPosts => _posts;
+
+  /// Get draft (unpublished) posts for the current user.
+  List<Post> get draftPosts => _draftPosts;
 
   /// Update blocked user IDs for filtering.
   void setBlockedUserIds(Set<String> blocked, Set<String> blockedBy) {
@@ -1007,7 +1011,44 @@ class FeedProvider with ChangeNotifier {
       currentUserId: userId,
     );
     if (success) {
+      final post = _posts.firstWhere((p) => p.id == postId, orElse: () => _posts.first);
+      if (post.id == postId) {
+        _draftPosts.insert(0, post);
+      }
       _posts.removeWhere((p) => p.id == postId);
+      notifyListeners();
+    }
+    return success;
+  }
+
+  /// Load draft posts for the current user.
+  Future<void> loadDraftPosts() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+
+    try {
+      _draftPosts = await _postRepository.getDraftsByUser(userId);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('FeedProvider: Error loading draft posts - $e');
+    }
+  }
+
+  /// Republish a draft post (set status back to 'published').
+  Future<bool> republishPost(String postId) async {
+    final userId = _currentUserId;
+    if (userId == null) return false;
+
+    final success = await _postRepository.republishPost(
+      postId,
+      currentUserId: userId,
+    );
+    if (success) {
+      final post = _draftPosts.firstWhere((p) => p.id == postId, orElse: () => _draftPosts.first);
+      if (post.id == postId) {
+        _posts.insert(0, post);
+      }
+      _draftPosts.removeWhere((p) => p.id == postId);
       notifyListeners();
     }
     return success;

@@ -65,7 +65,7 @@ class ReactionRepository {
 
         await _notificationRepository.createNotification(
           userId: comment['author_id'],
-          type: 'reaction',
+          type: 'like',
           title: 'New Like',
           body: 'Someone liked your comment: "${comment['body']}"',
           actorId: userId,
@@ -141,7 +141,7 @@ class ReactionRepository {
 
         await _notificationRepository.createNotification(
           userId: post['author_id'],
-          type: 'reaction',
+          type: 'like',
           title: 'New Like',
           body: notificationBody,
           actorId: userId,

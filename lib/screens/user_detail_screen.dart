@@ -11,7 +11,7 @@ import '../widgets/post_card.dart';
 import '../widgets/comments_sheet.dart';
 import '../widgets/tip_modal.dart';
 import '../repositories/post_repository.dart';
-
+import 'profile/follow_list_screen.dart';
 
 class UserDetailScreen extends StatefulWidget {
   final User user;
@@ -31,9 +31,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   void initState() {
     super.initState();
     _loadUserPosts();
-    // Load follow status for this user
+    // Load follow status and fetch full user data with counts
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<UserProvider>().loadFollowStatus(widget.user.id);
+      final userProvider = context.read<UserProvider>();
+      userProvider.loadFollowStatus(widget.user.id);
+      userProvider.fetchUser(widget.user.id);
     });
   }
 
@@ -63,12 +65,14 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     final colors = Theme.of(context).colorScheme;
     final userProvider = context.watch<UserProvider>();
     final currentUserId = context.read<AuthProvider>().currentUser?.id;
-    final isFollowing = userProvider.isFollowing(widget.user.id);
-    final isSelf = currentUserId == widget.user.id;
+    // Use fetched user from provider (with full counts) or fall back to passed-in user
+    final user = userProvider.getUser(widget.user.id) ?? widget.user;
+    final isFollowing = userProvider.isFollowing(user.id);
+    final isSelf = currentUserId == user.id;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.user.displayName),
+        title: const Text('Profile Details'),
         actions: [
           IconButton(
             icon: const Icon(Icons.more_horiz),
@@ -84,10 +88,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    colors.primaryContainer,
-                    colors.secondaryContainer,
-                  ],
+                  colors: [colors.primaryContainer, colors.secondaryContainer],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -97,10 +98,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: colors.surface,
-                    child: widget.user.avatar != null
+                    child: user.avatar != null
                         ? ClipOval(
                             child: Image.network(
-                              widget.user.avatar!,
+                              user.avatar!,
                               width: 100,
                               height: 100,
                               fit: BoxFit.cover,
@@ -113,23 +114,18 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                               },
                             ),
                           )
-                        : Icon(
-                            Icons.person,
-                            size: 50,
-                            color: colors.primary,
-                          ),
+                        : Icon(Icons.person, size: 50, color: colors.primary),
                   ),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        widget.user.displayName,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        user.displayName,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                      if (widget.user.isVerified) ...[
+                      if (user.isVerified) ...[
                         const SizedBox(width: 6),
                         Icon(Icons.verified, size: 20, color: colors.primary),
                       ],
@@ -137,15 +133,16 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '@${widget.user.username}',
+                    '@${user.username}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: colors.onSurfaceVariant,
                     ),
                   ),
-                  if (widget.user.bio != null && widget.user.bio!.isNotEmpty) ...[
+                  if (user.bio != null &&
+                      user.bio!.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
-                      widget.user.bio!,
+                      user.bio!,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
@@ -155,11 +152,49 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildStatColumn(context, '${widget.user.postsCount}', 'Posts'),
+                      _buildStatColumn(
+                        context,
+                        '${user.postsCount}',
+                        'Posts',
+                      ),
                       const SizedBox(width: 32),
-                      _buildStatColumn(context, '${widget.user.followersCount}', 'Followers'),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FollowListScreen(
+                                userId: user.id,
+                                type: FollowListType.followers,
+                              ),
+                            ),
+                          );
+                        },
+                        child: _buildStatColumn(
+                          context,
+                          '${user.followersCount}',
+                          'Followers',
+                        ),
+                      ),
                       const SizedBox(width: 32),
-                      _buildStatColumn(context, '${widget.user.followingCount}', 'Following'),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FollowListScreen(
+                                userId: user.id,
+                                type: FollowListType.following,
+                              ),
+                            ),
+                          );
+                        },
+                        child: _buildStatColumn(
+                          context,
+                          '${user.followingCount}',
+                          'Following',
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -170,9 +205,13 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                       children: [
                         FilledButton.icon(
                           onPressed: () async {
-                            await userProvider.toggleFollow(widget.user.id);
+                            await userProvider.toggleFollow(user.id);
                           },
-                          icon: Icon(isFollowing ? Icons.person_remove : Icons.person_add),
+                          icon: Icon(
+                            isFollowing
+                                ? Icons.person_remove
+                                : Icons.person_add,
+                          ),
                           label: Text(isFollowing ? 'Unfollow' : 'Follow'),
                           style: FilledButton.styleFrom(
                             backgroundColor: isFollowing
@@ -187,9 +226,8 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                         OutlinedButton.icon(
                           onPressed: () async {
                             final chatProvider = context.read<ChatProvider>();
-                            final conversation = await chatProvider.startConversation(
-                              widget.user.id,
-                            );
+                            final conversation = await chatProvider
+                                .startConversation(user.id);
                             if (conversation != null && context.mounted) {
                               Navigator.push(
                                 context,
@@ -203,6 +241,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                           },
                           icon: const Icon(Icons.mail_outline),
                           label: const Text('Message'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colors.onSurface,
+                            side: BorderSide(color: colors.onSurface),
+                          ),
                         ),
                       ],
                     ),
@@ -215,7 +257,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Posts by ${widget.user.displayName}',
+                    'Posts by ${user.displayName}',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -234,7 +276,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                         padding: const EdgeInsets.all(32.0),
                         child: Column(
                           children: [
-                            Icon(Icons.article_outlined, size: 48, color: colors.onSurfaceVariant),
+                            Icon(
+                              Icons.article_outlined,
+                              size: 48,
+                              color: colors.onSurfaceVariant,
+                            ),
                             const SizedBox(height: 12),
                             Text(
                               'No posts yet',
@@ -259,7 +305,9 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                               isScrollControlled: true,
                               backgroundColor: colors.surface,
                               shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(24),
+                                ),
                               ),
                               builder: (_) => CommentsSheet(post: post),
                             );
@@ -270,7 +318,9 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                               isScrollControlled: true,
                               backgroundColor: colors.surface,
                               shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(24),
+                                ),
                               ),
                               builder: (_) => TipModal(post: post),
                             );
@@ -292,9 +342,9 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       children: [
         Text(
           count,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         Text(
           label,

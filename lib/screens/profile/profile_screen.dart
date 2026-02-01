@@ -13,6 +13,7 @@ import '../../providers/chat_provider.dart';
 import '../chat/conversation_thread_page.dart';
 import '../post_detail_screen.dart';
 import 'edit_profile_screen.dart';
+import 'follow_list_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;
@@ -42,6 +43,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             widget.userId != authProvider.currentUser?.id) {
           userProvider.loadFollowStatus(targetId);
           userProvider.loadBlockStatus(targetId);
+        } else {
+          // Load draft posts for own profile
+          context.read<FeedProvider>().loadDraftPosts();
         }
       }
     });
@@ -186,11 +190,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPressed: () => Navigator.pop(context),
               ),
               title: Text(
-                isOwnProfile
-                    ? 'My Profile'
-                    : (user.displayName.isNotEmpty
-                          ? user.displayName
-                          : user.username),
+                isOwnProfile ? 'My Profile' : 'Profile Details',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: colors.onSurface,
@@ -265,6 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _scrollToTabs();
                   },
                   colors: colors,
+                  isOwnProfile: isOwnProfile,
                 ),
               ),
             ),
@@ -274,8 +275,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _ActivityLog(posts: posts, colors: colors)
             else if (_tabIndex == 1)
               _Statistics(user: user, colors: colors)
-            else
-              _PostsGrid(posts: posts, colors: colors),
+            else if (_tabIndex == 2)
+              _PostsGrid(posts: posts, colors: colors)
+            else if (_tabIndex == 3 && isOwnProfile)
+              _DraftsGrid(
+                posts: feedProvider.draftPosts,
+                colors: colors,
+                onRepublish: (postId) async {
+                  final success = await feedProvider.republishPost(postId);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          success
+                              ? 'Post republished'
+                              : 'Failed to republish post',
+                        ),
+                      ),
+                    );
+                  }
+                },
+              ),
           ],
         ),
       ),
@@ -1247,12 +1267,34 @@ class _Statistics extends StatelessWidget {
             label: 'Total Followers',
             value: user.followersCount.toString(),
             colors: colors,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FollowListScreen(
+                    userId: user.id,
+                    type: FollowListType.followers,
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
           _StatItem(
             label: 'Following',
             value: user.followingCount.toString(),
             colors: colors,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FollowListScreen(
+                    userId: user.id,
+                    type: FollowListType.following,
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
           _StatItem(
@@ -1278,16 +1320,18 @@ class _StatItem extends StatelessWidget {
   final String label;
   final String value;
   final ColorScheme colors;
+  final VoidCallback? onTap;
 
   const _StatItem({
     required this.label,
     required this.value,
     required this.colors,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final container = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
@@ -1308,21 +1352,105 @@ class _StatItem extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: colors.onSurface,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: colors.onSurface,
+                ),
+              ),
+              if (onTap != null) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: colors.onSurfaceVariant,
+                ),
+              ],
+            ],
           ),
         ],
       ),
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: container,
+      );
+    }
+    return container;
   }
 }
 
 /* ───────────────── POSTS GRID ───────────────── */
+
+/* ───────────────── DRAFTS GRID ───────────────── */
+
+class _DraftsGrid extends StatelessWidget {
+  final List posts;
+  final ColorScheme colors;
+  final Future<void> Function(String postId) onRepublish;
+
+  const _DraftsGrid({
+    required this.posts,
+    required this.colors,
+    required this.onRepublish,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (posts.isEmpty) {
+      return const SliverFillRemaining(
+        child: Center(child: Text('No drafts yet')),
+      );
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.all(20),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          childAspectRatio: 1,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, i) => GestureDetector(
+            onTap: () async {
+              await onRepublish(posts[i].id);
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: colors.outlineVariant.withOpacity(0.5),
+                  width: 1,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  'Draft ${i + 1}',
+                  style: TextStyle(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          childCount: posts.length,
+        ),
+      ),
+    );
+  }
+}
 
 class _PostsGrid extends StatelessWidget {
   final List posts;
@@ -1602,11 +1730,13 @@ class _TabBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTabChanged;
   final ColorScheme colors;
+  final bool isOwnProfile;
 
   const _TabBar({
     required this.currentIndex,
     required this.onTabChanged,
     required this.colors,
+    this.isOwnProfile = false,
   });
 
   @override
@@ -1641,6 +1771,14 @@ class _TabBar extends StatelessWidget {
             onTap: () => onTabChanged(2),
             colors: colors,
           ),
+          if (isOwnProfile)
+            _TabButton(
+              label: 'Drafts',
+              index: 3,
+              isSelected: currentIndex == 3,
+              onTap: () => onTabChanged(3),
+              colors: colors,
+            ),
         ],
       ),
     );
