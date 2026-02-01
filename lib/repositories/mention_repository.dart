@@ -144,13 +144,17 @@ class MentionRepository {
       final normalizedQuery = query.toLowerCase().trim();
       if (normalizedQuery.isEmpty) return [];
 
-      final allExcluded = {...blockedUserIds, ...blockedByUserIds, ...mutedUserIds};
+      final allExcluded = {
+        ...blockedUserIds,
+        ...blockedByUserIds,
+        ...mutedUserIds,
+      };
 
       final response = await _client
           .from(SupabaseConfig.profilesTable)
           .select('user_id, username, display_name, avatar_url')
           .or(
-            'username.ilike.%$normalizedQuery%,display_name.ilike.%$normalizedQuery%',
+            'username.ilike.${normalizedQuery}%,display_name.ilike.${normalizedQuery}%',
           )
           .limit(
             limit + allExcluded.length,

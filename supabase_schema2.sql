@@ -24,13 +24,6 @@ CREATE TABLE public.admin_users (
   user_id uuid NOT NULL,
   role USER-DEFINED NOT NULL DEFAULT 'moderator'::admin_role,
   is_active boolean NOT NULL DEFAULT true,
-  can_manage_users boolean NOT NULL DEFAULT false,
-  can_manage_content boolean NOT NULL DEFAULT true,
-  can_manage_appeals boolean NOT NULL DEFAULT true,
-  can_manage_treasury boolean NOT NULL DEFAULT false,
-  can_manage_config boolean NOT NULL DEFAULT false,
-  can_manage_admins boolean NOT NULL DEFAULT false,
-  last_action_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT admin_users_pkey PRIMARY KEY (user_id),
@@ -278,6 +271,8 @@ CREATE TABLE public.comments (
   edited_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  media_url text,
+  media_type text,
   CONSTRAINT comments_pkey PRIMARY KEY (id),
   CONSTRAINT comments_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
   CONSTRAINT comments_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.profiles(user_id),
@@ -324,7 +319,7 @@ CREATE TABLE public.dm_participants (
   nickname text,
   last_read_at timestamp with time zone,
   unread_count integer NOT NULL DEFAULT 0,
-  is_admin boolean DEFAULT false,
+  is_admin boolean NOT NULL DEFAULT false,
   joined_at timestamp with time zone NOT NULL DEFAULT now(),
   left_at timestamp with time zone,
   CONSTRAINT dm_participants_pkey PRIMARY KEY (thread_id, user_id),
@@ -448,10 +443,19 @@ CREATE TABLE public.moderation_cases (
   escalation_reason text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  media_url text,
   CONSTRAINT moderation_cases_pkey PRIMARY KEY (id),
   CONSTRAINT moderation_cases_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
   CONSTRAINT moderation_cases_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id),
   CONSTRAINT moderation_cases_reported_user_id_fkey FOREIGN KEY (reported_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.mutes (
+  muter_id uuid NOT NULL,
+  muted_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT mutes_pkey PRIMARY KEY (muter_id, muted_id),
+  CONSTRAINT mutes_muter_id_fkey FOREIGN KEY (muter_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT mutes_muted_id_fkey FOREIGN KEY (muted_id) REFERENCES public.profiles(user_id)
 );
 CREATE TABLE public.notification_preferences (
   user_id uuid NOT NULL,
@@ -637,7 +641,6 @@ CREATE TABLE public.posts (
   authenticity_notes text,
   verification_method text,
   verification_session_id text,
-  location text,
   is_sensitive boolean NOT NULL DEFAULT false,
   sensitive_reason USER-DEFINED DEFAULT 'none'::sensitivity_reason,
   scheduled_at timestamp with time zone,
@@ -653,6 +656,7 @@ CREATE TABLE public.posts (
   last_edited_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  location text,
   CONSTRAINT posts_pkey PRIMARY KEY (id),
   CONSTRAINT posts_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.profiles(user_id)
 );
@@ -695,6 +699,1049 @@ CREATE TABLE public.profiles (
   last_active_at timestamp with time zone DEFAULT now(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  interests jsonb DEFAULT '[]'::jsonb,
+  phone_number text,
+  posts_visibility text NOT NULL DEFAULT 'everyone'::text CHECK (posts_visibility = ANY (ARRAY['everyone'::text, 'followers'::text, 'private'::text])),
+  comments_visibility text NOT NULL DEFAULT 'everyone'::text CHECK (comments_visibility = ANY (ARRAY['everyone'::text, 'followers'::text, 'private'::text])),
+  messages_visibility text NOT NULL DEFAULT 'everyone'::text CHECK (messages_visibility = ANY (ARRAY['everyone'::text, 'followers'::text, 'private'::text])),
+  birth_date date,
+  CONSTRAINT profiles_pkey PRIMARY KEY (user_id),
+  CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.reactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  post_id uuid,
+  comment_id uuid,
+  reaction_type USER-DEFINED NOT NULL DEFAULT 'like'::reaction_type,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT reactions_pkey PRIMARY KEY (id),
+  CONSTRAINT reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT reactions_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT reactions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id)
+);
+CREATE TABLE public.reposts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  post_id uuid NOT NULL,
+  quote_text text CHECK (quote_text IS NULL OR char_length(quote_text) <= 500),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT reposts_pkey PRIMARY KEY (id),
+  CONSTRAINT reposts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT reposts_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id)
+);
+CREATE TABLE public.roocoin_transactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  tx_type USER-DEFINED NOT NULL,
+  status USER-DEFINED NOT NULL DEFAULT 'pending'::roocoin_tx_status,
+  from_user_id uuid,
+  to_user_id uuid,
+  amount_rc numeric NOT NULL CHECK (amount_rc >= 0::numeric),
+  fee_rc numeric NOT NULL DEFAULT 0 CHECK (fee_rc >= 0::numeric),
+  reference_post_id uuid,
+  reference_comment_id uuid,
+  memo text,
+  tx_hash text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  completed_at timestamp with time zone,
+  failed_at timestamp with time zone,
+  failure_reason text,
+  CONSTRAINT roocoin_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT roocoin_transactions_from_user_id_fkey FOREIGN KEY (from_user_id) REFERENCES public.wallets(user_id),
+  CONSTRAINT roocoin_transactions_to_user_id_fkey FOREIGN KEY (to_user_id) REFERENCES public.wallets(user_id),
+  CONSTRAINT roocoin_transactions_reference_post_id_fkey FOREIGN KEY (reference_post_id) REFERENCES public.posts(id),
+  CONSTRAINT roocoin_transactions_reference_comment_id_fkey FOREIGN KEY (reference_comment_id) REFERENCES public.comments(id)
+);
+CREATE TABLE public.search_history (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  query text NOT NULL,
+  search_type text NOT NULL DEFAULT 'all'::text CHECK (search_type = ANY (ARRAY['all'::text, 'posts'::text, 'users'::text, 'tags'::text])),
+  results_count integer,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT search_history_pkey PRIMARY KEY (id),
+  CONSTRAINT search_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.staking_positions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  tier_id uuid,
+  amount_rc numeric NOT NULL CHECK (amount_rc > 0::numeric),
+  apy_percent numeric NOT NULL,
+  lock_days integer NOT NULL DEFAULT 0,
+  status USER-DEFINED NOT NULL DEFAULT 'active'::staking_status,
+  total_rewards_rc numeric NOT NULL DEFAULT 0,
+  last_reward_at timestamp with time zone,
+  started_at timestamp with time zone NOT NULL DEFAULT now(),
+  unlock_at timestamp with time zone,
+  closed_at timestamp with time zone,
+  early_withdrawal_fee_percent numeric DEFAULT 5,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT staking_positions_pkey PRIMARY KEY (id),
+  CONSTRAINT staking_positions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.wallets(user_id),
+  CONSTRAINT staking_positions_tier_id_fkey FOREIGN KEY (tier_id) REFERENCES public.staking_tiers(id)
+);
+CREATE TABLE public.staking_rewards (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  position_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  transaction_id uuid,
+  amount_rc numeric NOT NULL CHECK (amount_rc >= 0::numeric),
+  period_start timestamp with time zone NOT NULL,
+  period_end timestamp with time zone NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT staking_rewards_pkey PRIMARY KEY (id),
+  CONSTRAINT staking_rewards_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.wallets(user_id),
+  CONSTRAINT staking_rewards_position_id_fkey FOREIGN KEY (position_id) REFERENCES public.staking_positions(id),
+  CONSTRAINT staking_rewards_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.roocoin_transactions(id)
+);
+CREATE TABLE public.staking_tiers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  min_amount_rc numeric NOT NULL,
+  max_amount_rc numeric,
+  lock_days integer NOT NULL DEFAULT 0,
+  apy_percent numeric NOT NULL,
+  bonus_multiplier numeric NOT NULL DEFAULT 1.0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT staking_tiers_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.stories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  media_url text NOT NULL,
+  media_type text NOT NULL CHECK (media_type = ANY (ARRAY['image'::text, 'video'::text])),
+  caption text,
+  background_color text,
+  text_overlay text,
+  text_position jsonb,
+  view_count integer DEFAULT 0,
+  expires_at timestamp with time zone NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT stories_pkey PRIMARY KEY (id),
+  CONSTRAINT stories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.story_views (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  story_id uuid NOT NULL,
+  viewer_id uuid NOT NULL,
+  viewed_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT story_views_pkey PRIMARY KEY (id),
+  CONSTRAINT story_views_story_id_fkey FOREIGN KEY (story_id) REFERENCES public.stories(id),
+  CONSTRAINT story_views_viewer_id_fkey FOREIGN KEY (viewer_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.streaks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  streak_type text NOT NULL,
+  current_count integer DEFAULT 0,
+  longest_count integer DEFAULT 0,
+  last_activity_date date,
+  started_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT streaks_pkey PRIMARY KEY (id),
+  CONSTRAINT streaks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.subscriber_only_posts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL UNIQUE,
+  creator_id uuid NOT NULL,
+  min_tier USER-DEFINED NOT NULL,
+  teaser_text text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT subscriber_only_posts_pkey PRIMARY KEY (id),
+  CONSTRAINT subscriber_only_posts_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT subscriber_only_posts_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.subscriptions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  subscriber_id uuid NOT NULL,
+  creator_id uuid NOT NULL,
+  tier_id uuid NOT NULL,
+  price_paid_rc bigint NOT NULL,
+  billing_period text CHECK (billing_period = ANY (ARRAY['monthly'::text, 'yearly'::text])),
+  status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'cancelled'::text, 'expired'::text, 'paused'::text])),
+  auto_renew boolean DEFAULT true,
+  started_at timestamp with time zone NOT NULL DEFAULT now(),
+  current_period_start timestamp with time zone NOT NULL DEFAULT now(),
+  current_period_end timestamp with time zone NOT NULL,
+  cancelled_at timestamp with time zone,
+  CONSTRAINT subscriptions_pkey PRIMARY KEY (id),
+  CONSTRAINT subscriptions_subscriber_id_fkey FOREIGN KEY (subscriber_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT subscriptions_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT subscriptions_tier_id_fkey FOREIGN KEY (tier_id) REFERENCES public.creator_tiers(id)
+);
+CREATE TABLE public.tags (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE CHECK (char_length(name) >= 1 AND char_length(name) <= 50 AND name ~ '^[a-zA-Z0-9_]+$'::text),
+  slug text NOT NULL UNIQUE,
+  description text,
+  posts_count integer NOT NULL DEFAULT 0,
+  trending_score numeric NOT NULL DEFAULT 0,
+  is_featured boolean NOT NULL DEFAULT false,
+  is_blocked boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tags_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.treasury_actions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  admin_id uuid NOT NULL,
+  action text NOT NULL CHECK (action = ANY (ARRAY['mint'::text, 'burn'::text, 'freeze_global_trading'::text, 'unfreeze_global_trading'::text, 'adjust_user_balance'::text, 'freeze_user_wallet'::text, 'unfreeze_user_wallet'::text])),
+  target_user_id uuid,
+  amount_rc numeric,
+  reason text NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT treasury_actions_pkey PRIMARY KEY (id),
+  CONSTRAINT treasury_actions_target_user_id_fkey FOREIGN KEY (target_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.treasury_wallet (
+  id smallint NOT NULL DEFAULT 1 CHECK (id = 1),
+  balance_rc numeric NOT NULL DEFAULT 0,
+  total_minted_rc numeric NOT NULL DEFAULT 0,
+  total_burned_rc numeric NOT NULL DEFAULT 0,
+  trading_frozen boolean NOT NULL DEFAULT false,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT treasury_wallet_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.trending_topics (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  topic_type text NOT NULL CHECK (topic_type = ANY (ARRAY['tag'::text, 'search'::text, 'user'::text])),
+  topic_id uuid,
+  topic_name text NOT NULL,
+  post_count integer NOT NULL DEFAULT 0,
+  engagement_count integer NOT NULL DEFAULT 0,
+  velocity_score numeric NOT NULL DEFAULT 0,
+  period text NOT NULL DEFAULT '24h'::text CHECK (period = ANY (ARRAY['1h'::text, '6h'::text, '24h'::text, '7d'::text, '30d'::text])),
+  rank integer NOT NULL,
+  calculated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT trending_topics_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.trust_circles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  avatar_url text,
+  cover_image_url text,
+  privacy USER-DEFINED DEFAULT 'private'::circle_privacy,
+  min_trust_score integer DEFAULT 50,
+  require_verification boolean DEFAULT true,
+  collective_trust_score numeric DEFAULT 0,
+  member_count integer DEFAULT 0,
+  post_count integer DEFAULT 0,
+  created_by uuid NOT NULL,
+  is_featured boolean DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT trust_circles_pkey PRIMARY KEY (id),
+  CONSTRAINT trust_circles_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.trust_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  event_type text NOT NULL,
+  delta numeric NOT NULL DEFAULT 0,
+  new_score numeric NOT NULL,
+  reason text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT trust_events_pkey PRIMARY KEY (id),
+  CONSTRAINT trust_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.two_factor_auth (
+  user_id uuid NOT NULL,
+  is_enabled boolean NOT NULL DEFAULT false,
+  method text CHECK (method = ANY (ARRAY['totp'::text, 'sms'::text, 'email'::text])),
+  totp_secret_encrypted text,
+  backup_codes_hash ARRAY,
+  backup_codes_used integer NOT NULL DEFAULT 0,
+  recovery_email text,
+  recovery_phone text,
+  enabled_at timestamp with time zone,
+  last_used_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT two_factor_auth_pkey PRIMARY KEY (user_id),
+  CONSTRAINT two_factor_auth_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.user_achievements (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  achievement_id text NOT NULL,
+  progress integer DEFAULT 0,
+  unlocked_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_achievements_pkey PRIMARY KEY (id),
+  CONSTRAINT user_achievements_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT user_achievements_achievement_id_fkey FOREIGN KEY (achievement_id) REFERENCES public.achievements(id)
+);
+CREATE TABLE public.user_reports (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  reporter_id uuid NOT NULL,
+  post_id uuid,
+  comment_id uuid,
+  reported_user_id uuid,
+  message_id uuid,
+  reason USER-DEFINED NOT NULL,
+  details text,
+  moderation_case_id uuid,
+  processed_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_reports_pkey PRIMARY KEY (id),
+  CONSTRAINT user_reports_reporter_id_fkey FOREIGN KEY (reporter_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT user_reports_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT user_reports_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id),
+  CONSTRAINT user_reports_reported_user_id_fkey FOREIGN KEY (reported_user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT user_reports_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.dm_messages(id),
+  CONSTRAINT user_reports_moderation_case_id_fkey FOREIGN KEY (moderation_case_id) REFERENCES public.moderation_cases(id)
+);
+CREATE TABLE public.user_sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  device_name text,
+  device_type text,
+  browser text,
+  os text,
+  ip_address inet,
+  country text,
+  city text,
+  is_current boolean NOT NULL DEFAULT false,
+  last_active_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  CONSTRAINT user_sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT user_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.wallets (
+  user_id uuid NOT NULL,
+  balance_rc numeric NOT NULL DEFAULT 0 CHECK (balance_rc >= 0::numeric),
+  pending_balance_rc numeric NOT NULL DEFAULT 0 CHECK (pending_balance_rc >= 0::numeric),
+  lifetime_earned_rc numeric NOT NULL DEFAULT 0,
+  lifetime_spent_rc numeric NOT NULL DEFAULT 0,
+  wallet_address text NOT NULL DEFAULT encode(gen_random_bytes(16), 'hex'::text) UNIQUE,
+  is_frozen boolean NOT NULL DEFAULT false,
+  frozen_reason text,
+  frozen_at timestamp with time zone,
+  frozen_by uuid,
+  daily_send_limit_rc numeric DEFAULT 10000,
+  daily_sent_today_rc numeric NOT NULL DEFAULT 0,
+  limit_reset_at timestamp with time zone DEFAULT (now() + '1 day'::interval),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT wallets_pkey PRIMARY KEY (user_id),
+  CONSTRAINT wallets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.achievements (
+  id text NOT NULL,
+  name text NOT NULL,
+  description text NOT NULL,
+  category USER-DEFINED NOT NULL,
+  tier USER-DEFINED NOT NULL,
+  icon text NOT NULL,
+  points integer DEFAULT 0,
+  requirement_value integer DEFAULT 1,
+  is_secret boolean DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT achievements_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.admin_permissions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  role USER-DEFINED NOT NULL,
+  permission text NOT NULL,
+  CONSTRAINT admin_permissions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.admin_users (
+  user_id uuid NOT NULL,
+  role USER-DEFINED NOT NULL DEFAULT 'moderator'::admin_role,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT admin_users_pkey PRIMARY KEY (user_id),
+  CONSTRAINT admin_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.appeals (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  moderation_case_id uuid NOT NULL,
+  statement text NOT NULL,
+  evidence_urls ARRAY,
+  evidence_storage_path text,
+  status USER-DEFINED NOT NULL DEFAULT 'pending'::appeal_status,
+  assigned_admin_id uuid,
+  outcome_notes text,
+  decided_at timestamp with time zone,
+  roocoin_at_stake numeric DEFAULT 0,
+  roocoin_refunded boolean DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT appeals_pkey PRIMARY KEY (id),
+  CONSTRAINT appeals_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT appeals_moderation_case_id_fkey FOREIGN KEY (moderation_case_id) REFERENCES public.moderation_cases(id)
+);
+CREATE TABLE public.audit_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_user_id uuid,
+  actor_role text,
+  actor_ip inet,
+  actor_user_agent text,
+  action text NOT NULL,
+  action_category text,
+  target_type text,
+  target_id uuid,
+  status text NOT NULL DEFAULT 'success'::text CHECK (status = ANY (ARRAY['success'::text, 'failed'::text, 'partial'::text])),
+  error_message text,
+  old_values jsonb,
+  new_values jsonb,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT audit_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT audit_logs_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.background_jobs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  job_type text NOT NULL,
+  status USER-DEFINED NOT NULL DEFAULT 'queued'::job_status,
+  priority text NOT NULL DEFAULT 'normal'::text CHECK (priority = ANY (ARRAY['low'::text, 'normal'::text, 'high'::text, 'critical'::text])),
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  result jsonb,
+  scheduled_for timestamp with time zone DEFAULT now(),
+  max_attempts integer NOT NULL DEFAULT 3,
+  attempt_count integer NOT NULL DEFAULT 0,
+  started_at timestamp with time zone,
+  finished_at timestamp with time zone,
+  error_message text,
+  locked_by text,
+  locked_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT background_jobs_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.blocks (
+  blocker_id uuid NOT NULL,
+  blocked_id uuid NOT NULL,
+  reason text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT blocks_pkey PRIMARY KEY (blocker_id, blocked_id),
+  CONSTRAINT blocks_blocker_id_fkey FOREIGN KEY (blocker_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT blocks_blocked_id_fkey FOREIGN KEY (blocked_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.bookmarks (
+  user_id uuid NOT NULL,
+  post_id uuid NOT NULL,
+  collection text DEFAULT 'default'::text,
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT bookmarks_pkey PRIMARY KEY (user_id, post_id),
+  CONSTRAINT bookmarks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT bookmarks_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id)
+);
+CREATE TABLE public.challenge_entries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  challenge_id uuid NOT NULL,
+  post_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  vote_count integer DEFAULT 0,
+  rank integer,
+  prize_won_rc bigint DEFAULT 0,
+  submitted_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT challenge_entries_pkey PRIMARY KEY (id),
+  CONSTRAINT challenge_entries_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id),
+  CONSTRAINT challenge_entries_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT challenge_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.challenge_votes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  challenge_id uuid NOT NULL,
+  entry_id uuid NOT NULL,
+  voter_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT challenge_votes_pkey PRIMARY KEY (id),
+  CONSTRAINT challenge_votes_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id),
+  CONSTRAINT challenge_votes_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES public.challenge_entries(id),
+  CONSTRAINT challenge_votes_voter_id_fkey FOREIGN KEY (voter_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.challenges (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  creator_id uuid NOT NULL,
+  title text NOT NULL,
+  description text NOT NULL,
+  rules text,
+  cover_image_url text,
+  starts_at timestamp with time zone NOT NULL,
+  ends_at timestamp with time zone NOT NULL,
+  voting_ends_at timestamp with time zone,
+  prize_pool_rc bigint DEFAULT 0,
+  first_prize_rc bigint DEFAULT 0,
+  second_prize_rc bigint DEFAULT 0,
+  third_prize_rc bigint DEFAULT 0,
+  required_hashtag text NOT NULL,
+  min_human_score integer DEFAULT 70,
+  require_verification boolean DEFAULT false,
+  entry_count integer DEFAULT 0,
+  vote_count integer DEFAULT 0,
+  status USER-DEFINED DEFAULT 'draft'::challenge_status,
+  is_official boolean DEFAULT false,
+  is_featured boolean DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT challenges_pkey PRIMARY KEY (id),
+  CONSTRAINT challenges_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.circle_invites (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  circle_id uuid NOT NULL,
+  invited_by uuid NOT NULL,
+  invited_user_id uuid,
+  invite_code text UNIQUE,
+  max_uses integer,
+  use_count integer DEFAULT 0,
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT circle_invites_pkey PRIMARY KEY (id),
+  CONSTRAINT circle_invites_circle_id_fkey FOREIGN KEY (circle_id) REFERENCES public.trust_circles(id),
+  CONSTRAINT circle_invites_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT circle_invites_invited_user_id_fkey FOREIGN KEY (invited_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.circle_members (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  circle_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  role USER-DEFINED DEFAULT 'member'::circle_member_role,
+  posts_contributed integer DEFAULT 0,
+  trust_contribution numeric DEFAULT 0,
+  joined_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT circle_members_pkey PRIMARY KEY (id),
+  CONSTRAINT circle_members_circle_id_fkey FOREIGN KEY (circle_id) REFERENCES public.trust_circles(id),
+  CONSTRAINT circle_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.circle_posts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  circle_id uuid NOT NULL,
+  post_id uuid NOT NULL,
+  shared_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT circle_posts_pkey PRIMARY KEY (id),
+  CONSTRAINT circle_posts_circle_id_fkey FOREIGN KEY (circle_id) REFERENCES public.trust_circles(id),
+  CONSTRAINT circle_posts_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT circle_posts_shared_by_fkey FOREIGN KEY (shared_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.collectible_owners (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  collectible_id uuid NOT NULL,
+  owner_id uuid NOT NULL,
+  edition_number integer NOT NULL,
+  acquired_at timestamp with time zone NOT NULL DEFAULT now(),
+  acquisition_type text CHECK (acquisition_type = ANY (ARRAY['mint'::text, 'purchase'::text, 'gift'::text, 'airdrop'::text])),
+  acquisition_price_rc bigint,
+  is_for_sale boolean DEFAULT false,
+  sale_price_rc bigint,
+  listed_at timestamp with time zone,
+  CONSTRAINT collectible_owners_pkey PRIMARY KEY (id),
+  CONSTRAINT collectible_owners_collectible_id_fkey FOREIGN KEY (collectible_id) REFERENCES public.collectibles(id),
+  CONSTRAINT collectible_owners_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.collectible_transactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  collectible_id uuid NOT NULL,
+  edition_number integer NOT NULL,
+  seller_id uuid,
+  buyer_id uuid NOT NULL,
+  price_rc bigint NOT NULL,
+  royalty_rc bigint DEFAULT 0,
+  platform_fee_rc bigint DEFAULT 0,
+  tx_type text CHECK (tx_type = ANY (ARRAY['mint'::text, 'sale'::text, 'gift'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT collectible_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT collectible_transactions_collectible_id_fkey FOREIGN KEY (collectible_id) REFERENCES public.collectibles(id),
+  CONSTRAINT collectible_transactions_seller_id_fkey FOREIGN KEY (seller_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT collectible_transactions_buyer_id_fkey FOREIGN KEY (buyer_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.collectibles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL,
+  creator_id uuid NOT NULL,
+  name text NOT NULL,
+  description text,
+  rarity USER-DEFINED NOT NULL,
+  edition_number integer NOT NULL,
+  max_editions integer NOT NULL,
+  mint_price_rc bigint NOT NULL,
+  resale_royalty_percent numeric DEFAULT 5.0,
+  minted_count integer DEFAULT 0,
+  floor_price_rc bigint,
+  last_sale_price_rc bigint,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  is_mintable boolean DEFAULT true,
+  minted_out_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT collectibles_pkey PRIMARY KEY (id),
+  CONSTRAINT collectibles_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT collectibles_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.comment_reactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  comment_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  reaction_type text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT comment_reactions_pkey PRIMARY KEY (id),
+  CONSTRAINT comment_reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT comment_reactions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id)
+);
+CREATE TABLE public.comments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL,
+  author_id uuid NOT NULL,
+  parent_comment_id uuid,
+  body text NOT NULL CHECK (char_length(body) <= 2000),
+  status USER-DEFINED NOT NULL DEFAULT 'published'::comment_status,
+  ai_score numeric CHECK (ai_score >= 0::numeric AND ai_score <= 100::numeric),
+  likes_count integer NOT NULL DEFAULT 0,
+  replies_count integer NOT NULL DEFAULT 0,
+  is_edited boolean NOT NULL DEFAULT false,
+  edited_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  media_url text,
+  media_type text,
+  CONSTRAINT comments_pkey PRIMARY KEY (id),
+  CONSTRAINT comments_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT comments_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT comments_parent_comment_id_fkey FOREIGN KEY (parent_comment_id) REFERENCES public.comments(id)
+);
+CREATE TABLE public.creator_tiers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  creator_id uuid NOT NULL,
+  name text NOT NULL,
+  description text,
+  tier USER-DEFINED NOT NULL,
+  price_rc_monthly bigint NOT NULL,
+  price_rc_yearly bigint,
+  benefits jsonb DEFAULT '[]'::jsonb,
+  subscriber_count integer DEFAULT 0,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT creator_tiers_pkey PRIMARY KEY (id),
+  CONSTRAINT creator_tiers_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.dm_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  thread_id uuid NOT NULL,
+  sender_id uuid NOT NULL,
+  body text NOT NULL CHECK (char_length(body) <= 5000),
+  status USER-DEFINED NOT NULL DEFAULT 'sent'::message_status,
+  reply_to_id uuid,
+  media_url text,
+  media_type USER-DEFINED,
+  is_edited boolean NOT NULL DEFAULT false,
+  edited_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT dm_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT dm_messages_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.dm_threads(id),
+  CONSTRAINT dm_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT dm_messages_reply_to_id_fkey FOREIGN KEY (reply_to_id) REFERENCES public.dm_messages(id)
+);
+CREATE TABLE public.dm_participants (
+  thread_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  is_muted boolean NOT NULL DEFAULT false,
+  is_archived boolean NOT NULL DEFAULT false,
+  nickname text,
+  last_read_at timestamp with time zone,
+  unread_count integer NOT NULL DEFAULT 0,
+  is_admin boolean NOT NULL DEFAULT false,
+  joined_at timestamp with time zone NOT NULL DEFAULT now(),
+  left_at timestamp with time zone,
+  CONSTRAINT dm_participants_pkey PRIMARY KEY (thread_id, user_id),
+  CONSTRAINT dm_participants_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.dm_threads(id),
+  CONSTRAINT dm_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.dm_read_receipts (
+  message_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  read_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT dm_read_receipts_pkey PRIMARY KEY (message_id, user_id),
+  CONSTRAINT dm_read_receipts_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.dm_messages(id),
+  CONSTRAINT dm_read_receipts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.dm_threads (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_by uuid NOT NULL,
+  is_group boolean NOT NULL DEFAULT false,
+  group_name text,
+  group_avatar_url text,
+  last_message_at timestamp with time zone,
+  last_message_preview text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT dm_threads_pkey PRIMARY KEY (id),
+  CONSTRAINT dm_threads_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.faq (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  question text NOT NULL,
+  answer text NOT NULL,
+  category text NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_published boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT faq_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.follows (
+  follower_id uuid NOT NULL,
+  following_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT follows_pkey PRIMARY KEY (follower_id, following_id),
+  CONSTRAINT follows_follower_id_fkey FOREIGN KEY (follower_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT follows_following_id_fkey FOREIGN KEY (following_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.help_articles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  slug text NOT NULL UNIQUE,
+  title text NOT NULL,
+  content text NOT NULL,
+  category text NOT NULL,
+  meta_description text,
+  keywords ARRAY,
+  is_published boolean NOT NULL DEFAULT false,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT help_articles_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.human_verifications (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  method USER-DEFINED NOT NULL,
+  status USER-DEFINED NOT NULL DEFAULT 'pending'::verification_status,
+  phone_number_hash text,
+  document_type text,
+  evidence_storage_path text,
+  liveness_score numeric,
+  document_match_score numeric,
+  reviewer_admin_id uuid,
+  reviewer_notes text,
+  rejection_reason text,
+  submitted_at timestamp with time zone NOT NULL DEFAULT now(),
+  reviewed_at timestamp with time zone,
+  expires_at timestamp with time zone,
+  attempt_number integer NOT NULL DEFAULT 1,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT human_verifications_pkey PRIMARY KEY (id),
+  CONSTRAINT human_verifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.legal_documents (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  type text NOT NULL UNIQUE CHECK (type = ANY (ARRAY['terms'::text, 'privacy'::text, 'cookies'::text, 'content_policy'::text, 'community_guidelines'::text])),
+  title text NOT NULL,
+  content text NOT NULL,
+  version text NOT NULL,
+  effective_date date NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT legal_documents_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.mentions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  post_id uuid,
+  comment_id uuid,
+  mentioned_user_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT mentions_pkey PRIMARY KEY (id),
+  CONSTRAINT mentions_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT mentions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id),
+  CONSTRAINT mentions_mentioned_user_id_fkey FOREIGN KEY (mentioned_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.moderation_cases (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  post_id uuid,
+  comment_id uuid,
+  reported_user_id uuid,
+  reason USER-DEFINED NOT NULL,
+  source text NOT NULL DEFAULT 'ai'::text CHECK (source = ANY (ARRAY['ai'::text, 'user_report'::text, 'system'::text, 'admin'::text])),
+  description text,
+  ai_confidence numeric CHECK (ai_confidence >= 0::numeric AND ai_confidence <= 100::numeric),
+  ai_model text,
+  ai_metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status USER-DEFINED NOT NULL DEFAULT 'pending'::moderation_status,
+  priority text NOT NULL DEFAULT 'normal'::text CHECK (priority = ANY (ARRAY['low'::text, 'normal'::text, 'high'::text, 'urgent'::text])),
+  assigned_admin_id uuid,
+  decision USER-DEFINED,
+  decision_notes text,
+  decided_at timestamp with time zone,
+  escalated_to uuid,
+  escalation_reason text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  media_url text,
+  CONSTRAINT moderation_cases_pkey PRIMARY KEY (id),
+  CONSTRAINT moderation_cases_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT moderation_cases_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id),
+  CONSTRAINT moderation_cases_reported_user_id_fkey FOREIGN KEY (reported_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.mutes (
+  muter_id uuid NOT NULL,
+  muted_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT mutes_pkey PRIMARY KEY (muter_id, muted_id),
+  CONSTRAINT mutes_muter_id_fkey FOREIGN KEY (muter_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT mutes_muted_id_fkey FOREIGN KEY (muted_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.notification_preferences (
+  user_id uuid NOT NULL,
+  email_enabled boolean NOT NULL DEFAULT true,
+  email_follows boolean NOT NULL DEFAULT true,
+  email_comments boolean NOT NULL DEFAULT true,
+  email_mentions boolean NOT NULL DEFAULT true,
+  email_messages boolean NOT NULL DEFAULT true,
+  email_marketing boolean NOT NULL DEFAULT false,
+  email_digest_frequency text DEFAULT 'daily'::text CHECK (email_digest_frequency = ANY (ARRAY['realtime'::text, 'daily'::text, 'weekly'::text, 'never'::text])),
+  push_enabled boolean NOT NULL DEFAULT true,
+  push_follows boolean NOT NULL DEFAULT true,
+  push_comments boolean NOT NULL DEFAULT true,
+  push_reactions boolean NOT NULL DEFAULT true,
+  push_mentions boolean NOT NULL DEFAULT true,
+  push_messages boolean NOT NULL DEFAULT true,
+  push_moderation boolean NOT NULL DEFAULT true,
+  push_roocoin boolean NOT NULL DEFAULT true,
+  push_staking boolean NOT NULL DEFAULT true,
+  inapp_follows boolean NOT NULL DEFAULT true,
+  inapp_comments boolean NOT NULL DEFAULT true,
+  inapp_reactions boolean NOT NULL DEFAULT true,
+  inapp_mentions boolean NOT NULL DEFAULT true,
+  inapp_reposts boolean NOT NULL DEFAULT true,
+  quiet_hours_enabled boolean NOT NULL DEFAULT false,
+  quiet_hours_start time without time zone,
+  quiet_hours_end time without time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT notification_preferences_pkey PRIMARY KEY (user_id),
+  CONSTRAINT notification_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.notifications (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  type USER-DEFINED NOT NULL,
+  title text,
+  body text,
+  icon text,
+  icon_color text,
+  image_url text,
+  is_read boolean NOT NULL DEFAULT false,
+  read_at timestamp with time zone,
+  actor_id uuid,
+  post_id uuid,
+  comment_id uuid,
+  thread_id uuid,
+  appeal_id uuid,
+  moderation_case_id uuid,
+  transaction_id uuid,
+  action_url text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone,
+  CONSTRAINT notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT notifications_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT notifications_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT notifications_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id),
+  CONSTRAINT notifications_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.dm_threads(id)
+);
+CREATE TABLE public.platform_config (
+  id smallint NOT NULL DEFAULT 1 CHECK (id = 1),
+  allow_new_signups boolean NOT NULL DEFAULT true,
+  require_email_verification boolean NOT NULL DEFAULT true,
+  require_human_verification boolean NOT NULL DEFAULT false,
+  maintenance_mode boolean NOT NULL DEFAULT false,
+  maintenance_message text,
+  roocoin_trading_enabled boolean NOT NULL DEFAULT true,
+  ai_flag_threshold numeric NOT NULL DEFAULT 85,
+  auto_ban_threshold numeric NOT NULL DEFAULT 98,
+  max_post_length integer NOT NULL DEFAULT 10000,
+  max_comment_length integer NOT NULL DEFAULT 2000,
+  max_bio_length integer NOT NULL DEFAULT 500,
+  max_media_per_post integer NOT NULL DEFAULT 10,
+  max_tags_per_post integer NOT NULL DEFAULT 10,
+  default_publish_fee_rc numeric NOT NULL DEFAULT 0,
+  default_staking_apy_percent numeric NOT NULL DEFAULT 5,
+  new_user_bonus_rc numeric NOT NULL DEFAULT 100,
+  posts_per_day_limit integer NOT NULL DEFAULT 50,
+  comments_per_hour_limit integer NOT NULL DEFAULT 100,
+  messages_per_minute_limit integer NOT NULL DEFAULT 30,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT platform_config_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.poll_options (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  poll_id uuid NOT NULL,
+  option_text text NOT NULL,
+  vote_count integer DEFAULT 0,
+  sort_order integer DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT poll_options_pkey PRIMARY KEY (id),
+  CONSTRAINT poll_options_poll_id_fkey FOREIGN KEY (poll_id) REFERENCES public.polls(id)
+);
+CREATE TABLE public.poll_votes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  poll_id uuid NOT NULL,
+  option_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT poll_votes_pkey PRIMARY KEY (id),
+  CONSTRAINT poll_votes_poll_id_fkey FOREIGN KEY (poll_id) REFERENCES public.polls(id),
+  CONSTRAINT poll_votes_option_id_fkey FOREIGN KEY (option_id) REFERENCES public.poll_options(id),
+  CONSTRAINT poll_votes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.polls (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL UNIQUE,
+  question text NOT NULL,
+  ends_at timestamp with time zone,
+  allow_multiple boolean DEFAULT false,
+  is_anonymous boolean DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT polls_pkey PRIMARY KEY (id),
+  CONSTRAINT polls_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id)
+);
+CREATE TABLE public.post_drafts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  title text,
+  body text NOT NULL DEFAULT ''::text,
+  tags ARRAY,
+  media_paths ARRAY,
+  last_saved_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT post_drafts_pkey PRIMARY KEY (id),
+  CONSTRAINT post_drafts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.post_media (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL,
+  media_type USER-DEFINED NOT NULL,
+  storage_path text NOT NULL,
+  storage_bucket text NOT NULL DEFAULT 'post-media'::text,
+  original_filename text,
+  mime_type text,
+  file_size integer,
+  width integer,
+  height integer,
+  duration_seconds numeric,
+  thumbnail_path text,
+  is_processed boolean NOT NULL DEFAULT false,
+  processing_error text,
+  alt_text text,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT post_media_pkey PRIMARY KEY (id),
+  CONSTRAINT post_media_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id)
+);
+CREATE TABLE public.post_tags (
+  post_id uuid NOT NULL,
+  tag_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT post_tags_pkey PRIMARY KEY (post_id, tag_id),
+  CONSTRAINT post_tags_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT post_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tags(id)
+);
+CREATE TABLE public.post_views (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL,
+  user_id uuid,
+  session_id text,
+  ip_hash text,
+  referrer text,
+  source text,
+  viewed_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT post_views_pkey PRIMARY KEY (id),
+  CONSTRAINT post_views_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT post_views_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.posts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  author_id uuid NOT NULL,
+  title text CHECK (title IS NULL OR char_length(title) <= 300),
+  body text NOT NULL DEFAULT ''::text CHECK (char_length(body) <= 10000),
+  body_format text NOT NULL DEFAULT 'markdown'::text CHECK (body_format = ANY (ARRAY['plain'::text, 'markdown'::text, 'html'::text])),
+  status USER-DEFINED NOT NULL DEFAULT 'draft'::post_status,
+  visibility USER-DEFINED NOT NULL DEFAULT 'public'::privacy_level,
+  human_certified boolean NOT NULL DEFAULT false,
+  ai_score numeric CHECK (ai_score >= 0::numeric AND ai_score <= 100::numeric),
+  ai_score_status text CHECK (ai_score_status = ANY (ARRAY['pass'::text, 'review'::text, 'flagged'::text])),
+  authenticity_notes text,
+  verification_method text,
+  verification_session_id text,
+  is_sensitive boolean NOT NULL DEFAULT false,
+  sensitive_reason USER-DEFINED DEFAULT 'none'::sensitivity_reason,
+  scheduled_at timestamp with time zone,
+  published_at timestamp with time zone,
+  likes_count integer NOT NULL DEFAULT 0,
+  comments_count integer NOT NULL DEFAULT 0,
+  reposts_count integer NOT NULL DEFAULT 0,
+  views_count integer NOT NULL DEFAULT 0,
+  shares_count integer NOT NULL DEFAULT 0,
+  publish_fee_rc numeric NOT NULL DEFAULT 0,
+  total_tips_rc numeric NOT NULL DEFAULT 0,
+  edit_count integer NOT NULL DEFAULT 0,
+  last_edited_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  location text,
+  CONSTRAINT posts_pkey PRIMARY KEY (id),
+  CONSTRAINT posts_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.profile_links (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  platform text NOT NULL,
+  label text NOT NULL,
+  url text NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_verified boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT profile_links_pkey PRIMARY KEY (id),
+  CONSTRAINT profile_links_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.profiles (
+  user_id uuid NOT NULL,
+  username text NOT NULL UNIQUE CHECK (char_length(username) >= 3 AND char_length(username) <= 32 AND username ~ '^[a-zA-Z0-9_]+$'::text),
+  display_name text NOT NULL DEFAULT ''::text,
+  bio text NOT NULL DEFAULT ''::text CHECK (char_length(bio) <= 500),
+  avatar_url text,
+  cover_image_url text,
+  website_url text,
+  location text,
+  status USER-DEFINED NOT NULL DEFAULT 'pending_verification'::user_status,
+  verified_human USER-DEFINED NOT NULL DEFAULT 'unverified'::verification_status,
+  verification_method USER-DEFINED,
+  verified_at timestamp with time zone,
+  trust_score numeric NOT NULL DEFAULT 0 CHECK (trust_score >= 0::numeric AND trust_score <= 100::numeric),
+  ml_score numeric NOT NULL DEFAULT 50 CHECK (ml_score >= 0::numeric AND ml_score <= 100::numeric),
+  followers_count integer NOT NULL DEFAULT 0,
+  following_count integer NOT NULL DEFAULT 0,
+  posts_count integer NOT NULL DEFAULT 0,
+  profile_privacy USER-DEFINED NOT NULL DEFAULT 'public'::privacy_level,
+  show_activity boolean NOT NULL DEFAULT true,
+  show_online_status boolean NOT NULL DEFAULT true,
+  allow_messages_from USER-DEFINED NOT NULL DEFAULT 'public'::privacy_level,
+  language text NOT NULL DEFAULT 'en'::text,
+  timezone text DEFAULT 'UTC'::text,
+  last_active_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  interests jsonb DEFAULT '[]'::jsonb,
+  phone_number text,
+  posts_visibility text NOT NULL DEFAULT 'everyone'::text CHECK (posts_visibility = ANY (ARRAY['everyone'::text, 'followers'::text, 'private'::text])),
+  comments_visibility text NOT NULL DEFAULT 'everyone'::text CHECK (comments_visibility = ANY (ARRAY['everyone'::text, 'followers'::text, 'private'::text])),
+  messages_visibility text NOT NULL DEFAULT 'everyone'::text CHECK (messages_visibility = ANY (ARRAY['everyone'::text, 'followers'::text, 'private'::text])),
+  birth_date date,
   CONSTRAINT profiles_pkey PRIMARY KEY (user_id),
   CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
