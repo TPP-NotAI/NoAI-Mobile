@@ -147,11 +147,20 @@ class Post {
   final int totalReactions; // Total count of all reactions
   final List<Comment>? commentList;
 
-  // AI verification fields (matching web)
+  // AI-related fields from schema
+  final bool humanCertified;
+  final double? aiScore; // Same as aiConfidenceScore
+  final String? aiScoreStatus; // Same as detectionStatus
+  final String? authenticityNotes;
+  final String? verificationMethod;
+  final String? verificationSessionId;
+
+  // AI verification fields (matching web - kept for compatibility)
   final double? aiConfidenceScore; // 0-100 probability of AI generation
   final String?
   detectionStatus; // 'pass', 'review', 'flagged' (from ai_score_status column)
-  final String status; // 'draft', 'published', 'under_review', 'hidden', 'deleted', 'scheduled'
+  final String
+  status; // 'draft', 'published', 'under_review', 'hidden', 'deleted', 'scheduled'
 
   Post({
     required this.id,
@@ -173,6 +182,12 @@ class Post {
     this.reactionCounts = const {},
     this.totalReactions = 0,
     this.commentList,
+    this.humanCertified = false,
+    this.aiScore,
+    this.aiScoreStatus,
+    this.authenticityNotes,
+    this.verificationMethod,
+    this.verificationSessionId,
     this.aiConfidenceScore,
     this.detectionStatus,
     this.status = 'published',
@@ -207,6 +222,12 @@ class Post {
     Map<String, int>? reactionCounts,
     int? totalReactions,
     List<Comment>? commentList,
+    bool? humanCertified,
+    double? aiScore,
+    String? aiScoreStatus,
+    String? authenticityNotes,
+    String? verificationMethod,
+    String? verificationSessionId,
     double? aiConfidenceScore,
     String? detectionStatus,
     String? status,
@@ -235,6 +256,13 @@ class Post {
       reactionCounts: reactionCounts ?? this.reactionCounts,
       totalReactions: totalReactions ?? this.totalReactions,
       commentList: commentList ?? this.commentList,
+      humanCertified: humanCertified ?? this.humanCertified,
+      aiScore: aiScore ?? this.aiScore,
+      aiScoreStatus: aiScoreStatus ?? this.aiScoreStatus,
+      authenticityNotes: authenticityNotes ?? this.authenticityNotes,
+      verificationMethod: verificationMethod ?? this.verificationMethod,
+      verificationSessionId:
+          verificationSessionId ?? this.verificationSessionId,
       aiConfidenceScore: aiConfidenceScore ?? this.aiConfidenceScore,
       detectionStatus: detectionStatus ?? this.detectionStatus,
       status: status ?? this.status,
@@ -353,6 +381,12 @@ class Post {
       userReaction: userReaction,
       reactionCounts: reactionCounts,
       totalReactions: totalReactions,
+      humanCertified: json['human_certified'] ?? false,
+      aiScore: (json['ai_score'] as num?)?.toDouble(),
+      aiScoreStatus: json['ai_score_status'] as String?,
+      authenticityNotes: json['authenticity_notes'] as String?,
+      verificationMethod: json['verification_method'] as String?,
+      verificationSessionId: json['verification_session_id'] as String?,
       aiConfidenceScore: (json['ai_score'] as num?)?.toDouble(),
       detectionStatus: json['ai_score_status'] as String?,
       status: json['status'] as String? ?? 'published',

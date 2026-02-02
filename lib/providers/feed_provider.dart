@@ -969,6 +969,7 @@ class FeedProvider with ChangeNotifier {
         _postRepository
             .runAiDetection(
               postId: newPost.id,
+              authorId: userId,
               body: body,
               mediaFiles: mediaFiles,
             )

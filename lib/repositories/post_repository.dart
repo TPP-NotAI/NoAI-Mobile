@@ -6,6 +6,7 @@ import '../services/supabase_service.dart';
 import 'media_repository.dart';
 import 'tag_repository.dart';
 import 'mention_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ai_detection_result.dart';
 import '../services/ai_detection_service.dart';
 
@@ -475,7 +476,7 @@ class PostRepository {
         'body': body,
         'title': title,
         'body_format': bodyFormat,
-        'status': 'published',
+        'status': 'under_review', // Start under review for admin/AI moderation
       };
       if (location != null) postData['location'] = location;
 
@@ -522,6 +523,14 @@ class PostRepository {
           mentionedUserIds: mentionedUserIds,
         );
       }
+
+      // Automatically run AI detection for newly created posts
+      runAiDetection(
+        postId: postId,
+        authorId: authorId,
+        body: body,
+        mediaFiles: mediaFiles,
+      );
 
       // Small delay to ensure DB triggers/replication settle before fetching full post
       await Future.delayed(const Duration(milliseconds: 500));
@@ -832,6 +841,24 @@ class PostRepository {
           .update(updates)
           .eq('id', postId);
 
+      // Also resolve any pending moderation cases for this post
+      try {
+        await _client
+            .from(SupabaseConfig.moderationCasesTable)
+            .update({
+              'status': 'resolved',
+              'decision': action == 'approve' ? 'approved' : 'rejected',
+              'decided_at': DateTime.now().toIso8601String(),
+            })
+            .eq('post_id', postId)
+            .eq('status', 'pending');
+      } catch (e) {
+        debugPrint(
+          'PostRepository: Error resolving moderation case for $postId - $e',
+        );
+        // We don't fail the whole operation if the mod case update fails
+      }
+
       return true;
     } catch (e) {
       debugPrint('PostRepository: Error moderating post $postId - $e');
@@ -847,6 +874,7 @@ class PostRepository {
   /// Returns the confidence score on success, or null on failure.
   Future<double?> runAiDetection({
     required String postId,
+    required String authorId,
     required String body,
     List<File>? mediaFiles,
   }) async {
@@ -871,10 +899,12 @@ class PostRepository {
         // label, NOT AI probability. Convert to AI probability:
         //   "AI-GENERATED" / "LIKELY AI-GENERATED"     → aiProb = confidence
         //   "HUMAN-GENERATED" / "LIKELY HUMAN-GENERATED" → aiProb = 100 - confidence
-        final bool isAiResult = result.result == 'AI-GENERATED' ||
+        final bool isAiResult =
+            result.result == 'AI-GENERATED' ||
             result.result == 'LIKELY AI-GENERATED';
-        final double aiProbability =
-            isAiResult ? result.confidence : 100 - result.confidence;
+        final double aiProbability = isAiResult
+            ? result.confidence
+            : 100 - result.confidence;
 
         // Map AI probability to score status & post status
         final String scoreStatus;
@@ -882,13 +912,13 @@ class PostRepository {
 
         if (aiProbability >= 75) {
           scoreStatus = 'flagged';
-          postStatus = 'under_review';
+          postStatus = 'under_review'; // Stays under review
         } else if (aiProbability >= 50) {
           scoreStatus = 'review';
-          postStatus = 'published';
+          postStatus = 'under_review'; // High enough for manual review
         } else {
           scoreStatus = 'pass';
-          postStatus = 'published';
+          postStatus = 'published'; // Auto-publish if safe
         }
 
         await _updateAiScore(
@@ -897,6 +927,18 @@ class PostRepository {
           scoreStatus: scoreStatus,
           postStatus: postStatus,
         );
+
+        // Automatically create a moderation case if flagged
+        if (scoreStatus == 'flagged') {
+          await _createModerationCase(
+            postId: postId,
+            authorId: authorId,
+            aiConfidence: aiProbability,
+            aiModel: result.analysisId,
+            aiMetadata: result.modelAnalyses,
+          );
+        }
+
         return aiProbability;
       } else {
         debugPrint(
@@ -907,6 +949,63 @@ class PostRepository {
     } catch (e) {
       debugPrint('PostRepository: AI detection failed for post $postId - $e');
       return null;
+    }
+  }
+
+  /// Create a moderation case for an AI-flagged post if one doesn't exist.
+  Future<void> _createModerationCase({
+    required String postId,
+    required String authorId,
+    required double aiConfidence,
+    String? aiModel,
+    List<dynamic>? aiMetadata,
+  }) async {
+    try {
+      debugPrint(
+        'PostRepository: Attempting to create mod case for post $postId',
+      );
+
+      // 1. Check if a case already exists for this post
+      final existing = await _client
+          .from(SupabaseConfig.moderationCasesTable)
+          .select('id')
+          .eq('post_id', postId)
+          .maybeSingle();
+
+      if (existing != null) {
+        debugPrint(
+          'PostRepository: Moderation case already exists for post $postId (id: ${existing['id']})',
+        );
+        return;
+      }
+
+      // 2. Create the moderation case
+      await _client.from(SupabaseConfig.moderationCasesTable).insert({
+        'post_id': postId,
+        'reported_user_id': authorId,
+        'reason': 'ai_generated',
+        'source': 'ai',
+        'ai_confidence': aiConfidence,
+        'ai_model': aiModel,
+        'ai_metadata': aiMetadata ?? {},
+        'status': 'pending',
+        'priority': 'normal',
+        'description':
+            'Automated AI detection flagged this content with ${aiConfidence.toStringAsFixed(1)}% confidence.',
+      });
+
+      debugPrint(
+        'PostRepository: Automated moderation case creation command sent for post $postId',
+      );
+    } catch (e) {
+      debugPrint(
+        'PostRepository: CRITICAL error creating automated moderation case - $e',
+      );
+      if (e is PostgrestException) {
+        debugPrint(
+          'PostRepository: PostgrestError: ${e.message}, hint: ${e.hint}, details: ${e.details}, code: ${e.code}',
+        );
+      }
     }
   }
 }

@@ -506,13 +506,18 @@ class _ProfileHeader extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.location_on_outlined,
-                        size: 14, color: colors.onSurfaceVariant),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 14,
+                      color: colors.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       user.location!,
                       style: TextStyle(
-                          fontSize: 12, color: colors.onSurfaceVariant),
+                        fontSize: 12,
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -520,13 +525,11 @@ class _ProfileHeader extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.link,
-                        size: 14, color: colors.primary),
+                    Icon(Icons.link, size: 14, color: colors.primary),
                     const SizedBox(width: 4),
                     Text(
                       user.websiteUrl!.replaceFirst(RegExp(r'^https?://'), ''),
-                      style: TextStyle(
-                          fontSize: 12, color: colors.primary),
+                      style: TextStyle(fontSize: 12, color: colors.primary),
                     ),
                   ],
                 ),
@@ -535,8 +538,7 @@ class _ProfileHeader extends StatelessWidget {
         ],
         const SizedBox(height: 16),
         // Badges: verified human status + achievements from DB
-        if (user.verifiedHuman == 'verified' ||
-            user.achievements.isNotEmpty)
+        if (user.verifiedHuman == 'verified' || user.achievements.isNotEmpty)
           Wrap(
             alignment: WrapAlignment.center,
             spacing: 8,
@@ -556,8 +558,7 @@ class _ProfileHeader extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
-                      Icon(Icons.verified,
-                          size: 14, color: Color(0xFF10B981)),
+                      Icon(Icons.verified, size: 14, color: Color(0xFF10B981)),
                       SizedBox(width: 6),
                       Text(
                         'Verified Human',
@@ -1156,10 +1157,10 @@ class _ActivityItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final aiScore = post.aiConfidenceScore ?? 0.05;
+    final aiScore = post.aiConfidenceScore;
     final dateStr = post.timestamp != null
         ? DateFormat('MMM d, yyyy').format(DateTime.parse(post.timestamp))
-        : '2 days ago';
+        : 'Recently';
 
     return GestureDetector(
       onTap: () {
@@ -1213,29 +1214,41 @@ class _ActivityItem extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                // ML Score badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF052E1C),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: const Color(0xFF10B981),
-                      width: 1,
+                if (aiScore != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: aiScore < 20
+                          ? const Color(0xFF052E1C)
+                          : aiScore < 60
+                          ? const Color(0xFF451A03)
+                          : const Color(0xFF450A0A),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: aiScore < 20
+                            ? const Color(0xFF10B981)
+                            : aiScore < 60
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFFEF4444),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      '${aiScore.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: aiScore < 20
+                            ? const Color(0xFF10B981)
+                            : aiScore < 60
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFFEF4444),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    '${aiScore.toStringAsFixed(2)}%',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF10B981),
-                    ),
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1287,24 +1300,33 @@ class _ActivityItem extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF052E1C),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Pass',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF10B981),
+                if (post.detectionStatus != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: post.detectionStatus == 'pass'
+                          ? const Color(0xFF052E1C)
+                          : post.detectionStatus == 'review'
+                          ? const Color(0xFF451A03)
+                          : const Color(0xFF450A0A),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      post.detectionStatus!.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: post.detectionStatus == 'pass'
+                            ? const Color(0xFF10B981)
+                            : post.detectionStatus == 'review'
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFFEF4444),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ],
@@ -1391,8 +1413,8 @@ class _Statistics extends StatelessWidget {
             value: user.verifiedHuman == 'verified'
                 ? 'Verified'
                 : user.verifiedHuman == 'pending'
-                    ? 'Pending'
-                    : 'Unverified',
+                ? 'Pending'
+                : 'Unverified',
             colors: colors,
           ),
           if (user.achievements.isNotEmpty) ...[

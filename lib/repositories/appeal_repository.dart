@@ -29,7 +29,7 @@ class AppealRepository {
           .insert({
             'post_id': postId,
             'reported_user_id': reportedUserId,
-            'reason': 'ai_content',
+            'reason': 'ai_generated',
             'source': 'ai',
             'ai_confidence': aiConfidence,
             'status': 'pending',
@@ -40,7 +40,9 @@ class AppealRepository {
 
       return response['id'] as String;
     } catch (e) {
-      debugPrint('AppealRepository: Error getting/creating moderation case - $e');
+      debugPrint(
+        'AppealRepository: Error getting/creating moderation case - $e',
+      );
       return null;
     }
   }
@@ -75,10 +77,13 @@ class AppealRepository {
           .from(SupabaseConfig.appealsTable)
           .select('id')
           .eq('user_id', userId)
-          .eq('moderation_case_id', _client
-              .from(SupabaseConfig.moderationCasesTable)
-              .select('id')
-              .eq('post_id', postId))
+          .eq(
+            'moderation_case_id',
+            _client
+                .from(SupabaseConfig.moderationCasesTable)
+                .select('id')
+                .eq('post_id', postId),
+          )
           .maybeSingle();
 
       return result != null;
