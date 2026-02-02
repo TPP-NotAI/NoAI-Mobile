@@ -34,7 +34,6 @@ import 'screens/create/create_post_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/chat/chat_list_screen.dart';
-import 'screens/dm/dm_list_screen.dart';
 import 'screens/support/contact_support_screen.dart';
 import 'screens/support/faq_screen.dart';
 import 'config/app_constants.dart';

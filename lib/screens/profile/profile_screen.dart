@@ -1421,31 +1421,180 @@ class _DraftsGrid extends StatelessWidget {
           childAspectRatio: 1,
         ),
         delegate: SliverChildBuilderDelegate(
-          (context, i) => GestureDetector(
-            onTap: () async {
-              await onRepublish(posts[i].id);
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                color: colors.surfaceContainerHighest.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: colors.outlineVariant.withOpacity(0.5),
-                  width: 1,
-                ),
+          (context, i) => _DraftGridItem(
+            post: posts[i],
+            colors: colors,
+            onRepublish: onRepublish,
+          ),
+          childCount: posts.length,
+        ),
+      ),
+    );
+  }
+}
+
+/* ───────────────── DRAFT GRID ITEM ───────────────── */
+
+class _DraftGridItem extends StatelessWidget {
+  final dynamic post;
+  final ColorScheme colors;
+  final Future<void> Function(String postId) onRepublish;
+
+  const _DraftGridItem({
+    required this.post,
+    required this.colors,
+    required this.onRepublish,
+  });
+
+  bool _isVideo(dynamic post) {
+    if (post.mediaList != null && (post.mediaList as List).isNotEmpty) {
+      return (post.mediaList as List).first.mediaType == 'video';
+    }
+    if (post.mediaUrl != null) {
+      final url = (post.mediaUrl as String).toLowerCase();
+      return url.endsWith('.mp4') ||
+          url.endsWith('.mov') ||
+          url.endsWith('.avi');
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryMediaUrl = post.primaryMediaUrl;
+    final hasMedia = primaryMediaUrl != null && primaryMediaUrl.isNotEmpty;
+    final isVideo = _isVideo(post);
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+        );
+      },
+      onLongPress: () async {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Republish Post?'),
+            content: const Text(
+              'This will make the post visible in the public feed again.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
               ),
-              child: Center(
-                child: Text(
-                  'Draft ${i + 1}',
-                  style: TextStyle(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.bold,
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Republish'),
+              ),
+            ],
+          ),
+        );
+        if (confirm == true) {
+          await onRepublish(post.id);
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colors.outlineVariant.withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Media image or content preview
+              if (hasMedia)
+                isVideo
+                    ? Container(
+                        color: Colors.black,
+                        child: Center(
+                          child: Icon(
+                            Icons.play_circle_fill,
+                            color: Colors.white.withOpacity(0.8),
+                            size: 48,
+                          ),
+                        ),
+                      )
+                    : CachedNetworkImage(
+                        imageUrl: primaryMediaUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const ShimmerLoading(
+                          isLoading: true,
+                          child: ShimmerBox(
+                            width: double.infinity,
+                            height: double.infinity,
+                            borderRadius: 0,
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          padding: const EdgeInsets.all(8),
+                          color: colors.surfaceContainerHighest,
+                          child: Center(
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              color: colors.onSurfaceVariant.withValues(
+                                alpha: 0.5,
+                              ),
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      )
+              else
+                // Text-only post background
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  child: Center(
+                    child: Text(
+                      post.content.length > 50
+                          ? '${post.content.substring(0, 50)}...'
+                          : post.content,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colors.onSurface.withValues(alpha: 0.7),
+                        height: 1.3,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 5,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+
+              // DRAFT badge
+              Positioned(
+                top: 4,
+                left: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.tertiary,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'DRAFT',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: colors.onTertiary,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-          childCount: posts.length,
         ),
       ),
     );

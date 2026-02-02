@@ -1,7 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
-import '../config/supabase_config.dart';
 
 /// Service for handling authentication operations with Supabase.
 class AuthService {
