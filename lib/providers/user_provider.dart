@@ -153,7 +153,7 @@ class UserProvider with ChangeNotifier {
           .from(SupabaseConfig.profilesTable)
           .select(
             '*, ${SupabaseConfig.walletsTable}(*)',
-          ) // Visibility settings removed due to schema mismatch
+          )
           .eq('user_id', userId)
           .maybeSingle();
 
@@ -180,10 +180,25 @@ class UserProvider with ChangeNotifier {
           .eq('follower_id', userId)
           .count(CountOption.exact);
 
+      // 3. Fetch user achievements with achievement details
+      List<app_models.UserAchievement> achievements = [];
+      try {
+        final achievementsRes = await _supabase.client
+            .from('user_achievements')
+            .select('*, achievements(*)')
+            .eq('user_id', userId);
+        achievements = (achievementsRes as List)
+            .map((json) => app_models.UserAchievement.fromSupabase(json))
+            .toList();
+      } catch (e) {
+        debugPrint('UserProvider: Error fetching achievements - $e');
+      }
+
       final wallet = profileResponse[SupabaseConfig.walletsTable];
       app_models.User user = app_models.User.fromSupabase(
         profileResponse,
         wallet: wallet,
+        achievements: achievements,
       );
 
       // Update user with real counts

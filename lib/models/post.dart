@@ -140,14 +140,18 @@ class Post {
   final String timestamp;
   final bool isNFT;
   final bool isLiked;
-  final String? userReaction; // Current user's reaction type (like, love, laugh, sad, angry, wow) or null
-  final Map<String, int> reactionCounts; // Breakdown: {'like': 5, 'love': 2, ...}
+  final String?
+  userReaction; // Current user's reaction type (like, love, laugh, sad, angry, wow) or null
+  final Map<String, int>
+  reactionCounts; // Breakdown: {'like': 5, 'love': 2, ...}
   final int totalReactions; // Total count of all reactions
   final List<Comment>? commentList;
 
   // AI verification fields (matching web)
   final double? aiConfidenceScore; // 0-100 probability of AI generation
-  final String? detectionStatus; // 'pending', 'approved', 'flagged', 'removed'
+  final String?
+  detectionStatus; // 'pass', 'review', 'flagged' (from ai_score_status column)
+  final String status; // 'draft', 'published', 'under_review', 'hidden', 'deleted', 'scheduled'
 
   Post({
     required this.id,
@@ -171,6 +175,7 @@ class Post {
     this.commentList,
     this.aiConfidenceScore,
     this.detectionStatus,
+    this.status = 'published',
     this.reposter,
     this.repostedAt,
   });
@@ -204,6 +209,7 @@ class Post {
     List<Comment>? commentList,
     double? aiConfidenceScore,
     String? detectionStatus,
+    String? status,
     PostAuthor? reposter,
     String? repostedAt,
   }) {
@@ -223,12 +229,15 @@ class Post {
       timestamp: timestamp ?? this.timestamp,
       isNFT: isNFT ?? this.isNFT,
       isLiked: isLiked ?? this.isLiked,
-      userReaction: clearUserReaction ? null : (userReaction ?? this.userReaction),
+      userReaction: clearUserReaction
+          ? null
+          : (userReaction ?? this.userReaction),
       reactionCounts: reactionCounts ?? this.reactionCounts,
       totalReactions: totalReactions ?? this.totalReactions,
       commentList: commentList ?? this.commentList,
       aiConfidenceScore: aiConfidenceScore ?? this.aiConfidenceScore,
       detectionStatus: detectionStatus ?? this.detectionStatus,
+      status: status ?? this.status,
       reposter: reposter ?? this.reposter,
       repostedAt: repostedAt ?? this.repostedAt,
     );
@@ -284,7 +293,9 @@ class Post {
     final likesCount = reactionCounts['like'] ?? 0;
     final totalReactions = reactions.length;
 
-    debugPrint('Post.fromSupabase: userReaction=$userReaction, likesCount=$likesCount, totalReactions=$totalReactions');
+    debugPrint(
+      'Post.fromSupabase: userReaction=$userReaction, likesCount=$likesCount, totalReactions=$totalReactions',
+    );
 
     // Parse media list
     final mediaJson = json['post_media'] as List<dynamic>? ?? [];
@@ -342,8 +353,9 @@ class Post {
       userReaction: userReaction,
       reactionCounts: reactionCounts,
       totalReactions: totalReactions,
-      aiConfidenceScore: (json['ai_confidence_score'] as num?)?.toDouble(),
-      detectionStatus: json['status'] as String?,
+      aiConfidenceScore: (json['ai_score'] as num?)?.toDouble(),
+      detectionStatus: json['ai_score_status'] as String?,
+      status: json['status'] as String? ?? 'published',
       reposter: json['reposter'] != null
           ? PostAuthor(
               userId: json['reposter']['user_id'] as String?,
@@ -365,7 +377,7 @@ class Post {
       'title': null,
       'visibility': visibility, // Add visibility here
       'body_format': 'plain',
-      'status': 'published',
+      'status': status,
     };
   }
 }

@@ -2,6 +2,39 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'user.g.dart';
 
+/// A single achievement badge unlocked by a user.
+class UserAchievement {
+  final String id;
+  final String name;
+  final String description;
+  final String icon;
+  final String tier;
+  final DateTime? unlockedAt;
+
+  const UserAchievement({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.icon,
+    required this.tier,
+    this.unlockedAt,
+  });
+
+  factory UserAchievement.fromSupabase(Map<String, dynamic> json) {
+    final achievement = json['achievements'] as Map<String, dynamic>? ?? json;
+    return UserAchievement(
+      id: achievement['id'] as String? ?? json['achievement_id'] as String,
+      name: achievement['name'] as String? ?? '',
+      description: achievement['description'] as String? ?? '',
+      icon: achievement['icon'] as String? ?? 'star',
+      tier: achievement['tier'] as String? ?? 'bronze',
+      unlockedAt: json['unlocked_at'] != null
+          ? DateTime.tryParse(json['unlocked_at'] as String)
+          : null,
+    );
+  }
+}
+
 @JsonSerializable()
 class User {
   /// User ID - String (UUID) for Supabase, or legacy int converted to String.
@@ -12,6 +45,8 @@ class User {
   final String? avatar;
   final String? bio;
   final String? phone;
+  final String? location;
+  final String? websiteUrl;
   final bool isVerified;
   final double balance;
   final int postsCount;
@@ -26,6 +61,8 @@ class User {
   final String status; // active, suspended, banned
   final DateTime? createdAt;
   final DateTime? lastSeen;
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  final List<UserAchievement> achievements;
 
   User({
     required this.id,
@@ -35,6 +72,8 @@ class User {
     this.avatar,
     this.bio,
     this.phone,
+    this.location,
+    this.websiteUrl,
     this.isVerified = false,
     this.balance = 0.0,
     this.postsCount = 0,
@@ -49,6 +88,7 @@ class User {
     this.status = 'active',
     this.createdAt,
     this.lastSeen,
+    this.achievements = const [],
   });
 
   /// Whether the user account is active.
@@ -67,6 +107,7 @@ class User {
   factory User.fromSupabase(
     Map<String, dynamic> profile, {
     Map<String, dynamic>? wallet,
+    List<UserAchievement>? achievements,
   }) {
     return User(
       id: profile['user_id'] as String,
@@ -75,7 +116,9 @@ class User {
       email: null, // Email is in auth.users, not profiles
       avatar: profile['avatar_url'] as String?,
       bio: profile['bio'] as String?,
-      phone: profile['phone_number'] as String?, // Persisted via Supabase profile column
+      phone: profile['phone_number'] as String?,
+      location: profile['location'] as String?,
+      websiteUrl: profile['website_url'] as String?,
       isVerified: profile['verified_human'] == 'verified',
       verifiedHuman: profile['verified_human'] as String? ?? 'unverified',
       balance: (wallet?['balance_rc'] as num?)?.toDouble() ?? 0.0,
@@ -91,6 +134,7 @@ class User {
       commentsVisibility: profile['comments_visibility'] as String?,
       messagesVisibility: profile['messages_visibility'] as String?,
       status: profile['status'] as String? ?? 'active',
+      achievements: achievements ?? const [],
       // Counts would need separate queries or computed columns
       postsCount: 0,
       followersCount: 0,
@@ -109,6 +153,8 @@ class User {
     String? avatar,
     String? bio,
     String? phone,
+    String? location,
+    String? websiteUrl,
     bool? isVerified,
     double? balance,
     int? postsCount,
@@ -123,6 +169,7 @@ class User {
     String? status,
     DateTime? createdAt,
     DateTime? lastSeen,
+    List<UserAchievement>? achievements,
   }) {
     return User(
       id: id ?? this.id,
@@ -132,6 +179,8 @@ class User {
       avatar: avatar ?? this.avatar,
       bio: bio ?? this.bio,
       phone: phone ?? this.phone,
+      location: location ?? this.location,
+      websiteUrl: websiteUrl ?? this.websiteUrl,
       isVerified: isVerified ?? this.isVerified,
       balance: balance ?? this.balance,
       postsCount: postsCount ?? this.postsCount,
@@ -146,6 +195,7 @@ class User {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       lastSeen: lastSeen ?? this.lastSeen,
+      achievements: achievements ?? this.achievements,
     );
   }
 }

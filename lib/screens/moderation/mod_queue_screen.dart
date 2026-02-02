@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
+import '../../models/post.dart';
+import '../../providers/auth_provider.dart';
+import '../../repositories/post_repository.dart';
+import '../../utils/time_utils.dart';
+import 'appeal_form_screen.dart';
 
 class ModQueueScreen extends StatefulWidget {
   const ModQueueScreen({super.key});
@@ -9,9 +15,44 @@ class ModQueueScreen extends StatefulWidget {
 }
 
 class _ModQueueScreenState extends State<ModQueueScreen> {
-  String _selectedFilter = 'Priority';
-  String _selectedSort = 'Most Reported';
-  String _selectedType = 'Violation Type';
+  // Filters (Visual only for now, could be wired up later)
+  final String _selectedFilter = 'Priority';
+  final String _selectedSort = 'Most Reported';
+  final String _selectedType = 'Violation Type';
+
+  List<Post> _queue = [];
+  bool _isLoading = true;
+  String? _currentUserId;
+
+  final PostRepository _postRepo = PostRepository();
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUserId = context.read<AuthProvider>().currentUser?.id;
+    _fetchQueue();
+  }
+
+  Future<void> _fetchQueue() async {
+    setState(() => _isLoading = true);
+    try {
+      final posts = await _postRepo.getModerationQueue();
+      if (mounted) {
+        setState(() {
+          _queue = posts;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading queue: $e')));
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -35,10 +76,17 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
         ),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            color: scheme.onSurface,
+            onPressed: _fetchQueue,
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // Stats Cards
+          // Stats Cards (Mock for now or could count list)
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -49,8 +97,8 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                     icon: Icons.warning,
                     iconColor: Colors.orange,
                     label: 'BACKLOG',
-                    value: '142',
-                    subtitle: '+12 since last login',
+                    value: _queue.length.toString(),
+                    subtitle: 'Pending Review',
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -60,7 +108,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                     icon: Icons.check_circle,
                     iconColor: Colors.blue,
                     label: 'DAILY ACTIONS',
-                    value: '45',
+                    value: '45', // Placeholder
                     subtitle: 'Target: 100',
                   ),
                 ),
@@ -68,7 +116,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
             ),
           ),
 
-          // Filters
+          // Filters (Visual Only)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -99,42 +147,26 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
 
           // Queue Items
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                _buildQueueItem(
-                  context,
-                  violation: 'Impersonation',
-                  priority: 'High Priority',
-                  reportCount: '12 Reports',
-                  username: '@cryptokid99',
-                  accountAge: '3d',
-                  isVerified: false,
-                  rooBalance: '0.00 ROO',
-                  content:
-                      'Hey guys, I am an official admin for NOAI. Please DM me your wallet keys to verify your humanity status immediately or you will be banned! 🚨',
-                  hasImage: true,
-                  aiAnalysis:
-                      'Pattern matches known phishing scripts (98% confidence). User has sent 400 DMs in the last hour.',
-                  violationColor: Colors.red,
-                ),
-                const SizedBox(height: 12),
-                _buildQueueItem(
-                  context,
-                  violation: 'Graphic Violence',
-                  priority: null,
-                  reportCount: null,
-                  username: '@real_human_1',
-                  accountAge: null,
-                  isVerified: true,
-                  rooBalance: '1.2k ROO',
-                  content: null,
-                  hasImage: false,
-                  aiAnalysis: null,
-                  violationColor: Colors.orange,
-                ),
-              ],
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _queue.isEmpty
+                ? Center(
+                    child: Text(
+                      '🎉 All caught up!',
+                      style: TextStyle(
+                        color: scheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _queue.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final post = _queue[index];
+                      return _buildPostItem(context, post);
+                    },
+                  ),
           ),
         ],
       ),
@@ -236,21 +268,10 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
     );
   }
 
-  Widget _buildQueueItem(
-    BuildContext context, {
-    required String violation,
-    String? priority,
-    String? reportCount,
-    required String username,
-    String? accountAge,
-    required bool isVerified,
-    required String rooBalance,
-    String? content,
-    required bool hasImage,
-    String? aiAnalysis,
-    required Color violationColor,
-  }) {
+  Widget _buildPostItem(BuildContext context, Post post) {
     final scheme = Theme.of(context).colorScheme;
+    final isAI = (post.aiConfidenceScore ?? 0) >= 75;
+    final violationColor = Colors.red;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -265,10 +286,10 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
           // Violation Header
           Row(
             children: [
-              Icon(Icons.error, color: violationColor, size: 18),
+              Icon(Icons.auto_awesome, color: violationColor, size: 18),
               const SizedBox(width: 8),
               Text(
-                violation,
+                'AI Content Detected',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
@@ -276,22 +297,24 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                 ),
               ),
               const Spacer(),
-              if (priority != null && reportCount != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: violationColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '$priority • $reportCount',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: violationColor,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: violationColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'High Confidence',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: violationColor,
                   ),
                 ),
+              ),
             ],
           ),
 
@@ -303,11 +326,16 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
               CircleAvatar(
                 radius: 18,
                 backgroundColor: scheme.onSurface.withOpacity(0.1),
-                child: Icon(
-                  Icons.person,
-                  size: 20,
-                  color: scheme.onSurface.withOpacity(0.5),
-                ),
+                backgroundImage: post.author.avatar.isNotEmpty
+                    ? NetworkImage(post.author.avatar)
+                    : null,
+                child: post.author.avatar.isEmpty
+                    ? Icon(
+                        Icons.person,
+                        size: 20,
+                        color: scheme.onSurface.withOpacity(0.5),
+                      )
+                    : null,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -317,130 +345,69 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                     Row(
                       children: [
                         Text(
-                          username,
+                          post.author.username,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: scheme.onSurface,
                           ),
                         ),
-                        if (accountAge != null) ...[
-                          const SizedBox(width: 8),
+                        const SizedBox(width: 8),
+                        Text(
+                          humanReadableTime(post.timestamp),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurface.withOpacity(0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (post.author.isVerified)
+                      Row(
+                        children: const [
+                          Icon(Icons.verified, size: 12, color: Colors.green),
+                          SizedBox(width: 4),
                           Text(
-                            'Acc age: $accountAge',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: scheme.onSurface.withOpacity(0.5),
-                            ),
+                            'Verified Human',
+                            style: TextStyle(fontSize: 12, color: Colors.green),
                           ),
                         ],
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        if (!isVerified)
-                          Text(
-                            'Unverified',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.red,
-                            ),
-                          )
-                        else
-                          Row(
-                            children: [
-                              Icon(Icons.verified, size: 12, color: Colors.green),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Verified Human',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.green,
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.currency_bitcoin, size: 14, color: AppColors.primary),
-                    const SizedBox(width: 4),
-                    Text(
-                      rooBalance,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
                       ),
-                    ),
                   ],
                 ),
               ),
             ],
           ),
 
-          if (content != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              content,
-              style: TextStyle(
-                fontSize: 13,
-                color: scheme.onSurface.withOpacity(0.8),
-                height: 1.4,
-              ),
-            ),
-          ],
+          const SizedBox(height: 12),
 
-          if (hasImage) ...[
+          // Content
+          Text(
+            post.content,
+            style: TextStyle(
+              fontSize: 13,
+              color: scheme.onSurface.withOpacity(0.8),
+              height: 1.4,
+            ),
+          ),
+
+          if (post.hasMedia && post.primaryMediaUrl != null) ...[
             const SizedBox(height: 12),
             Container(
               height: 150,
+              width: double.infinity,
               decoration: BoxDecoration(
                 color: scheme.background,
                 borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.visibility_off,
-                      size: 40,
-                      color: scheme.onSurface.withOpacity(0.3),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tap to Reveal Image',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: scheme.onSurface,
-                      ),
-                    ),
-                    Text(
-                      'Suspected Scam Content',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: scheme.onSurface.withOpacity(0.5),
-                      ),
-                    ),
-                  ],
+                image: DecorationImage(
+                  image: NetworkImage(post.primaryMediaUrl!),
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
           ],
 
-          if (aiAnalysis != null) ...[
+          if (post.aiConfidenceScore != null) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -452,14 +419,14 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.psychology, color: Colors.blue, size: 18),
+                  const Icon(Icons.psychology, color: Colors.blue, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'AI CONTEXT ANALYSIS',
+                        const Text(
+                          'AI ANALYSIS RESULTS',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -469,7 +436,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          aiAnalysis,
+                          'Confidence Score: ${(post.aiConfidenceScore!).toStringAsFixed(2)}%.\nSystem flagged this content for review.',
                           style: TextStyle(
                             fontSize: 12,
                             color: scheme.onSurface.withOpacity(0.8),
@@ -484,60 +451,34 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
             ),
           ],
 
-          const SizedBox(height: 16),
-
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: Icon(Icons.block, size: 18),
-                  label: Text('Ban User'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: BorderSide(color: Colors.red.withOpacity(0.5)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+          // Appeal button — only for current user's own posts
+          if (_currentUserId != null &&
+              post.author.userId == _currentUserId) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AppealFormScreen(post: post),
                     ),
+                  );
+                },
+                icon: const Icon(Icons.gavel, size: 18),
+                label: const Text('Appeal This Decision'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: Icon(Icons.delete, size: 18),
-                  label: Text('Remove'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: BorderSide(color: Colors.red),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: Icon(Icons.check, size: 18),
-                  label: Text('Approve'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     );

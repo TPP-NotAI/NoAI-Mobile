@@ -308,11 +308,14 @@ class FeedProvider with ChangeNotifier {
     if (first == -1) return;
 
     final wasLiked = _posts[first].isLiked;
-    final newLikes = wasLiked ? _posts[first].likes - 1 : _posts[first].likes + 1;
+    final newLikes = wasLiked
+        ? _posts[first].likes - 1
+        : _posts[first].likes + 1;
 
     // Optimistic update — apply to ALL instances
-    final originals = _updateAllInstances(postId, (p) =>
-      p.copyWith(likes: newLikes, isLiked: !wasLiked),
+    final originals = _updateAllInstances(
+      postId,
+      (p) => p.copyWith(likes: newLikes, isLiked: !wasLiked),
     );
     notifyListeners();
 
@@ -684,8 +687,12 @@ class FeedProvider with ChangeNotifier {
 
     // Optimistic: remove the comment locally
     final originalComments = post.commentList!;
-    final updatedComments = _removeCommentRecursive(originalComments, commentId);
-    final removedCount = _countComments(originalComments) - _countComments(updatedComments);
+    final updatedComments = _removeCommentRecursive(
+      originalComments,
+      commentId,
+    );
+    final removedCount =
+        _countComments(originalComments) - _countComments(updatedComments);
     _posts[postIndex] = post.copyWith(
       commentList: updatedComments,
       comments: post.comments - removedCount,
@@ -714,7 +721,11 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Update a comment's text (with ownership validation)
-  Future<bool> updateComment(String postId, String commentId, String newText) async {
+  Future<bool> updateComment(
+    String postId,
+    String commentId,
+    String newText,
+  ) async {
     final userId = _currentUserId;
     if (userId == null) return false;
 
@@ -757,18 +768,18 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Helper: remove a comment recursively from nested comment list
-  List<Comment> _removeCommentRecursive(List<Comment> comments, String commentId) {
-    return comments
-        .where((c) => c.id != commentId)
-        .map((c) {
-          if (c.replies != null && c.replies!.isNotEmpty) {
-            return c.copyWith(
-              replies: _removeCommentRecursive(c.replies!, commentId),
-            );
-          }
-          return c;
-        })
-        .toList();
+  List<Comment> _removeCommentRecursive(
+    List<Comment> comments,
+    String commentId,
+  ) {
+    return comments.where((c) => c.id != commentId).map((c) {
+      if (c.replies != null && c.replies!.isNotEmpty) {
+        return c.copyWith(
+          replies: _removeCommentRecursive(c.replies!, commentId),
+        );
+      }
+      return c;
+    }).toList();
   }
 
   // Helper: update a comment's text recursively
@@ -782,7 +793,11 @@ class FeedProvider with ChangeNotifier {
         return comment.copyWith(text: newText);
       } else if (comment.replies != null && comment.replies!.isNotEmpty) {
         return comment.copyWith(
-          replies: _updateCommentTextRecursive(comment.replies!, commentId, newText),
+          replies: _updateCommentTextRecursive(
+            comment.replies!,
+            commentId,
+            newText,
+          ),
         );
       }
       return comment;
@@ -946,6 +961,39 @@ class FeedProvider with ChangeNotifier {
         // Add to the beginning of the feed
         _posts.insert(0, newPost);
         notifyListeners();
+
+        // Fire-and-forget: run AI detection in the background.
+        // The post is visible immediately with a PENDING badge.
+        // Once detection completes, update the local post so the
+        // badge switches to PASS/FAIL without needing a feed refresh.
+        _postRepository
+            .runAiDetection(
+              postId: newPost.id,
+              body: body,
+              mediaFiles: mediaFiles,
+            )
+            .then((confidence) {
+              if (confidence != null) {
+                // Fetch updated post to get the AI score and status
+                _postRepository.getPost(newPost.id, currentUserId: userId).then(
+                  (updatedPost) {
+                    if (updatedPost != null) {
+                      final idx = _posts.indexWhere((p) => p.id == newPost.id);
+                      if (idx != -1) {
+                        if (updatedPost.status == 'under_review') {
+                          // Post was flagged — remove from feed since it's
+                          // now in the moderation queue for review.
+                          _posts.removeAt(idx);
+                        } else {
+                          _posts[idx] = updatedPost;
+                        }
+                        notifyListeners();
+                      }
+                    }
+                  },
+                );
+              }
+            });
       }
 
       return newPost;
@@ -1011,7 +1059,10 @@ class FeedProvider with ChangeNotifier {
       currentUserId: userId,
     );
     if (success) {
-      final post = _posts.firstWhere((p) => p.id == postId, orElse: () => _posts.first);
+      final post = _posts.firstWhere(
+        (p) => p.id == postId,
+        orElse: () => _posts.first,
+      );
       if (post.id == postId) {
         _draftPosts.insert(0, post);
       }
@@ -1044,7 +1095,10 @@ class FeedProvider with ChangeNotifier {
       currentUserId: userId,
     );
     if (success) {
-      final post = _draftPosts.firstWhere((p) => p.id == postId, orElse: () => _draftPosts.first);
+      final post = _draftPosts.firstWhere(
+        (p) => p.id == postId,
+        orElse: () => _draftPosts.first,
+      );
       if (post.id == postId) {
         _posts.insert(0, post);
       }

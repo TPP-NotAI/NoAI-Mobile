@@ -6,6 +6,8 @@ import '../services/supabase_service.dart';
 import 'media_repository.dart';
 import 'tag_repository.dart';
 import 'mention_repository.dart';
+import '../models/ai_detection_result.dart';
+import '../services/ai_detection_service.dart';
 
 /// Repository for post-related Supabase operations.
 class PostRepository {
@@ -13,6 +15,7 @@ class PostRepository {
   final MediaRepository _mediaRepository = MediaRepository();
   final TagRepository _tagRepository = TagRepository();
   final MentionRepository _mentionRepository = MentionRepository();
+  final AiDetectionService _aiDetectionService = AiDetectionService();
 
   /// Fetch paginated feed of published posts.
   /// Respects privacy settings: filters posts based on author's posts_visibility setting.
@@ -294,7 +297,7 @@ class PostRepository {
     final fetchLimit = limit * 2;
 
     // Fetch user's original posts
-    final postsFuture = _client
+    dynamic postsFuture = _client
         .from(SupabaseConfig.postsTable)
         .select('''
           *,
@@ -332,8 +335,18 @@ class PostRepository {
             mentioned_user_id
           )
         ''')
-        .eq('author_id', userId)
-        .eq('status', 'published')
+        .eq('author_id', userId);
+
+    // If viewing own profile, show both published and under-review posts
+    if (currentUserId == userId) {
+      postsFuture = postsFuture.or(
+        'status.eq.published,status.eq.under_review',
+      );
+    } else {
+      postsFuture = postsFuture.eq('status', 'published');
+    }
+
+    postsFuture = postsFuture
         .order('created_at', ascending: false)
         .range(offset, offset + fetchLimit - 1);
 
@@ -390,7 +403,7 @@ class PostRepository {
         .order('created_at', ascending: false)
         .range(offset, offset + fetchLimit - 1);
 
-    final results = await Future.wait([postsFuture, repostsFuture]);
+    final results = await Future.wait<dynamic>([postsFuture, repostsFuture]);
     final postData = results[0] as List<dynamic>;
     final repostData = results[1] as List<dynamic>;
 
@@ -521,9 +534,12 @@ class PostRepository {
     }
   }
 
-  /// Delete a post (soft delete by setting status to 'removed').
+  /// Delete a post (soft delete by setting status to 'deleted').
   /// Validates ownership before deleting.
-  Future<bool> deletePost(String postId, {required String currentUserId}) async {
+  Future<bool> deletePost(
+    String postId, {
+    required String currentUserId,
+  }) async {
     try {
       // RLS enforces this at DB level, but we check here for a clear error message
       final post = await _client
@@ -538,13 +554,15 @@ class PostRepository {
       }
 
       if (post['author_id'] != currentUserId) {
-        debugPrint('PostRepository: Unauthorized - user does not own this post');
+        debugPrint(
+          'PostRepository: Unauthorized - user does not own this post',
+        );
         return false;
       }
 
       await _client
           .from(SupabaseConfig.postsTable)
-          .update({'status': 'removed'})
+          .update({'status': 'deleted'})
           .eq('id', postId);
       return true;
     } catch (e) {
@@ -555,7 +573,10 @@ class PostRepository {
 
   /// Unpublish a post (set status to 'draft').
   /// Validates ownership before unpublishing.
-  Future<bool> unpublishPost(String postId, {required String currentUserId}) async {
+  Future<bool> unpublishPost(
+    String postId, {
+    required String currentUserId,
+  }) async {
     try {
       final post = await _client
           .from(SupabaseConfig.postsTable)
@@ -581,7 +602,10 @@ class PostRepository {
 
   /// Republish a draft post (set status back to 'published').
   /// Validates ownership before republishing.
-  Future<bool> republishPost(String postId, {required String currentUserId}) async {
+  Future<bool> republishPost(
+    String postId, {
+    required String currentUserId,
+  }) async {
     try {
       final post = await _client
           .from(SupabaseConfig.postsTable)
@@ -715,6 +739,174 @@ class PostRepository {
     } catch (e) {
       debugPrint('PostRepository: Error tipping post - $e');
       return false;
+    }
+  }
+
+  /// Update a post's AI score in Supabase.
+  /// Writes to `ai_score` and `ai_score_status` columns.
+  Future<bool> _updateAiScore({
+    required String postId,
+    required double confidence,
+    required String scoreStatus,
+    String? postStatus,
+  }) async {
+    try {
+      final updates = <String, dynamic>{
+        'ai_score': confidence,
+        'ai_score_status': scoreStatus,
+      };
+
+      if (postStatus != null) {
+        updates['status'] = postStatus;
+      }
+
+      await _client
+          .from(SupabaseConfig.postsTable)
+          .update(updates)
+          .eq('id', postId);
+      debugPrint(
+        'PostRepository: Updated AI score - postId=$postId, score=$confidence, status=$postStatus',
+      );
+      return true;
+    } catch (e) {
+      debugPrint('PostRepository: Error updating AI score - $e');
+      return false;
+    }
+  }
+
+  /// Fetch posts pending moderation.
+  Future<List<Post>> getModerationQueue({int limit = 20}) async {
+    try {
+      final postsFuture = _client
+          .from(SupabaseConfig.postsTable)
+          .select('''
+            *,
+            profiles!posts_author_id_fkey (
+              user_id,
+              username,
+              display_name,
+              avatar_url,
+              verified_human
+            ),
+            post_media (
+              id,
+              media_type,
+              storage_path,
+              mime_type
+            )
+          ''')
+          .eq('status', 'under_review')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      final data = await postsFuture as List<dynamic>;
+
+      return data
+          .map((json) => Post.fromSupabase(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('PostRepository: Error fetching moderation queue - $e');
+      return [];
+    }
+  }
+
+  /// Approve or Reject a post.
+  /// action: 'approve' (publish) or 'reject' (mark rejected).
+  Future<bool> moderatePost({
+    required String postId,
+    required String action,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (action == 'approve') {
+        updates['status'] = 'published';
+        updates['ai_score_status'] = 'pass'; // Override AI decision
+      } else if (action == 'reject') {
+        updates['status'] = 'deleted';
+      } else {
+        return false;
+      }
+
+      await _client
+          .from(SupabaseConfig.postsTable)
+          .update(updates)
+          .eq('id', postId);
+
+      return true;
+    } catch (e) {
+      debugPrint('PostRepository: Error moderating post $postId - $e');
+      return false;
+    }
+  }
+
+  /// Run AI detection for a post in the background.
+  /// Picks the right endpoint based on content type:
+  ///   - Text only → /detect/text
+  ///   - Media only → /detect/image (first file)
+  ///   - Both → /detect/mixed (text + first file)
+  /// Returns the confidence score on success, or null on failure.
+  Future<double?> runAiDetection({
+    required String postId,
+    required String body,
+    List<File>? mediaFiles,
+  }) async {
+    try {
+      final hasText = body.trim().isNotEmpty;
+      final hasMedia = mediaFiles != null && mediaFiles.isNotEmpty;
+
+      AiDetectionResult? result;
+
+      if (hasText && hasMedia) {
+        result = await _aiDetectionService.detectMixed(body, mediaFiles.first);
+      } else if (hasText) {
+        result = await _aiDetectionService.detectText(body);
+      } else if (hasMedia) {
+        result = await _aiDetectionService.detectImage(mediaFiles.first);
+      } else {
+        return null; // Nothing to detect
+      }
+
+      if (result != null) {
+        // The API's confidence represents certainty in its classification
+        // label, NOT AI probability. Convert to AI probability:
+        //   "AI-GENERATED" / "LIKELY AI-GENERATED"     → aiProb = confidence
+        //   "HUMAN-GENERATED" / "LIKELY HUMAN-GENERATED" → aiProb = 100 - confidence
+        final bool isAiResult = result.result == 'AI-GENERATED' ||
+            result.result == 'LIKELY AI-GENERATED';
+        final double aiProbability =
+            isAiResult ? result.confidence : 100 - result.confidence;
+
+        // Map AI probability to score status & post status
+        final String scoreStatus;
+        final String postStatus;
+
+        if (aiProbability >= 75) {
+          scoreStatus = 'flagged';
+          postStatus = 'under_review';
+        } else if (aiProbability >= 50) {
+          scoreStatus = 'review';
+          postStatus = 'published';
+        } else {
+          scoreStatus = 'pass';
+          postStatus = 'published';
+        }
+
+        await _updateAiScore(
+          postId: postId,
+          confidence: aiProbability,
+          scoreStatus: scoreStatus,
+          postStatus: postStatus,
+        );
+        return aiProbability;
+      } else {
+        debugPrint(
+          'PostRepository: AI detection returned null for post $postId',
+        );
+        return null;
+      }
+    } catch (e) {
+      debugPrint('PostRepository: AI detection failed for post $postId - $e');
+      return null;
     }
   }
 }
