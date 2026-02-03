@@ -3,6 +3,9 @@ import '../config/supabase_config.dart';
 import '../models/dm_thread.dart';
 import '../models/dm_message.dart';
 import '../models/user.dart';
+import 'ai_detection_service.dart';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 class DmService {
   static final DmService _instance = DmService._internal();
@@ -10,6 +13,7 @@ class DmService {
   DmService._internal();
 
   final _supabase = SupabaseService().client;
+  final _aiService = AiDetectionService();
 
   /// Fetch all DM threads for the current user.
   Future<List<DmThread>> getThreads() async {
@@ -22,8 +26,9 @@ class DmService {
         .select('thread_id')
         .eq('user_id', userId);
 
-    final threadIds =
-        (participantsResponse as List).map((p) => p['thread_id'] as String).toList();
+    final threadIds = (participantsResponse as List)
+        .map((p) => p['thread_id'] as String)
+        .toList();
 
     if (threadIds.isEmpty) return [];
 
@@ -115,8 +120,7 @@ class DmService {
         .select('thread_id')
         .eq('user_id', currentUserId);
 
-    final myThreadIds =
-        (myThreads as List).map((t) => t['thread_id']).toList();
+    final myThreadIds = (myThreads as List).map((t) => t['thread_id']).toList();
 
     if (myThreadIds.isNotEmpty) {
       final commonThreads = await _supabase
@@ -143,7 +147,10 @@ class DmService {
 
         final participants =
             (threadData[SupabaseConfig.dmParticipantsTable] as List)
-                .map((p) => User.fromSupabase(p['profiles'] as Map<String, dynamic>))
+                .map(
+                  (p) =>
+                      User.fromSupabase(p['profiles'] as Map<String, dynamic>),
+                )
                 .toList();
 
         return DmThread.fromSupabase(threadData, participants: participants);
@@ -185,11 +192,7 @@ class DmService {
 
     final response = await _supabase
         .from(SupabaseConfig.dmMessagesTable)
-        .insert({
-          'thread_id': threadId,
-          'sender_id': userId,
-          'body': body,
-        })
+        .insert({'thread_id': threadId, 'sender_id': userId, 'body': body})
         .select()
         .single();
 
@@ -199,7 +202,59 @@ class DmService {
         .update({'last_message_at': DateTime.now().toIso8601String()})
         .eq('id', threadId);
 
-    return DmMessage.fromSupabase(response);
+    final dmMessage = DmMessage.fromSupabase(response);
+
+    // Trigger AI Detection asynchronously
+    unawaited(runAiDetection(dmMessage));
+
+    return dmMessage;
+  }
+
+  /// Run AI detection on a DM message.
+  Future<void> runAiDetection(DmMessage message) async {
+    try {
+      final result = await _aiService.detectText(message.body);
+      if (result == null) return;
+
+      final bool isAiResult =
+          result.result == 'AI-GENERATED' ||
+          result.result == 'LIKELY AI-GENERATED';
+
+      final double aiProbability = isAiResult
+          ? result.confidence
+          : 100 - result.confidence;
+
+      // Update message in DB (assuming columns exist, or fail silently if not)
+      try {
+        await _supabase
+            .from(SupabaseConfig.dmMessagesTable)
+            .update({
+              'ai_score': aiProbability,
+              'status': aiProbability >= 50 ? 'flagged' : 'sent',
+            })
+            .eq('id', message.id);
+      } catch (e) {
+        debugPrint('DmService: Failed to update AI fields in DB - $e');
+      }
+
+      // Create moderation case if flagged
+      if (aiProbability >= 75) {
+        await _supabase.from('moderation_cases').insert({
+          'message_id': message.id,
+          'user_id': message.senderId,
+          'violation_type': 'ai_generation',
+          'ai_confidence': aiProbability,
+          'status': 'pending',
+          'ai_metadata': {
+            'analysis_id': result.analysisId,
+            'rationale': result.rationale,
+            'combined_evidence': result.combinedEvidence,
+          },
+        });
+      }
+    } catch (e) {
+      debugPrint('DmService: Error in runAiDetection - $e');
+    }
   }
 
   /// Fetch messages for a DM thread.

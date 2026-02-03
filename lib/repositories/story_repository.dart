@@ -58,10 +58,20 @@ class StoryRepository {
             display_name,
             avatar_url,
             verified_human
+          ),
+          reactions:reactions!reactions_story_id_fkey (
+            user_id,
+            reaction_type
           )
         ''')
         .or(orCondition)
         .gt('expires_at', nowIso)
+        // Only show passed stories, legacy stories (null status), or the user's own stories that aren't flagged
+        .or('status.eq.pass,status.is.null,user_id.eq.$currentUserId')
+        .neq(
+          'status',
+          'flagged',
+        ) // Never show explicitly flagged stories in the main feed
         .order('created_at', ascending: false);
 
     return (storiesResponse as List)
@@ -69,6 +79,7 @@ class StoryRepository {
           (row) => Story.fromSupabase(
             row as Map<String, dynamic>,
             isViewed: viewedIds.contains(row['id'] as String),
+            currentUserId: currentUserId,
           ),
         )
         .toList();
@@ -82,6 +93,17 @@ class StoryRepository {
     required String viewerId,
   }) async {
     try {
+      // Don't count owner's own views
+      final story = await _client
+          .from(SupabaseConfig.storiesTable)
+          .select('user_id')
+          .eq('id', storyId)
+          .maybeSingle();
+
+      if (story != null && story['user_id'] == viewerId) {
+        return false;
+      }
+
       final existing = await _client
           .from(SupabaseConfig.storyViewsTable)
           .select('id')
@@ -143,6 +165,10 @@ class StoryRepository {
               display_name,
               avatar_url,
               verified_human
+            ),
+            reactions:reactions!reactions_story_id_fkey (
+              user_id,
+              reaction_type
             )
           ''');
 
@@ -150,28 +176,16 @@ class StoryRepository {
           .map((row) => Story.fromSupabase(row as Map<String, dynamic>))
           .toList();
 
-      // Run AI detection for each story in the background
-      for (int i = 0; i < stories.length; i++) {
-        final story = stories[i];
-        final media = mediaItems[i];
-        runAiDetection(
-          storyId: story.id,
-          authorId: userId,
-          mediaUrl: media.url,
-          mediaType: media.mediaType,
-          caption: caption,
-        ).catchError((e) {
-          debugPrint(
-            'StoryRepository: AI detection failed for story ${story.id} - $e',
-          );
-        });
-      }
-
       return stories;
     } catch (e) {
       debugPrint('StoryRepository: failed to create stories - $e');
       return [];
     }
+  }
+
+  String _resolveUrl(String url) {
+    if (url.startsWith('http')) return url;
+    return '${SupabaseConfig.supabaseUrl}/storage/v1/object/public/${SupabaseConfig.postMediaBucket}/$url';
   }
 
   /// Backwards compatible single-story creator.
@@ -242,7 +256,7 @@ class StoryRepository {
   }
 
   /// Fetch the list of viewers (profiles) for a given story.
-  Future<List<noai_user.User>> fetchStoryViewers({
+  Future<List<Map<String, dynamic>>> fetchStoryViewers({
     required String storyId,
   }) async {
     try {
@@ -262,15 +276,20 @@ class StoryRepository {
             viewed_at
           ''')
           .eq('story_id', storyId)
+          .neq(
+            'viewer_id',
+            _client.auth.currentUser?.id ?? '',
+          ) // Ensure self is not returned
           .order('viewed_at', ascending: false);
 
-      return (response as List)
-          .map(
-            (row) => noai_user.User.fromSupabase(
-              row['viewer'] as Map<String, dynamic>,
-            ),
-          )
-          .toList();
+      return (response as List).map((row) {
+        return {
+          'user': noai_user.User.fromSupabase(
+            row['viewer'] as Map<String, dynamic>,
+          ),
+          'viewedAt': DateTime.parse(row['viewed_at'] as String),
+        };
+      }).toList();
     } catch (e) {
       debugPrint('StoryRepository: failed to fetch viewers - $e');
       return [];
@@ -279,7 +298,7 @@ class StoryRepository {
 
   /// Run AI detection for a story in the background.
   /// Returns the confidence score on success, or null on failure.
-  Future<double?> runAiDetection({
+  Future<Map<String, dynamic>?> runAiDetection({
     required String storyId,
     required String authorId,
     required String mediaUrl,
@@ -306,7 +325,7 @@ class StoryRepository {
           final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
           final filePath = '${tempDir.path}/$fileName';
 
-          final response = await http.get(Uri.parse(mediaUrl));
+          final response = await http.get(Uri.parse(_resolveUrl(mediaUrl)));
           if (response.statusCode == 200) {
             final file = File(filePath);
             await file.writeAsBytes(response.bodyBytes);
@@ -343,7 +362,7 @@ class StoryRepository {
       } else {
         // No content to detect, consider it passed
         await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
-        return 0.0;
+        return {'score': 0.0, 'status': 'pass'};
       }
 
       // Determine status based on AI probability
@@ -369,8 +388,8 @@ class StoryRepository {
         },
       );
 
-      // Create moderation case if flagged
-      if (status == 'flagged') {
+      // Create moderation case if flagged or review required
+      if (status == 'flagged' || status == 'review') {
         await _createModerationCase(
           storyId: storyId,
           authorId: authorId,
@@ -385,7 +404,7 @@ class StoryRepository {
         );
       }
 
-      return aiProbability;
+      return {'score': aiProbability, 'status': status};
     } catch (e) {
       debugPrint(
         'StoryRepository: AI detection failed for story $storyId - $e',

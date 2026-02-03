@@ -10,12 +10,14 @@ import '../services/chat_service.dart';
 class ChatProvider extends ChangeNotifier {
   static const _recentlyReadRetention = Duration(days: 30);
   static const _readCacheKey = 'chat_recently_read';
+  static const _deletedMessagesKey = 'chat_locally_deleted';
 
   final _chatService = ChatService();
   final Map<String, DateTime> _recentlyReadAt = {};
-  Future<void>? _readCacheInit;
+  final Set<String> _locallyDeletedMessageIds = {};
+  Future<void>? _cacheInit;
   SharedPreferences? _preferences;
-  bool _readCacheDirty = false;
+  bool _cacheDirty = false;
 
   List<Conversation> _conversations = [];
   List<Conversation> get conversations => _conversations;
@@ -32,7 +34,7 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _ensureReadCacheInitialized();
+      await _ensureCacheInitialized();
       final now = DateTime.now();
       _purgeStaleRecentlyRead(now);
       final fetched = await _chatService.getConversations(
@@ -43,7 +45,7 @@ class ChatProvider extends ChangeNotifier {
         adjusted.add(_applyRecentReadOverride(conversation));
       }
       _conversations = adjusted;
-      await _persistReadCacheIfDirty();
+      await _persistCacheIfDirty();
     } catch (e) {
       debugPrint('Error loading conversations: $e');
     } finally {
@@ -98,11 +100,21 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> deleteMessage(String messageId) async {
+  Future<void> deleteMessageForMe(String messageId) async {
+    _locallyDeletedMessageIds.add(messageId);
+    _noteCacheDirty();
+    await _persistCacheIfDirty();
+    notifyListeners();
+  }
+
+  Future<void> deleteMessageForEveryone(String messageId) async {
     try {
       await _chatService.deleteMessage(messageId);
+      // Also add to local deleted just in case it takes a moment to sync
+      _locallyDeletedMessageIds.add(messageId);
+      notifyListeners();
     } catch (e) {
-      debugPrint('Error deleting message: $e');
+      debugPrint('Error deleting message for everyone: $e');
     }
   }
 
@@ -171,12 +183,16 @@ class ChatProvider extends ChangeNotifier {
 
   /// Subscribe to messages for a specific conversation.
   Stream<List<Message>> getMessageStream(String conversationId) {
-    return _chatService.subscribeToMessages(conversationId);
+    return _chatService.subscribeToMessages(conversationId).map((messages) {
+      return messages
+          .where((m) => !_locallyDeletedMessageIds.contains(m.id))
+          .toList();
+    });
   }
 
   /// Mark messages as read.
   Future<void> markAsRead(String conversationId) async {
-    await _ensureReadCacheInitialized();
+    await _ensureCacheInitialized();
 
     try {
       await _chatService.markMessagesAsRead(conversationId);
@@ -196,8 +212,8 @@ class ChatProvider extends ChangeNotifier {
   Future<void> _recordRecentRead(String conversationId) async {
     _purgeStaleRecentlyRead();
     _recentlyReadAt[conversationId] = DateTime.now();
-    _noteReadCacheDirty();
-    await _persistReadCacheIfDirty();
+    _noteCacheDirty();
+    await _persistCacheIfDirty();
   }
 
   void _purgeStaleRecentlyRead([DateTime? now]) {
@@ -215,7 +231,7 @@ class ChatProvider extends ChangeNotifier {
     for (final key in stale) {
       _recentlyReadAt.remove(key);
     }
-    _noteReadCacheDirty();
+    _noteCacheDirty();
   }
 
   Conversation _applyRecentReadOverride(Conversation conversation) {
@@ -227,48 +243,67 @@ class ChatProvider extends ChangeNotifier {
     if (conversation.unreadCount == 0 ||
         conversation.lastMessageAt.isAfter(readAt)) {
       _recentlyReadAt.remove(conversation.id);
-      _noteReadCacheDirty();
+      _noteCacheDirty();
       return conversation;
     }
 
     return conversation.copyWith(unreadCount: 0);
   }
 
-  Future<void> _ensureReadCacheInitialized() {
-    return _readCacheInit ??= _initReadCache();
+  Future<void> _ensureCacheInitialized() {
+    return _cacheInit ??= _initCache();
   }
 
-  Future<void> _initReadCache() async {
+  Future<void> _initCache() async {
     _preferences = await SharedPreferences.getInstance();
-    final cached = _preferences?.getString(_readCacheKey);
-    if (cached == null) return;
 
-    final decoded = jsonDecode(cached) as Map<String, dynamic>;
-    _recentlyReadAt.clear();
-    decoded.forEach((key, value) {
-      if (value is String) {
-        final parsed = DateTime.tryParse(value);
-        if (parsed != null) {
-          _recentlyReadAt[key] = parsed;
+    // Init Read Cache
+    final cachedRead = _preferences?.getString(_readCacheKey);
+    if (cachedRead != null) {
+      final decoded = jsonDecode(cachedRead) as Map<String, dynamic>;
+      _recentlyReadAt.clear();
+      decoded.forEach((key, value) {
+        if (value is String) {
+          final parsed = DateTime.tryParse(value);
+          if (parsed != null) {
+            _recentlyReadAt[key] = parsed;
+          }
         }
-      }
-    });
+      });
+    }
+
+    // Init Deleted Messages Cache
+    final cachedDeleted = _preferences?.getStringList(_deletedMessagesKey);
+    if (cachedDeleted != null) {
+      _locallyDeletedMessageIds.clear();
+      _locallyDeletedMessageIds.addAll(cachedDeleted);
+    }
+
     _purgeStaleRecentlyRead();
-    await _persistReadCacheIfDirty();
+    await _persistCacheIfDirty();
   }
 
-  void _noteReadCacheDirty() {
-    _readCacheDirty = true;
+  void _noteCacheDirty() {
+    _cacheDirty = true;
   }
 
-  Future<void> _persistReadCacheIfDirty() async {
-    if (!_readCacheDirty || _preferences == null) return;
-    final payload = jsonEncode(
+  Future<void> _persistCacheIfDirty() async {
+    if (!_cacheDirty || _preferences == null) return;
+
+    // Save Read Cache
+    final readPayload = jsonEncode(
       _recentlyReadAt.map(
         (key, value) => MapEntry(key, value.toIso8601String()),
       ),
     );
-    await _preferences!.setString(_readCacheKey, payload);
-    _readCacheDirty = false;
+    await _preferences!.setString(_readCacheKey, readPayload);
+
+    // Save Deleted Messages Cache
+    await _preferences!.setStringList(
+      _deletedMessagesKey,
+      _locallyDeletedMessageIds.toList(),
+    );
+
+    _cacheDirty = false;
   }
 }

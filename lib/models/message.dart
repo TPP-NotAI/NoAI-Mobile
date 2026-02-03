@@ -23,6 +23,10 @@ class Message {
   final bool isEdited;
   @JsonKey(name: 'created_at')
   final DateTime createdAt;
+  @JsonKey(name: 'ai_score')
+  final double? aiScore;
+  @JsonKey(name: 'ai_score_status')
+  final String? aiScoreStatus;
 
   Message({
     required this.id,
@@ -35,6 +39,8 @@ class Message {
     this.status = 'sent',
     this.isEdited = false,
     required this.createdAt,
+    this.aiScore,
+    this.aiScoreStatus,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) =>
@@ -53,6 +59,8 @@ class Message {
       status: data['status'] as String? ?? 'sent',
       isEdited: data['is_edited'] as bool? ?? false,
       createdAt: DateTime.parse(data['created_at'] as String),
+      aiScore: (data['ai_score'] as num?)?.toDouble(),
+      aiScoreStatus: data['ai_score_status'] as String?,
     );
   }
 
@@ -76,6 +84,8 @@ class Message {
     String? status,
     bool? isEdited,
     DateTime? createdAt,
+    double? aiScore,
+    String? aiScoreStatus,
   }) {
     return Message(
       id: id ?? this.id,
@@ -88,6 +98,8 @@ class Message {
       status: status ?? this.status,
       isEdited: isEdited ?? this.isEdited,
       createdAt: createdAt ?? this.createdAt,
+      aiScore: aiScore ?? this.aiScore,
+      aiScoreStatus: aiScoreStatus ?? this.aiScoreStatus,
     );
   }
 }

@@ -19,12 +19,11 @@ class Story {
   final DateTime expiresAt;
   final DateTime createdAt;
   final User author;
+  final bool isViewed;
   final double? aiScore;
   final String? status;
-
-  /// Whether the current viewer has already seen this story.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  final bool isViewed;
+  final int? likes;
+  final bool? isLiked;
 
   Story({
     required this.id,
@@ -42,17 +41,25 @@ class Story {
     this.isViewed = false,
     this.aiScore,
     this.status,
+    this.likes = 0,
+    this.isLiked = false,
   });
 
   /// Construct from Supabase row with joined `profiles` data.
   factory Story.fromSupabase(
     Map<String, dynamic> json, {
     bool isViewed = false,
+    String? currentUserId,
   }) {
     final profile =
         json['profiles'] as Map<String, dynamic>? ??
         json['user'] as Map<String, dynamic>? ??
         {};
+
+    final reactions = json['reactions'] as List? ?? [];
+    final bool isLiked =
+        currentUserId != null &&
+        reactions.any((r) => r['user_id'] == currentUserId);
 
     return Story(
       id: json['id'] as String,
@@ -70,13 +77,22 @@ class Story {
       isViewed: isViewed,
       aiScore: (json['ai_score'] as num?)?.toDouble(),
       status: json['status'] as String?,
+      likes: reactions.length,
+      isLiked: isLiked,
     );
   }
 
   factory Story.fromJson(Map<String, dynamic> json) => _$StoryFromJson(json);
   Map<String, dynamic> toJson() => _$StoryToJson(this);
 
-  Story copyWith({bool? isViewed, int? viewCount}) {
+  Story copyWith({
+    bool? isViewed,
+    int? viewCount,
+    int? likes,
+    bool? isLiked,
+    double? aiScore,
+    String? status,
+  }) {
     return Story(
       id: id,
       userId: userId,
@@ -91,6 +107,10 @@ class Story {
       createdAt: createdAt,
       author: author,
       isViewed: isViewed ?? this.isViewed,
+      aiScore: aiScore ?? this.aiScore,
+      status: status ?? this.status,
+      likes: likes ?? this.likes,
+      isLiked: isLiked ?? this.isLiked,
     );
   }
 }

@@ -1019,8 +1019,8 @@ class PostRepository {
           authenticityNotes: result.rationale,
         );
 
-        // Automatically create a moderation case if flagged
-        if (scoreStatus == 'flagged') {
+        // Automatically create a moderation case if flagged or review required
+        if (scoreStatus == 'flagged' || scoreStatus == 'review') {
           await _createModerationCase(
             postId: postId,
             authorId: authorId,

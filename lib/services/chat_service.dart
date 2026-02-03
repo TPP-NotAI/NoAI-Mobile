@@ -6,6 +6,8 @@ import '../models/message.dart';
 import '../models/conversation.dart';
 import '../models/user.dart';
 import '../config/supabase_config.dart';
+import 'ai_detection_service.dart';
+import 'dart:async';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
@@ -13,6 +15,7 @@ class ChatService {
   ChatService._internal();
 
   final _supabase = SupabaseService().client;
+  final _aiService = AiDetectionService();
 
   /// Fetch all conversations for the current user.
   Future<List<Conversation>> getConversations({
@@ -52,13 +55,15 @@ class ChatService {
 
     if (threadIds.isEmpty) return [];
 
-    // Get thread details and other participants
+    // Get thread details and other participants, filtering by left_at if needed
+    // We only show conversations where the last_message_at is after the participant's left_at (or left_at is null)
     final threadsResponse = await _supabase
         .from('dm_threads')
         .select('''
           *,
           dm_participants!inner(
             user_id,
+            left_at,
             profiles:user_id(*)
           )
         ''')
@@ -70,21 +75,32 @@ class ChatService {
     for (var data in threadsResponse as List) {
       final threadId = data['id'];
 
-      // Fetch last message
-      final lastMessageResponse = await _supabase
+      // Fetch last message (not flagged, and only show under_review if user sent it)
+      final lastMessagesResponse = await _supabase
           .from('dm_messages')
           .select()
           .eq('thread_id', threadId)
+          .neq('ai_score_status', 'flagged')
           .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
+          .limit(5);
 
-      if (lastMessageResponse == null) {
+      final lastMessages = (lastMessagesResponse as List)
+          .map((m) => Message.fromSupabase(m))
+          .toList();
+
+      final lastMessage = lastMessages.isEmpty
+          ? null
+          : lastMessages.cast<Message?>().firstWhere(
+              (m) =>
+                  m != null &&
+                  (m.aiScoreStatus != 'review' || m.senderId == userId),
+              orElse: () => null,
+            );
+
+      if (lastMessage == null) {
         // Skip empty conversations as requested
         continue;
       }
-
-      final lastMessage = Message.fromSupabase(lastMessageResponse);
 
       // Get unread count from dm_participants
       final participantData = await _supabase
@@ -97,6 +113,19 @@ class ChatService {
       final unreadCount = participantData?['unread_count'] as int? ?? 0;
 
       final participantsData = data['dm_participants'] as List;
+      final myParticipant = participantsData.firstWhere(
+        (p) => p['user_id'] == userId,
+      );
+      final leftAtStr = myParticipant['left_at'] as String?;
+
+      if (leftAtStr != null) {
+        final leftAt = DateTime.parse(leftAtStr);
+        if (lastMessage.createdAt.isBefore(leftAt)) {
+          // Hide thread if last message is older than when user "deleted" it
+          continue;
+        }
+      }
+
       final participants = participantsData.map((p) {
         return User.fromSupabase(p['profiles'] as Map<String, dynamic>);
       }).toList();
@@ -197,9 +226,7 @@ class ChatService {
         .select('thread_id')
         .eq('user_id', currentUserId);
 
-    final myThreadIds = (myThreads as List)
-        .map((c) => c['thread_id'])
-        .toList();
+    final myThreadIds = (myThreads as List).map((c) => c['thread_id']).toList();
 
     if (myThreadIds.isNotEmpty) {
       final commonThreads = await _supabase
@@ -223,13 +250,14 @@ class ChatService {
             .eq('id', threadId)
             .single();
 
-        final participants = (threadData['dm_participants'] as List)
-            .map((p) {
-              return User.fromSupabase(p['profiles'] as Map<String, dynamic>);
-            })
-            .toList();
+        final participants = (threadData['dm_participants'] as List).map((p) {
+          return User.fromSupabase(p['profiles'] as Map<String, dynamic>);
+        }).toList();
 
-        return Conversation.fromSupabase(threadData, participants: participants);
+        return Conversation.fromSupabase(
+          threadData,
+          participants: participants,
+        );
       }
     }
 
@@ -262,10 +290,7 @@ class ChatService {
   }
 
   /// Fetch messages for a conversation.
-  Future<List<Message>> getMessages(
-    String threadId, {
-    int limit = 50,
-  }) async {
+  Future<List<Message>> getMessages(String threadId, {int limit = 50}) async {
     final response = await _supabase
         .from('dm_messages')
         .select()
@@ -314,7 +339,88 @@ class ChatService {
         })
         .eq('id', threadId);
 
-    return Message.fromSupabase(response);
+    final message = Message.fromSupabase(response);
+
+    // Trigger AI Detection asynchronously
+    unawaited(runAiDetection(message));
+
+    return message;
+  }
+
+  /// Run AI detection on a message.
+  Future<void> runAiDetection(Message message) async {
+    try {
+      final result = await _aiService.detectText(message.content);
+      if (result == null) return;
+
+      final bool isAiResult =
+          result.result == 'AI-GENERATED' ||
+          result.result == 'LIKELY AI-GENERATED';
+
+      final double aiProbability = isAiResult
+          ? result.confidence
+          : 100 - result.confidence;
+
+      // Update message in DB
+      try {
+        await _supabase
+            .from('dm_messages')
+            .update({
+              'ai_score': aiProbability,
+              'ai_score_status': aiProbability >= 75
+                  ? 'flagged'
+                  : (aiProbability >= 50 ? 'review' : 'pass'),
+              'ai_metadata': {
+                'analysis_id': result.analysisId,
+                'rationale': result.rationale,
+                'combined_evidence': result.combinedEvidence,
+                'consensus_strength': result.consensusStrength,
+              },
+              'verification_session_id': result.analysisId,
+            })
+            .eq('id', message.id);
+      } catch (e) {
+        debugPrint('ChatService: Failed to update AI fields in DB - $e');
+      }
+
+      // Create moderation case if flagged or review required
+      if (aiProbability >= 50) {
+        try {
+          // Check if a case already exists
+          final existing = await _supabase
+              .from('moderation_cases')
+              .select('id')
+              .eq('message_id', message.id)
+              .maybeSingle();
+
+          if (existing == null) {
+            await _supabase.from('moderation_cases').insert({
+              'message_id': message.id,
+              'reported_user_id': message.senderId,
+              'reason': 'ai_generated',
+              'source': 'ai',
+              'ai_confidence': aiProbability,
+              'status': 'pending',
+              'priority': 'normal',
+              'description':
+                  'Automated AI detection flagged this message with ${aiProbability.toStringAsFixed(1)}% confidence.',
+              'ai_metadata': {
+                'analysis_id': result.analysisId,
+                'rationale': result.rationale,
+                'combined_evidence': result.combinedEvidence,
+              },
+            });
+            debugPrint(
+              'ChatService: Created moderation case for message ${message.id}',
+            );
+          }
+        } catch (e) {
+          debugPrint('ChatService: Failed to create moderation case - $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error in runAiDetection - $e');
+    }
   }
 
   /// Delete a message.
@@ -352,14 +458,45 @@ class ChatService {
     }
   }
 
-  /// Stream messages for a conversation.
   Stream<List<Message>> subscribeToMessages(String threadId) {
+    final currentUserId = _supabase.auth.currentUser?.id;
+
+    // We use asyncMap to fetch the participant's left_at timestamp once
+    // and filter messages that were created before the user last "deleted" the chat.
     return _supabase
         .from('dm_messages')
         .stream(primaryKey: ['id'])
         .eq('thread_id', threadId)
         .order('created_at', ascending: false)
-        .map((data) => data.map((m) => Message.fromSupabase(m)).toList());
+        .asyncMap((data) async {
+          // Fetch our participant record to check left_at
+          final participant = await _supabase
+              .from('dm_participants')
+              .select('left_at')
+              .eq('thread_id', threadId)
+              .eq('user_id', currentUserId ?? '')
+              .maybeSingle();
+
+          final leftAtStr = participant?['left_at'] as String?;
+          final leftAt = leftAtStr != null ? DateTime.parse(leftAtStr) : null;
+
+          final allMessages = data.map((m) => Message.fromSupabase(m)).toList();
+
+          return allMessages.where((m) {
+            // Filter by left_at (Hide messages from before the last deletion)
+            if (leftAt != null && m.createdAt.isBefore(leftAt)) return false;
+
+            // Hide flagged messages from both players
+            if (m.aiScoreStatus == 'flagged') return false;
+
+            // Hide review messages from the recipient
+            if (m.aiScoreStatus == 'review' && m.senderId != currentUserId) {
+              return false;
+            }
+
+            return true;
+          }).toList();
+        });
   }
 
   /// Mark all messages in a conversation as read for the current user.

@@ -420,22 +420,61 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
   }
 
   void _showDeleteMenu(Message message) {
+    final currentUserId = context.read<AuthProvider>().currentUser?.id;
+    final isMyMessage = message.senderId == currentUserId;
+
     showModalBottomSheet(
       context: context,
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: const Icon(Icons.delete_outline, color: Colors.red),
-            title: const Text(
-              'Delete for me',
-              style: TextStyle(color: Colors.red),
-            ),
+            leading: const Icon(Icons.delete_outline, color: Colors.blue),
+            title: const Text('Delete for me'),
             onTap: () {
-              context.read<ChatProvider>().deleteMessage(message.id);
+              context.read<ChatProvider>().deleteMessageForMe(message.id);
               Navigator.pop(context);
             },
           ),
+          if (isMyMessage)
+            ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.red),
+              title: const Text(
+                'Delete for everyone',
+                style: TextStyle(color: Colors.red),
+              ),
+              onTap: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Delete for Everyone?'),
+                    content: const Text(
+                      'This message will be permanently deleted for all participants.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirm == true && mounted) {
+                  context.read<ChatProvider>().deleteMessageForEveryone(
+                    message.id,
+                  );
+                  Navigator.pop(context);
+                }
+              },
+            ),
           const SizedBox(height: 10),
         ],
       ),
@@ -1110,6 +1149,14 @@ class _MessageBubble extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (message.aiScore != null ||
+                            message.aiScoreStatus != null) ...[
+                          _AiScoreBadge(
+                            score: message.aiScore,
+                            status: message.aiScoreStatus,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
                         Text(
                           DateFormat.Hm().format(message.createdAt),
                           style: TextStyle(
@@ -1319,5 +1366,81 @@ class _AudioPlayerState extends State<_AudioPlayer> {
 
   String _formatDuration(Duration d) {
     return '${d.inMinutes.remainder(60)}:${d.inSeconds.remainder(60).toString().padLeft(2, '0')}';
+  }
+}
+
+class _AiScoreBadge extends StatelessWidget {
+  final double? score;
+  final String? status;
+
+  const _AiScoreBadge({required this.score, this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    if (score == null && status == null) return const SizedBox.shrink();
+
+    final bool isFlagged =
+        status == 'flagged' || (score != null && score! >= 75);
+    final bool isReview =
+        status == 'review' || (score != null && score! >= 50 && score! < 75);
+
+    final Color badgeColor;
+    final Color bgColor;
+    final String label;
+
+    if (isFlagged) {
+      badgeColor = const Color(0xFFEF4444); // Red
+      bgColor = const Color(0xFF2D0F0F);
+      label = 'AI';
+    } else if (isReview) {
+      badgeColor = const Color(0xFFF59E0B); // Amber
+      bgColor = const Color(0xFF451A03);
+      label = 'REQ';
+    } else {
+      // Cleanest view for passed checks: just a green dot
+      return Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Container(
+          width: 6,
+          height: 6,
+          decoration: const BoxDecoration(
+            color: Color(0xFF10B981), // Green
+            shape: BoxShape.circle,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: badgeColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 4,
+            height: 4,
+            decoration: BoxDecoration(
+              color: badgeColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+              color: badgeColor,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

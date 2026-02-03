@@ -185,4 +185,76 @@ class ReactionRepository {
 
     return (response as List).length;
   }
+
+  /// Toggle like on a story.
+  /// Returns true if liked, false if unliked.
+  Future<bool> toggleStoryLike({
+    required String storyId,
+    required String userId,
+  }) async {
+    // Check if reaction exists
+    final existing = await _client
+        .from(SupabaseConfig.reactionsTable)
+        .select('user_id')
+        .eq('story_id', storyId)
+        .eq('user_id', userId)
+        .eq('reaction_type', 'like')
+        .maybeSingle();
+
+    if (existing != null) {
+      // Unlike
+      await _client
+          .from(SupabaseConfig.reactionsTable)
+          .delete()
+          .eq('story_id', storyId)
+          .eq('user_id', userId)
+          .eq('reaction_type', 'like');
+      return false;
+    } else {
+      // Like
+      await _client.from(SupabaseConfig.reactionsTable).insert({
+        'story_id': storyId,
+        'user_id': userId,
+        'reaction_type': 'like',
+      });
+
+      // Notify story author
+      try {
+        final story = await _client
+            .from(SupabaseConfig.storiesTable)
+            .select('user_id')
+            .eq('id', storyId)
+            .single();
+
+        await _notificationRepository.createNotification(
+          userId: story['user_id'],
+          type: 'like',
+          title: 'Story Liked',
+          body: 'Someone liked your story!',
+          actorId: userId,
+          storyId: storyId,
+        );
+      } catch (e) {
+        debugPrint('ReactionRepository: Error notifying story like - $e');
+      }
+
+      return true;
+    }
+  }
+
+  /// Check if user has liked a story.
+  Future<bool> hasLikedStory({
+    required String storyId,
+    required String userId,
+  }) async {
+    final response = await _client
+        .from(SupabaseConfig.reactionsTable)
+        .select('user_id')
+        .eq('story_id', storyId)
+        .eq('user_id', userId)
+        .eq('reaction_type', 'like')
+        .maybeSingle();
+
+    return response != null;
+  }
 }

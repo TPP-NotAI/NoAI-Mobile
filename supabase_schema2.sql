@@ -273,6 +273,9 @@ CREATE TABLE public.comments (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   media_url text,
   media_type text,
+  ai_score_status text DEFAULT 'pass'::text CHECK (ai_score_status = ANY (ARRAY['pass'::text, 'review'::text, 'flagged'::text])),
+  verification_session_id text,
+  ai_metadata jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT comments_pkey PRIMARY KEY (id),
   CONSTRAINT comments_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
   CONSTRAINT comments_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.profiles(user_id),
@@ -306,6 +309,10 @@ CREATE TABLE public.dm_messages (
   is_edited boolean NOT NULL DEFAULT false,
   edited_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  ai_score numeric CHECK (ai_score >= 0::numeric AND ai_score <= 100::numeric),
+  ai_score_status text DEFAULT 'pass'::text CHECK (ai_score_status = ANY (ARRAY['pass'::text, 'review'::text, 'flagged'::text])),
+  ai_metadata jsonb DEFAULT '{}'::jsonb,
+  verification_session_id text,
   CONSTRAINT dm_messages_pkey PRIMARY KEY (id),
   CONSTRAINT dm_messages_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.dm_threads(id),
   CONSTRAINT dm_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.profiles(user_id),
@@ -444,10 +451,14 @@ CREATE TABLE public.moderation_cases (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   media_url text,
+  story_id uuid,
+  message_id uuid,
   CONSTRAINT moderation_cases_pkey PRIMARY KEY (id),
   CONSTRAINT moderation_cases_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
   CONSTRAINT moderation_cases_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id),
-  CONSTRAINT moderation_cases_reported_user_id_fkey FOREIGN KEY (reported_user_id) REFERENCES public.profiles(user_id)
+  CONSTRAINT moderation_cases_reported_user_id_fkey FOREIGN KEY (reported_user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT moderation_cases_story_id_fkey FOREIGN KEY (story_id) REFERENCES public.stories(id),
+  CONSTRAINT moderation_cases_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.dm_messages(id)
 );
 CREATE TABLE public.mutes (
   muter_id uuid NOT NULL,
@@ -506,6 +517,7 @@ CREATE TABLE public.notifications (
   appeal_id uuid,
   moderation_case_id uuid,
   transaction_id uuid,
+  story_id uuid,
   action_url text,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -657,6 +669,7 @@ CREATE TABLE public.posts (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   location text,
+  ai_metadata jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT posts_pkey PRIMARY KEY (id),
   CONSTRAINT posts_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.profiles(user_id)
 );
@@ -713,12 +726,14 @@ CREATE TABLE public.reactions (
   user_id uuid NOT NULL,
   post_id uuid,
   comment_id uuid,
+  story_id uuid,
   reaction_type USER-DEFINED NOT NULL DEFAULT 'like'::reaction_type,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT reactions_pkey PRIMARY KEY (id),
   CONSTRAINT reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
   CONSTRAINT reactions_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
-  CONSTRAINT reactions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id)
+  CONSTRAINT reactions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id),
+  CONSTRAINT reactions_story_id_fkey FOREIGN KEY (story_id) REFERENCES public.stories(id)
 );
 CREATE TABLE public.reposts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -823,6 +838,10 @@ CREATE TABLE public.stories (
   view_count integer DEFAULT 0,
   expires_at timestamp with time zone NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  ai_score numeric CHECK (ai_score >= 0::numeric AND ai_score <= 100::numeric),
+  status text CHECK (status = ANY (ARRAY['pass'::text, 'review'::text, 'flagged'::text])),
+  verification_session_id text,
+  ai_metadata jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT stories_pkey PRIMARY KEY (id),
   CONSTRAINT stories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
 );

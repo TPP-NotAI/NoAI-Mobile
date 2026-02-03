@@ -573,18 +573,27 @@ class CommentRepository {
 
         // Determine new status based on AI probability
         final String newStatus;
+        String scoreStatus = 'pass';
         if (aiProbability >= 75) {
           newStatus = 'under_review'; // High AI probability → hide & review
+          scoreStatus = 'flagged';
         } else if (aiProbability >= 50) {
           newStatus = 'under_review'; // Medium → still flag for review
+          scoreStatus = 'review';
         } else {
           newStatus = 'published'; // Low → keep published
+          scoreStatus = 'pass';
         }
 
         // Update comment with AI score and status
         await _client
             .from(SupabaseConfig.commentsTable)
-            .update({'ai_score': aiProbability, 'status': newStatus})
+            .update({
+              'ai_score': aiProbability,
+              'status': newStatus,
+              'ai_score_status': scoreStatus,
+              'verification_session_id': result.analysisId,
+            })
             .eq('id', commentId);
 
         debugPrint(

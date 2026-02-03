@@ -122,6 +122,7 @@ class NotificationRepository {
     String? actorId,
     String? postId,
     String? commentId,
+    String? storyId,
   }) async {
     try {
       debugPrint(
@@ -187,6 +188,7 @@ class NotificationRepository {
         'actor_id': actorId,
         'post_id': postId,
         'comment_id': commentId,
+        'story_id': storyId,
         'is_read': false,
       };
 
