@@ -36,6 +36,8 @@ class Comment {
   final List<Comment>? replies;
   final String? mediaUrl;
   final String? mediaType;
+  final double? aiScore;
+  final String status; // 'published', 'under_review', 'hidden', 'deleted'
   Comment({
     required this.id,
     this.authorId,
@@ -47,6 +49,8 @@ class Comment {
     this.replies,
     this.mediaUrl,
     this.mediaType,
+    this.aiScore,
+    this.status = 'published',
   });
 
   factory Comment.fromJson(Map<String, dynamic> json) =>
@@ -64,6 +68,8 @@ class Comment {
     List<Comment>? replies,
     String? mediaUrl,
     String? mediaType,
+    double? aiScore,
+    String? status,
   }) {
     return Comment(
       id: id ?? this.id,
@@ -76,6 +82,8 @@ class Comment {
       replies: replies ?? this.replies,
       mediaUrl: mediaUrl ?? this.mediaUrl,
       mediaType: mediaType ?? this.mediaType,
+      aiScore: aiScore ?? this.aiScore,
+      status: status ?? this.status,
     );
   }
 
@@ -124,6 +132,8 @@ class Comment {
       replies: replies.isNotEmpty ? replies : null,
       mediaUrl: json['media_url'] as String?,
       mediaType: json['media_type'] as String?,
+      aiScore: (json['ai_score'] as num?)?.toDouble(),
+      status: json['status'] as String? ?? 'published',
     );
   }
 

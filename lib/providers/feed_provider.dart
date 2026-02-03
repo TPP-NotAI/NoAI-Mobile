@@ -308,11 +308,14 @@ class FeedProvider with ChangeNotifier {
     if (first == -1) return;
 
     final wasLiked = _posts[first].isLiked;
-    final newLikes = wasLiked ? _posts[first].likes - 1 : _posts[first].likes + 1;
+    final newLikes = wasLiked
+        ? _posts[first].likes - 1
+        : _posts[first].likes + 1;
 
     // Optimistic update — apply to ALL instances
-    final originals = _updateAllInstances(postId, (p) =>
-      p.copyWith(likes: newLikes, isLiked: !wasLiked),
+    final originals = _updateAllInstances(
+      postId,
+      (p) => p.copyWith(likes: newLikes, isLiked: !wasLiked),
     );
     notifyListeners();
 
@@ -403,6 +406,47 @@ class FeedProvider with ChangeNotifier {
           notifyListeners();
         }
       }
+
+      // Fire-and-forget: run AI detection on the comment
+      if (savedComment != null && body.trim().isNotEmpty) {
+        _commentRepository
+            .runAiDetection(
+              commentId: savedComment.id,
+              authorId: userId,
+              body: body,
+            )
+            .then((aiScore) {
+              if (aiScore != null) {
+                final idx = _posts.indexWhere((p) => p.id == postId);
+                if (idx != -1) {
+                  final post = _posts[idx];
+                  if (post.commentList != null) {
+                    if (aiScore >= 50) {
+                      // Remove flagged comment from local view
+                      final updatedComments = _removeCommentRecursive(
+                        post.commentList!,
+                        savedComment.id,
+                      );
+                      _posts[idx] = post.copyWith(
+                        commentList: updatedComments,
+                        comments: (post.comments - 1).clamp(0, 999999),
+                      );
+                    } else {
+                      final updatedComments = _updateCommentAiScoreRecursive(
+                        post.commentList!,
+                        savedComment.id,
+                        aiScore,
+                        status: 'published',
+                      );
+                      _posts[idx] = post.copyWith(commentList: updatedComments);
+                    }
+                    notifyListeners();
+                  }
+                }
+              }
+            });
+      }
+
       return savedComment;
     } catch (e) {
       debugPrint('Failed to add comment: $e');
@@ -416,7 +460,7 @@ class FeedProvider with ChangeNotifier {
     if (index == -1) return;
 
     final post = _posts[index];
-    final updatedComments = [...?post.commentList, newComment];
+    final updatedComments = [newComment, ...?post.commentList];
 
     _posts[index] = post.copyWith(
       comments: post.comments + 1,
@@ -467,6 +511,48 @@ class FeedProvider with ChangeNotifier {
           notifyListeners();
         }
       }
+
+      // Fire-and-forget: run AI detection on the comment
+      if (savedComment != null && body.trim().isNotEmpty) {
+        _commentRepository
+            .runAiDetection(
+              commentId: savedComment.id,
+              authorId: userId,
+              body: body,
+            )
+            .then((aiScore) {
+              if (aiScore != null) {
+                final idx = _posts.indexWhere((p) => p.id == postId);
+                if (idx != -1) {
+                  final post = _posts[idx];
+                  if (post.commentList != null) {
+                    if (aiScore >= 50) {
+                      final updatedComments = _removeCommentRecursive(
+                        post.commentList!,
+                        savedComment.id,
+                      );
+                      _posts[idx] = post.copyWith(
+                        commentList: updatedComments,
+                        comments: (post.comments - 1).clamp(0, 999999),
+                      );
+                    } else {
+                      final updatedComments = _updateCommentAiScoreRecursive(
+                        post.commentList!,
+                        savedComment.id,
+                        aiScore,
+                        status: 'published',
+                      );
+                      _posts[idx] = post.copyWith(
+                        commentList: updatedComments,
+                      );
+                    }
+                    notifyListeners();
+                  }
+                }
+              }
+            });
+      }
+
       return savedComment;
     } catch (e) {
       debugPrint('Failed to add comment with media: $e');
@@ -560,6 +646,46 @@ class FeedProvider with ChangeNotifier {
             notifyListeners();
           }
         }
+
+        // Fire-and-forget: run AI detection on the reply
+        if (body.trim().isNotEmpty) {
+          _commentRepository
+              .runAiDetection(
+                commentId: savedReply.id,
+                authorId: userId,
+                body: body,
+              )
+              .then((aiScore) {
+                if (aiScore != null) {
+                  final idx = _posts.indexWhere((p) => p.id == postId);
+                  if (idx != -1) {
+                    final post = _posts[idx];
+                    if (post.commentList != null) {
+                      if (aiScore >= 50) {
+                        final updatedComments = _removeCommentRecursive(
+                          post.commentList!,
+                          savedReply.id,
+                        );
+                        _posts[idx] = post.copyWith(
+                          commentList: updatedComments,
+                          comments: (post.comments - 1).clamp(0, 999999),
+                        );
+                      } else {
+                        final updatedComments = _updateCommentAiScoreRecursive(
+                          post.commentList!,
+                          savedReply.id,
+                          aiScore,
+                          status: 'published',
+                        );
+                        _posts[idx] =
+                            post.copyWith(commentList: updatedComments);
+                      }
+                      notifyListeners();
+                    }
+                  }
+                }
+              });
+        }
       }
     } catch (e) {
       debugPrint('Failed to add reply: $e');
@@ -647,6 +773,46 @@ class FeedProvider with ChangeNotifier {
             notifyListeners();
           }
         }
+
+        // Fire-and-forget: run AI detection on the reply
+        if (body.trim().isNotEmpty) {
+          _commentRepository
+              .runAiDetection(
+                commentId: savedReply.id,
+                authorId: userId,
+                body: body,
+              )
+              .then((aiScore) {
+                if (aiScore != null) {
+                  final idx = _posts.indexWhere((p) => p.id == postId);
+                  if (idx != -1) {
+                    final post = _posts[idx];
+                    if (post.commentList != null) {
+                      if (aiScore >= 50) {
+                        final updatedComments = _removeCommentRecursive(
+                          post.commentList!,
+                          savedReply.id,
+                        );
+                        _posts[idx] = post.copyWith(
+                          commentList: updatedComments,
+                          comments: (post.comments - 1).clamp(0, 999999),
+                        );
+                      } else {
+                        final updatedComments = _updateCommentAiScoreRecursive(
+                          post.commentList!,
+                          savedReply.id,
+                          aiScore,
+                          status: 'published',
+                        );
+                        _posts[idx] =
+                            post.copyWith(commentList: updatedComments);
+                      }
+                      notifyListeners();
+                    }
+                  }
+                }
+              });
+        }
       }
     } catch (e) {
       debugPrint('Failed to add reply with media: $e');
@@ -661,7 +827,7 @@ class FeedProvider with ChangeNotifier {
   ) {
     return comments.map((comment) {
       if (comment.id == commentId) {
-        return comment.copyWith(replies: [...?comment.replies, reply]);
+        return comment.copyWith(replies: [reply, ...?comment.replies]);
       } else if (comment.replies != null && comment.replies!.isNotEmpty) {
         return comment.copyWith(
           replies: _addReplyRecursive(comment.replies!, commentId, reply),
@@ -684,8 +850,12 @@ class FeedProvider with ChangeNotifier {
 
     // Optimistic: remove the comment locally
     final originalComments = post.commentList!;
-    final updatedComments = _removeCommentRecursive(originalComments, commentId);
-    final removedCount = _countComments(originalComments) - _countComments(updatedComments);
+    final updatedComments = _removeCommentRecursive(
+      originalComments,
+      commentId,
+    );
+    final removedCount =
+        _countComments(originalComments) - _countComments(updatedComments);
     _posts[postIndex] = post.copyWith(
       commentList: updatedComments,
       comments: post.comments - removedCount,
@@ -714,7 +884,11 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Update a comment's text (with ownership validation)
-  Future<bool> updateComment(String postId, String commentId, String newText) async {
+  Future<bool> updateComment(
+    String postId,
+    String commentId,
+    String newText,
+  ) async {
     final userId = _currentUserId;
     if (userId == null) return false;
 
@@ -757,18 +931,18 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Helper: remove a comment recursively from nested comment list
-  List<Comment> _removeCommentRecursive(List<Comment> comments, String commentId) {
-    return comments
-        .where((c) => c.id != commentId)
-        .map((c) {
-          if (c.replies != null && c.replies!.isNotEmpty) {
-            return c.copyWith(
-              replies: _removeCommentRecursive(c.replies!, commentId),
-            );
-          }
-          return c;
-        })
-        .toList();
+  List<Comment> _removeCommentRecursive(
+    List<Comment> comments,
+    String commentId,
+  ) {
+    return comments.where((c) => c.id != commentId).map((c) {
+      if (c.replies != null && c.replies!.isNotEmpty) {
+        return c.copyWith(
+          replies: _removeCommentRecursive(c.replies!, commentId),
+        );
+      }
+      return c;
+    }).toList();
   }
 
   // Helper: update a comment's text recursively
@@ -782,7 +956,38 @@ class FeedProvider with ChangeNotifier {
         return comment.copyWith(text: newText);
       } else if (comment.replies != null && comment.replies!.isNotEmpty) {
         return comment.copyWith(
-          replies: _updateCommentTextRecursive(comment.replies!, commentId, newText),
+          replies: _updateCommentTextRecursive(
+            comment.replies!,
+            commentId,
+            newText,
+          ),
+        );
+      }
+      return comment;
+    }).toList();
+  }
+
+  // Helper: update a comment's AI score recursively
+  List<Comment> _updateCommentAiScoreRecursive(
+    List<Comment> comments,
+    String commentId,
+    double aiScore, {
+    String? status,
+  }) {
+    return comments.map((comment) {
+      if (comment.id == commentId) {
+        return comment.copyWith(
+          aiScore: aiScore,
+          status: status ?? comment.status,
+        );
+      } else if (comment.replies != null && comment.replies!.isNotEmpty) {
+        return comment.copyWith(
+          replies: _updateCommentAiScoreRecursive(
+            comment.replies!,
+            commentId,
+            aiScore,
+            status: status,
+          ),
         );
       }
       return comment;
@@ -946,6 +1151,40 @@ class FeedProvider with ChangeNotifier {
         // Add to the beginning of the feed
         _posts.insert(0, newPost);
         notifyListeners();
+
+        // Fire-and-forget: run AI detection in the background.
+        // The post is visible immediately with a PENDING badge.
+        // Once detection completes, update the local post so the
+        // badge switches to PASS/FAIL without needing a feed refresh.
+        _postRepository
+            .runAiDetection(
+              postId: newPost.id,
+              authorId: userId,
+              body: body,
+              mediaFiles: mediaFiles,
+            )
+            .then((confidence) {
+              if (confidence != null) {
+                // Fetch updated post to get the AI score and status
+                _postRepository.getPost(newPost.id, currentUserId: userId).then(
+                  (updatedPost) {
+                    if (updatedPost != null) {
+                      final idx = _posts.indexWhere((p) => p.id == newPost.id);
+                      if (idx != -1) {
+                        if (updatedPost.status == 'under_review') {
+                          // Post was flagged — remove from feed since it's
+                          // now in the moderation queue for review.
+                          _posts.removeAt(idx);
+                        } else {
+                          _posts[idx] = updatedPost;
+                        }
+                        notifyListeners();
+                      }
+                    }
+                  },
+                );
+              }
+            });
       }
 
       return newPost;
@@ -1011,7 +1250,10 @@ class FeedProvider with ChangeNotifier {
       currentUserId: userId,
     );
     if (success) {
-      final post = _posts.firstWhere((p) => p.id == postId, orElse: () => _posts.first);
+      final post = _posts.firstWhere(
+        (p) => p.id == postId,
+        orElse: () => _posts.first,
+      );
       if (post.id == postId) {
         _draftPosts.insert(0, post);
       }
@@ -1044,7 +1286,10 @@ class FeedProvider with ChangeNotifier {
       currentUserId: userId,
     );
     if (success) {
-      final post = _draftPosts.firstWhere((p) => p.id == postId, orElse: () => _draftPosts.first);
+      final post = _draftPosts.firstWhere(
+        (p) => p.id == postId,
+        orElse: () => _draftPosts.first,
+      );
       if (post.id == postId) {
         _posts.insert(0, post);
       }

@@ -230,11 +230,22 @@ class _CommentCardState extends State<CommentCard> {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            humanReadableTime(currentComment.timestamp),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            ),
+                          child: Row(
+                            children: [
+                              Text(
+                                humanReadableTime(currentComment.timestamp),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: _AiCheckBadge(
+                                  aiScore: currentComment.aiScore,
+                                  colors: colors,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         // More options menu (only for comment author)
@@ -625,6 +636,75 @@ class _CommentCardState extends State<CommentCard> {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _AiCheckBadge extends StatelessWidget {
+  final double? aiScore;
+  final ColorScheme colors;
+
+  const _AiCheckBadge({
+    required this.aiScore,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isPending = aiScore == null;
+    final bool needsReview = aiScore != null && aiScore! >= 50;
+    final bool isPassed = aiScore != null && aiScore! < 50;
+
+    late final Color badgeColor;
+    late final Color bgColor;
+    late final String label;
+
+    if (needsReview) {
+      badgeColor = colors.error;
+      bgColor = colors.errorContainer.withValues(alpha: 0.2);
+      label = 'AI CHECK: REVIEW';
+    } else if (isPassed) {
+      badgeColor = const Color(0xFF10B981); // Green
+      bgColor = const Color(0xFF052E1C);
+      label = 'AI CHECK: PASSED';
+    } else {
+      badgeColor = colors.onSurfaceVariant;
+      bgColor = colors.surfaceVariant.withValues(alpha: 0.6);
+      label = 'AI CHECK: PENDING';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: badgeColor.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: badgeColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+              color: badgeColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

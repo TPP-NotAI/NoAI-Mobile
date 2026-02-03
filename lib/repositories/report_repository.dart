@@ -15,7 +15,9 @@ class ReportRepository {
     required String reason,
     String? details,
   }) async {
-    debugPrint('ReportRepository: Submitting report for post=$postId, reason=$reason');
+    debugPrint(
+      'ReportRepository: Submitting report for post=$postId, reason=$reason',
+    );
 
     try {
       await _client.from(SupabaseConfig.userReportsTable).insert({
@@ -42,7 +44,9 @@ class ReportRepository {
     required String reason,
     String? details,
   }) async {
-    debugPrint('ReportRepository: Submitting report for comment=$commentId, reason=$reason');
+    debugPrint(
+      'ReportRepository: Submitting report for comment=$commentId, reason=$reason',
+    );
 
     try {
       await _client.from(SupabaseConfig.userReportsTable).insert({
@@ -79,14 +83,16 @@ class ReportRepository {
   /// Returns true if successful.
   ///
   /// Valid reasons (must match database enum):
-  /// 'spam', 'harassment', 'violence', 'inappropriate', 'copyright', 'ai_content', 'other'
+  /// 'spam', 'harassment', 'violence', 'inappropriate', 'copyright', 'ai_generated', 'other'
   Future<bool> reportUser({
     required String reporterId,
     required String reportedUserId,
     required String reason,
     String? details,
   }) async {
-    debugPrint('ReportRepository: Submitting report for user=$reportedUserId, reason=$reason');
+    debugPrint(
+      'ReportRepository: Submitting report for user=$reportedUserId, reason=$reason',
+    );
 
     // Map UI reasons to database enum values
     final reasonMap = {
@@ -139,7 +145,9 @@ class ReportRepository {
 
       return response != null;
     } catch (e) {
-      debugPrint('ReportRepository: Error checking if user already reported - $e');
+      debugPrint(
+        'ReportRepository: Error checking if user already reported - $e',
+      );
       return false;
     }
   }

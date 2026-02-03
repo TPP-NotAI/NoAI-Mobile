@@ -3,6 +3,7 @@ import 'package:noai/models/user.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+
 import '../../widgets/shimmer_loading.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/feed_provider.dart';
@@ -487,93 +488,94 @@ class _ProfileHeader extends StatelessWidget {
         Text(
           user.createdAt != null
               ? 'Member since ${DateFormat('MMM yyyy').format(user.createdAt!)}'
-              : 'Member since Jun 2023',
+              : '',
           style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
           overflow: TextOverflow.ellipsis,
           maxLines: 1,
         ),
-        const SizedBox(height: 16),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            if (user.verifiedHuman == 'verified')
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF052E1C),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF10B981)),
-                ),
-                child: Row(
+        // Location and website
+        if (user.location != null && user.location!.isNotEmpty ||
+            user.websiteUrl != null && user.websiteUrl!.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              if (user.location != null && user.location!.isNotEmpty)
+                Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.verified, size: 14, color: Color(0xFF10B981)),
-                    SizedBox(width: 6),
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 14,
+                      color: colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
                     Text(
-                      'Verified Human',
+                      user.location!,
                       style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF10B981),
-                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
-              ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1B4B),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF8B5CF6)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.stars, size: 14, color: Color(0xFF8B5CF6)),
-                  SizedBox(width: 6),
-                  Text(
-                    'Top Contributor',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF8B5CF6),
-                      fontWeight: FontWeight.w600,
+              if (user.websiteUrl != null && user.websiteUrl!.isNotEmpty)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.link, size: 14, color: colors.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      user.websiteUrl!.replaceFirst(RegExp(r'^https?://'), ''),
+                      style: TextStyle(fontSize: 12, color: colors.primary),
                     ),
+                  ],
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 16),
+        // Badges: verified human status + achievements from DB
+        if (user.verifiedHuman == 'verified' || user.achievements.isNotEmpty)
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (user.verifiedHuman == 'verified')
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
                   ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF451A03),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFF59E0B)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.rocket_launch, size: 14, color: Color(0xFFF59E0B)),
-                  SizedBox(width: 6),
-                  Text(
-                    'Early Adopter',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFFF59E0B),
-                      fontWeight: FontWeight.w600,
-                    ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF052E1C),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFF10B981)),
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        if (user.bio != null) ...[
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.verified, size: 14, color: Color(0xFF10B981)),
+                      SizedBox(width: 6),
+                      Text(
+                        'Verified Human',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF10B981),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              for (final achievement in user.achievements)
+                _AchievementBadge(achievement: achievement),
+            ],
+          ),
+        if (user.bio != null && user.bio!.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(
             user.bio!,
@@ -583,6 +585,84 @@ class _ProfileHeader extends StatelessWidget {
         ],
       ],
     );
+  }
+}
+
+/* ───────────────── ACHIEVEMENT BADGE ───────────────── */
+
+class _AchievementBadge extends StatelessWidget {
+  final UserAchievement achievement;
+
+  const _AchievementBadge({required this.achievement});
+
+  @override
+  Widget build(BuildContext context) {
+    final tierColors = _getTierColors(achievement.tier);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: tierColors.$1,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: tierColors.$2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_getIconData(achievement.icon), size: 14, color: tierColors.$2),
+          const SizedBox(width: 6),
+          Text(
+            achievement.name,
+            style: TextStyle(
+              fontSize: 11,
+              color: tierColors.$2,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Background and border color per achievement tier.
+  (Color, Color) _getTierColors(String tier) {
+    switch (tier) {
+      case 'gold':
+        return (const Color(0xFF451A03), const Color(0xFFF59E0B));
+      case 'silver':
+        return (const Color(0xFF1E293B), const Color(0xFF94A3B8));
+      case 'platinum':
+        return (const Color(0xFF1E1B4B), const Color(0xFF8B5CF6));
+      case 'bronze':
+      default:
+        return (const Color(0xFF1C1917), const Color(0xFFCD7F32));
+    }
+  }
+
+  /// Map icon name string from DB to a Material icon.
+  IconData _getIconData(String icon) {
+    switch (icon) {
+      case 'stars':
+        return Icons.stars;
+      case 'rocket_launch':
+        return Icons.rocket_launch;
+      case 'verified':
+        return Icons.verified;
+      case 'emoji_events':
+        return Icons.emoji_events;
+      case 'workspace_premium':
+        return Icons.workspace_premium;
+      case 'military_tech':
+        return Icons.military_tech;
+      case 'local_fire_department':
+        return Icons.local_fire_department;
+      case 'favorite':
+        return Icons.favorite;
+      case 'shield':
+        return Icons.shield;
+      default:
+        return Icons.star;
+    }
   }
 }
 
@@ -791,7 +871,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${user.postsCount}',
+                      '${user.humanVerifiedPostsCount}',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -1077,10 +1157,10 @@ class _ActivityItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final aiScore = post.aiConfidenceScore ?? 0.05;
+    final aiScore = post.aiConfidenceScore;
     final dateStr = post.timestamp != null
         ? DateFormat('MMM d, yyyy').format(DateTime.parse(post.timestamp))
-        : '2 days ago';
+        : 'Recently';
 
     return GestureDetector(
       onTap: () {
@@ -1134,29 +1214,41 @@ class _ActivityItem extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                // ML Score badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF052E1C),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: const Color(0xFF10B981),
-                      width: 1,
+                if (aiScore != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: aiScore < 20
+                          ? const Color(0xFF052E1C)
+                          : aiScore < 60
+                          ? const Color(0xFF451A03)
+                          : const Color(0xFF450A0A),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: aiScore < 20
+                            ? const Color(0xFF10B981)
+                            : aiScore < 60
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFFEF4444),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      '${aiScore.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: aiScore < 20
+                            ? const Color(0xFF10B981)
+                            : aiScore < 60
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFFEF4444),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    '${aiScore.toStringAsFixed(2)}%',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF10B981),
-                    ),
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1208,24 +1300,33 @@ class _ActivityItem extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF052E1C),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Pass',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF10B981),
+                if (post.detectionStatus != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: post.detectionStatus == 'pass'
+                          ? const Color(0xFF052E1C)
+                          : post.detectionStatus == 'review'
+                          ? const Color(0xFF451A03)
+                          : const Color(0xFF450A0A),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      post.detectionStatus!.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: post.detectionStatus == 'pass'
+                            ? const Color(0xFF10B981)
+                            : post.detectionStatus == 'review'
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFFEF4444),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ],
@@ -1245,14 +1346,6 @@ class _Statistics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate a mock engagement rate based on real counts for better visual authenticity
-    final engagementRate = user.postsCount > 0
-        ? ((user.followersCount * 0.5 + user.postsCount * 2) /
-                  (user.postsCount + 1) *
-                  1.5)
-              .toStringAsFixed(1)
-        : '0.0';
-
     return SliverPadding(
       padding: const EdgeInsets.all(20),
       sliver: SliverList(
@@ -1298,16 +1391,40 @@ class _Statistics extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _StatItem(
-            label: 'Engagement Rate',
-            value: '$engagementRate%',
+            label: 'Trust Score',
+            value: '${user.trustScore.toStringAsFixed(0)}/100',
             colors: colors,
           ),
           const SizedBox(height: 12),
           _StatItem(
-            label: 'Human Verification Rate',
-            value: user.verifiedHuman == 'verified' ? '100%' : '0%',
+            label: 'AI Likelihood',
+            value: '${user.mlScore.toStringAsFixed(2)}%',
             colors: colors,
           ),
+          const SizedBox(height: 12),
+          _StatItem(
+            label: 'RooCoin Balance',
+            value: user.balance.toStringAsFixed(1),
+            colors: colors,
+          ),
+          const SizedBox(height: 12),
+          _StatItem(
+            label: 'Verification Status',
+            value: user.verifiedHuman == 'verified'
+                ? 'Verified'
+                : user.verifiedHuman == 'pending'
+                ? 'Pending'
+                : 'Unverified',
+            colors: colors,
+          ),
+          if (user.achievements.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _StatItem(
+              label: 'Achievements',
+              value: user.achievements.length.toString(),
+              colors: colors,
+            ),
+          ],
         ]),
       ),
     );

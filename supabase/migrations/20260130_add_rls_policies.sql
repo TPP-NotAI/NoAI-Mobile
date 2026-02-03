@@ -595,6 +595,11 @@ CREATE POLICY "Users can view own moderation cases"
   ON public.moderation_cases FOR SELECT
   USING (auth.uid() = reported_user_id);
 
+-- Users can create moderation cases for their own flagged content
+CREATE POLICY "Users can create own moderation cases"
+  ON public.moderation_cases FOR INSERT
+  WITH CHECK (auth.uid() = reported_user_id);
+
 -- Users can view and create their own appeals
 CREATE POLICY "Users can view own appeals"
   ON public.appeals FOR SELECT

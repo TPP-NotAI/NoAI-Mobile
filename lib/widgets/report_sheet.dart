@@ -57,7 +57,7 @@ class _ReportSheetState extends State<ReportSheet> {
     {
       'icon': Icons.smart_toy,
       'label': 'Suspected AI-generated content',
-      'value': 'ai_content',
+      'value': 'ai_generated',
     },
     {'icon': Icons.report_outlined, 'label': 'Other', 'value': 'other'},
   ];

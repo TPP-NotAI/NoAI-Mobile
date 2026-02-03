@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/user.dart' as app_models; // Alias your custom User model
+import 'package:noai/models/user.dart'
+    as app_models; // Alias your custom User model
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import '../repositories/follow_repository.dart';
@@ -56,6 +57,17 @@ class UserProvider with ChangeNotifier {
   }
 
   app_models.User? get currentUser => _currentUser;
+
+  /// Check if the current user's profile is complete (display name and bio).
+  bool get isProfileComplete {
+    final user = _currentUser;
+    if (user == null) return false;
+    return user.displayName.isNotEmpty &&
+        user.bio != null &&
+        user.bio!.isNotEmpty &&
+        user.interests.isNotEmpty;
+  }
+
   bool get isLoading => _isLoading;
   String? get error => _error;
   List<Map<String, dynamic>> get transactions => _transactions;
@@ -151,9 +163,7 @@ class UserProvider with ChangeNotifier {
       // 1. Fetch profile and wallet
       final profileResponse = await _supabase.client
           .from(SupabaseConfig.profilesTable)
-          .select(
-            '*, ${SupabaseConfig.walletsTable}(*)',
-          ) // Visibility settings removed due to schema mismatch
+          .select('*, ${SupabaseConfig.walletsTable}(*)')
           .eq('user_id', userId)
           .maybeSingle();
 
@@ -166,6 +176,7 @@ class UserProvider with ChangeNotifier {
           .from(SupabaseConfig.postsTable)
           .select('id')
           .eq('author_id', userId)
+          .eq('status', 'published')
           .count(CountOption.exact);
 
       final followersCountRes = await _supabase.client
@@ -180,15 +191,39 @@ class UserProvider with ChangeNotifier {
           .eq('follower_id', userId)
           .count(CountOption.exact);
 
+      final humanVerifiedCountRes = await _supabase.client
+          .from(SupabaseConfig.postsTable)
+          .select('id')
+          .eq('author_id', userId)
+          .eq('status', 'published')
+          .eq('ai_score_status', 'pass')
+          .count(CountOption.exact);
+
+      // 3. Fetch user achievements with achievement details
+      List<app_models.UserAchievement> achievements = [];
+      try {
+        final achievementsRes = await _supabase.client
+            .from('user_achievements')
+            .select('*, achievements(*)')
+            .eq('user_id', userId);
+        achievements = (achievementsRes as List)
+            .map((json) => app_models.UserAchievement.fromSupabase(json))
+            .toList();
+      } catch (e) {
+        debugPrint('UserProvider: Error fetching achievements - $e');
+      }
+
       final wallet = profileResponse[SupabaseConfig.walletsTable];
       app_models.User user = app_models.User.fromSupabase(
         profileResponse,
         wallet: wallet,
+        achievements: achievements,
       );
 
       // Update user with real counts
       user = user.copyWith(
         postsCount: postsCountRes.count,
+        humanVerifiedPostsCount: humanVerifiedCountRes.count,
         followersCount: followersCountRes.count,
         followingCount: followingCountRes.count,
       );

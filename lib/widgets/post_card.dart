@@ -60,10 +60,97 @@ class PostCard extends StatelessWidget {
 
             _Header(post: post, onProfileTap: onProfileTap),
 
+            if (post.status == 'under_review')
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                color: colors.errorContainer,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: colors.onErrorContainer,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This post is under review by moderators.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.onErrorContainer,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: _MlScoreBadge(score: post.aiConfidenceScore ?? 0.65),
+              child: _MlScoreBadge(
+                score: post.aiConfidenceScore,
+                isModerated: post.status == 'under_review',
+              ),
             ),
+
+            if (post.isSensitive)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.errorContainer.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colors.error.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: colors.error),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Sensitive Content',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: colors.error,
+                            ),
+                          ),
+                          if (post.sensitiveReason != null)
+                            Text(
+                              post.sensitiveReason!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colors.onErrorContainer,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (post.title != null && post.title!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  post.title!,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
 
             _Content(post: post),
 
@@ -404,18 +491,49 @@ class _RepostHeader extends StatelessWidget {
 // ... (ML Score Badge unchanged)
 
 class _MlScoreBadge extends StatelessWidget {
-  final double score;
+  final double? score;
+  final bool isModerated;
 
-  const _MlScoreBadge({required this.score});
+  const _MlScoreBadge({required this.score, this.isModerated = false});
 
   @override
   Widget build(BuildContext context) {
+    final bool isPending = score == null;
+
+    final Color badgeColor;
+    final Color bgColor;
+    final String label;
+
+    if (isModerated) {
+      badgeColor = const Color(0xFFF59E0B); // Amber
+      bgColor = const Color(0xFF451A03);
+      label = 'UNDER REVIEW';
+    } else if (isPending) {
+      badgeColor = const Color(0xFF9CA3AF);
+      bgColor = const Color(0xFF1F2937);
+      label = 'ML SCORE: PENDING';
+    } else if (score! < 50) {
+      badgeColor = const Color(0xFF10B981);
+      bgColor = const Color(0xFF052E1C);
+      label = 'ML SCORE: ${score!.toStringAsFixed(2)}% [PASS]';
+    } else if (score! < 75) {
+      // 50-75% is Review/Uncertain (Not hidden, but flagged as potential)
+      badgeColor = const Color(0xFFF59E0B); // Amber
+      bgColor = const Color(0xFF451A03);
+      label = 'ML SCORE: ${score!.toStringAsFixed(2)}% [REVIEW]';
+    } else {
+      // 75%+ is High Probability AI
+      badgeColor = const Color(0xFFEF4444);
+      bgColor = const Color(0xFF2D0F0F);
+      label = 'ML SCORE: ${score!.toStringAsFixed(2)}% [AI DETECTED]';
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF052E1C),
+        color: bgColor,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFF10B981)),
+        border: Border.all(color: badgeColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -423,19 +541,19 @@ class _MlScoreBadge extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: const BoxDecoration(
-              color: Color(0xFF10B981),
+            decoration: BoxDecoration(
+              color: badgeColor,
               shape: BoxShape.circle,
             ),
           ),
           const SizedBox(width: 8),
           Text(
-            'ML SCORE: ${score.toStringAsFixed(2)}% [PASS]',
-            style: const TextStyle(
+            label,
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.4,
-              color: Color(0xFF10B981),
+              color: badgeColor,
             ),
           ),
         ],
@@ -895,8 +1013,8 @@ class _MediaTile extends StatelessWidget {
                   ),
                 ),
               ),
-            // Verified badge on first media only
-            if (index == 0)
+            // Verified badge on first media only if it's human certified or pass AI check
+            if (index == 0 && (post.humanCertified || post.isHumanVerified))
               Positioned(
                 bottom: 8,
                 right: 8,

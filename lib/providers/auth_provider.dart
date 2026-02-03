@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../services/auth_service.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
-import '../models/user.dart';
+import 'package:noai/models/user.dart';
 
 /// Authentication status states.
 enum AuthStatus { initial, loading, authenticated, unauthenticated }

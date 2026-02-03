@@ -304,14 +304,26 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      _post.author.displayName,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
+                                    Row(
+                                      children: [
+                                        Text(
+                                          _post.author.displayName,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                        ),
+                                        if (_post.author.isVerified) ...[
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            Icons.verified,
+                                            size: 14,
+                                            color: colors.primary,
                                           ),
+                                        ],
+                                      ],
                                     ),
                                     Text(
                                       '@${_post.author.username}',
@@ -333,12 +345,67 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
+                          if (_post.isSensitive)
+                            Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: colors.errorContainer.withValues(
+                                  alpha: 0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: colors.error.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: colors.error,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Sensitive Content',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: colors.error,
+                                          ),
+                                        ),
+                                        if (_post.sensitiveReason != null)
+                                          Text(
+                                            _post.sensitiveReason!,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: colors.onErrorContainer,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (_post.title != null &&
+                              _post.title!.isNotEmpty) ...[
+                            Text(
+                              _post.title!,
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
                           LayoutBuilder(
                             builder: (context, constraints) {
-                              final textStyle = Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(height: 1.6);
+                              final textStyle = Theme.of(
+                                context,
+                              ).textTheme.bodyLarge?.copyWith(height: 1.6);
                               final textSpan = TextSpan(
                                 text: _post.content,
                                 style: textStyle,
@@ -348,7 +415,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 maxLines: _maxLinesCollapsed,
                                 textDirection: TextDirection.ltr,
                               )..layout(maxWidth: constraints.maxWidth);
-                              final isOverflowing = textPainter.didExceedMaxLines;
+                              final isOverflowing =
+                                  textPainter.didExceedMaxLines;
 
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,10 +424,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   MentionRichText(
                                     text: _post.content,
                                     style: textStyle,
-                                    maxLines: _isTextExpanded ? null : _maxLinesCollapsed,
+                                    maxLines: _isTextExpanded
+                                        ? null
+                                        : _maxLinesCollapsed,
                                     overflow: TextOverflow.clip,
                                     onMentionTap: (username) =>
-                                        navigateToMentionedUser(context, username),
+                                        navigateToMentionedUser(
+                                          context,
+                                          username,
+                                        ),
                                   ),
                                   if (isOverflowing)
                                     GestureDetector(
@@ -371,7 +444,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                       child: Padding(
                                         padding: const EdgeInsets.only(top: 4),
                                         child: Text(
-                                          _isTextExpanded ? 'Show less' : '... more',
+                                          _isTextExpanded
+                                              ? 'Show less'
+                                              : '... more',
                                           style: TextStyle(
                                             color: colors.primary,
                                             fontWeight: FontWeight.w600,
@@ -727,8 +802,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       decoration: InputDecoration(
                         hintText: 'Add a comment...',
                         filled: true,
-                        fillColor: colors.surfaceContainerHighest.withOpacity(
-                          0.5,
+                        fillColor: colors.surfaceContainerHighest.withValues(
+                          alpha: 0.5,
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),

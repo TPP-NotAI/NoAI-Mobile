@@ -179,6 +179,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
         }
         // User is logged in and verified, show main app
+        final userProvider = context.watch<UserProvider>();
+        if (userProvider.currentUser != null &&
+            !userProvider.isProfileComplete) {
+          return const AppNavigator(initialView: ViewType.interests);
+        }
         return const MainShell();
       case AuthStatus.unauthenticated:
         // User needs to login, show auth flow
@@ -232,9 +237,18 @@ class _AppNavigatorState extends State<AppNavigator> {
       case ViewType.splash:
         return SplashScreen(onComplete: () => _go(ViewType.onboarding));
       case ViewType.onboarding:
-        return OnboardingScreen(onComplete: () => _go(ViewType.interests));
+        return OnboardingScreen(onComplete: () => _go(ViewType.login));
       case ViewType.interests:
-        return InterestsSelectionScreen(onComplete: () => _go(ViewType.login));
+        return InterestsSelectionScreen(
+          onComplete: () {
+            if (context.read<AuthProvider>().isAuthenticated) {
+              // If already logged in, we are in the "Complete Profile" flow
+              _go(ViewType.feed);
+            } else {
+              _go(ViewType.login);
+            }
+          },
+        );
       case ViewType.login:
         return LoginScreen(
           onLogin: () => _go(ViewType.feed),

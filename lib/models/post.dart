@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'comment.dart';
 import '../config/supabase_config.dart';
@@ -136,18 +135,46 @@ class Post {
   final int likes;
   final int comments;
   final String visibility; // 'everyone', 'followers', 'private'
-  final double tips;
-  final String timestamp;
+  final double tips; // Matches total_tips_rc
+  final String timestamp; // created_at
   final bool isNFT;
   final bool isLiked;
-  final String? userReaction; // Current user's reaction type (like, love, laugh, sad, angry, wow) or null
-  final Map<String, int> reactionCounts; // Breakdown: {'like': 5, 'love': 2, ...}
+  final String?
+  userReaction; // Current user's reaction type (like, love, laugh, sad, angry, wow) or null
+  final Map<String, int>
+  reactionCounts; // Breakdown: {'like': 5, 'love': 2, ...}
   final int totalReactions; // Total count of all reactions
   final List<Comment>? commentList;
 
-  // AI verification fields (matching web)
+  // New fields from schema
+  final String? title;
+  final String bodyFormat;
+  final int reposts; // reposts_count
+  final int views; // views_count
+  final int shares; // shares_count
+  final double publishFee; // publish_fee_rc
+  final bool isSensitive;
+  final String? sensitiveReason;
+  final String? scheduledAt;
+  final String? publishedAt;
+  final int editCount;
+  final String? lastEditedAt;
+  final String? updatedAt;
+
+  // AI-related fields from schema
+  final bool humanCertified;
+  final double? aiScore; // Same as aiConfidenceScore
+  final String? aiScoreStatus; // Same as detectionStatus
+  final String? authenticityNotes;
+  final String? verificationMethod;
+  final String? verificationSessionId;
+
+  // AI verification fields (matching web - kept for compatibility)
   final double? aiConfidenceScore; // 0-100 probability of AI generation
-  final String? detectionStatus; // 'pending', 'approved', 'flagged', 'removed'
+  final String?
+  detectionStatus; // 'pass', 'review', 'flagged' (from ai_score_status column)
+  final String
+  status; // 'draft', 'published', 'under_review', 'hidden', 'deleted', 'scheduled'
 
   Post({
     required this.id,
@@ -169,10 +196,30 @@ class Post {
     this.reactionCounts = const {},
     this.totalReactions = 0,
     this.commentList,
+    this.humanCertified = false,
+    this.aiScore,
+    this.aiScoreStatus,
+    this.authenticityNotes,
+    this.verificationMethod,
+    this.verificationSessionId,
     this.aiConfidenceScore,
     this.detectionStatus,
+    this.status = 'published',
     this.reposter,
     this.repostedAt,
+    this.title,
+    this.bodyFormat = 'plain',
+    this.reposts = 0,
+    this.views = 0,
+    this.shares = 0,
+    this.publishFee = 0,
+    this.isSensitive = false,
+    this.sensitiveReason,
+    this.scheduledAt,
+    this.publishedAt,
+    this.editCount = 0,
+    this.lastEditedAt,
+    this.updatedAt,
   });
 
   final PostAuthor? reposter;
@@ -202,10 +249,30 @@ class Post {
     Map<String, int>? reactionCounts,
     int? totalReactions,
     List<Comment>? commentList,
+    bool? humanCertified,
+    double? aiScore,
+    String? aiScoreStatus,
+    String? authenticityNotes,
+    String? verificationMethod,
+    String? verificationSessionId,
     double? aiConfidenceScore,
     String? detectionStatus,
+    String? status,
     PostAuthor? reposter,
     String? repostedAt,
+    String? title,
+    String? bodyFormat,
+    int? reposts,
+    int? views,
+    int? shares,
+    double? publishFee,
+    bool? isSensitive,
+    String? sensitiveReason,
+    String? scheduledAt,
+    String? publishedAt,
+    int? editCount,
+    String? lastEditedAt,
+    String? updatedAt,
   }) {
     return Post(
       id: id ?? this.id,
@@ -223,14 +290,37 @@ class Post {
       timestamp: timestamp ?? this.timestamp,
       isNFT: isNFT ?? this.isNFT,
       isLiked: isLiked ?? this.isLiked,
-      userReaction: clearUserReaction ? null : (userReaction ?? this.userReaction),
+      userReaction: clearUserReaction
+          ? null
+          : (userReaction ?? this.userReaction),
       reactionCounts: reactionCounts ?? this.reactionCounts,
       totalReactions: totalReactions ?? this.totalReactions,
       commentList: commentList ?? this.commentList,
+      humanCertified: humanCertified ?? this.humanCertified,
+      aiScore: aiScore ?? this.aiScore,
+      aiScoreStatus: aiScoreStatus ?? this.aiScoreStatus,
+      authenticityNotes: authenticityNotes ?? this.authenticityNotes,
+      verificationMethod: verificationMethod ?? this.verificationMethod,
+      verificationSessionId:
+          verificationSessionId ?? this.verificationSessionId,
       aiConfidenceScore: aiConfidenceScore ?? this.aiConfidenceScore,
       detectionStatus: detectionStatus ?? this.detectionStatus,
+      status: status ?? this.status,
       reposter: reposter ?? this.reposter,
       repostedAt: repostedAt ?? this.repostedAt,
+      title: title ?? this.title,
+      bodyFormat: bodyFormat ?? this.bodyFormat,
+      reposts: reposts ?? this.reposts,
+      views: views ?? this.views,
+      shares: shares ?? this.shares,
+      publishFee: publishFee ?? this.publishFee,
+      isSensitive: isSensitive ?? this.isSensitive,
+      sensitiveReason: sensitiveReason ?? this.sensitiveReason,
+      scheduledAt: scheduledAt ?? this.scheduledAt,
+      publishedAt: publishedAt ?? this.publishedAt,
+      editCount: editCount ?? this.editCount,
+      lastEditedAt: lastEditedAt ?? this.lastEditedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -265,10 +355,6 @@ class Post {
     // Parse reactions - build per-type counts and find current user's reaction
     final reactions = json['reactions'] as List<dynamic>? ?? [];
 
-    debugPrint(
-      'Post.fromSupabase: Post ${json['id']} has ${reactions.length} reactions, currentUserId=$currentUserId',
-    );
-
     // Build reaction counts map
     final reactionCounts = <String, int>{};
     String? userReaction;
@@ -281,10 +367,10 @@ class Post {
     }
 
     final isLiked = userReaction == 'like';
-    final likesCount = reactionCounts['like'] ?? 0;
+    // Use schema count if available, otherwise fallback to reactions length
+    final likesCount =
+        json['likes_count'] as int? ?? reactionCounts['like'] ?? 0;
     final totalReactions = reactions.length;
-
-    debugPrint('Post.fromSupabase: userReaction=$userReaction, likesCount=$likesCount, totalReactions=$totalReactions');
 
     // Parse media list
     final mediaJson = json['post_media'] as List<dynamic>? ?? [];
@@ -334,16 +420,29 @@ class Post {
       mentionedUserIds: mentionedUserIds,
       likes: likesCount,
       visibility: json['visibility'] as String? ?? 'everyone',
-      comments: (json['comments'] as List<dynamic>?)?.length ?? 0,
-      tips: (json['tip_total'] as num?)?.toDouble() ?? 0.0,
+      comments:
+          json['comments_count'] as int? ??
+          (json['comments'] as List<dynamic>?)?.length ??
+          0,
+      tips:
+          (json['total_tips_rc'] as num?)?.toDouble() ??
+          (json['tip_total'] as num?)?.toDouble() ??
+          0.0,
       timestamp: json['created_at'] ?? DateTime.now().toIso8601String(),
       isNFT: json['is_nft'] ?? false,
       isLiked: isLiked,
       userReaction: userReaction,
       reactionCounts: reactionCounts,
       totalReactions: totalReactions,
-      aiConfidenceScore: (json['ai_confidence_score'] as num?)?.toDouble(),
-      detectionStatus: json['status'] as String?,
+      humanCertified: json['human_certified'] ?? false,
+      aiScore: (json['ai_score'] as num?)?.toDouble(),
+      aiScoreStatus: json['ai_score_status'] as String?,
+      authenticityNotes: json['authenticity_notes'] as String?,
+      verificationMethod: json['verification_method'] as String?,
+      verificationSessionId: json['verification_session_id'] as String?,
+      aiConfidenceScore: (json['ai_score'] as num?)?.toDouble(),
+      detectionStatus: json['ai_score_status'] as String?,
+      status: json['status'] as String? ?? 'published',
       reposter: json['reposter'] != null
           ? PostAuthor(
               userId: json['reposter']['user_id'] as String?,
@@ -354,6 +453,19 @@ class Post {
             )
           : null,
       repostedAt: json['reposted_at'] as String?,
+      title: json['title'] as String?,
+      bodyFormat: json['body_format'] as String? ?? 'plain',
+      reposts: json['reposts_count'] as int? ?? 0,
+      views: json['views_count'] as int? ?? 0,
+      shares: json['shares_count'] as int? ?? 0,
+      publishFee: (json['publish_fee_rc'] as num?)?.toDouble() ?? 0.0,
+      isSensitive: json['is_sensitive'] ?? false,
+      sensitiveReason: json['sensitive_reason'] as String?,
+      scheduledAt: json['scheduled_at'] as String?,
+      publishedAt: json['published_at'] as String?,
+      editCount: json['edit_count'] as int? ?? 0,
+      lastEditedAt: json['last_edited_at'] as String?,
+      updatedAt: json['updated_at'] as String?,
     );
   }
 
@@ -362,10 +474,21 @@ class Post {
     return {
       'author_id': authorId,
       'body': content,
-      'title': null,
-      'visibility': visibility, // Add visibility here
-      'body_format': 'plain',
-      'status': 'published',
+      'title': title,
+      'visibility': visibility,
+      'body_format': bodyFormat,
+      'status': status,
+      'location': location,
+      'human_certified': humanCertified,
+      'ai_score': aiScore,
+      'ai_score_status': aiScoreStatus,
+      'authenticity_notes': authenticityNotes,
+      'verification_method': verificationMethod,
+      'verification_session_id': verificationSessionId,
+      'is_sensitive': isSensitive,
+      'sensitive_reason': sensitiveReason,
+      'scheduled_at': scheduledAt,
+      'published_at': publishedAt,
     };
   }
 }
