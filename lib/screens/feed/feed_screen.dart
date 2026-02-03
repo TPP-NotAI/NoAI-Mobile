@@ -4,10 +4,12 @@ import 'package:noai/screens/create/create_post_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/feed_provider.dart';
+import '../../providers/story_provider.dart';
 import '../../widgets/post_card.dart';
 import '../../widgets/comments_sheet.dart';
 import '../../widgets/tip_modal.dart';
 import '../../widgets/shimmer_loading.dart';
+import '../../widgets/stories_carousel.dart';
 import '../profile/profile_screen.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -67,7 +69,12 @@ class _FeedScreenState extends State<FeedScreen> {
         return RefreshIndicator(
           color: colors.primary,
           backgroundColor: colors.surface,
-          onRefresh: feed.refreshFeed,
+          onRefresh: () async {
+            await Future.wait([
+              feed.refreshFeed(),
+              context.read<StoryProvider>().refresh(),
+            ]);
+          },
           child: LayoutBuilder(
             builder: (context, constraints) {
               /// Web feed column width
@@ -79,6 +86,18 @@ class _FeedScreenState extends State<FeedScreen> {
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
+                  // Stories / status row
+                  SliverToBoxAdapter(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: maxWidth),
+                        child: const Padding(
+                          padding: EdgeInsets.only(top: 8, bottom: 4),
+                          child: StoriesCarousel(),
+                        ),
+                      ),
+                    ),
+                  ),
                   /// ───────────────── CREATE POST (WEB STYLE) ─────────────────
                   SliverToBoxAdapter(
                     child: Center(
