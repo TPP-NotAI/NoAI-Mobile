@@ -871,7 +871,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${user.postsCount}',
+                      '${user.humanVerifiedPostsCount}',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,

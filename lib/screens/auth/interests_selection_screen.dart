@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 import '../../repositories/user_interests_repository.dart';
+import '../../providers/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class InterestsSelectionScreen extends StatefulWidget {
   final VoidCallback onComplete;
@@ -15,6 +17,9 @@ class InterestsSelectionScreen extends StatefulWidget {
 class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
   final Set<String> _selectedInterests = {};
   bool _isLoading = false;
+  final TextEditingController _displayNameController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
+  bool _showProfileFields = false;
 
   // Predefined interest categories with topics
   final Map<String, List<String>> _interestCategories = {
@@ -112,6 +117,26 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
   void initState() {
     super.initState();
     _loadSavedInterests();
+    _checkProfileFields();
+  }
+
+  @override
+  void dispose() {
+    _displayNameController.dispose();
+    _bioController.dispose();
+    super.dispose();
+  }
+
+  void _checkProfileFields() {
+    final user = context.read<UserProvider>().currentUser;
+    if (user != null) {
+      setState(() {
+        _displayNameController.text = user.displayName;
+        _bioController.text = user.bio ?? '';
+        _showProfileFields =
+            user.displayName.isEmpty || (user.bio == null || user.bio!.isEmpty);
+      });
+    }
   }
 
   Future<void> _loadSavedInterests() async {
@@ -134,32 +159,47 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
   }
 
   Future<void> _saveAndContinue() async {
-    if (_selectedInterests.isEmpty) {
-      // Allow continuing without interests
-      widget.onComplete();
+    final userProvider = context.read<UserProvider>();
+    final user = userProvider.currentUser;
+
+    if (_showProfileFields && _displayNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a display name')),
+      );
+      return;
+    }
+
+    if (_showProfileFields && _bioController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add a bio to help people know you!'),
+        ),
+      );
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      final success = await UserInterestsRepository().saveUserInterests(
-        _selectedInterests.toList(),
-      );
-
-      if (success) {
-        widget.onComplete();
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to save interests. Please try again.'),
-            ),
-          );
-        }
+      // Save profile updates if needed
+      if (_showProfileFields && user != null) {
+        final updates = <String, dynamic>{
+          'display_name': _displayNameController.text.trim(),
+          'bio': _bioController.text.trim(),
+        };
+        await userProvider.updateProfile(user.id, updates);
       }
+
+      // Save interests
+      if (_selectedInterests.isNotEmpty) {
+        await UserInterestsRepository().saveUserInterests(
+          _selectedInterests.toList(),
+        );
+      }
+
+      widget.onComplete();
     } catch (e) {
-      debugPrint('Error saving interests: $e');
+      debugPrint('Error saving profile/interests: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('An error occurred. Please try again.')),
@@ -219,7 +259,9 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                   ),
                   const SizedBox(height: 32),
                   Text(
-                    'What interests you?',
+                    _showProfileFields
+                        ? 'Complete Your Profile'
+                        : 'What interests you?',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -228,7 +270,9 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Select topics you\'re interested in to personalize your feed. You can change this later.',
+                    _showProfileFields
+                        ? 'Set up your identity and interests to personalize your experience.'
+                        : 'Select topics you\'re interested in to personalize your feed. You can change this later.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
@@ -236,6 +280,25 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                       height: 1.5,
                     ),
                   ),
+                  if (_showProfileFields) ...[
+                    const SizedBox(height: 24),
+                    _buildProfileField(
+                      context,
+                      label: 'Display Name',
+                      controller: _displayNameController,
+                      hint: 'How should we call you?',
+                      icon: Icons.badge_outlined,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildProfileField(
+                      context,
+                      label: 'Bio',
+                      controller: _bioController,
+                      hint: 'A quick summary of you...',
+                      icon: Icons.description_outlined,
+                      maxLines: 2,
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   if (_selectedInterests.isNotEmpty)
                     Text(
@@ -321,23 +384,69 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: _isLoading ? null : widget.onComplete,
-                    child: Text(
-                      'Skip for now',
-                      style: TextStyle(
-                        color: scheme.onBackground.withOpacity(0.6),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                  if (!_showProfileFields)
+                    TextButton(
+                      onPressed: _isLoading ? null : widget.onComplete,
+                      child: Text(
+                        'Skip for now',
+                        style: TextStyle(
+                          color: scheme.onBackground.withOpacity(0.6),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileField(
+    BuildContext context, {
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    int maxLines = 1,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: scheme.onBackground.withOpacity(0.8),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          style: TextStyle(color: scheme.onSurface),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.4)),
+            prefixIcon: Icon(icon, size: 20),
+            filled: true,
+            fillColor: scheme.surfaceVariant.withOpacity(0.3),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

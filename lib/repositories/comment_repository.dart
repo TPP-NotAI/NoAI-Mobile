@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/comment.dart';
+import '../models/ai_detection_result.dart';
 import '../services/supabase_service.dart';
+import '../services/ai_detection_service.dart';
 
 import 'notification_repository.dart';
 import 'mention_repository.dart';
@@ -13,6 +15,7 @@ class CommentRepository {
   final _client = SupabaseService().client;
   final _notificationRepository = NotificationRepository();
   final _mentionRepository = MentionRepository();
+  final _aiDetectionService = AiDetectionService();
 
   /// Fetch comments for a post.
   /// Optionally filter out comments from blocked users.
@@ -45,8 +48,9 @@ class CommentRepository {
           )
         ''')
         .eq('post_id', postId)
+        .eq('status', 'published')
         .isFilter('parent_comment_id', null) // Only top-level comments
-        .order('created_at', ascending: true);
+        .order('created_at', ascending: false);
 
     debugPrint('CommentRepository: Raw response = $response');
 
@@ -173,7 +177,8 @@ class CommentRepository {
           )
         ''')
         .eq('parent_comment_id', parentCommentId)
-        .order('created_at', ascending: true);
+        .eq('status', 'published')
+        .order('created_at', ascending: false);
 
     // Filter out replies from blocked users
     final filteredReplies = <Comment>[];
@@ -383,7 +388,10 @@ class CommentRepository {
 
   /// Delete a comment.
   /// Validates ownership before deleting.
-  Future<bool> deleteComment(String commentId, {required String currentUserId}) async {
+  Future<bool> deleteComment(
+    String commentId, {
+    required String currentUserId,
+  }) async {
     try {
       // RLS enforces this at DB level, but we check here for a clear error message
       final comment = await _client
@@ -398,7 +406,9 @@ class CommentRepository {
       }
 
       if (comment['author_id'] != currentUserId) {
-        debugPrint('CommentRepository: Unauthorized - user does not own this comment');
+        debugPrint(
+          'CommentRepository: Unauthorized - user does not own this comment',
+        );
         return false;
       }
 
@@ -477,5 +487,266 @@ class CommentRepository {
         .eq('post_id', postId);
 
     return (response as List).length;
+  }
+
+  /// Fetch comments that are under review (flagged by AI).
+  Future<List<Comment>> getFlaggedComments({int limit = 20}) async {
+    try {
+      final data = await _client
+          .from(SupabaseConfig.commentsTable)
+          .select('''
+            *,
+            profiles!comments_author_id_fkey (
+              user_id,
+              username,
+              display_name,
+              avatar_url,
+              verified_human
+            )
+          ''')
+          .eq('status', 'under_review')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      return (data as List<dynamic>)
+          .map((json) => Comment.fromSupabase(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('CommentRepository: Error fetching flagged comments - $e');
+      return [];
+    }
+  }
+
+  /// Fetch moderation case metadata for a list of comment IDs.
+  Future<Map<String, Map<String, dynamic>>> getCommentModerationMetadata(
+    List<String> commentIds,
+  ) async {
+    if (commentIds.isEmpty) return {};
+    try {
+      final data = await _client
+          .from(SupabaseConfig.moderationCasesTable)
+          .select(
+            'id, comment_id, reason, source, ai_confidence, ai_model, ai_metadata, status, priority, description',
+          )
+          .inFilter('comment_id', commentIds);
+
+      final result = <String, Map<String, dynamic>>{};
+      for (final row in (data as List<dynamic>)) {
+        final map = row as Map<String, dynamic>;
+        final commentId = map['comment_id'] as String;
+        result[commentId] = map;
+      }
+      return result;
+    } catch (e) {
+      debugPrint(
+        'CommentRepository: Error fetching comment moderation metadata - $e',
+      );
+      return {};
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AI DETECTION FOR COMMENTS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Run AI detection on a comment's text.
+  /// Updates the comment's ai_score and status based on the result.
+  /// Returns the AI probability score on success, or null on failure.
+  Future<double?> runAiDetection({
+    required String commentId,
+    required String authorId,
+    required String body,
+  }) async {
+    if (body.trim().isEmpty) return null;
+
+    try {
+      final result = await _aiDetectionService.detectText(body);
+
+      if (result != null) {
+        // Convert API confidence to AI probability (same logic as posts)
+        final bool isAiResult =
+            result.result == 'AI-GENERATED' ||
+            result.result == 'LIKELY AI-GENERATED';
+        final double aiProbability = isAiResult
+            ? result.confidence
+            : 100 - result.confidence;
+
+        // Determine new status based on AI probability
+        final String newStatus;
+        if (aiProbability >= 75) {
+          newStatus = 'under_review'; // High AI probability → hide & review
+        } else if (aiProbability >= 50) {
+          newStatus = 'under_review'; // Medium → still flag for review
+        } else {
+          newStatus = 'published'; // Low → keep published
+        }
+
+        // Update comment with AI score and status
+        await _client
+            .from(SupabaseConfig.commentsTable)
+            .update({'ai_score': aiProbability, 'status': newStatus})
+            .eq('id', commentId);
+
+        debugPrint(
+          'CommentRepository: AI detection for comment $commentId - '
+          'score=$aiProbability, status=$newStatus',
+        );
+
+        // Create moderation case if flagged
+        if (aiProbability >= 50) {
+          await _createModerationCase(
+            commentId: commentId,
+            authorId: authorId,
+            aiConfidence: aiProbability,
+            aiModel: result.analysisId,
+            aiMetadata: {
+              'consensus_strength': result.consensusStrength,
+              'rationale': result.rationale,
+              'combined_evidence': result.combinedEvidence,
+              'classification': result.result,
+            },
+          );
+        }
+
+        return aiProbability;
+      } else {
+        debugPrint(
+          'CommentRepository: AI detection returned null for comment $commentId',
+        );
+        return null;
+      }
+    } catch (e) {
+      debugPrint(
+        'CommentRepository: AI detection failed for comment $commentId - $e',
+      );
+      return null;
+    }
+  }
+
+  /// Create a moderation case for an AI-flagged comment.
+  Future<void> _createModerationCase({
+    required String commentId,
+    required String authorId,
+    required double aiConfidence,
+    String? aiModel,
+    Map<String, dynamic>? aiMetadata,
+  }) async {
+    try {
+      // Check if a case already exists
+      final existing = await _client
+          .from(SupabaseConfig.moderationCasesTable)
+          .select('id')
+          .eq('comment_id', commentId)
+          .maybeSingle();
+
+      if (existing != null) {
+        debugPrint(
+          'CommentRepository: Moderation case already exists for comment $commentId',
+        );
+        return;
+      }
+
+      await _client.from(SupabaseConfig.moderationCasesTable).insert({
+        'comment_id': commentId,
+        'reported_user_id': authorId,
+        'reason': 'ai_generated',
+        'source': 'ai',
+        'ai_confidence': aiConfidence,
+        'ai_model': aiModel,
+        'ai_metadata': aiMetadata ?? {},
+        'status': 'pending',
+        'priority': 'normal',
+        'description':
+            'Automated AI detection flagged this comment with '
+            '${aiConfidence.toStringAsFixed(1)}% confidence.',
+      });
+
+      debugPrint(
+        'CommentRepository: Created moderation case for comment $commentId',
+      );
+    } catch (e) {
+      debugPrint(
+        'CommentRepository: Error creating moderation case for comment $commentId - $e',
+      );
+    }
+  }
+
+  /// Approve or reject a flagged comment.
+  Future<bool> moderateComment({
+    required String commentId,
+    required String action,
+    String? moderatorId,
+    String? notes,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (action == 'approve') {
+        updates['status'] = 'published';
+      } else if (action == 'reject') {
+        updates['status'] = 'deleted';
+      } else {
+        return false;
+      }
+
+      await _client
+          .from(SupabaseConfig.commentsTable)
+          .update(updates)
+          .eq('id', commentId);
+
+      // Resolve the moderation case
+      try {
+        final caseUpdates = <String, dynamic>{
+          'status': 'resolved',
+          'decision': action == 'approve' ? 'approved' : 'rejected',
+          'decided_at': DateTime.now().toIso8601String(),
+        };
+        if (moderatorId != null) {
+          caseUpdates['assigned_admin_id'] = moderatorId;
+        }
+        caseUpdates['decision_notes'] =
+            notes ?? 'Moderator ${action}d this comment';
+
+        await _client
+            .from(SupabaseConfig.moderationCasesTable)
+            .update(caseUpdates)
+            .eq('comment_id', commentId)
+            .eq('status', 'pending');
+      } catch (e) {
+        debugPrint(
+          'CommentRepository: Error resolving moderation case for comment $commentId - $e',
+        );
+      }
+
+      // Submit feedback to the AI learning system
+      try {
+        // Look up the analysis_id from the moderation case
+        final modCase = await _client
+            .from(SupabaseConfig.moderationCasesTable)
+            .select('ai_model')
+            .eq('comment_id', commentId)
+            .maybeSingle();
+        final analysisId = modCase?['ai_model'] as String?;
+
+        if (analysisId != null && analysisId.isNotEmpty) {
+          final correctResult = action == 'approve'
+              ? 'HUMAN-GENERATED'
+              : 'AI-GENERATED';
+          _aiDetectionService.submitFeedback(
+            analysisId: analysisId,
+            correctResult: correctResult,
+            feedbackNotes: notes ?? 'Moderator $action decision on comment',
+          );
+        }
+      } catch (e) {
+        debugPrint(
+          'CommentRepository: Error submitting AI feedback for comment $commentId - $e',
+        );
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('CommentRepository: Error moderating comment $commentId - $e');
+      return false;
+    }
   }
 }

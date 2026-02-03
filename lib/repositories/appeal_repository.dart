@@ -2,22 +2,28 @@ import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
 
-/// Repository for post appeal operations.
+/// Repository for post/comment appeal operations.
 class AppealRepository {
   final _client = SupabaseService().client;
 
-  /// Find or create a moderation case for an AI-flagged post.
+  /// Find or create a moderation case for an AI-flagged post or comment.
   /// Returns the moderation case ID, or null on failure.
   Future<String?> getOrCreateModerationCase({
-    required String postId,
+    String? postId,
+    String? commentId,
     required String reportedUserId,
     required double aiConfidence,
   }) async {
+    assert(
+      (postId != null) ^ (commentId != null),
+      'Provide either postId or commentId',
+    );
+
     try {
       final existing = await _client
           .from(SupabaseConfig.moderationCasesTable)
           .select('id')
-          .eq('post_id', postId)
+          .eq(postId != null ? 'post_id' : 'comment_id', (postId ?? commentId)!)
           .maybeSingle();
 
       if (existing != null) {
@@ -27,7 +33,8 @@ class AppealRepository {
       final response = await _client
           .from(SupabaseConfig.moderationCasesTable)
           .insert({
-            'post_id': postId,
+            if (postId != null) 'post_id': postId,
+            if (commentId != null) 'comment_id': commentId,
             'reported_user_id': reportedUserId,
             'reason': 'ai_generated',
             'source': 'ai',
@@ -70,8 +77,17 @@ class AppealRepository {
   /// Check if user already has a pending appeal for a given post.
   Future<bool> hasExistingAppeal({
     required String userId,
-    required String postId,
+    String? postId,
+    String? commentId,
   }) async {
+    assert(
+      (postId != null) ^ (commentId != null),
+      'Provide either postId or commentId',
+    );
+
+    final field = postId != null ? 'post_id' : 'comment_id';
+    final contentId = postId ?? commentId;
+
     try {
       final result = await _client
           .from(SupabaseConfig.appealsTable)
@@ -82,7 +98,7 @@ class AppealRepository {
             _client
                 .from(SupabaseConfig.moderationCasesTable)
                 .select('id')
-                .eq('post_id', postId),
+                .eq(field, contentId!),
           )
           .maybeSingle();
 
@@ -93,7 +109,7 @@ class AppealRepository {
         final modCase = await _client
             .from(SupabaseConfig.moderationCasesTable)
             .select('id')
-            .eq('post_id', postId)
+            .eq(field, contentId!)
             .maybeSingle();
 
         if (modCase == null) return false;

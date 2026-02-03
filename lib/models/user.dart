@@ -50,6 +50,7 @@ class User {
   final bool isVerified;
   final double balance;
   final int postsCount;
+  final int humanVerifiedPostsCount;
   final int followersCount;
   final int followingCount;
   final double trustScore; // 0-100 trust score (matching web)
@@ -61,6 +62,7 @@ class User {
   final String status; // active, suspended, banned
   final DateTime? createdAt;
   final DateTime? lastSeen;
+  final List<String> interests;
   @JsonKey(includeFromJson: false, includeToJson: false)
   final List<UserAchievement> achievements;
 
@@ -77,6 +79,7 @@ class User {
     this.isVerified = false,
     this.balance = 0.0,
     this.postsCount = 0,
+    this.humanVerifiedPostsCount = 0,
     this.followersCount = 0,
     this.followingCount = 0,
     this.trustScore = 0.0,
@@ -88,6 +91,7 @@ class User {
     this.status = 'active',
     this.createdAt,
     this.lastSeen,
+    this.interests = const [],
     this.achievements = const [],
   });
 
@@ -134,9 +138,15 @@ class User {
       commentsVisibility: profile['comments_visibility'] as String?,
       messagesVisibility: profile['messages_visibility'] as String?,
       status: profile['status'] as String? ?? 'active',
+      interests:
+          (profile['interests'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
       achievements: achievements ?? const [],
       // Counts would need separate queries or computed columns
       postsCount: 0,
+      humanVerifiedPostsCount: 0,
       followersCount: 0,
       followingCount: 0,
     );
@@ -158,6 +168,7 @@ class User {
     bool? isVerified,
     double? balance,
     int? postsCount,
+    int? humanVerifiedPostsCount,
     int? followersCount,
     int? followingCount,
     double? trustScore,
@@ -169,6 +180,7 @@ class User {
     String? status,
     DateTime? createdAt,
     DateTime? lastSeen,
+    List<String>? interests,
     List<UserAchievement>? achievements,
   }) {
     return User(
@@ -184,6 +196,8 @@ class User {
       isVerified: isVerified ?? this.isVerified,
       balance: balance ?? this.balance,
       postsCount: postsCount ?? this.postsCount,
+      humanVerifiedPostsCount:
+          humanVerifiedPostsCount ?? this.humanVerifiedPostsCount,
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
       trustScore: trustScore ?? this.trustScore,
@@ -195,6 +209,7 @@ class User {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       lastSeen: lastSeen ?? this.lastSeen,
+      interests: interests ?? this.interests,
       achievements: achievements ?? this.achievements,
     );
   }

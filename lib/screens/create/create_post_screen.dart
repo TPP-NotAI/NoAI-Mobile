@@ -529,7 +529,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           .map((p) => p['user_id']?.toString() ?? p['id']?.toString())
           .whereType<String>()
           .toList(),
-      aiConfidenceScore: 0.85, // Default for preview
     );
 
     showDialog(
@@ -620,42 +619,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               ),
                             ),
                           ],
-                        ),
-                      ),
-
-                      // ML Score Badge
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF052E1C),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: const Color(0xFF10B981)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.verified,
-                                size: 6,
-                                color: Color(0xFF10B981),
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'ML SCORE: 0.85% [PASS]',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.4,
-                                  color: Color(0xFF10B981),
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
 

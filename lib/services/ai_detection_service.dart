@@ -87,6 +87,43 @@ class AiDetectionService {
     }
   }
 
+  /// Submit feedback to the NOAI learning system after a moderation decision.
+  ///
+  /// [analysisId] is the UUID from the original detection response.
+  /// [correctResult] should be one of: "HUMAN-GENERATED", "AI-GENERATED",
+  ///   "LIKELY HUMAN-GENERATED", "LIKELY AI-GENERATED".
+  /// [source] identifies who provided the feedback (e.g. "moderator", "user").
+  Future<bool> submitFeedback({
+    required String analysisId,
+    required String correctResult,
+    String? feedbackNotes,
+    String source = 'moderator',
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/v1/feedback'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'analysis_id': analysisId,
+          'correct_result': correctResult,
+          'feedback_notes': feedbackNotes,
+          'source': source,
+        }),
+      );
+      if (response.statusCode == 200) {
+        debugPrint('AiDetectionService: Feedback submitted for $analysisId');
+        return true;
+      }
+      debugPrint(
+        'AiDetectionService: Feedback failed ${response.statusCode} - ${response.body}',
+      );
+      return false;
+    } catch (e) {
+      debugPrint('AiDetectionService: Error submitting feedback - $e');
+      return false;
+    }
+  }
+
   AiDetectionResult? _parseResponse(http.Response response) {
     if (response.statusCode == 200) {
       final data = json.decode(response.body) as Map<String, dynamic>;

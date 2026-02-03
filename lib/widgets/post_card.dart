@@ -98,6 +98,60 @@ class PostCard extends StatelessWidget {
               ),
             ),
 
+            if (post.isSensitive)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.errorContainer.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colors.error.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: colors.error),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Sensitive Content',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: colors.error,
+                            ),
+                          ),
+                          if (post.sensitiveReason != null)
+                            Text(
+                              post.sensitiveReason!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colors.onErrorContainer,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (post.title != null && post.title!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  post.title!,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+
             _Content(post: post),
 
             if (post.tags != null && post.tags!.isNotEmpty)
@@ -959,8 +1013,8 @@ class _MediaTile extends StatelessWidget {
                   ),
                 ),
               ),
-            // Verified badge on first media only
-            if (index == 0)
+            // Verified badge on first media only if it's human certified or pass AI check
+            if (index == 0 && (post.humanCertified || post.isHumanVerified))
               Positioned(
                 bottom: 8,
                 right: 8,

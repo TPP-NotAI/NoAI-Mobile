@@ -406,6 +406,47 @@ class FeedProvider with ChangeNotifier {
           notifyListeners();
         }
       }
+
+      // Fire-and-forget: run AI detection on the comment
+      if (savedComment != null && body.trim().isNotEmpty) {
+        _commentRepository
+            .runAiDetection(
+              commentId: savedComment.id,
+              authorId: userId,
+              body: body,
+            )
+            .then((aiScore) {
+              if (aiScore != null) {
+                final idx = _posts.indexWhere((p) => p.id == postId);
+                if (idx != -1) {
+                  final post = _posts[idx];
+                  if (post.commentList != null) {
+                    if (aiScore >= 50) {
+                      // Remove flagged comment from local view
+                      final updatedComments = _removeCommentRecursive(
+                        post.commentList!,
+                        savedComment.id,
+                      );
+                      _posts[idx] = post.copyWith(
+                        commentList: updatedComments,
+                        comments: (post.comments - 1).clamp(0, 999999),
+                      );
+                    } else {
+                      final updatedComments = _updateCommentAiScoreRecursive(
+                        post.commentList!,
+                        savedComment.id,
+                        aiScore,
+                        status: 'published',
+                      );
+                      _posts[idx] = post.copyWith(commentList: updatedComments);
+                    }
+                    notifyListeners();
+                  }
+                }
+              }
+            });
+      }
+
       return savedComment;
     } catch (e) {
       debugPrint('Failed to add comment: $e');
@@ -419,7 +460,7 @@ class FeedProvider with ChangeNotifier {
     if (index == -1) return;
 
     final post = _posts[index];
-    final updatedComments = [...?post.commentList, newComment];
+    final updatedComments = [newComment, ...?post.commentList];
 
     _posts[index] = post.copyWith(
       comments: post.comments + 1,
@@ -470,6 +511,48 @@ class FeedProvider with ChangeNotifier {
           notifyListeners();
         }
       }
+
+      // Fire-and-forget: run AI detection on the comment
+      if (savedComment != null && body.trim().isNotEmpty) {
+        _commentRepository
+            .runAiDetection(
+              commentId: savedComment.id,
+              authorId: userId,
+              body: body,
+            )
+            .then((aiScore) {
+              if (aiScore != null) {
+                final idx = _posts.indexWhere((p) => p.id == postId);
+                if (idx != -1) {
+                  final post = _posts[idx];
+                  if (post.commentList != null) {
+                    if (aiScore >= 50) {
+                      final updatedComments = _removeCommentRecursive(
+                        post.commentList!,
+                        savedComment.id,
+                      );
+                      _posts[idx] = post.copyWith(
+                        commentList: updatedComments,
+                        comments: (post.comments - 1).clamp(0, 999999),
+                      );
+                    } else {
+                      final updatedComments = _updateCommentAiScoreRecursive(
+                        post.commentList!,
+                        savedComment.id,
+                        aiScore,
+                        status: 'published',
+                      );
+                      _posts[idx] = post.copyWith(
+                        commentList: updatedComments,
+                      );
+                    }
+                    notifyListeners();
+                  }
+                }
+              }
+            });
+      }
+
       return savedComment;
     } catch (e) {
       debugPrint('Failed to add comment with media: $e');
@@ -563,6 +646,46 @@ class FeedProvider with ChangeNotifier {
             notifyListeners();
           }
         }
+
+        // Fire-and-forget: run AI detection on the reply
+        if (body.trim().isNotEmpty) {
+          _commentRepository
+              .runAiDetection(
+                commentId: savedReply.id,
+                authorId: userId,
+                body: body,
+              )
+              .then((aiScore) {
+                if (aiScore != null) {
+                  final idx = _posts.indexWhere((p) => p.id == postId);
+                  if (idx != -1) {
+                    final post = _posts[idx];
+                    if (post.commentList != null) {
+                      if (aiScore >= 50) {
+                        final updatedComments = _removeCommentRecursive(
+                          post.commentList!,
+                          savedReply.id,
+                        );
+                        _posts[idx] = post.copyWith(
+                          commentList: updatedComments,
+                          comments: (post.comments - 1).clamp(0, 999999),
+                        );
+                      } else {
+                        final updatedComments = _updateCommentAiScoreRecursive(
+                          post.commentList!,
+                          savedReply.id,
+                          aiScore,
+                          status: 'published',
+                        );
+                        _posts[idx] =
+                            post.copyWith(commentList: updatedComments);
+                      }
+                      notifyListeners();
+                    }
+                  }
+                }
+              });
+        }
       }
     } catch (e) {
       debugPrint('Failed to add reply: $e');
@@ -650,6 +773,46 @@ class FeedProvider with ChangeNotifier {
             notifyListeners();
           }
         }
+
+        // Fire-and-forget: run AI detection on the reply
+        if (body.trim().isNotEmpty) {
+          _commentRepository
+              .runAiDetection(
+                commentId: savedReply.id,
+                authorId: userId,
+                body: body,
+              )
+              .then((aiScore) {
+                if (aiScore != null) {
+                  final idx = _posts.indexWhere((p) => p.id == postId);
+                  if (idx != -1) {
+                    final post = _posts[idx];
+                    if (post.commentList != null) {
+                      if (aiScore >= 50) {
+                        final updatedComments = _removeCommentRecursive(
+                          post.commentList!,
+                          savedReply.id,
+                        );
+                        _posts[idx] = post.copyWith(
+                          commentList: updatedComments,
+                          comments: (post.comments - 1).clamp(0, 999999),
+                        );
+                      } else {
+                        final updatedComments = _updateCommentAiScoreRecursive(
+                          post.commentList!,
+                          savedReply.id,
+                          aiScore,
+                          status: 'published',
+                        );
+                        _posts[idx] =
+                            post.copyWith(commentList: updatedComments);
+                      }
+                      notifyListeners();
+                    }
+                  }
+                }
+              });
+        }
       }
     } catch (e) {
       debugPrint('Failed to add reply with media: $e');
@@ -664,7 +827,7 @@ class FeedProvider with ChangeNotifier {
   ) {
     return comments.map((comment) {
       if (comment.id == commentId) {
-        return comment.copyWith(replies: [...?comment.replies, reply]);
+        return comment.copyWith(replies: [reply, ...?comment.replies]);
       } else if (comment.replies != null && comment.replies!.isNotEmpty) {
         return comment.copyWith(
           replies: _addReplyRecursive(comment.replies!, commentId, reply),
@@ -797,6 +960,33 @@ class FeedProvider with ChangeNotifier {
             comment.replies!,
             commentId,
             newText,
+          ),
+        );
+      }
+      return comment;
+    }).toList();
+  }
+
+  // Helper: update a comment's AI score recursively
+  List<Comment> _updateCommentAiScoreRecursive(
+    List<Comment> comments,
+    String commentId,
+    double aiScore, {
+    String? status,
+  }) {
+    return comments.map((comment) {
+      if (comment.id == commentId) {
+        return comment.copyWith(
+          aiScore: aiScore,
+          status: status ?? comment.status,
+        );
+      } else if (comment.replies != null && comment.replies!.isNotEmpty) {
+        return comment.copyWith(
+          replies: _updateCommentAiScoreRecursive(
+            comment.replies!,
+            commentId,
+            aiScore,
+            status: status,
           ),
         );
       }

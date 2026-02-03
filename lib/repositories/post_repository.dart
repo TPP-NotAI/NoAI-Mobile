@@ -468,6 +468,10 @@ class PostRepository {
     List<String>? tags, // Tag names (hashtags/topics)
     String? location,
     List<String>? mentionedUserIds,
+    bool isSensitive = false,
+    String? sensitiveReason,
+    String? scheduledAt,
+    String? status,
   }) async {
     try {
       // Create the post first to get the postId
@@ -476,9 +480,15 @@ class PostRepository {
         'body': body,
         'title': title,
         'body_format': bodyFormat,
-        'status': 'under_review', // Start under review for admin/AI moderation
+        'status':
+            status ??
+            'under_review', // Start under review for admin/AI moderation
+        'is_sensitive': isSensitive,
       };
       if (location != null) postData['location'] = location;
+      if (sensitiveReason != null)
+        postData['sensitive_reason'] = sensitiveReason;
+      if (scheduledAt != null) postData['scheduled_at'] = scheduledAt;
 
       final response = await _client
           .from(SupabaseConfig.postsTable)
@@ -524,13 +534,8 @@ class PostRepository {
         );
       }
 
-      // Automatically run AI detection for newly created posts
-      runAiDetection(
-        postId: postId,
-        authorId: authorId,
-        body: body,
-        mediaFiles: mediaFiles,
-      );
+      // AI detection is triggered by FeedProvider after post creation
+      // to properly update the local feed state on completion.
 
       // Small delay to ensure DB triggers/replication settle before fetching full post
       await Future.delayed(const Duration(milliseconds: 500));
@@ -705,6 +710,9 @@ class PostRepository {
     String? body,
     String? title,
     String? location,
+    bool? isSensitive,
+    String? sensitiveReason,
+    String? visibility,
   }) async {
     try {
       // RLS enforces this at DB level, but we check here for a clear error message
@@ -725,6 +733,11 @@ class PostRepository {
       if (body != null) updates['body'] = body;
       if (title != null) updates['title'] = title;
       if (location != null) updates['location'] = location;
+      if (isSensitive != null) updates['is_sensitive'] = isSensitive;
+      if (sensitiveReason != null) {
+        updates['sensitive_reason'] = sensitiveReason;
+      }
+      if (visibility != null) updates['visibility'] = visibility;
 
       await _client
           .from(SupabaseConfig.postsTable)
@@ -742,7 +755,7 @@ class PostRepository {
     try {
       await _client
           .from(SupabaseConfig.postsTable)
-          .update({'tip_total': newTotal})
+          .update({'total_tips_rc': newTotal})
           .eq('id', postId);
       return true;
     } catch (e) {
@@ -758,6 +771,9 @@ class PostRepository {
     required double confidence,
     required String scoreStatus,
     String? postStatus,
+    String? analysisId,
+    String? verificationMethod,
+    String? authenticityNotes,
   }) async {
     try {
       final updates = <String, dynamic>{
@@ -767,6 +783,15 @@ class PostRepository {
 
       if (postStatus != null) {
         updates['status'] = postStatus;
+      }
+      if (analysisId != null) {
+        updates['verification_session_id'] = analysisId;
+      }
+      if (verificationMethod != null) {
+        updates['verification_method'] = verificationMethod;
+      }
+      if (authenticityNotes != null) {
+        updates['authenticity_notes'] = authenticityNotes;
       }
 
       await _client
@@ -819,17 +844,50 @@ class PostRepository {
     }
   }
 
+  /// Fetch moderation case metadata for a list of post IDs.
+  /// Returns a map of postId → moderation case data (including ai_metadata).
+  Future<Map<String, Map<String, dynamic>>> getModerationMetadata(
+    List<String> postIds,
+  ) async {
+    if (postIds.isEmpty) return {};
+    try {
+      final data = await _client
+          .from(SupabaseConfig.moderationCasesTable)
+          .select(
+            'id, post_id, reason, source, ai_confidence, ai_model, ai_metadata, status, priority, description',
+          )
+          .inFilter('post_id', postIds);
+
+      final result = <String, Map<String, dynamic>>{};
+      for (final row in (data as List<dynamic>)) {
+        final map = row as Map<String, dynamic>;
+        final postId = map['post_id'] as String;
+        result[postId] = map;
+      }
+      return result;
+    } catch (e) {
+      debugPrint('PostRepository: Error fetching moderation metadata - $e');
+      return {};
+    }
+  }
+
   /// Approve or Reject a post.
   /// action: 'approve' (publish) or 'reject' (mark rejected).
+  /// [moderatorId] is the user_id of the moderator making the decision.
+  /// [notes] optional explanation for the decision.
   Future<bool> moderatePost({
     required String postId,
     required String action,
+    String? moderatorId,
+    String? notes,
   }) async {
     try {
       final updates = <String, dynamic>{};
       if (action == 'approve') {
         updates['status'] = 'published';
         updates['ai_score_status'] = 'pass'; // Override AI decision
+        updates['human_certified'] =
+            true; // Moderator verified as human content
       } else if (action == 'reject') {
         updates['status'] = 'deleted';
       } else {
@@ -843,20 +901,50 @@ class PostRepository {
 
       // Also resolve any pending moderation cases for this post
       try {
+        final caseUpdates = <String, dynamic>{
+          'status': 'resolved',
+          'decision': action == 'approve' ? 'approved' : 'rejected',
+          'decided_at': DateTime.now().toIso8601String(),
+        };
+        if (moderatorId != null) {
+          caseUpdates['assigned_admin_id'] = moderatorId;
+        }
+        caseUpdates['decision_notes'] =
+            notes ?? 'Moderator ${action}d this post';
+
         await _client
             .from(SupabaseConfig.moderationCasesTable)
-            .update({
-              'status': 'resolved',
-              'decision': action == 'approve' ? 'approved' : 'rejected',
-              'decided_at': DateTime.now().toIso8601String(),
-            })
+            .update(caseUpdates)
             .eq('post_id', postId)
             .eq('status', 'pending');
       } catch (e) {
         debugPrint(
           'PostRepository: Error resolving moderation case for $postId - $e',
         );
-        // We don't fail the whole operation if the mod case update fails
+      }
+
+      // Submit feedback to the AI learning system so it can improve.
+      // Fetch the analysis_id stored on the post during detection.
+      try {
+        final postData = await _client
+            .from(SupabaseConfig.postsTable)
+            .select('verification_session_id')
+            .eq('id', postId)
+            .maybeSingle();
+        final analysisId = postData?['verification_session_id'] as String?;
+        if (analysisId != null && analysisId.isNotEmpty) {
+          // approve = the AI was wrong (content is human), reject = AI was right
+          final correctResult = action == 'approve'
+              ? 'HUMAN-GENERATED'
+              : 'AI-GENERATED';
+          _aiDetectionService.submitFeedback(
+            analysisId: analysisId,
+            correctResult: correctResult,
+            feedbackNotes: notes ?? 'Moderator $action decision',
+          );
+        }
+      } catch (e) {
+        debugPrint('PostRepository: Error submitting AI feedback - $e');
       }
 
       return true;
@@ -926,6 +1014,9 @@ class PostRepository {
           confidence: aiProbability,
           scoreStatus: scoreStatus,
           postStatus: postStatus,
+          analysisId: result.analysisId,
+          verificationMethod: result.contentType,
+          authenticityNotes: result.rationale,
         );
 
         // Automatically create a moderation case if flagged
@@ -935,7 +1026,13 @@ class PostRepository {
             authorId: authorId,
             aiConfidence: aiProbability,
             aiModel: result.analysisId,
-            aiMetadata: result.modelAnalyses,
+            aiMetadata: {
+              'model_analyses': result.modelAnalyses,
+              'consensus_strength': result.consensusStrength,
+              'rationale': result.rationale,
+              'combined_evidence': result.combinedEvidence,
+              'classification': result.result,
+            },
           );
         }
 
@@ -958,7 +1055,7 @@ class PostRepository {
     required String authorId,
     required double aiConfidence,
     String? aiModel,
-    List<dynamic>? aiMetadata,
+    Map<String, dynamic>? aiMetadata,
   }) async {
     try {
       debugPrint(

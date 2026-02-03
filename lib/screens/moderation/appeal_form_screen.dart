@@ -2,13 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
 import '../../models/post.dart';
+import '../../models/comment.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/appeal_repository.dart';
 
 class AppealFormScreen extends StatefulWidget {
-  final Post post;
+  final Post? post;
+  final Comment? comment;
 
-  const AppealFormScreen({super.key, required this.post});
+  const AppealFormScreen({
+    super.key,
+    this.post,
+    this.comment,
+  }) : assert(
+          (post != null) ^ (comment != null),
+          'Provide either a post or a comment to appeal.',
+        );
 
   @override
   State<AppealFormScreen> createState() => _AppealFormScreenState();
@@ -40,17 +49,21 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      final isPostAppeal = widget.post != null;
+      final contentId = isPostAppeal ? widget.post!.id : widget.comment!.id;
+
       // Check for existing appeal
       final alreadyAppealed = await _appealRepo.hasExistingAppeal(
         userId: currentUser.id,
-        postId: widget.post.id,
+        postId: isPostAppeal ? contentId : null,
+        commentId: isPostAppeal ? null : contentId,
       );
 
       if (alreadyAppealed) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('You have already submitted an appeal for this post.'),
+              content: Text('You have already submitted an appeal for this item.'),
             ),
           );
         }
@@ -59,9 +72,12 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
 
       // Create moderation case if needed
       final caseId = await _appealRepo.getOrCreateModerationCase(
-        postId: widget.post.id,
+        postId: isPostAppeal ? contentId : null,
+        commentId: isPostAppeal ? null : contentId,
         reportedUserId: currentUser.id,
-        aiConfidence: widget.post.aiConfidenceScore ?? 0,
+        aiConfidence: isPostAppeal
+            ? (widget.post?.aiConfidenceScore ?? 0)
+            : (widget.comment?.aiScore ?? 0),
       );
 
       if (caseId == null) {
@@ -115,16 +131,24 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final post = widget.post;
+    final comment = widget.comment;
+    final title = post != null ? 'Post Appeal' : 'Comment Appeal';
+    final bodyPreview = post?.content ?? comment?.text ?? '';
 
     return Scaffold(
       backgroundColor: scheme.background,
       appBar: AppBar(
         backgroundColor: scheme.surface,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: scheme.onSurface),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
-          'Appeal Post',
+          title,
           style: TextStyle(color: scheme.onSurface),
         ),
         elevation: 0,
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -143,7 +167,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'FLAGGED POST',
+                    post != null ? 'FLAGGED POST' : 'FLAGGED COMMENT',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -153,7 +177,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    post.content,
+                    bodyPreview,
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -162,10 +186,11 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                       height: 1.4,
                     ),
                   ),
-                  if (post.aiConfidenceScore != null) ...[
+                  if (post?.aiConfidenceScore != null ||
+                      comment?.aiScore != null) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'AI Confidence: ${post.aiConfidenceScore!.toStringAsFixed(1)}%',
+                      'AI Confidence: ${post != null ? post.aiConfidenceScore!.toStringAsFixed(1) : (comment?.aiScore ?? 0).toStringAsFixed(1)}%',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Colors.orange,

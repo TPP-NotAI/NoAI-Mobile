@@ -23,6 +23,8 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
   followingCount: (json['followingCount'] as num?)?.toInt() ?? 0,
   trustScore: (json['trustScore'] as num?)?.toDouble() ?? 0.0,
   mlScore: (json['mlScore'] as num?)?.toDouble() ?? 0.0,
+  humanVerifiedPostsCount:
+      (json['humanVerifiedPostsCount'] as num?)?.toInt() ?? 0,
   verifiedHuman: json['verifiedHuman'] as String? ?? 'unverified',
   postsVisibility: json['postsVisibility'] as String?,
   commentsVisibility: json['commentsVisibility'] as String?,
@@ -49,6 +51,7 @@ Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
   'isVerified': instance.isVerified,
   'balance': instance.balance,
   'postsCount': instance.postsCount,
+  'humanVerifiedPostsCount': instance.humanVerifiedPostsCount,
   'followersCount': instance.followersCount,
   'followingCount': instance.followingCount,
   'trustScore': instance.trustScore,

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/user.dart' as app_models; // Alias your custom User model
+import 'package:noai/models/user.dart'
+    as app_models; // Alias your custom User model
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import '../repositories/follow_repository.dart';
@@ -56,6 +57,17 @@ class UserProvider with ChangeNotifier {
   }
 
   app_models.User? get currentUser => _currentUser;
+
+  /// Check if the current user's profile is complete (display name and bio).
+  bool get isProfileComplete {
+    final user = _currentUser;
+    if (user == null) return false;
+    return user.displayName.isNotEmpty &&
+        user.bio != null &&
+        user.bio!.isNotEmpty &&
+        user.interests.isNotEmpty;
+  }
+
   bool get isLoading => _isLoading;
   String? get error => _error;
   List<Map<String, dynamic>> get transactions => _transactions;
@@ -151,9 +163,7 @@ class UserProvider with ChangeNotifier {
       // 1. Fetch profile and wallet
       final profileResponse = await _supabase.client
           .from(SupabaseConfig.profilesTable)
-          .select(
-            '*, ${SupabaseConfig.walletsTable}(*)',
-          )
+          .select('*, ${SupabaseConfig.walletsTable}(*)')
           .eq('user_id', userId)
           .maybeSingle();
 
@@ -166,6 +176,7 @@ class UserProvider with ChangeNotifier {
           .from(SupabaseConfig.postsTable)
           .select('id')
           .eq('author_id', userId)
+          .eq('status', 'published')
           .count(CountOption.exact);
 
       final followersCountRes = await _supabase.client
@@ -178,6 +189,14 @@ class UserProvider with ChangeNotifier {
           .from(SupabaseConfig.followsTable)
           .select('follower_id')
           .eq('follower_id', userId)
+          .count(CountOption.exact);
+
+      final humanVerifiedCountRes = await _supabase.client
+          .from(SupabaseConfig.postsTable)
+          .select('id')
+          .eq('author_id', userId)
+          .eq('status', 'published')
+          .eq('ai_score_status', 'pass')
           .count(CountOption.exact);
 
       // 3. Fetch user achievements with achievement details
@@ -204,6 +223,7 @@ class UserProvider with ChangeNotifier {
       // Update user with real counts
       user = user.copyWith(
         postsCount: postsCountRes.count,
+        humanVerifiedPostsCount: humanVerifiedCountRes.count,
         followersCount: followersCountRes.count,
         followingCount: followingCountRes.count,
       );
