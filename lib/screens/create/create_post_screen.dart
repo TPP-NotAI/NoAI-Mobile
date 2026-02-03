@@ -529,7 +529,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           .map((p) => p['user_id']?.toString() ?? p['id']?.toString())
           .whereType<String>()
           .toList(),
+<<<<<<< Updated upstream
       aiConfidenceScore: 0.85, // Default for preview
+=======
+      title: _titleController.text.trim().isNotEmpty
+          ? _titleController.text.trim()
+          : null,
+>>>>>>> Stashed changes
     );
 
     showDialog(
@@ -2233,11 +2239,18 @@ class _VideoPreviewWidgetState extends State<_VideoPreviewWidget> {
     _controller = VideoPlayerController.file(widget.videoFile);
     await _controller!.initialize();
 
+    final aspectRatio =
+        _controller!.value.aspectRatio.isFinite &&
+            _controller!.value.aspectRatio > 0
+        ? _controller!.value.aspectRatio
+        : 16 / 9;
+
     _chewieController = ChewieController(
       videoPlayerController: _controller!,
       autoPlay: false,
       looping: false,
       showControls: true,
+      aspectRatio: aspectRatio,
       materialProgressColors: ChewieProgressColors(
         playedColor: Theme.of(context).colorScheme.primary,
         handleColor: Theme.of(context).colorScheme.primary,
@@ -2272,14 +2285,25 @@ class _VideoPreviewWidgetState extends State<_VideoPreviewWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final fallback = Container(
+      color: Colors.black,
+      child: const Center(child: CircularProgressIndicator()),
+    );
+
     if (!_isInitialized || _chewieController == null) {
-      return Container(
-        color: Colors.black,
-        child: const Center(child: CircularProgressIndicator()),
-      );
+      return SizedBox(height: 240, width: double.infinity, child: fallback);
     }
 
-    return Chewie(controller: _chewieController!);
+    // Guard against invalid aspect ratios that can throw width.isFinite errors.
+    final rawAspect = _controller?.value.aspectRatio ?? 16 / 9;
+    final aspectRatio = rawAspect.isFinite && rawAspect > 0
+        ? rawAspect
+        : 16 / 9;
+
+    return AspectRatio(
+      aspectRatio: aspectRatio,
+      child: Chewie(controller: _chewieController!),
+    );
   }
 }
 
