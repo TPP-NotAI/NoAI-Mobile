@@ -11,6 +11,7 @@ import 'providers/chat_provider.dart';
 import 'providers/dm_provider.dart';
 import 'providers/language_provider.dart';
 import 'providers/notification_provider.dart';
+import 'providers/story_provider.dart';
 import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'services/presence_service.dart';
@@ -66,6 +67,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PostProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => FeedProvider()),
+        ChangeNotifierProvider(create: (_) => StoryProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => DmProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
