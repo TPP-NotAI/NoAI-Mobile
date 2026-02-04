@@ -11,12 +11,14 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../providers/feed_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../../repositories/tag_repository.dart';
 import '../../repositories/mention_repository.dart';
 import '../../widgets/mention_autocomplete_field.dart';
 import '../../models/post.dart';
 import '../../services/supabase_service.dart';
 import '../../services/storage_service.dart';
+import '../../services/roocoin_service.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final String? initialPostType;
@@ -534,7 +536,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       title: _titleController.text.trim().isNotEmpty
           ? _titleController.text.trim()
           : null,
-
     );
 
     showDialog(
@@ -768,10 +769,114 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
+  Future<bool> _confirmAndPayPostFee() async {
+    final walletProvider = context.read<WalletProvider>();
+    final user = context.read<UserProvider>().currentUser;
+
+    if (user == null) return false;
+
+    // Refresh wallet to get latest balance
+    await walletProvider.refreshWallet(user.id);
+    final wallet = walletProvider.wallet;
+
+    if (wallet == null) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: Could not retrieve wallet information'),
+        ),
+      );
+      return false;
+    }
+
+    // Check balance
+    // TODO: Fetch this from PlatformConfig. Server currently errors on spending for POST_CREATE (500).
+    // Temporarily setting to 0.0 to allow posting.
+    const postCost = 0.0;
+    if (postCost > 0 && wallet.balanceRc < postCost) {
+      if (!mounted) return false;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Insufficient Funds'),
+          content: Text(
+            'Posting requires $postCost ROO. Your balance is ${wallet.balanceRc} ROO.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                // Navigate to wallet?
+              },
+              child: const Text('Get ROO'),
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+
+    // Confirm Payment
+    if (postCost > 0) {
+      if (!mounted) return false;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Confirm Post'),
+          content: Text(
+            'Posting to the public feed costs $postCost ROO. Do you want to proceed?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Pay & Post'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return false;
+
+      // Process Payment
+      try {
+        await walletProvider.spendRoo(
+          userId: user.id,
+          amount: postCost,
+          activityType: RoocoinActivityType.postCreate,
+          metadata: {'platform': 'app'},
+        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Payment failed: $e')));
+        }
+        return false;
+      }
+    } else {
+      // Free post
+      return true;
+    }
+
+    return true;
+  }
+
   Future<void> _createPost() async {
     if (_contentController.text.trim().isEmpty && _selectedMediaFiles.isEmpty) {
       return;
     }
+
+    // 1. Pay the 1 ROO fee
+    final paid = await _confirmAndPayPostFee();
+    if (!paid) return;
 
     setState(() => _isPosting = true);
 
@@ -843,6 +948,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (!context.mounted) return;
 
       if (post != null) {
+        // ROO reward is now handled in PostRepository upon successful publication
+        // (either via auto-approval or admin moderation)
+
         // Show success confirmation dialog
         await _showSuccessDialog();
 

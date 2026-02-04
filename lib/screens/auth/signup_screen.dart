@@ -5,6 +5,8 @@ import '../../config/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
+import 'package:noai/services/referral_service.dart';
+import 'package:noai/services/supabase_service.dart';
 
 class SignupScreen extends StatefulWidget {
   final VoidCallback onSignup;
@@ -27,10 +29,12 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final TextEditingController _referralController = TextEditingController();
   final FocusNode _usernameFocusNode = FocusNode();
   final FocusNode _emailFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
   final FocusNode _confirmPasswordFocusNode = FocusNode();
+  final FocusNode _referralFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
@@ -62,14 +66,14 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   void dispose() {
-    _usernameController.dispose();
-    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _referralController.dispose();
     _usernameFocusNode.dispose();
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
     _confirmPasswordFocusNode.dispose();
+    _referralFocusNode.dispose();
     super.dispose();
   }
 
@@ -175,6 +179,20 @@ class _SignupScreenState extends State<SignupScreen> {
     if (!mounted) return;
 
     if (success) {
+      // Apply referral code if provided
+      final referralCode = _referralController.text.trim();
+      if (referralCode.isNotEmpty) {
+        try {
+          final userId = SupabaseService().client.auth.currentUser?.id;
+          if (userId != null) {
+            final referralService = ReferralService();
+            await referralService.applyReferralCode(userId, referralCode);
+          }
+        } catch (e) {
+          debugPrint('Error applying referral code: $e');
+        }
+      }
+
       // Proceed to verification screen
       widget.onSignup();
     } else {
@@ -308,6 +326,16 @@ class _SignupScreenState extends State<SignupScreen> {
                 controller: _confirmPasswordController,
                 focusNode: _confirmPasswordFocusNode,
                 errorText: _confirmPasswordError,
+              ),
+              const SizedBox(height: 20),
+              _buildInputField(
+                context,
+                label: 'Referral Code (Optional)',
+                icon: Icons.card_giftcard_outlined,
+                placeholder: 'Enter referral code',
+                controller: _referralController,
+                focusNode: _referralFocusNode,
+                isReferral: true,
               ),
 
               const SizedBox(height: 20),
@@ -615,6 +643,7 @@ class _SignupScreenState extends State<SignupScreen> {
     required String placeholder,
     bool isPassword = false,
     bool isConfirmPassword = false,
+    bool isReferral = false,
     TextInputType? keyboardType,
     TextEditingController? controller,
     FocusNode? focusNode,
@@ -625,6 +654,11 @@ class _SignupScreenState extends State<SignupScreen> {
     final obscure = isConfirmPassword
         ? _obscureConfirmPassword
         : _obscurePassword;
+
+    // Force uppercase for referral code as they are stored that way
+    final textCapitalization = isReferral
+        ? TextCapitalization.characters
+        : TextCapitalization.none;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -710,6 +744,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       filled: false,
                       contentPadding: EdgeInsets.zero,
                     ),
+                    textCapitalization: textCapitalization,
                   ),
                 ),
                 if (isPassword)

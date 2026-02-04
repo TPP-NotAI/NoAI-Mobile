@@ -17,6 +17,9 @@ import 'report_sheet.dart';
 import 'shimmer_loading.dart';
 import 'mention_rich_text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:share_plus/share_plus.dart';
+import '../repositories/wallet_repository.dart';
+import '../services/roocoin_service.dart';
 
 class PostCard extends StatelessWidget {
   final Post post;
@@ -1104,8 +1107,8 @@ class _Actions extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           _ActionButton(
-            icon: Icons.flag_outlined,
-            onTap: () => _handleReport(context),
+            icon: Icons.share_outlined,
+            onTap: () => _handleShare(context),
           ),
         ],
       ),
@@ -1169,20 +1172,48 @@ class _Actions extends StatelessWidget {
       );
   }
 
-  void _handleReport(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => ReportSheet(
-        reportType: 'post',
-        referenceId: post.id,
-        reportedUserId: post.author.userId ?? '',
-        username: post.author.username,
-      ),
-    );
+  void _handleShare(BuildContext context) async {
+    try {
+      // Create share text
+      final shareText = post.title != null && post.title!.isNotEmpty
+          ? '${post.title}\n\n${post.content}\n\nShared from NOAI'
+          : '${post.content}\n\nShared from NOAI';
+
+      // Share using native share dialog
+      await Share.share(
+        shareText,
+        subject: post.title ?? 'Check out this post on NOAI',
+      );
+
+      // Award 5 ROO to post author for the share
+      if (post.authorId.isNotEmpty) {
+        try {
+          final walletRepo = WalletRepository();
+          await walletRepo.earnRoo(
+            userId: post.authorId,
+            activityType: RoocoinActivityType.postShare,
+            referencePostId: post.id,
+          );
+        } catch (e) {
+          debugPrint('Error awarding share ROO: $e');
+        }
+      }
+
+      // Show success message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Post shared! Author earned 5 ROO 🎉'),
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
+    } catch (e) {
+      debugPrint('Error sharing post: $e');
+    }
   }
 
   String _format(int n) {

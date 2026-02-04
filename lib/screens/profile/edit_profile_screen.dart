@@ -12,6 +12,7 @@ import '../../services/supabase_service.dart';
 import '../auth/human_verification_screen.dart';
 import '../auth/phone_verification_screen.dart';
 import '../support/appeal_profile_screen.dart';
+import '../../services/profile_reward_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -406,8 +407,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final updates = <String, dynamic>{
       'display_name': _displayNameController.text.trim(),
       'bio': _bioController.text.trim(),
-      'phone_number': _phoneController.text
-          .trim(), // Added phone saving (using common column name)
+      'phone_number': _phoneController.text.trim(),
     };
 
     // Add avatar URL if we uploaded a new image
@@ -417,23 +417,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     final success = await userProvider.updateProfile(user.id, updates);
 
-    // Save social links alongside profile
     if (success) {
+      // Save social links alongside profile
       await _saveSocialLinks(user.id);
+
+      // Refresh user data
+      await userProvider.fetchUser(user.id);
+
+      if (mounted) {
+        // Check and reward profile completion
+        try {
+          final rewardService = ProfileRewardService();
+          final newlyRewarded = await rewardService
+              .checkAndRewardProfileCompletion(user.id);
+
+          if (newlyRewarded && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profile complete! Earned 20 ROO 🎉'),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint('Error rewarding profile completion: $e');
+        }
+      }
     }
 
     if (mounted) {
       setState(() => _isLoading = false);
       if (success) {
-        // Refresh user data to get updated avatar
-        await userProvider.fetchUser(user.id);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile updated successfully!')),
-          );
-          Navigator.pop(context);
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully!')),
+        );
+        Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -765,11 +784,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               style: TextStyle(color: colors.onSurfaceVariant),
             ),
             const SizedBox(height: 24),
-            _buildLinkInput(Icons.link, 'Website', 'https://yourwebsite.com', _websiteController),
+            _buildLinkInput(
+              Icons.link,
+              'Website',
+              'https://yourwebsite.com',
+              _websiteController,
+            ),
             const SizedBox(height: 16),
-            _buildLinkInput(Icons.alternate_email, 'Twitter / X', '@username', _twitterController),
+            _buildLinkInput(
+              Icons.alternate_email,
+              'Twitter / X',
+              '@username',
+              _twitterController,
+            ),
             const SizedBox(height: 16),
-            _buildLinkInput(Icons.camera_alt_outlined, 'Instagram', 'username', _instagramController),
+            _buildLinkInput(
+              Icons.camera_alt_outlined,
+              'Instagram',
+              'username',
+              _instagramController,
+            ),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
@@ -795,7 +829,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildLinkInput(IconData icon, String label, String hint, TextEditingController controller) {
+  Widget _buildLinkInput(
+    IconData icon,
+    String label,
+    String hint,
+    TextEditingController controller,
+  ) {
     final colors = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

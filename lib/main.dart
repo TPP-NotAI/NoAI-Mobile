@@ -12,6 +12,7 @@ import 'providers/dm_provider.dart';
 import 'providers/language_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/story_provider.dart';
+import 'providers/wallet_provider.dart';
 import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'services/presence_service.dart';
@@ -41,6 +42,7 @@ import 'config/app_constants.dart';
 import 'utils/platform_utils.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
 import 'screens/auth/banned_screen.dart';
+import 'services/daily_login_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,6 +74,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DmProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => WalletProvider()),
         Provider(create: (_) => DeepLinkService()),
       ],
       child: Consumer<ThemeProvider>(
@@ -132,6 +135,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
           );
           notificationProvider.startListening(authProvider.currentUser!.id);
           context.read<ChatProvider>().loadConversations();
+
+          // Initialize wallet
+          context.read<WalletProvider>().initWallet(
+            authProvider.currentUser!.id,
+          );
         } else if (authProvider.status == AuthStatus.unauthenticated &&
             userProvider.currentUser != null) {
           userProvider.clearCurrentUser();
@@ -296,6 +304,72 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+  bool _dailyRewardChecked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check and award daily login reward
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkDailyLoginReward();
+      _checkWelcomeBonus();
+    });
+  }
+
+  void _checkWelcomeBonus() {
+    final walletProvider = context.read<WalletProvider>();
+    if (walletProvider.wasWelcomeBonusAwarded && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '🎉Welcome! You\'ve received 100 ROO as a registration bonus!',
+          ),
+          backgroundColor: Colors.blueAccent,
+          duration: Duration(seconds: 5),
+        ),
+      );
+      walletProvider.consumeWelcomeBonus();
+    }
+  }
+
+  Future<void> _checkDailyLoginReward() async {
+    if (_dailyRewardChecked) return;
+    _dailyRewardChecked = true;
+
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final userId = authProvider.currentUser?.id;
+      if (userId == null) return;
+
+      // Wait a bit for wallet to initialize
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Check if wallet exists before attempting daily login
+      final walletProvider = context.read<WalletProvider>();
+      if (walletProvider.wallet == null) {
+        debugPrint('Skipping daily login check: Wallet not initialized yet');
+        return;
+      }
+
+      final dailyLoginService = DailyLoginService();
+      final rewarded = await dailyLoginService.checkAndRewardDailyLogin(userId);
+
+      if (rewarded && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🎁 Daily login bonus! You earned 5 ROO!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+
+        // Refresh wallet balance
+        context.read<WalletProvider>().refreshWallet(userId);
+      }
+    } catch (e) {
+      debugPrint('Failed to check daily login reward: $e');
+    }
+  }
 
   void _onPostCreated() {
     // Navigate back to feed after creating a post

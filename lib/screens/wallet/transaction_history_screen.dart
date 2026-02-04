@@ -65,49 +65,49 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       body: userProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : userProvider.transactions.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.receipt_long,
-                        size: 64,
-                        color: colors.onSurfaceVariant.withValues(alpha: 0.4),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No transactions yet',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: colors.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Your transaction history will appear here',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.receipt_long,
+                    size: 64,
+                    color: colors.onSurfaceVariant.withValues(alpha: 0.4),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadTransactions,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: userProvider.transactions.length,
-                    itemBuilder: (context, index) {
-                      final tx = userProvider.transactions[index];
-                      return _TransactionItem.fromData(
-                        tx: tx,
-                        currentUserId: currentUserId,
-                      );
-                    },
+                  const SizedBox(height: 16),
+                  Text(
+                    'No transactions yet',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: colors.onSurface,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your transaction history will appear here',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadTransactions,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: userProvider.transactions.length,
+                itemBuilder: (context, index) {
+                  final tx = userProvider.transactions[index];
+                  return _TransactionItem.fromData(
+                    tx: tx,
+                    currentUserId: currentUserId,
+                  );
+                },
+              ),
+            ),
     );
   }
 }
@@ -169,7 +169,9 @@ class _TransactionItem extends StatelessWidget {
           amountColor = Colors.red;
         }
         break;
-      case 'reward':
+      case 'engagement_reward':
+      case 'post_reward':
+      case 'staking_reward':
       case 'daily_bonus':
         icon = Icons.attach_money;
         iconColor = Colors.green;
@@ -186,20 +188,21 @@ class _TransactionItem extends StatelessWidget {
         amountStr = '+${amountRc.toStringAsFixed(2)}';
         amountColor = Colors.green;
         break;
-      case 'peer_transfer':
+      case 'transfer':
+      case 'fee':
       default:
         if (isReceived) {
           icon = Icons.arrow_downward;
           iconColor = Colors.green;
           title = 'Received ROO';
-          subtitle = memo ?? (isFromSystem ? 'System transfer' : 'Peer transfer');
+          subtitle = memo ?? (isFromSystem ? 'System transfer' : 'Transfer');
           amountStr = '+${amountRc.toStringAsFixed(2)}';
           amountColor = Colors.green;
         } else {
           icon = Icons.arrow_upward;
           iconColor = Colors.red;
           title = 'Sent ROO';
-          subtitle = memo ?? 'Peer transfer';
+          subtitle = memo ?? 'Transfer';
           amountStr = '-${amountRc.toStringAsFixed(2)}';
           amountColor = Colors.red;
         }

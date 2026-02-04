@@ -9,6 +9,8 @@ import 'mention_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ai_detection_result.dart';
 import '../services/ai_detection_service.dart';
+import 'wallet_repository.dart';
+import '../services/roocoin_service.dart';
 
 /// Repository for post-related Supabase operations.
 class PostRepository {
@@ -133,25 +135,28 @@ class PostRepository {
         .toList();
 
     // Convert reposts
-    final reposts = repostData.map((json) {
-      final originalPostJson = json['posts'] as Map<String, dynamic>;
-      final reposterJson = json['reposter'] as Map<String, dynamic>;
+    final reposts = repostData
+        .where((json) => json['posts'] != null && json['reposter'] != null)
+        .map((json) {
+          final originalPostJson = json['posts'] as Map<String, dynamic>;
+          final reposterJson = json['reposter'] as Map<String, dynamic>;
 
-      final post = Post.fromSupabase(
-        originalPostJson,
-        currentUserId: currentUserId,
-      );
-      return post.copyWith(
-        reposter: PostAuthor(
-          userId: reposterJson['user_id'] as String?,
-          displayName: reposterJson['display_name'] ?? '',
-          username: reposterJson['username'] ?? 'unknown',
-          avatar: reposterJson['avatar_url'] ?? '',
-          isVerified: reposterJson['verified_human'] == 'verified',
-        ),
-        repostedAt: json['created_at'] as String?,
-      );
-    }).toList();
+          final post = Post.fromSupabase(
+            originalPostJson,
+            currentUserId: currentUserId,
+          );
+          return post.copyWith(
+            reposter: PostAuthor(
+              userId: reposterJson['user_id'] as String?,
+              displayName: reposterJson['display_name'] ?? '',
+              username: reposterJson['username'] ?? 'unknown',
+              avatar: reposterJson['avatar_url'] ?? '',
+              isVerified: reposterJson['verified_human'] == 'verified',
+            ),
+            repostedAt: json['created_at'] as String?,
+          );
+        })
+        .toList();
 
     // Merge and sort
     final allItems = [...posts, ...reposts];
@@ -419,25 +424,28 @@ class PostRepository {
         .toList();
 
     // Convert reposts
-    final reposts = repostData.map((json) {
-      final originalPostJson = json['posts'] as Map<String, dynamic>;
-      final reposterJson = json['reposter'] as Map<String, dynamic>;
+    final reposts = repostData
+        .where((json) => json['posts'] != null && json['reposter'] != null)
+        .map((json) {
+          final originalPostJson = json['posts'] as Map<String, dynamic>;
+          final reposterJson = json['reposter'] as Map<String, dynamic>;
 
-      final post = Post.fromSupabase(
-        originalPostJson,
-        currentUserId: currentUserId,
-      );
-      return post.copyWith(
-        reposter: PostAuthor(
-          userId: reposterJson['user_id'] as String?,
-          displayName: reposterJson['display_name'] ?? '',
-          username: reposterJson['username'] ?? 'unknown',
-          avatar: reposterJson['avatar_url'] ?? '',
-          isVerified: reposterJson['verified_human'] == 'verified',
-        ),
-        repostedAt: json['created_at'] as String?,
-      );
-    }).toList();
+          final post = Post.fromSupabase(
+            originalPostJson,
+            currentUserId: currentUserId,
+          );
+          return post.copyWith(
+            reposter: PostAuthor(
+              userId: reposterJson['user_id'] as String?,
+              displayName: reposterJson['display_name'] ?? '',
+              username: reposterJson['username'] ?? 'unknown',
+              avatar: reposterJson['avatar_url'] ?? '',
+              isVerified: reposterJson['verified_human'] == 'verified',
+            ),
+            repostedAt: json['created_at'] as String?,
+          );
+        })
+        .toList();
 
     // Merge and sort
     final allItems = [...posts, ...reposts];
@@ -899,6 +907,29 @@ class PostRepository {
           .update(updates)
           .eq('id', postId);
 
+      // If approved, award ROO to the author
+      if (action == 'approve') {
+        try {
+          final post = await _client
+              .from(SupabaseConfig.postsTable)
+              .select('author_id')
+              .eq('id', postId)
+              .single();
+
+          final authorId = post['author_id'] as String;
+          final walletRepo = WalletRepository();
+          await walletRepo.earnRoo(
+            userId: authorId,
+            activityType: RoocoinActivityType.postCreate,
+            referencePostId: postId,
+          );
+        } catch (e) {
+          debugPrint(
+            'PostRepository: Error awarding ROO on moderation approval - $e',
+          );
+        }
+      }
+
       // Also resolve any pending moderation cases for this post
       try {
         final caseUpdates = <String, dynamic>{
@@ -1007,6 +1038,21 @@ class PostRepository {
         } else {
           scoreStatus = 'pass';
           postStatus = 'published'; // Auto-publish if safe
+        }
+
+        if (postStatus == 'published') {
+          try {
+            final walletRepo = WalletRepository();
+            await walletRepo.earnRoo(
+              userId: authorId,
+              activityType: RoocoinActivityType.postCreate,
+              referencePostId: postId,
+            );
+          } catch (e) {
+            debugPrint(
+              'PostRepository: Error awarding ROO on auto-publish - $e',
+            );
+          }
         }
 
         await _updateAiScore(

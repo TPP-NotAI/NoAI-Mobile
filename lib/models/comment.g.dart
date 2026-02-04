@@ -37,6 +37,8 @@ Comment _$CommentFromJson(Map<String, dynamic> json) => Comment(
       .toList(),
   mediaUrl: json['mediaUrl'] as String?,
   mediaType: json['mediaType'] as String?,
+  aiScore: (json['aiScore'] as num?)?.toDouble(),
+  status: json['status'] as String? ?? 'published',
 );
 
 Map<String, dynamic> _$CommentToJson(Comment instance) => <String, dynamic>{
@@ -50,4 +52,6 @@ Map<String, dynamic> _$CommentToJson(Comment instance) => <String, dynamic>{
   'replies': instance.replies,
   'mediaUrl': instance.mediaUrl,
   'mediaType': instance.mediaType,
+  'aiScore': instance.aiScore,
+  'status': instance.status,
 };

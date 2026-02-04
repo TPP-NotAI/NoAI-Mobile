@@ -434,7 +434,7 @@ class UserProvider with ChangeNotifier {
             'from_user_id': fromUserId,
             'to_user_id': toUserId,
             'amount_rc': amount,
-            'tx_type': 'peer_transfer',
+            'tx_type': 'transfer',
             'memo': memo,
             'status': 'completed',
             'completed_at': DateTime.now().toIso8601String(),

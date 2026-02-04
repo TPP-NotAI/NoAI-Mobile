@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/user_provider.dart';
+
 import '../../config/app_colors.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/wallet_provider.dart';
+import '../../services/supabase_service.dart';
 
 class SendRooScreen extends StatefulWidget {
   final double currentBalance;
@@ -28,6 +30,38 @@ class _SendRooScreenState extends State<SendRooScreen> {
     _amountController.dispose();
     _noteController.dispose();
     super.dispose();
+  }
+
+  Future<String?> _resolveAddress(String input) async {
+    // If it looks like an ETH address, return it
+    if (input.startsWith('0x') && input.length == 42) {
+      return input;
+    }
+
+    // Otherwise assume it's a username
+    try {
+      final cleanUsername = input.startsWith('@') ? input.substring(1) : input;
+      final response = await SupabaseService().client
+          .from('profiles')
+          .select('user_id')
+          .eq('username', cleanUsername)
+          .maybeSingle();
+
+      if (response == null) return null;
+      final userId = response['user_id'] as String;
+
+      final walletResponse = await SupabaseService().client
+          .from('wallets')
+          .select('wallet_address')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (walletResponse == null) return null;
+      return walletResponse['wallet_address'] as String;
+    } catch (e) {
+      debugPrint('Error resolving username: $e');
+      return null;
+    }
   }
 
   Future<void> _sendRoo() async {
@@ -58,7 +92,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
     setState(() => _isProcessing = true);
 
     final authProvider = context.read<AuthProvider>();
-    final userProvider = context.read<UserProvider>();
+    final walletProvider = context.read<WalletProvider>();
     final user = authProvider.currentUser;
 
     if (user == null) {
@@ -67,22 +101,23 @@ class _SendRooScreenState extends State<SendRooScreen> {
       return;
     }
 
-    final success = await userProvider.transferRoo(
-      fromUserId: user.id,
-      toUsername: recipient.startsWith('@')
-          ? recipient.substring(1)
-          : recipient,
-      amount: amount,
-      memo: _noteController.text.trim().isEmpty
-          ? null
-          : _noteController.text.trim(),
-    );
+    try {
+      // 1. Resolve address
+      final toAddress = await _resolveAddress(recipient);
+      if (toAddress == null) {
+        throw Exception('Recipient not found or has no wallet');
+      }
 
-    if (!mounted) return;
+      // 2. Perform transfer
+      await walletProvider.transferToExternal(
+        userId: user.id,
+        toAddress: toAddress,
+        amount: amount,
+      );
 
-    setState(() => _isProcessing = false);
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
 
-    if (success) {
       // Show success dialog
       showDialog(
         context: context,
@@ -99,7 +134,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
+                  color: Colors.green.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -124,7 +159,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                 textAlign: TextAlign.center,
               ),
               Text(
-                '@$recipient',
+                recipient,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -159,8 +194,10 @@ class _SendRooScreenState extends State<SendRooScreen> {
           ],
         ),
       );
-    } else {
-      _showError(userProvider.error ?? 'Transaction failed');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      _showError(e.toString().replaceAll('Exception: ', ''));
     }
   }
 
@@ -235,7 +272,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                   Text(
                     'AVAILABLE BALANCE',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: Colors.white.withOpacity(0.8),
                       fontSize: 12,
                       letterSpacing: 1,
                       fontWeight: FontWeight.w600,

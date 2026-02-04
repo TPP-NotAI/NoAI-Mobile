@@ -9,6 +9,8 @@ import '../services/ai_detection_service.dart';
 
 import 'notification_repository.dart';
 import 'mention_repository.dart';
+import 'wallet_repository.dart';
+import '../services/roocoin_service.dart';
 
 /// Repository for comment-related Supabase operations.
 class CommentRepository {
@@ -615,6 +617,20 @@ class CommentRepository {
               'classification': result.result,
             },
           );
+        } else {
+          // Comment passed AI check - award 2 ROO to author
+          try {
+            final walletRepo = WalletRepository();
+            await walletRepo.earnRoo(
+              userId: authorId,
+              activityType: RoocoinActivityType.postComment,
+              referenceCommentId: commentId,
+            );
+          } catch (e) {
+            debugPrint(
+              'CommentRepository: Error awarding ROO for comment - $e',
+            );
+          }
         }
 
         return aiProbability;
@@ -701,6 +717,29 @@ class CommentRepository {
           .from(SupabaseConfig.commentsTable)
           .update(updates)
           .eq('id', commentId);
+
+      // If approved, award 2 ROO to comment author
+      if (action == 'approve') {
+        try {
+          final comment = await _client
+              .from(SupabaseConfig.commentsTable)
+              .select('author_id')
+              .eq('id', commentId)
+              .single();
+
+          final authorId = comment['author_id'] as String;
+          final walletRepo = WalletRepository();
+          await walletRepo.earnRoo(
+            userId: authorId,
+            activityType: RoocoinActivityType.postComment,
+            referenceCommentId: commentId,
+          );
+        } catch (e) {
+          debugPrint(
+            'CommentRepository: Error awarding ROO on comment approval - $e',
+          );
+        }
+      }
 
       // Resolve the moderation case
       try {

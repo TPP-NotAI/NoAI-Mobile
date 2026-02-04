@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import 'package:noai/models/user.dart';
+import 'package:noai/services/referral_service.dart';
 
 /// Authentication status states.
 enum AuthStatus { initial, loading, authenticated, unauthenticated }
@@ -22,7 +23,6 @@ class AuthProvider with ChangeNotifier {
   User? _currentUser;
   String? _error;
   String? _pendingEmail; // For verification flow
-  String? _pendingUsername; // Username from signup, used to fix display_name
   bool _isPasswordResetPending = false; // For recovery flow
   RecoveryStep _recoveryStep = RecoveryStep.email;
 
@@ -153,17 +153,6 @@ class AuthProvider with ChangeNotifier {
         'AuthProvider: User displayName after parse: ${_currentUser?.displayName}',
       );
 
-      // If display_name is empty and we have a pending username from signup, fix it
-      if (_currentUser != null &&
-          _currentUser!.displayName.isEmpty &&
-          _pendingUsername != null) {
-        debugPrint(
-          'AuthProvider: Fixing empty display_name with username: $_pendingUsername',
-        );
-        await _fixEmptyDisplayName(userId, _pendingUsername!);
-        _pendingUsername = null;
-      }
-
       // Check user account status - enforce bans/suspensions
       if (_currentUser != null && _currentUser!.isBanned) {
         debugPrint('AuthProvider: User is banned - signing out');
@@ -207,25 +196,6 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// Fix empty display_name by updating it with the username.
-  Future<void> _fixEmptyDisplayName(String userId, String displayName) async {
-    try {
-      await _supabase.client
-          .from(SupabaseConfig.profilesTable)
-          .update({'display_name': displayName})
-          .eq('user_id', userId);
-
-      // Update local user object
-      if (_currentUser != null) {
-        _currentUser = _currentUser!.copyWith(displayName: displayName);
-        notifyListeners();
-      }
-      debugPrint('AuthProvider: Fixed display_name to: $displayName');
-    } catch (e) {
-      debugPrint('AuthProvider: Failed to fix display_name - $e');
-    }
-  }
-
   /// Sign in with email and password.
   Future<bool> signIn(String email, String password) async {
     _error = null;
@@ -264,7 +234,6 @@ class AuthProvider with ChangeNotifier {
       if (response.user != null && response.session == null) {
         // Email confirmation required
         _pendingEmail = email;
-        _pendingUsername = username;
         _status = AuthStatus.unauthenticated;
         notifyListeners();
         return true;
@@ -544,6 +513,14 @@ class AuthProvider with ChangeNotifier {
             'verified_at': DateTime.now().toIso8601String(),
           })
           .eq('user_id', userId);
+
+      // Complete referral if exists
+      try {
+        final referralService = ReferralService();
+        await referralService.completeReferral(userId);
+      } catch (e) {
+        debugPrint('AuthProvider: Error completing referral - $e');
+      }
 
       // Reload user to get updated status
       await reloadCurrentUser();
