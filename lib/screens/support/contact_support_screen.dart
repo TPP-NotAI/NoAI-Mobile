@@ -109,7 +109,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
 
   String _generateTicketReference() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final buffer = StringBuffer('NOAI-');
+    final buffer = StringBuffer('ROO-');
     for (var i = 0; i < 6; i++) {
       buffer.write(chars[_random.nextInt(chars.length)]);
     }

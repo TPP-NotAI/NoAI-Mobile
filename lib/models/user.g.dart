@@ -19,12 +19,12 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
   isVerified: json['isVerified'] as bool? ?? false,
   balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
   postsCount: (json['postsCount'] as num?)?.toInt() ?? 0,
+  humanVerifiedPostsCount:
+      (json['humanVerifiedPostsCount'] as num?)?.toInt() ?? 0,
   followersCount: (json['followersCount'] as num?)?.toInt() ?? 0,
   followingCount: (json['followingCount'] as num?)?.toInt() ?? 0,
   trustScore: (json['trustScore'] as num?)?.toDouble() ?? 0.0,
   mlScore: (json['mlScore'] as num?)?.toDouble() ?? 0.0,
-  humanVerifiedPostsCount:
-      (json['humanVerifiedPostsCount'] as num?)?.toInt() ?? 0,
   verifiedHuman: json['verifiedHuman'] as String? ?? 'unverified',
   postsVisibility: json['postsVisibility'] as String?,
   commentsVisibility: json['commentsVisibility'] as String?,
@@ -36,6 +36,9 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
   lastSeen: json['lastSeen'] == null
       ? null
       : DateTime.parse(json['lastSeen'] as String),
+  interests:
+      (json['interests'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const [],
 );
 
 Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
@@ -63,4 +66,5 @@ Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
   'status': instance.status,
   'createdAt': instance.createdAt?.toIso8601String(),
   'lastSeen': instance.lastSeen?.toIso8601String(),
+  'interests': instance.interests,
 };

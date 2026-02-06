@@ -270,7 +270,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
             children: const [
               TextSpan(
                 text:
-                    'Enter the email associated with your NOAI account. We\'ll send you a ',
+                    'Enter the email associated with your ROOVERSE account. We\'ll send you a ',
               ),
               TextSpan(
                 text: 'RooCoin-secured',

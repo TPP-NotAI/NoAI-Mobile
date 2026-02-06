@@ -11,11 +11,13 @@ import '../models/user.dart' as noai_user;
 import '../services/supabase_service.dart';
 import '../services/ai_detection_service.dart';
 import '../models/ai_detection_result.dart';
+import 'notification_repository.dart';
 
 /// Repository for stories/statuses backed by Supabase.
 class StoryRepository {
   final SupabaseClient _client = SupabaseService().client;
   final AiDetectionService _aiDetectionService = AiDetectionService();
+  final NotificationRepository _notificationRepository = NotificationRepository();
 
   /// Fetch active stories for the current user and the accounts they follow.
   ///
@@ -296,6 +298,10 @@ class StoryRepository {
     }
   }
 
+  /// Minimum character count for AI detection on captions.
+  /// Short captions are skipped for text detection (image detection still runs).
+  static const int _minAiDetectionLength = 50;
+
   /// Run AI detection for a story in the background.
   /// Returns the confidence score on success, or null on failure.
   Future<Map<String, dynamic>?> runAiDetection({
@@ -306,15 +312,24 @@ class StoryRepository {
     String? caption,
   }) async {
     try {
-      final hasText = caption != null && caption.trim().isNotEmpty;
+      final trimmedCaption = caption?.trim() ?? '';
+      // Only run text detection if caption is long enough
+      final hasText = trimmedCaption.length >= _minAiDetectionLength;
       final hasMedia = mediaType == 'image' || mediaType == 'video';
+
+      if (trimmedCaption.isNotEmpty && trimmedCaption.length < _minAiDetectionLength) {
+        debugPrint(
+          'StoryRepository: Skipping text detection for short caption on story $storyId '
+          '(${trimmedCaption.length} chars < $_minAiDetectionLength)',
+        );
+      }
 
       AiDetectionResult? textResult;
       AiDetectionResult? mediaResult;
 
-      // Detect text if present
+      // Detect text if present and long enough
       if (hasText) {
-        textResult = await _aiDetectionService.detectText(caption!);
+        textResult = await _aiDetectionService.detectText(trimmedCaption);
       }
 
       // Detect media if it's an image
@@ -365,14 +380,16 @@ class StoryRepository {
         return {'score': 0.0, 'status': 'pass'};
       }
 
-      // Determine status based on AI probability
+      // Determine status based on AI probability (aligned with API docs)
       final String status;
-      if (aiProbability >= 75) {
-        status = 'flagged'; // High AI probability
-      } else if (aiProbability >= 50) {
-        status = 'review'; // Medium → review
+      if (aiProbability > 95) {
+        status = 'flagged'; // Auto-block high-confidence AI content
+      } else if (aiProbability > 75) {
+        status = 'flagged'; // Flag for review
+      } else if (aiProbability > 60) {
+        status = 'review'; // Add transparency label but allow
       } else {
-        status = 'pass'; // Low → pass
+        status = 'pass'; // Auto-allow safe content
       }
 
       await _updateAiScore(
@@ -386,6 +403,14 @@ class StoryRepository {
           'combined_evidence': primaryResult.combinedEvidence,
           'classification': primaryResult.result,
         },
+      );
+
+      // Send notification to author about AI check result
+      await _sendAiResultNotification(
+        userId: authorId,
+        storyId: storyId,
+        storyStatus: status,
+        aiProbability: aiProbability,
       );
 
       // Create moderation case if flagged or review required
@@ -489,6 +514,54 @@ class StoryRepository {
     } catch (e) {
       debugPrint(
         'StoryRepository: Error creating moderation case for story $storyId - $e',
+      );
+    }
+  }
+
+  /// Send a notification to the story author about AI detection result.
+  Future<void> _sendAiResultNotification({
+    required String userId,
+    required String storyId,
+    required String storyStatus,
+    required double aiProbability,
+  }) async {
+    try {
+      String title;
+      String body;
+      String type;
+
+      switch (storyStatus) {
+        case 'pass':
+          // Don't notify for passed stories - too noisy
+          return;
+        case 'review':
+          title = 'Story Under Review';
+          body = 'Your story is being reviewed by our moderation team.';
+          type = 'mention'; // Using 'mention' as valid DB type for system notifications
+          break;
+        case 'flagged':
+          title = 'Story Not Published';
+          body = 'Your story was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence).';
+          type = 'mention';
+          break;
+        default:
+          return; // Don't send notification for unknown status
+      }
+
+      await _notificationRepository.createNotification(
+        userId: userId,
+        type: type,
+        title: title,
+        body: body,
+        storyId: storyId,
+      );
+
+      debugPrint(
+        'StoryRepository: Sent AI result notification to $userId for story $storyId (status: $storyStatus)',
+      );
+    } catch (e) {
+      debugPrint(
+        'StoryRepository: Error sending AI result notification - $e',
       );
     }
   }

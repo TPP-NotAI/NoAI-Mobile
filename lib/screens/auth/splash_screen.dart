@@ -99,7 +99,7 @@ class SplashScreen extends StatelessWidget {
                 const SizedBox(height: 32),
 
                 Text(
-                  'NOAI',
+                  'ROOVERSE',
                   style: TextStyle(
                     fontSize: 42,
                     fontWeight: FontWeight.bold,

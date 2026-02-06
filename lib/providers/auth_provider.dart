@@ -4,7 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../services/auth_service.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
-import 'package:noai/models/user.dart';
+import 'package:rooverse/models/user.dart';
+import 'package:rooverse/services/referral_service.dart';
+import '../repositories/wallet_repository.dart';
 
 /// Authentication status states.
 enum AuthStatus { initial, loading, authenticated, unauthenticated }
@@ -17,12 +19,12 @@ enum RecoveryStep { email, otp, newPassword, success }
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
   final SupabaseService _supabase = SupabaseService();
+  final WalletRepository _walletRepository = WalletRepository();
 
   AuthStatus _status = AuthStatus.initial;
   User? _currentUser;
   String? _error;
   String? _pendingEmail; // For verification flow
-  String? _pendingUsername; // Username from signup, used to fix display_name
   bool _isPasswordResetPending = false; // For recovery flow
   RecoveryStep _recoveryStep = RecoveryStep.email;
 
@@ -153,17 +155,6 @@ class AuthProvider with ChangeNotifier {
         'AuthProvider: User displayName after parse: ${_currentUser?.displayName}',
       );
 
-      // If display_name is empty and we have a pending username from signup, fix it
-      if (_currentUser != null &&
-          _currentUser!.displayName.isEmpty &&
-          _pendingUsername != null) {
-        debugPrint(
-          'AuthProvider: Fixing empty display_name with username: $_pendingUsername',
-        );
-        await _fixEmptyDisplayName(userId, _pendingUsername!);
-        _pendingUsername = null;
-      }
-
       // Check user account status - enforce bans/suspensions
       if (_currentUser != null && _currentUser!.isBanned) {
         debugPrint('AuthProvider: User is banned - signing out');
@@ -185,6 +176,18 @@ class AuthProvider with ChangeNotifier {
       _error = _currentUser?.isSuspended == true
           ? 'Your account has been suspended. Some features are restricted.'
           : null;
+
+      // Ensure a real on-chain wallet exists for this user.
+      // Run in background to avoid blocking login UI.
+      Future.microtask(() async {
+        try {
+          final online = await _walletRepository.checkApiHealth();
+          if (!online) return;
+          await _walletRepository.getOrCreateWallet(userId);
+        } catch (e) {
+          debugPrint('AuthProvider: Wallet activation failed - $e');
+        }
+      });
     } catch (e) {
       debugPrint('AuthProvider: Error loading user - $e');
       // Even if profile loading fails, user is still authenticated
@@ -204,25 +207,6 @@ class AuthProvider with ChangeNotifier {
     final session = _supabase.currentSession;
     if (session != null) {
       await _loadCurrentUser(session.user.id);
-    }
-  }
-
-  /// Fix empty display_name by updating it with the username.
-  Future<void> _fixEmptyDisplayName(String userId, String displayName) async {
-    try {
-      await _supabase.client
-          .from(SupabaseConfig.profilesTable)
-          .update({'display_name': displayName})
-          .eq('user_id', userId);
-
-      // Update local user object
-      if (_currentUser != null) {
-        _currentUser = _currentUser!.copyWith(displayName: displayName);
-        notifyListeners();
-      }
-      debugPrint('AuthProvider: Fixed display_name to: $displayName');
-    } catch (e) {
-      debugPrint('AuthProvider: Failed to fix display_name - $e');
     }
   }
 
@@ -264,7 +248,6 @@ class AuthProvider with ChangeNotifier {
       if (response.user != null && response.session == null) {
         // Email confirmation required
         _pendingEmail = email;
-        _pendingUsername = username;
         _status = AuthStatus.unauthenticated;
         notifyListeners();
         return true;
@@ -544,6 +527,14 @@ class AuthProvider with ChangeNotifier {
             'verified_at': DateTime.now().toIso8601String(),
           })
           .eq('user_id', userId);
+
+      // Complete referral if exists
+      try {
+        final referralService = ReferralService();
+        await referralService.completeReferral(userId);
+      } catch (e) {
+        debugPrint('AuthProvider: Error completing referral - $e');
+      }
 
       // Reload user to get updated status
       await reloadCurrentUser();

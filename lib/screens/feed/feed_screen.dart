@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:noai/providers/user_provider.dart';
-import 'package:noai/screens/create/create_post_screen.dart';
+import 'package:rooverse/providers/user_provider.dart';
+import 'package:rooverse/screens/create/create_post_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/feed_provider.dart';

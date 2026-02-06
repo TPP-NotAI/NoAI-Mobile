@@ -39,7 +39,7 @@ class TermsOfServiceScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             Text(
-              'Welcome to NOAI',
+              'Welcome to ROOVERSE',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -50,7 +50,7 @@ class TermsOfServiceScreen extends StatelessWidget {
 
             _buildParagraph(
               context,
-              'By accessing and using NOAI (the "Platform"), you agree to be bound by these Terms of Service. NOAI is a human-first social platform that strictly prohibits AI-generated content and automated interactions.',
+              'By accessing and using ROOVERSE (the "Platform"), you agree to be bound by these Terms of Service. ROOVERSE is a human-first social platform that strictly prohibits AI-generated content and automated interactions.',
             ),
 
             const SizedBox(height: 32),
@@ -58,7 +58,7 @@ class TermsOfServiceScreen extends StatelessWidget {
             _buildSectionTitle(context, '1. The No-AI Policy'),
             _buildParagraph(
               context,
-              'All content posted on NOAI must be created by a verified human being. The use of AI tools to generate text, images, videos, or any other form of content is strictly prohibited and will result in immediate account termination.',
+              'All content posted on ROOVERSE must be created by a verified human being. The use of AI tools to generate text, images, videos, or any other form of content is strictly prohibited and will result in immediate account termination.',
             ),
             _buildBulletPoint(
               context,
@@ -85,7 +85,7 @@ class TermsOfServiceScreen extends StatelessWidget {
             ),
             _buildParagraph(
               context,
-              'To use NOAI, you must complete human verification. This may include biometric authentication, identity verification, and blockchain-based proof of personhood.',
+              'To use ROOVERSE, you must complete human verification. This may include biometric authentication, identity verification, and blockchain-based proof of personhood.',
             ),
             _buildBulletPoint(
               context,
@@ -106,7 +106,7 @@ class TermsOfServiceScreen extends StatelessWidget {
             _buildSectionTitle(context, '3. RooCoin & Virtual Currency'),
             _buildParagraph(
               context,
-              'RooCoin (ROO) is the native token of the NOAI ecosystem. By using RooCoin, you acknowledge:',
+              'RooCoin (ROO) is the native token of the ROOVERSE ecosystem. By using RooCoin, you acknowledge:',
             ),
             _buildBulletPoint(
               context,
@@ -122,7 +122,7 @@ class TermsOfServiceScreen extends StatelessWidget {
             ),
             _buildBulletPoint(
               context,
-              'NOAI reserves the right to adjust ROO mechanics',
+              'ROOVERSE reserves the right to adjust ROO mechanics',
             ),
 
             const SizedBox(height: 24),
@@ -167,7 +167,7 @@ class TermsOfServiceScreen extends StatelessWidget {
             _buildSectionTitle(context, '6. Intellectual Property'),
             _buildParagraph(
               context,
-              'You retain ownership of your content, but grant NOAI a license to display, distribute, and promote it on the platform.',
+              'You retain ownership of your content, but grant ROOVERSE a license to display, distribute, and promote it on the platform.',
             ),
 
             const SizedBox(height: 24),
@@ -175,7 +175,7 @@ class TermsOfServiceScreen extends StatelessWidget {
             _buildSectionTitle(context, '7. Disclaimers & Limitations'),
             _buildParagraph(
               context,
-              'NOAI is provided "as is" without warranties. We are not liable for user-generated content or interactions between users.',
+              'ROOVERSE is provided "as is" without warranties. We are not liable for user-generated content or interactions between users.',
             ),
 
             const SizedBox(height: 24),
@@ -183,7 +183,7 @@ class TermsOfServiceScreen extends StatelessWidget {
             _buildSectionTitle(context, '8. Changes to Terms'),
             _buildParagraph(
               context,
-              'We may update these Terms at any time. Continued use of NOAI constitutes acceptance of modified terms.',
+              'We may update these Terms at any time. Continued use of ROOVERSE constitutes acceptance of modified terms.',
             ),
 
             const SizedBox(height: 32),
@@ -218,7 +218,7 @@ class TermsOfServiceScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Contact us at legal@noai.social',
+                    'Contact us at legal@rooverse.social',
                     style: TextStyle(
                       fontSize: 14,
                       color: scheme.onSurface.withOpacity(0.7),

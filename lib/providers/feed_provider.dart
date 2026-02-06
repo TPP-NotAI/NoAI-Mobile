@@ -421,8 +421,8 @@ class FeedProvider with ChangeNotifier {
                 if (idx != -1) {
                   final post = _posts[idx];
                   if (post.commentList != null) {
-                    if (aiScore >= 50) {
-                      // Remove flagged comment from local view
+                    if (aiScore >= 95) {
+                      // Remove auto-blocked comment from local view (95%+ AI)
                       final updatedComments = _removeCommentRecursive(
                         post.commentList!,
                         savedComment.id,
@@ -526,7 +526,8 @@ class FeedProvider with ChangeNotifier {
                 if (idx != -1) {
                   final post = _posts[idx];
                   if (post.commentList != null) {
-                    if (aiScore >= 50) {
+                    if (aiScore >= 95) {
+                      // Remove auto-blocked comment from local view (95%+ AI)
                       final updatedComments = _removeCommentRecursive(
                         post.commentList!,
                         savedComment.id,
@@ -661,7 +662,8 @@ class FeedProvider with ChangeNotifier {
                   if (idx != -1) {
                     final post = _posts[idx];
                     if (post.commentList != null) {
-                      if (aiScore >= 50) {
+                      if (aiScore >= 95) {
+                        // Remove auto-blocked reply from local view (95%+ AI)
                         final updatedComments = _removeCommentRecursive(
                           post.commentList!,
                           savedReply.id,
@@ -788,7 +790,8 @@ class FeedProvider with ChangeNotifier {
                   if (idx != -1) {
                     final post = _posts[idx];
                     if (post.commentList != null) {
-                      if (aiScore >= 50) {
+                      if (aiScore >= 95) {
+                        // Remove auto-blocked reply from local view (95%+ AI)
                         final updatedComments = _removeCommentRecursive(
                           post.commentList!,
                           savedReply.id,
@@ -1165,15 +1168,27 @@ class FeedProvider with ChangeNotifier {
             )
             .then((confidence) {
               if (confidence != null) {
+                // Check if AI score is 95%+ (auto-block threshold)
+                // Remove immediately from UI without waiting for backend
+                if (confidence >= 95) {
+                  final idx = _posts.indexWhere((p) => p.id == newPost.id);
+                  if (idx != -1) {
+                    _posts.removeAt(idx);
+                    notifyListeners();
+                  }
+                  return;
+                }
+
                 // Fetch updated post to get the AI score and status
                 _postRepository.getPost(newPost.id, currentUserId: userId).then(
                   (updatedPost) {
                     if (updatedPost != null) {
                       final idx = _posts.indexWhere((p) => p.id == newPost.id);
                       if (idx != -1) {
-                        if (updatedPost.status == 'under_review') {
-                          // Post was flagged — remove from feed since it's
-                          // now in the moderation queue for review.
+                        if (updatedPost.status == 'under_review' ||
+                            updatedPost.status == 'deleted' ||
+                            updatedPost.status == 'hidden') {
+                          // Post was flagged or auto-blocked — remove from feed
                           _posts.removeAt(idx);
                         } else {
                           _posts[idx] = updatedPost;

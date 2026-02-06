@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
 import 'notification_repository.dart';
+import 'wallet_repository.dart';
+import '../services/roocoin_service.dart';
+import '../services/viral_content_service.dart';
 
 /// Repository for repost operations.
 class RepostRepository {
@@ -14,7 +17,9 @@ class RepostRepository {
     required String postId,
     required String userId,
   }) async {
-    debugPrint('RepostRepository: Toggling repost for post=$postId, user=$userId');
+    debugPrint(
+      'RepostRepository: Toggling repost for post=$postId, user=$userId',
+    );
 
     // Check if repost exists
     final existing = await _client
@@ -59,8 +64,8 @@ class RepostRepository {
           final preview = postTitle != null && postTitle.isNotEmpty
               ? postTitle
               : (postBody != null && postBody.length > 50
-                  ? '${postBody.substring(0, 50)}...'
-                  : postBody ?? '');
+                    ? '${postBody.substring(0, 50)}...'
+                    : postBody ?? '');
 
           await _notificationRepository.createNotification(
             userId: postAuthorId,
@@ -70,6 +75,26 @@ class RepostRepository {
             actorId: userId,
             postId: postId,
           );
+
+          // Award 5 ROO to post author for receiving a repost
+          try {
+            final walletRepo = WalletRepository();
+            await walletRepo.earnRoo(
+              userId: postAuthorId,
+              activityType: RoocoinActivityType.postShare,
+              referencePostId: postId,
+            );
+          } catch (e) {
+            debugPrint('RepostRepository: Error awarding ROO for repost - $e');
+          }
+
+          // Check if post has gone viral and award bonus
+          try {
+            final viralService = ViralContentService();
+            await viralService.checkAndRewardViralPost(postId, postAuthorId);
+          } catch (e) {
+            debugPrint('RepostRepository: Error checking viral status - $e');
+          }
         }
       } catch (e) {
         debugPrint('RepostRepository: Error creating repost notification - $e');
@@ -117,7 +142,9 @@ class RepostRepository {
   }
 
   /// Get repost counts for multiple posts.
-  Future<Map<String, int>> getRepostCounts({required List<String> postIds}) async {
+  Future<Map<String, int>> getRepostCounts({
+    required List<String> postIds,
+  }) async {
     if (postIds.isEmpty) return {};
 
     final response = await _client

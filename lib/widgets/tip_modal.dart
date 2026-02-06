@@ -4,6 +4,7 @@ import '../models/post.dart';
 import '../providers/feed_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
+import '../providers/wallet_provider.dart';
 import '../config/app_colors.dart';
 
 class TipModal extends StatefulWidget {
@@ -20,6 +21,15 @@ class _TipModalState extends State<TipModal> {
   final List<double> _quickAmounts = [5, 10, 25, 50, 100];
   final TextEditingController _customAmountController = TextEditingController();
   bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Refresh balance when modal opens to ensure it's up to date
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().reloadCurrentUser();
+    });
+  }
 
   @override
   void dispose() {
@@ -45,6 +55,11 @@ class _TipModalState extends State<TipModal> {
       return;
     }
 
+    if (widget.post.author.userId == user.id) {
+      _showError('You cannot tip your own post');
+      return;
+    }
+
     setState(() => _isProcessing = true);
 
     // 1. Perform the transfer
@@ -53,11 +68,20 @@ class _TipModalState extends State<TipModal> {
       toUsername: widget.post.author.username,
       amount: _selectedAmount,
       memo: 'Tip for post: ${widget.post.content.split('\n').first}',
+      referencePostId: widget.post.id,
+      metadata: {'activityType': 'tip'},
     );
 
     if (success) {
       // 2. Update post tip total
       await feedProvider.tipPost(widget.post.id, _selectedAmount);
+
+      // 3. Refresh wallet balance across the app
+      if (mounted) {
+        context.read<WalletProvider>().loadWallet(user.id);
+        // Also refresh AuthProvider to ensure balance updates in this modal
+        context.read<AuthProvider>().reloadCurrentUser();
+      }
 
       if (mounted) {
         Navigator.pop(context);

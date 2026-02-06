@@ -43,6 +43,7 @@ class _StoryViewerState extends State<StoryViewer>
 
     _animationController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
+        _markViewed(_currentIndex); // Mark as viewed only when story completes
         _nextStory();
       }
     });
@@ -56,10 +57,6 @@ class _StoryViewerState extends State<StoryViewer>
     });
 
     _startStory();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _markViewed(_currentIndex);
-    });
   }
 
   @override
@@ -388,7 +385,6 @@ class _StoryViewerState extends State<StoryViewer>
               itemCount: widget.stories.length,
               onPageChanged: (index) {
                 setState(() => _currentIndex = index);
-                _markViewed(index);
                 _startStory();
               },
               itemBuilder: (context, index) {

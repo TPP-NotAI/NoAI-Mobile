@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
 import 'notification_repository.dart';
+import 'wallet_repository.dart';
+import '../services/roocoin_service.dart';
+import '../services/viral_content_service.dart';
 
 /// Repository for reaction (like/unlike) operations.
 /// Schema constraint: reactions can be on EITHER a post OR a comment, not both.
@@ -125,7 +128,7 @@ class ReactionRepository {
       });
       debugPrint('ReactionRepository: Insert successful');
 
-      // Fetch post author to notify
+      // Fetch post author to notify and reward
       try {
         final post = await _client
             .from(SupabaseConfig.postsTable)
@@ -133,6 +136,7 @@ class ReactionRepository {
             .eq('id', postId)
             .single();
 
+        final postAuthorId = post['author_id'] as String;
         final postTitle = post['title'] as String?;
         final postBody = post['body'] as String?;
         final notificationBody = postTitle != null && postTitle.isNotEmpty
@@ -140,13 +144,35 @@ class ReactionRepository {
             : 'Someone liked your post: "${postBody?.substring(0, (postBody.length > 50 ? 50 : postBody.length)) ?? ''}..."';
 
         await _notificationRepository.createNotification(
-          userId: post['author_id'],
+          userId: postAuthorId,
           type: 'like',
           title: 'New Like',
           body: notificationBody,
           actorId: userId,
           postId: postId,
         );
+
+        // Award 0.1 ROO to post author for receiving a like
+        try {
+          final walletRepo = WalletRepository();
+          await walletRepo.earnRoo(
+            userId: postAuthorId,
+            activityType: RoocoinActivityType.postLike,
+            referencePostId: postId,
+          );
+        } catch (e) {
+          debugPrint(
+            'ReactionRepository: Error awarding ROO for post like - $e',
+          );
+        }
+
+        // Check if post has gone viral and award bonus
+        try {
+          final viralService = ViralContentService();
+          await viralService.checkAndRewardViralPost(postId, postAuthorId);
+        } catch (e) {
+          debugPrint('ReactionRepository: Error checking viral status - $e');
+        }
       } catch (e) {
         debugPrint(
           'ReactionRepository: Error creating notification for post like - $e',

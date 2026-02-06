@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:noai/models/ai_detection_result.dart';
+import 'package:rooverse/models/ai_detection_result.dart';
 
 void main() {
   group('AiDetectionResult', () {

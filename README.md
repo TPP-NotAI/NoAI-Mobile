@@ -1,4 +1,4 @@
-# NoAI App
+# ROOVERSE App
 
 A modern Flutter application demonstrating best practices for building cross-platform mobile applications with clean architecture, state management, and API integration.
 
@@ -95,7 +95,7 @@ lib/
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd noai
+cd rooverse
 ```
 
 2. Install dependencies:

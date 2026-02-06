@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:noai/screens/support/contact_support_screen.dart';
+import 'package:rooverse/screens/support/contact_support_screen.dart';
 
 class SuspendedScreen extends StatelessWidget {
   const SuspendedScreen({Key? key}) : super(key: key);

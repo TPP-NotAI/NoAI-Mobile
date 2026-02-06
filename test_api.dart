@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 void main() async {
-  print('Testing NoAI API...');
+  print('Testing ROOVERSE AI Detection API...');
 
   final uri = Uri.parse(
     'https://noai-lm-production.up.railway.app/api/v1/detect/text',

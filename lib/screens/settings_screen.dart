@@ -359,7 +359,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.info,
             iconColor: Colors.teal,
-            title: 'About NOAI',
+            title: 'About ROOVERSE',
             onTap: () => _showAboutDialog(context),
           ),
 
@@ -553,9 +553,9 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: scheme.surface,
-        title: Text('About NOAI', style: TextStyle(color: scheme.onSurface)),
+        title: Text('About ROOVERSE', style: TextStyle(color: scheme.onSurface)),
         content: Text(
-          'NOAI – Human-First Social Platform\n\nVersion 1.0.2\n\n© 2026 NOAI Inc.',
+          'ROOVERSE – Human-First Social Platform\n\nVersion 1.0.2\n\n© 2026 ROOVERSE Inc.',
           style: TextStyle(color: scheme.onSurface.withOpacity(0.75)),
         ),
         actions: [

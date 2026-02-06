@@ -1,10 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../models/user.dart';
 import '../../providers/user_provider.dart';
+
 import '../../config/app_colors.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/wallet_provider.dart';
+import 'user_search_sheet.dart';
 
 class SendRooScreen extends StatefulWidget {
   final double currentBalance;
@@ -22,12 +27,108 @@ class _SendRooScreenState extends State<SendRooScreen> {
 
   bool _isProcessing = false;
 
+  // Live search state
+  List<User> _suggestions = [];
+  bool _isSearchingSuggestions = false;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _recipientController.addListener(_onRecipientChanged);
+  }
+
   @override
   void dispose() {
+    _recipientController.removeListener(_onRecipientChanged);
     _recipientController.dispose();
     _amountController.dispose();
     _noteController.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  void _onRecipientChanged() {
+    final text = _recipientController.text.trim();
+
+    // Reset suggestions if too short or looks like an address
+    if (text.length < 2 || text.startsWith('0x')) {
+      if (_suggestions.isNotEmpty || _isSearchingSuggestions) {
+        setState(() {
+          _suggestions = [];
+          _isSearchingSuggestions = false;
+        });
+      }
+      return;
+    }
+
+    // Debounce search
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      if (!mounted) return;
+
+      setState(() => _isSearchingSuggestions = true);
+
+      try {
+        final query = text.startsWith('@') ? text.substring(1) : text;
+        final results = await context.read<UserProvider>().searchUsers(query);
+        final currentUserId = context.read<AuthProvider>().currentUser?.id;
+
+        if (mounted) {
+          setState(() {
+            _suggestions = results
+                .where((u) => u.id != currentUserId)
+                .take(5)
+                .toList();
+            _isSearchingSuggestions = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isSearchingSuggestions = false);
+        }
+      }
+    });
+  }
+
+  void _selectSuggestion(User user) {
+    setState(() {
+      _recipientController.text = '@${user.username}';
+      _suggestions = [];
+    });
+    // Unfocus to hide keyboard and suggestions
+    FocusScope.of(context).unfocus();
+  }
+
+  Future<Map<String, String?>?> _resolveUserAndAddress(String input) async {
+    final cleanInput = input.trim();
+    if (cleanInput.isEmpty) return null;
+
+    // If it looks like an EVM address, return it
+    final evmRegex = RegExp(r'^0x[a-fA-F0-9]{40}$');
+    if (evmRegex.hasMatch(cleanInput)) {
+      return {'username': 'Recipient', 'address': cleanInput};
+    }
+
+    if (cleanInput.startsWith('PENDING_ACTIVATION_')) {
+      return {'username': cleanInput, 'address': null};
+    }
+
+    // Otherwise assume it's a username
+    try {
+      final resolved = await context
+          .read<UserProvider>()
+          .resolveUsernameToAddress(cleanInput);
+
+      final username = cleanInput.startsWith('@')
+          ? cleanInput.substring(1)
+          : cleanInput;
+
+      return {'username': username, 'address': resolved['address']};
+    } catch (e) {
+      debugPrint('SendRooScreen: Error resolving: $e');
+      return null;
+    }
   }
 
   Future<void> _sendRoo() async {
@@ -58,7 +159,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
     setState(() => _isProcessing = true);
 
     final authProvider = context.read<AuthProvider>();
-    final userProvider = context.read<UserProvider>();
+    final walletProvider = context.read<WalletProvider>();
     final user = authProvider.currentUser;
 
     if (user == null) {
@@ -67,22 +168,43 @@ class _SendRooScreenState extends State<SendRooScreen> {
       return;
     }
 
-    final success = await userProvider.transferRoo(
-      fromUserId: user.id,
-      toUsername: recipient.startsWith('@')
-          ? recipient.substring(1)
-          : recipient,
-      amount: amount,
-      memo: _noteController.text.trim().isEmpty
-          ? null
-          : _noteController.text.trim(),
-    );
+    try {
+      // 1. Resolve address
+      final result = await _resolveUserAndAddress(recipient);
+      if (result == null) {
+        throw Exception('User not found');
+      }
 
-    if (!mounted) return;
+      final toAddress = result['address'];
+      if (toAddress == null) {
+        throw Exception(
+          '${result['username']} hasn\'t activated their wallet yet',
+        );
+      }
 
-    setState(() => _isProcessing = false);
+      // Prevent self-sending
+      if (toAddress.toLowerCase() ==
+          walletProvider.wallet?.walletAddress.toLowerCase()) {
+        throw Exception('You cannot send ROO to your own account');
+      }
 
-    if (success) {
+      // 2. Perform transfer
+      await walletProvider.transferToExternal(
+        userId: user.id,
+        toAddress: toAddress,
+        amount: amount,
+        memo: _noteController.text.trim().isEmpty
+            ? null
+            : _noteController.text.trim(),
+        metadata: {
+          'activityType': 'transfer',
+          'inputRecipient': recipient,
+        },
+      );
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
       // Show success dialog
       showDialog(
         context: context,
@@ -99,7 +221,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
+                  color: Colors.green.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -124,7 +246,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                 textAlign: TextAlign.center,
               ),
               Text(
-                '@$recipient',
+                recipient,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -159,8 +281,10 @@ class _SendRooScreenState extends State<SendRooScreen> {
           ],
         ),
       );
-    } else {
-      _showError(userProvider.error ?? 'Transaction failed');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      _showError(e.toString().replaceAll('Exception: ', ''));
     }
   }
 
@@ -235,7 +359,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                   Text(
                     'AVAILABLE BALANCE',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: Colors.white.withOpacity(0.8),
                       fontSize: 12,
                       letterSpacing: 1,
                       fontWeight: FontWeight.w600,
@@ -287,6 +411,9 @@ class _SendRooScreenState extends State<SendRooScreen> {
             TextField(
               controller: _recipientController,
               style: TextStyle(color: textPrimaryColor),
+              onChanged: (_) {
+                // Listener handles the logic, but we might want to trigger UI updates
+              },
               decoration: InputDecoration(
                 hintText: 'username or wallet address',
                 hintStyle: TextStyle(color: textSecondaryColor),
@@ -294,6 +421,28 @@ class _SendRooScreenState extends State<SendRooScreen> {
                   Icons.person_outline,
                   color: textSecondaryColor,
                 ),
+                suffixIcon: _isSearchingSuggestions
+                    ? Container(
+                        padding: const EdgeInsets.all(12),
+                        width: 24,
+                        height: 24,
+                        child: const CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : IconButton(
+                        icon: Icon(Icons.search, color: textSecondaryColor),
+                        onPressed: () async {
+                          final selectedUser = await showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => const UserSearchSheet(),
+                          );
+
+                          if (selectedUser != null) {
+                            _selectSuggestion(selectedUser);
+                          }
+                        },
+                      ),
                 filled: true,
                 fillColor: surfaceColor,
                 border: OutlineInputBorder(
@@ -313,6 +462,62 @@ class _SendRooScreenState extends State<SendRooScreen> {
                 ),
               ),
             ),
+
+            // Suggestions List
+            if (_suggestions.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                constraints: const BoxConstraints(maxHeight: 200),
+                decoration: BoxDecoration(
+                  color: surfaceColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: _suggestions.length,
+                  separatorBuilder: (context, index) =>
+                      Divider(height: 1, color: borderColor.withOpacity(0.5)),
+                  itemBuilder: (context, index) {
+                    final user = _suggestions[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 16,
+                        backgroundImage: user.avatar != null
+                            ? NetworkImage(user.avatar!)
+                            : null,
+                        child: user.avatar == null
+                            ? const Icon(Icons.person, size: 16)
+                            : null,
+                      ),
+                      title: Text(
+                        user.displayName,
+                        style: TextStyle(
+                          color: textPrimaryColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '@${user.username}',
+                        style: TextStyle(
+                          color: textSecondaryColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                      onTap: () => _selectSuggestion(user),
+                    );
+                  },
+                ),
+              ),
             const SizedBox(height: 24),
 
             // Amount Field

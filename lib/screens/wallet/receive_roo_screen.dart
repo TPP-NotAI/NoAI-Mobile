@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/wallet_provider.dart';
 
 class ReceiveRooScreen extends StatelessWidget {
   const ReceiveRooScreen({super.key});
@@ -47,10 +48,8 @@ class ReceiveRooScreen extends StatelessWidget {
         ? AppColors.outlineDark
         : AppColors.outlineLight;
 
-    // Generate wallet address based on username or user ID
-    // In a real app, this would be fetched from the 'wallets' table or the blockchain
-    final walletAddress =
-        '0x${user.id.hashCode.toRadixString(16).padLeft(40, '0').substring(0, 40)}';
+    final walletProvider = context.watch<WalletProvider>();
+    final walletAddress = walletProvider.wallet?.walletAddress ?? 'Loading...';
 
     return Scaffold(
       backgroundColor: backgroundColor,

@@ -170,9 +170,18 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
     }
 
     if (_showProfileFields && _bioController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter a bio')));
+      return;
+    }
+
+    if (_selectedInterests.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please add a bio to help people know you!'),
+          content: Text(
+            'Please select at least 3 interests to personalize your feed',
+          ),
         ),
       );
       return;
@@ -222,181 +231,279 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
         child: Column(
           children: [
             // Header
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: const LinearGradient(
-                            colors: [AppColors.primary, Color(0xFF3B82F6)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.fingerprint,
-                          size: 18,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'NOAI',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: scheme.onBackground,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  Text(
-                    _showProfileFields
-                        ? 'Complete Your Profile'
-                        : 'What interests you?',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: scheme.onBackground,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _showProfileFields
-                        ? 'Set up your identity and interests to personalize your experience.'
-                        : 'Select topics you\'re interested in to personalize your feed. You can change this later.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: scheme.onBackground.withOpacity(0.7),
-                      height: 1.5,
-                    ),
-                  ),
-                  if (_showProfileFields) ...[
-                    const SizedBox(height: 24),
-                    _buildProfileField(
-                      context,
-                      label: 'Display Name',
-                      controller: _displayNameController,
-                      hint: 'How should we call you?',
-                      icon: Icons.badge_outlined,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildProfileField(
-                      context,
-                      label: 'Bio',
-                      controller: _bioController,
-                      hint: 'A quick summary of you...',
-                      icon: Icons.description_outlined,
-                      maxLines: 2,
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  if (_selectedInterests.isNotEmpty)
-                    Text(
-                      '${_selectedInterests.length} selected',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            // Interests List
+            // Scrollable Content (Header + Interests)
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _interestCategories.entries.map((category) {
-                    return _InterestCategory(
-                      categoryName: category.key,
-                      interests: category.value,
-                      selectedInterests: _selectedInterests,
-                      onToggle: _toggleInterest,
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-
-            // Footer
-            Container(
-              padding: const EdgeInsets.all(24.0),
-              decoration: BoxDecoration(
-                color: scheme.surface,
-                border: Border(
-                  top: BorderSide(color: scheme.outline.withOpacity(0.2)),
-                ),
-              ),
-              child: Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _saveAndContinue,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: scheme.surfaceContainerHighest,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Continue',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                  children: [
+                    // Header Section
+                    Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      AppColors.primary,
+                                      Color(0xFF3B82F6),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
                                 ),
-                                SizedBox(width: 8),
-                                Icon(Icons.arrow_forward, size: 20),
+                                child: const Icon(
+                                  Icons.fingerprint,
+                                  size: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'ROOVERSE',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: scheme.onBackground,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 32),
+                          Text(
+                            _showProfileFields
+                                ? 'Tell us about yourself'
+                                : 'What interests you?',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              color: scheme.onBackground,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _showProfileFields
+                                ? 'Set up your identity to start connecting with the community.'
+                                : 'Select at least 3 topics to personalize your experience.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: scheme.onBackground.withOpacity(0.6),
+                              height: 1.4,
+                            ),
+                          ),
+                          if (_showProfileFields) ...[
+                            const SizedBox(height: 32),
+                            _buildProfileField(
+                              context,
+                              label: 'Display Name',
+                              controller: _displayNameController,
+                              hint: 'What name should we show?',
+                              icon: Icons.face_outlined,
+                            ),
+                            const SizedBox(height: 20),
+                            _buildProfileField(
+                              context,
+                              label: 'Bio',
+                              controller: _bioController,
+                              hint: 'Professional AI Enthusiast...',
+                              icon: Icons.history_edu_outlined,
+                              maxLines: 3,
+                            ),
+                            const SizedBox(height: 32),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Divider(
+                                    color: scheme.outline.withOpacity(0.2),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: Text(
+                                    'PICK YOUR INTERESTS',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      color: scheme.onBackground.withOpacity(
+                                        0.4,
+                                      ),
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Divider(
+                                    color: scheme.outline.withOpacity(0.2),
+                                  ),
+                                ),
                               ],
                             ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (!_showProfileFields)
-                    TextButton(
-                      onPressed: _isLoading ? null : widget.onComplete,
-                      child: Text(
-                        'Skip for now',
-                        style: TextStyle(
-                          color: scheme.onBackground.withOpacity(0.6),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                          ],
+                          const SizedBox(height: 16),
+                          if (_selectedInterests.length < 3)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: scheme.errorContainer.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: scheme.error.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 14,
+                                    color: scheme.error,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Select ${3 - _selectedInterests.length} more interests to continue',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: scheme.error,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.green.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle_outline,
+                                    size: 14,
+                                    color: Colors.green,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${_selectedInterests.length} selected interests',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                ],
+                    // Interests List
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _interestCategories.entries.map((category) {
+                          return _InterestCategory(
+                            categoryName: category.key,
+                            interests: category.value,
+                            selectedInterests: _selectedInterests,
+                            onToggle: _toggleInterest,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+
+                    // Footer
+                    Container(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 32),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _saveAndContinue,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    scheme.surfaceContainerHighest,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(28),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                      ),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'Continue',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Icon(Icons.arrow_forward, size: 20),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (!_showProfileFields)
+                            TextButton(
+                              onPressed: _isLoading ? null : widget.onComplete,
+                              child: Text(
+                                'Skip for now',
+                                style: TextStyle(
+                                  color: scheme.onBackground.withOpacity(0.6),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

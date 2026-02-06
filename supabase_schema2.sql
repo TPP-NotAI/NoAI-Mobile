@@ -517,11 +517,11 @@ CREATE TABLE public.notifications (
   appeal_id uuid,
   moderation_case_id uuid,
   transaction_id uuid,
-  story_id uuid,
   action_url text,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   expires_at timestamp with time zone,
+  story_id uuid,
   CONSTRAINT notifications_pkey PRIMARY KEY (id),
   CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
   CONSTRAINT notifications_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES public.profiles(user_id),
@@ -726,14 +726,34 @@ CREATE TABLE public.reactions (
   user_id uuid NOT NULL,
   post_id uuid,
   comment_id uuid,
-  story_id uuid,
   reaction_type USER-DEFINED NOT NULL DEFAULT 'like'::reaction_type,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  story_id uuid,
   CONSTRAINT reactions_pkey PRIMARY KEY (id),
   CONSTRAINT reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
   CONSTRAINT reactions_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
   CONSTRAINT reactions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id),
   CONSTRAINT reactions_story_id_fkey FOREIGN KEY (story_id) REFERENCES public.stories(id)
+);
+CREATE TABLE public.referral_codes (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL,
+  code text NOT NULL UNIQUE,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT referral_codes_pkey PRIMARY KEY (id),
+  CONSTRAINT referral_codes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.referrals (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  referrer_user_id uuid NOT NULL,
+  referred_user_id uuid NOT NULL,
+  referral_code text NOT NULL,
+  status text NOT NULL DEFAULT 'pending'::text,
+  created_at timestamp with time zone DEFAULT now(),
+  completed_at timestamp with time zone,
+  CONSTRAINT referrals_pkey PRIMARY KEY (id),
+  CONSTRAINT referrals_referrer_user_id_fkey FOREIGN KEY (referrer_user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT referrals_referred_user_id_fkey FOREIGN KEY (referred_user_id) REFERENCES public.profiles(user_id)
 );
 CREATE TABLE public.reposts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1035,6 +1055,16 @@ CREATE TABLE public.user_sessions (
   expires_at timestamp with time zone NOT NULL,
   CONSTRAINT user_sessions_pkey PRIMARY KEY (id),
   CONSTRAINT user_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.user_wallet_keys (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  wallet_address text NOT NULL,
+  encrypted_private_key text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_wallet_keys_pkey PRIMARY KEY (id),
+  CONSTRAINT user_wallet_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.wallets (
   user_id uuid NOT NULL,

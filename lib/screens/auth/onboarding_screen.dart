@@ -20,13 +20,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'Humans Only.',
       highlight: 'Zero Bots.',
       description:
-          'Tired of AI spam? NOAI is a verified-human sanctuary where every voice is real and every connection is authentic.',
+          'Tired of AI spam? ROOVERSE is a verified-human sanctuary where every voice is real and every connection is authentic.',
       image:
           'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop',
       icon: Icons.people_outline_rounded,
     ),
     OnboardingSlide(
-      stepName: 'Why NOAI',
+      stepName: 'Why ROOVERSE',
       title: 'Humanity',
       highlight: 'Verified.',
       description:
@@ -106,7 +106,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'NOAI',
+                          'ROOVERSE',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,

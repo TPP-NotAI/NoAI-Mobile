@@ -1,8 +1,8 @@
-name: noai
-description: "A new Flutter project."
+name: rooverse
+description: "ROOVERSE - A decentralized social network."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -90,7 +90,7 @@ dependencies:
   path: ^1.9.1
   just_audio: ^0.10.5
   swipe_to: ^1.0.6
-
+  share_plus: ^10.0.0
 
 dev_dependencies:
   flutter_test:

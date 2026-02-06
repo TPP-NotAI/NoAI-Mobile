@@ -17,6 +17,8 @@ Message _$MessageFromJson(Map<String, dynamic> json) => Message(
   status: json['status'] as String? ?? 'sent',
   isEdited: json['is_edited'] as bool? ?? false,
   createdAt: DateTime.parse(json['created_at'] as String),
+  aiScore: (json['ai_score'] as num?)?.toDouble(),
+  aiScoreStatus: json['ai_score_status'] as String?,
 );
 
 Map<String, dynamic> _$MessageToJson(Message instance) => <String, dynamic>{
@@ -30,4 +32,6 @@ Map<String, dynamic> _$MessageToJson(Message instance) => <String, dynamic>{
   'status': instance.status,
   'is_edited': instance.isEdited,
   'created_at': instance.createdAt.toIso8601String(),
+  'ai_score': instance.aiScore,
+  'ai_score_status': instance.aiScoreStatus,
 };

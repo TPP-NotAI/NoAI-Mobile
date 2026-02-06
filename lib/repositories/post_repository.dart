@@ -6,9 +6,12 @@ import '../services/supabase_service.dart';
 import 'media_repository.dart';
 import 'tag_repository.dart';
 import 'mention_repository.dart';
+import 'notification_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ai_detection_result.dart';
 import '../services/ai_detection_service.dart';
+import 'wallet_repository.dart';
+import '../services/roocoin_service.dart';
 
 /// Repository for post-related Supabase operations.
 class PostRepository {
@@ -16,6 +19,7 @@ class PostRepository {
   final MediaRepository _mediaRepository = MediaRepository();
   final TagRepository _tagRepository = TagRepository();
   final MentionRepository _mentionRepository = MentionRepository();
+  final NotificationRepository _notificationRepository = NotificationRepository();
   final AiDetectionService _aiDetectionService = AiDetectionService();
 
   /// Fetch paginated feed of published posts.
@@ -133,25 +137,28 @@ class PostRepository {
         .toList();
 
     // Convert reposts
-    final reposts = repostData.map((json) {
-      final originalPostJson = json['posts'] as Map<String, dynamic>;
-      final reposterJson = json['reposter'] as Map<String, dynamic>;
+    final reposts = repostData
+        .where((json) => json['posts'] != null && json['reposter'] != null)
+        .map((json) {
+          final originalPostJson = json['posts'] as Map<String, dynamic>;
+          final reposterJson = json['reposter'] as Map<String, dynamic>;
 
-      final post = Post.fromSupabase(
-        originalPostJson,
-        currentUserId: currentUserId,
-      );
-      return post.copyWith(
-        reposter: PostAuthor(
-          userId: reposterJson['user_id'] as String?,
-          displayName: reposterJson['display_name'] ?? '',
-          username: reposterJson['username'] ?? 'unknown',
-          avatar: reposterJson['avatar_url'] ?? '',
-          isVerified: reposterJson['verified_human'] == 'verified',
-        ),
-        repostedAt: json['created_at'] as String?,
-      );
-    }).toList();
+          final post = Post.fromSupabase(
+            originalPostJson,
+            currentUserId: currentUserId,
+          );
+          return post.copyWith(
+            reposter: PostAuthor(
+              userId: reposterJson['user_id'] as String?,
+              displayName: reposterJson['display_name'] ?? '',
+              username: reposterJson['username'] ?? 'unknown',
+              avatar: reposterJson['avatar_url'] ?? '',
+              isVerified: reposterJson['verified_human'] == 'verified',
+            ),
+            repostedAt: json['created_at'] as String?,
+          );
+        })
+        .toList();
 
     // Merge and sort
     final allItems = [...posts, ...reposts];
@@ -419,25 +426,28 @@ class PostRepository {
         .toList();
 
     // Convert reposts
-    final reposts = repostData.map((json) {
-      final originalPostJson = json['posts'] as Map<String, dynamic>;
-      final reposterJson = json['reposter'] as Map<String, dynamic>;
+    final reposts = repostData
+        .where((json) => json['posts'] != null && json['reposter'] != null)
+        .map((json) {
+          final originalPostJson = json['posts'] as Map<String, dynamic>;
+          final reposterJson = json['reposter'] as Map<String, dynamic>;
 
-      final post = Post.fromSupabase(
-        originalPostJson,
-        currentUserId: currentUserId,
-      );
-      return post.copyWith(
-        reposter: PostAuthor(
-          userId: reposterJson['user_id'] as String?,
-          displayName: reposterJson['display_name'] ?? '',
-          username: reposterJson['username'] ?? 'unknown',
-          avatar: reposterJson['avatar_url'] ?? '',
-          isVerified: reposterJson['verified_human'] == 'verified',
-        ),
-        repostedAt: json['created_at'] as String?,
-      );
-    }).toList();
+          final post = Post.fromSupabase(
+            originalPostJson,
+            currentUserId: currentUserId,
+          );
+          return post.copyWith(
+            reposter: PostAuthor(
+              userId: reposterJson['user_id'] as String?,
+              displayName: reposterJson['display_name'] ?? '',
+              username: reposterJson['username'] ?? 'unknown',
+              avatar: reposterJson['avatar_url'] ?? '',
+              isVerified: reposterJson['verified_human'] == 'verified',
+            ),
+            repostedAt: json['created_at'] as String?,
+          );
+        })
+        .toList();
 
     // Merge and sort
     final allItems = [...posts, ...reposts];
@@ -899,6 +909,29 @@ class PostRepository {
           .update(updates)
           .eq('id', postId);
 
+      // If approved, award ROO to the author
+      if (action == 'approve') {
+        try {
+          final post = await _client
+              .from(SupabaseConfig.postsTable)
+              .select('author_id')
+              .eq('id', postId)
+              .single();
+
+          final authorId = post['author_id'] as String;
+          final walletRepo = WalletRepository();
+          await walletRepo.earnRoo(
+            userId: authorId,
+            activityType: RoocoinActivityType.postCreate,
+            referencePostId: postId,
+          );
+        } catch (e) {
+          debugPrint(
+            'PostRepository: Error awarding ROO on moderation approval - $e',
+          );
+        }
+      }
+
       // Also resolve any pending moderation cases for this post
       try {
         final caseUpdates = <String, dynamic>{
@@ -954,11 +987,15 @@ class PostRepository {
     }
   }
 
+  /// Minimum character count for text AI detection.
+  /// Short text posts (under 20 chars) bypass AI check.
+  static const int _minAiDetectionLength = 20;
+
   /// Run AI detection for a post in the background.
   /// Picks the right endpoint based on content type:
-  ///   - Text only → /detect/text
+  ///   - Text only → /detect/text (if text >= 50 chars)
   ///   - Media only → /detect/image (first file)
-  ///   - Both → /detect/mixed (text + first file)
+  ///   - Both → /detect/mixed (text + first file) or /detect/image if text too short
   /// Returns the confidence score on success, or null on failure.
   Future<double?> runAiDetection({
     required String postId,
@@ -967,16 +1004,57 @@ class PostRepository {
     List<File>? mediaFiles,
   }) async {
     try {
-      final hasText = body.trim().isNotEmpty;
+      final trimmedBody = body.trim();
+      // Only run text detection if text is long enough
+      final hasText = trimmedBody.length >= _minAiDetectionLength;
       final hasMedia = mediaFiles != null && mediaFiles.isNotEmpty;
+
+      // Log when short text is skipped
+      if (trimmedBody.isNotEmpty && trimmedBody.length < _minAiDetectionLength) {
+        debugPrint(
+          'PostRepository: Skipping text detection for short post $postId '
+          '(${trimmedBody.length} chars < $_minAiDetectionLength)',
+        );
+      }
+
+      // Short text-only posts: auto-publish without AI check
+      if (!hasText && !hasMedia) {
+        debugPrint(
+          'PostRepository: Auto-publishing short text-only post $postId',
+        );
+        await _updateAiScore(
+          postId: postId,
+          confidence: 0.0,
+          scoreStatus: 'pass',
+          postStatus: 'published',
+          authenticityNotes: 'Auto pass (below detection threshold)',
+        );
+        // Award ROO for the post
+        try {
+          final walletRepo = WalletRepository();
+          await walletRepo.earnRoo(
+            userId: authorId,
+            activityType: RoocoinActivityType.postCreate,
+            referencePostId: postId,
+          );
+        } catch (e) {
+          debugPrint(
+            'PostRepository: Error awarding ROO for short post - $e',
+          );
+        }
+        return 0.0;
+      }
 
       AiDetectionResult? result;
 
       if (hasText && hasMedia) {
-        result = await _aiDetectionService.detectMixed(body, mediaFiles.first);
+        // Both text and media: run mixed detection
+        result = await _aiDetectionService.detectMixed(trimmedBody, mediaFiles.first);
       } else if (hasText) {
-        result = await _aiDetectionService.detectText(body);
+        // Text only (and long enough): run text detection
+        result = await _aiDetectionService.detectText(trimmedBody);
       } else if (hasMedia) {
+        // Media only (or short text with media): run image detection
         result = await _aiDetectionService.detectImage(mediaFiles.first);
       } else {
         return null; // Nothing to detect
@@ -994,19 +1072,40 @@ class PostRepository {
             ? result.confidence
             : 100 - result.confidence;
 
-        // Map AI probability to score status & post status
+        // Map AI probability to score status & post status (aligned with API docs)
         final String scoreStatus;
         final String postStatus;
+        String? authenticityNotes = result.rationale;
 
-        if (aiProbability >= 75) {
+        if (aiProbability > 95) {
           scoreStatus = 'flagged';
-          postStatus = 'under_review'; // Stays under review
-        } else if (aiProbability >= 50) {
+          postStatus = 'deleted'; // Auto-block high-confidence AI content
+        } else if (aiProbability > 75) {
+          scoreStatus = 'flagged';
+          postStatus = 'under_review'; // Flag for review
+        } else if (aiProbability > 60) {
           scoreStatus = 'review';
-          postStatus = 'under_review'; // High enough for manual review
+          postStatus = 'published'; // Add transparency label but publish
+          authenticityNotes =
+              'HUMAN SCORE: ${(100 - aiProbability).toStringAsFixed(1)}% [REVIEW]';
         } else {
           scoreStatus = 'pass';
-          postStatus = 'published'; // Auto-publish if safe
+          postStatus = 'published'; // Auto-publish safe content
+        }
+
+        if (postStatus == 'published') {
+          try {
+            final walletRepo = WalletRepository();
+            await walletRepo.earnRoo(
+              userId: authorId,
+              activityType: RoocoinActivityType.postCreate,
+              referencePostId: postId,
+            );
+          } catch (e) {
+            debugPrint(
+              'PostRepository: Error awarding ROO on auto-publish - $e',
+            );
+          }
         }
 
         await _updateAiScore(
@@ -1017,6 +1116,14 @@ class PostRepository {
           analysisId: result.analysisId,
           verificationMethod: result.contentType,
           authenticityNotes: result.rationale,
+        );
+
+        // Send notification to author about AI check result
+        await _sendAiResultNotification(
+          userId: authorId,
+          postId: postId,
+          postStatus: postStatus,
+          aiProbability: aiProbability,
         );
 
         // Automatically create a moderation case if flagged or review required
@@ -1103,6 +1210,56 @@ class PostRepository {
           'PostRepository: PostgrestError: ${e.message}, hint: ${e.hint}, details: ${e.details}, code: ${e.code}',
         );
       }
+    }
+  }
+
+  /// Send a notification to the post author about AI detection result.
+  Future<void> _sendAiResultNotification({
+    required String userId,
+    required String postId,
+    required String postStatus,
+    required double aiProbability,
+  }) async {
+    try {
+      String title;
+      String body;
+      String type;
+
+      switch (postStatus) {
+        case 'published':
+          title = 'Post Published';
+          body = 'Your post passed verification and is now live!';
+          type = 'mention'; // Using 'mention' as valid DB type for system notifications
+          break;
+        case 'under_review':
+          title = 'Post Under Review';
+          body = 'Your post is being reviewed by our moderation team. You\'ll be notified once a decision is made.';
+          type = 'mention';
+          break;
+        case 'deleted':
+          title = 'Post Not Published';
+          body = 'Your post was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence). If you believe this is an error, please contact support.';
+          type = 'mention';
+          break;
+        default:
+          return; // Don't send notification for unknown status
+      }
+
+      await _notificationRepository.createNotification(
+        userId: userId,
+        type: type,
+        title: title,
+        body: body,
+        postId: postId,
+      );
+
+      debugPrint(
+        'PostRepository: Sent AI result notification to $userId for post $postId (status: $postStatus)',
+      );
+    } catch (e) {
+      debugPrint(
+        'PostRepository: Error sending AI result notification - $e',
+      );
     }
   }
 }

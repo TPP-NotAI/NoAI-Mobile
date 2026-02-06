@@ -1,35 +1,47 @@
-// GENERATED CODE - HAND WRITTEN FOR NOW (json_serializable stub)
+// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'story.dart';
 
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
 Story _$StoryFromJson(Map<String, dynamic> json) => Story(
-      id: json['id'] as String,
-      userId: json['user_id'] as String,
-      mediaUrl: json['media_url'] as String,
-      mediaType: json['media_type'] as String? ?? 'image',
-      viewCount: (json['view_count'] as num?)?.toInt() ?? 0,
-      expiresAt: DateTime.parse(json['expires_at'] as String),
-      createdAt: DateTime.parse(json['created_at'] as String),
-      author: User.fromJson(json['author'] as Map<String, dynamic>),
-      caption: json['caption'] as String?,
-      backgroundColor: json['background_color'] as String?,
-      textOverlay: json['text_overlay'] as String?,
-      textPosition: json['text_position'] as Map<String, dynamic>?,
-      isViewed: json['isViewed'] as bool? ?? false,
-    );
+  id: json['id'] as String,
+  userId: json['userId'] as String,
+  mediaUrl: json['mediaUrl'] as String,
+  mediaType: json['mediaType'] as String,
+  viewCount: (json['viewCount'] as num).toInt(),
+  expiresAt: DateTime.parse(json['expiresAt'] as String),
+  createdAt: DateTime.parse(json['createdAt'] as String),
+  author: User.fromJson(json['author'] as Map<String, dynamic>),
+  caption: json['caption'] as String?,
+  backgroundColor: json['backgroundColor'] as String?,
+  textOverlay: json['textOverlay'] as String?,
+  textPosition: json['textPosition'] as Map<String, dynamic>?,
+  isViewed: json['isViewed'] as bool? ?? false,
+  aiScore: (json['aiScore'] as num?)?.toDouble(),
+  status: json['status'] as String?,
+  likes: (json['likes'] as num?)?.toInt() ?? 0,
+  isLiked: json['isLiked'] as bool? ?? false,
+);
 
 Map<String, dynamic> _$StoryToJson(Story instance) => <String, dynamic>{
-      'id': instance.id,
-      'user_id': instance.userId,
-      'media_url': instance.mediaUrl,
-      'media_type': instance.mediaType,
-      'caption': instance.caption,
-      'background_color': instance.backgroundColor,
-      'text_overlay': instance.textOverlay,
-      'text_position': instance.textPosition,
-      'view_count': instance.viewCount,
-      'expires_at': instance.expiresAt.toIso8601String(),
-      'created_at': instance.createdAt.toIso8601String(),
-      'author': instance.author.toJson(),
-      'isViewed': instance.isViewed,
-    };
+  'id': instance.id,
+  'userId': instance.userId,
+  'mediaUrl': instance.mediaUrl,
+  'mediaType': instance.mediaType,
+  'caption': instance.caption,
+  'backgroundColor': instance.backgroundColor,
+  'textOverlay': instance.textOverlay,
+  'textPosition': instance.textPosition,
+  'viewCount': instance.viewCount,
+  'expiresAt': instance.expiresAt.toIso8601String(),
+  'createdAt': instance.createdAt.toIso8601String(),
+  'author': instance.author,
+  'isViewed': instance.isViewed,
+  'aiScore': instance.aiScore,
+  'status': instance.status,
+  'likes': instance.likes,
+  'isLiked': instance.isLiked,
+};

@@ -17,6 +17,10 @@ import 'report_sheet.dart';
 import 'shimmer_loading.dart';
 import 'mention_rich_text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:share_plus/share_plus.dart';
+import '../repositories/wallet_repository.dart';
+import '../services/roocoin_service.dart';
+import 'tip_modal.dart';
 
 class PostCard extends StatelessWidget {
   final Post post;
@@ -366,7 +370,7 @@ class _HeaderState extends State<_Header> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       Text(
@@ -376,6 +380,13 @@ class _HeaderState extends State<_Header> {
                           color: colors.onSurfaceVariant.withValues(alpha: 0.7),
                         ),
                       ),
+                      if (post.verificationMethod != null &&
+                          post.verificationMethod!.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        _VerificationMethodChip(
+                          method: post.verificationMethod!,
+                        ),
+                      ],
                       if (post.location != null &&
                           post.location!.isNotEmpty) ...[
                         Text(
@@ -487,8 +498,71 @@ class _RepostHeader extends StatelessWidget {
   }
 }
 
+/* ───────────────── VERIFICATION METHOD CHIP ───────────────── */
+
+class _VerificationMethodChip extends StatelessWidget {
+  final String method;
+
+  const _VerificationMethodChip({required this.method});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    // Format the display text
+    String displayText;
+    IconData icon;
+
+    switch (method.toLowerCase()) {
+      case 'text':
+        displayText = 'text';
+        icon = Icons.text_fields;
+        break;
+      case 'image':
+        displayText = 'image';
+        icon = Icons.image_outlined;
+        break;
+      case 'video':
+        displayText = 'video';
+        icon = Icons.videocam_outlined;
+        break;
+      case 'mixed':
+        displayText = 'mixed';
+        icon = Icons.layers_outlined;
+        break;
+      default:
+        // For "ML Detection API" or other custom methods
+        displayText = method;
+        icon = Icons.smart_toy_outlined;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: colors.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Text(
+            displayText,
+            style: TextStyle(
+              fontSize: 10,
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /* ───────────────── ML SCORE BADGE ───────────────── */
-// ... (ML Score Badge unchanged)
 
 class _MlScoreBadge extends StatelessWidget {
   final double? score;
@@ -504,6 +578,22 @@ class _MlScoreBadge extends StatelessWidget {
     final Color bgColor;
     final String label;
 
+    // Convert AI confidence score to Human score (invert it)
+    // API returns AI probability, we display Human probability
+    final double? humanScore = score != null ? 100 - score! : null;
+
+    // API Thresholds (AI confidence):
+    // - 95%+ AI = BLOCK (auto-block)
+    // - 75-94% AI = FLAG (flag for review)
+    // - 60-74% AI = LABEL (add transparency label)
+    // - <60% AI = ALLOW (no action)
+    //
+    // Inverted for Human Score display:
+    // - <5% human = BLOCKED
+    // - 5-25% human = FLAG/REVIEW
+    // - 26-40% human = LABEL
+    // - >40% human = PASS
+
     if (isModerated) {
       badgeColor = const Color(0xFFF59E0B); // Amber
       bgColor = const Color(0xFF451A03);
@@ -511,21 +601,27 @@ class _MlScoreBadge extends StatelessWidget {
     } else if (isPending) {
       badgeColor = const Color(0xFF9CA3AF);
       bgColor = const Color(0xFF1F2937);
-      label = 'ML SCORE: PENDING';
-    } else if (score! < 50) {
+      label = 'HUMAN SCORE: PENDING';
+    } else if (humanScore! > 40) {
+      // >40% human (AI <60%) = PASS
       badgeColor = const Color(0xFF10B981);
       bgColor = const Color(0xFF052E1C);
-      label = 'ML SCORE: ${score!.toStringAsFixed(2)}% [PASS]';
-    } else if (score! < 75) {
-      // 50-75% is Review/Uncertain (Not hidden, but flagged as potential)
+      label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [PASS]';
+    } else if (humanScore > 25) {
+      // 26-40% human (AI 60-74%) = LABEL (transparency notice)
       badgeColor = const Color(0xFFF59E0B); // Amber
       bgColor = const Color(0xFF451A03);
-      label = 'ML SCORE: ${score!.toStringAsFixed(2)}% [REVIEW]';
-    } else {
-      // 75%+ is High Probability AI
+      label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [REVIEW]';
+    } else if (humanScore > 5) {
+      // 5-25% human (AI 75-94%) = FLAG for review
       badgeColor = const Color(0xFFEF4444);
       bgColor = const Color(0xFF2D0F0F);
-      label = 'ML SCORE: ${score!.toStringAsFixed(2)}% [AI DETECTED]';
+      label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [FLAG]';
+    } else {
+      // <5% human (AI 95%+) = BLOCKED
+      badgeColor = const Color(0xFFEF4444);
+      bgColor = const Color(0xFF2D0F0F);
+      label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [AI DETECTED]';
     }
 
     return Container(
@@ -1063,9 +1159,11 @@ class _Actions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final feedProvider = context.watch<FeedProvider>();
+    final currentUserId = context.read<AuthProvider>().currentUser?.id;
     final isBookmarked = feedProvider.isBookmarked(post.id);
     final isReposted = feedProvider.isReposted(post.id);
     final repostCount = feedProvider.getRepostCount(post.id);
+    final isSelf = currentUserId == post.authorId;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -1090,12 +1188,23 @@ class _Actions extends StatelessWidget {
             isReposted: isReposted,
             onTap: () => _handleRepost(context, feedProvider),
           ),
-          const SizedBox(width: 4),
-          _ActionButton(
-            icon: Icons.toll,
-            label: post.tips > 0 ? _format(post.tips.toInt()) : null,
-            onTap: onTipTap,
-          ),
+          if (!isSelf) ...[
+            const SizedBox(width: 4),
+            _ActionButton(
+              icon: Icons.toll,
+              label: post.tips > 0 ? _format(post.tips.toInt()) : null,
+              onTap:
+                  onTipTap ??
+                  () {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      isScrollControlled: true,
+                      builder: (context) => TipModal(post: post),
+                    );
+                  },
+            ),
+          ],
           const Spacer(),
           _ActionButton(
             icon: isBookmarked ? Icons.bookmark : Icons.bookmark_border,
@@ -1104,8 +1213,8 @@ class _Actions extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           _ActionButton(
-            icon: Icons.flag_outlined,
-            onTap: () => _handleReport(context),
+            icon: Icons.share_outlined,
+            onTap: () => _handleShare(context),
           ),
         ],
       ),
@@ -1169,20 +1278,48 @@ class _Actions extends StatelessWidget {
       );
   }
 
-  void _handleReport(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => ReportSheet(
-        reportType: 'post',
-        referenceId: post.id,
-        reportedUserId: post.author.userId ?? '',
-        username: post.author.username,
-      ),
-    );
+  void _handleShare(BuildContext context) async {
+    try {
+      // Create share text
+      final shareText = post.title != null && post.title!.isNotEmpty
+          ? '${post.title}\n\n${post.content}\n\nShared from ROOVERSE'
+          : '${post.content}\n\nShared from ROOVERSE';
+
+      // Share using native share dialog
+      await Share.share(
+        shareText,
+        subject: post.title ?? 'Check out this post on ROOVERSE',
+      );
+
+      // Award 5 ROO to post author for the share
+      if (post.authorId.isNotEmpty) {
+        try {
+          final walletRepo = WalletRepository();
+          await walletRepo.earnRoo(
+            userId: post.authorId,
+            activityType: RoocoinActivityType.postShare,
+            referencePostId: post.id,
+          );
+        } catch (e) {
+          debugPrint('Error awarding share ROO: $e');
+        }
+      }
+
+      // Show success message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Post shared! Author earned 5 ROO 🎉'),
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
+    } catch (e) {
+      debugPrint('Error sharing post: $e');
+    }
   }
 
   String _format(int n) {

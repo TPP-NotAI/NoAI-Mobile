@@ -8,7 +8,7 @@ import '../repositories/tag_repository.dart';
 import '../widgets/post_card.dart';
 import '../widgets/comments_sheet.dart';
 import '../widgets/tip_modal.dart';
-import 'package:noai/widgets/shimmer_loading.dart';
+import 'package:rooverse/widgets/shimmer_loading.dart';
 import 'profile/profile_screen.dart';
 
 class HashtagFeedScreen extends StatefulWidget {
