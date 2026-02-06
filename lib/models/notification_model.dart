@@ -149,6 +149,25 @@ class NotificationModel {
         return '$actorName mentioned you';
       case 'follow':
         return '$actorName started following you';
+      // AI Check notification types
+      case 'post_published':
+        return 'Post Published';
+      case 'post_review':
+        return 'Post Under Review';
+      case 'post_flagged':
+        return 'Post Not Published';
+      case 'comment_published':
+        return 'Comment Published';
+      case 'comment_review':
+        return 'Comment Under Review';
+      case 'comment_flagged':
+        return 'Comment Not Published';
+      case 'story_published':
+        return 'Story Published';
+      case 'story_review':
+        return 'Story Under Review';
+      case 'story_flagged':
+        return 'Story Not Published';
       default:
         return title ?? 'New notification';
     }
@@ -222,9 +241,36 @@ class NotificationModel {
         return '@';
       case 'follow':
         return '👤';
+      // ROO transfer notifications
+      case 'roocoin_received':
+        return '💰';
+      case 'roocoin_sent':
+        return '💸';
+      // AI Check notification types
+      case 'post_published':
+      case 'comment_published':
+      case 'story_published':
+        return '✅';
+      case 'post_review':
+      case 'comment_review':
+      case 'story_review':
+        return '🔍';
+      case 'post_flagged':
+      case 'comment_flagged':
+      case 'story_flagged':
+        return '⚠️';
       default:
         return '🔔';
     }
+  }
+
+  /// Check if this is a system notification (no actor)
+  bool get isSystemNotification {
+    return type.startsWith('post_') ||
+        type.startsWith('comment_') ||
+        type.startsWith('story_') ||
+        type == 'roocoin_received' ||
+        type == 'roocoin_sent';
   }
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) =>

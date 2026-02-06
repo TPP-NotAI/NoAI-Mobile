@@ -27,10 +27,7 @@ class HumanVerificationBadge extends StatelessWidget {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 5,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: AppColors.success.withValues(alpha: 0.15),
                 border: Border.all(color: AppColors.success, width: 1.5),
@@ -39,10 +36,14 @@ class HumanVerificationBadge extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.check_circle, size: 14, color: AppColors.success),
+                  const Icon(
+                    Icons.check_circle,
+                    size: 14,
+                    color: AppColors.success,
+                  ),
                   const SizedBox(width: 6),
                   Text(
-                    'ML SCORE: $aiPercentage% [${isPassed ? 'PASS' : 'FAIL'}]',
+                    'HUMAN SCORE: $aiPercentage% [${isPassed ? 'PASS' : 'FAIL'}]',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,

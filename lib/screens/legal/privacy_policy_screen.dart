@@ -50,7 +50,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
             _buildParagraph(
               context,
-              'At NOAI, we are committed to protecting your privacy and ensuring transparency in how we collect, use, and protect your personal information. This Privacy Policy explains our data practices.',
+              'At ROOVERSE, we are committed to protecting your privacy and ensuring transparency in how we collect, use, and protect your personal information. This Privacy Policy explains our data practices.',
             ),
 
             const SizedBox(height: 32),
@@ -248,7 +248,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             _buildSectionTitle(context, '10. Children\'s Privacy'),
             _buildParagraph(
               context,
-              'NOAI is not intended for children under 13. We do not knowingly collect data from children.',
+              'ROOVERSE is not intended for children under 13. We do not knowingly collect data from children.',
             ),
 
             const SizedBox(height: 24),
@@ -287,7 +287,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Email: privacy@noai.social',
+                    'Email: privacy@rooverse.social',
                     style: TextStyle(
                       fontSize: 14,
                       color: scheme.onSurface.withOpacity(0.7),
@@ -295,7 +295,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Data Protection Officer: dpo@noai.social',
+                    'Data Protection Officer: dpo@rooverse.social',
                     style: TextStyle(
                       fontSize: 14,
                       color: scheme.onSurface.withOpacity(0.7),

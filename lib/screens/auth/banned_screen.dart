@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:noai/screens/support/contact_support_screen.dart'; // Ensure the correct import path
+import 'package:rooverse/screens/support/contact_support_screen.dart'; // Ensure the correct import path
 
 class BannedScreen extends StatelessWidget {
   const BannedScreen({Key? key}) : super(key: key);

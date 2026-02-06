@@ -68,7 +68,7 @@ class ReportConfirmationDialog extends StatelessWidget {
           // Message
           Text(
             type == 'post'
-                ? 'Thank you for helping keep NOAI safe. We\'ll review this post and take appropriate action if needed.'
+                ? 'Thank you for helping keep ROOVERSE safe. We\'ll review this post and take appropriate action if needed.'
                 : username != null
                     ? 'Thank you for reporting @$username. We\'ll review this profile and take appropriate action if needed.'
                     : 'Thank you for your report. We\'ll review this and take appropriate action if needed.',

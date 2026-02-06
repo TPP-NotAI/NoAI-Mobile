@@ -17,6 +17,7 @@ import '../../repositories/mention_repository.dart';
 import '../../widgets/mention_autocomplete_field.dart';
 import '../../models/post.dart';
 import '../../services/supabase_service.dart';
+import '../../config/supabase_config.dart';
 import '../../services/storage_service.dart';
 import '../../services/roocoin_service.dart';
 
@@ -43,6 +44,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   // Character limit constant
   static const int _maxCharacterLimit = 280;
+  double _postCostRoo = 10.0; // Default posting cost in ROO
+  bool _isLoadingPostCost = false;
+  static const Duration _postCostCacheTtl = Duration(hours: 6);
 
   // Media state
   final List<File> _selectedMediaFiles = [];
@@ -71,11 +75,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   bool _isInitialLoad = true;
   bool _hasSavedDraft = false;
   final StorageService _storageService = StorageService();
+  bool _postCostLoadFailed = false;
 
   @override
   void initState() {
     super.initState();
     _postType = widget.initialPostType ?? 'Text';
+    _loadCachedPostCost();
+    _loadPostCost();
     _checkForSavedDraft().then((_) {
       _loadDraft().then((_) {
         // Add listener after draft is loaded to prevent auto-save notifications
@@ -83,6 +90,72 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         _titleController.addListener(_onContentChanged);
       });
     });
+  }
+
+  void _loadCachedPostCost() {
+    try {
+      final cached = _storageService.getString('post_cost_rc');
+      final cachedTs = _storageService.getString('post_cost_rc_ts');
+      if (cached != null &&
+          cached.isNotEmpty &&
+          cachedTs != null &&
+          cachedTs.isNotEmpty) {
+        final value = double.tryParse(cached);
+        final ts = int.tryParse(cachedTs);
+        if (value != null && value > 0 && ts != null) {
+          final age = DateTime.now().difference(
+            DateTime.fromMillisecondsSinceEpoch(ts),
+          );
+          if (age <= _postCostCacheTtl) {
+            _postCostRoo = value;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('CreatePostScreen: Failed to load cached post cost - $e');
+    }
+  }
+
+  Future<void> _loadPostCost() async {
+    if (_isLoadingPostCost) return;
+    _isLoadingPostCost = true;
+    try {
+      final response = await SupabaseService()
+          .client
+          .from(SupabaseConfig.platformConfigTable)
+          .select('default_publish_fee_rc')
+          .eq('id', 1)
+          .maybeSingle();
+
+      if (response != null) {
+        final fee =
+            (response['default_publish_fee_rc'] as num?)?.toDouble() ?? 10.0;
+        // Only update if fee is valid (> 0), otherwise keep default
+        final effectiveFee = fee > 0 ? fee : 10.0;
+        if (mounted) {
+          setState(() {
+            _postCostRoo = effectiveFee;
+          });
+        }
+        await _storageService.setString('post_cost_rc', effectiveFee.toString());
+        await _storageService.setString(
+          'post_cost_rc_ts',
+          DateTime.now().millisecondsSinceEpoch.toString(),
+        );
+      }
+    } catch (e) {
+      debugPrint('CreatePostScreen: Failed to load post cost - $e');
+      if (mounted && !_postCostLoadFailed) {
+        _postCostLoadFailed = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not refresh ROO posting fee. Using cached value.'),
+          ),
+        );
+      }
+    } finally {
+      _isLoadingPostCost = false;
+    }
   }
 
   @override
@@ -548,6 +621,59 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primaryContainer
+                        .withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.toll,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_postCostRoo.toStringAsFixed(_postCostRoo % 1 == 0 ? 0 : 2)} ROO will be used',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'This amount will be deducted from your wallet',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 // Preview using a simplified PostCard
                 Container(
                   decoration: BoxDecoration(
@@ -792,7 +918,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     // Check balance
     // TODO: Fetch this from PlatformConfig. Server currently errors on spending for POST_CREATE (500).
     // Temporarily setting to 0.0 to allow posting.
-    const postCost = 0.0;
+    final double postCost = _postCostRoo;
     if (postCost > 0 && wallet.balanceRc < postCost) {
       if (!mounted) return false;
       showDialog(
@@ -820,32 +946,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       return false;
     }
 
-    // Confirm Payment
+    // Process Payment (user already confirmed in preview dialog)
     if (postCost > 0) {
-      if (!mounted) return false;
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Confirm Post'),
-          content: Text(
-            'Posting to the public feed costs $postCost ROO. Do you want to proceed?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Pay & Post'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmed != true) return false;
-
-      // Process Payment
       try {
         await walletProvider.spendRoo(
           userId: user.id,
@@ -861,9 +963,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         }
         return false;
       }
-    } else {
-      // Free post
-      return true;
     }
 
     return true;
@@ -951,8 +1050,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         // ROO reward is now handled in PostRepository upon successful publication
         // (either via auto-approval or admin moderation)
 
-        // Show success confirmation dialog
-        await _showSuccessDialog();
+        // Show success snackbar (non-blocking)
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Post published successfully!'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
 
         // Clear the form and draft
         _contentController.clear();
@@ -990,33 +1096,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         setState(() => _isPosting = false);
       }
     }
-  }
-
-  Future<void> _showSuccessDialog() async {
-    return showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Post Created!'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 64),
-            SizedBox(height: 16),
-            Text(
-              'Your post has been successfully published to the public feed.',
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -1092,21 +1171,34 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     child: const Text('Discard'),
                   ),
                   const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed:
-                        !hasContent || _isPosting || !_certifyHumanGenerated
-                        ? null
-                        : _showPreviewDialog,
-                    child: _isPosting
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Post'),
+                  Builder(
+                    builder: (context) {
+                      final postButton = FilledButton(
+                        onPressed:
+                            !hasContent || _isPosting || !_certifyHumanGenerated
+                            ? null
+                            : _showPreviewDialog,
+                        child: _isPosting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Post'),
+                      );
+
+                      if (_postCostRoo > 0) {
+                        return Tooltip(
+                          message:
+                              'You’ll be charged ${_postCostRoo.toStringAsFixed(2)} ROO',
+                          child: postButton,
+                        );
+                      }
+                      return postButton;
+                    },
                   ),
                 ],
               ),

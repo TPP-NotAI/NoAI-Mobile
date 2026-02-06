@@ -184,7 +184,7 @@ class _TransactionItem extends StatelessWidget {
         icon = Icons.card_giftcard;
         iconColor = Colors.purple;
         title = 'Signup Bonus';
-        subtitle = 'Welcome to NOAI!';
+        subtitle = 'Welcome to ROOVERSE!';
         amountStr = '+${amountRc.toStringAsFixed(2)}';
         amountColor = Colors.green;
         break;

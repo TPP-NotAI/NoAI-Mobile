@@ -551,18 +551,59 @@ class CommentRepository {
   // AI DETECTION FOR COMMENTS
   // ─────────────────────────────────────────────────────────────────────────
 
+  /// Minimum character count for AI detection.
+  /// Short comments (greetings, reactions) are auto-published without AI check.
+  static const int _minAiDetectionLength = 50;
+
   /// Run AI detection on a comment's text.
   /// Updates the comment's ai_score and status based on the result.
   /// Returns the AI probability score on success, or null on failure.
+  /// Comments shorter than [_minAiDetectionLength] are auto-published.
   Future<double?> runAiDetection({
     required String commentId,
     required String authorId,
     required String body,
   }) async {
-    if (body.trim().isEmpty) return null;
+    final trimmedBody = body.trim();
+    if (trimmedBody.isEmpty) return null;
+
+    // Short comments are auto-published without AI detection.
+    // AI detection APIs don't work well with very short text.
+    if (trimmedBody.length < _minAiDetectionLength) {
+      debugPrint(
+        'CommentRepository: Skipping AI detection for short comment $commentId '
+        '(${trimmedBody.length} chars < $_minAiDetectionLength)',
+      );
+
+      // Auto-publish the comment
+      await _client
+          .from(SupabaseConfig.commentsTable)
+          .update({
+            'status': 'published',
+            'ai_score': 0.0,
+            'ai_score_status': 'pass',
+          })
+          .eq('id', commentId);
+
+      // Award ROO for the comment
+      try {
+        final walletRepo = WalletRepository();
+        await walletRepo.earnRoo(
+          userId: authorId,
+          activityType: RoocoinActivityType.postComment,
+          referenceCommentId: commentId,
+        );
+      } catch (e) {
+        debugPrint(
+          'CommentRepository: Error awarding ROO for short comment - $e',
+        );
+      }
+
+      return 0.0; // Return 0 AI probability (human)
+    }
 
     try {
-      final result = await _aiDetectionService.detectText(body);
+      final result = await _aiDetectionService.detectText(trimmedBody);
 
       if (result != null) {
         // Convert API confidence to AI probability (same logic as posts)
@@ -573,17 +614,24 @@ class CommentRepository {
             ? result.confidence
             : 100 - result.confidence;
 
-        // Determine new status based on AI probability
+        // Determine new status based on AI probability (aligned with API docs)
         final String newStatus;
         String scoreStatus = 'pass';
-        if (aiProbability >= 75) {
-          newStatus = 'under_review'; // High AI probability → hide & review
+        String? authenticityNotes = result.rationale;
+
+        if (aiProbability > 95) {
+          newStatus = 'deleted'; // Auto-block high-confidence AI content
           scoreStatus = 'flagged';
-        } else if (aiProbability >= 50) {
-          newStatus = 'under_review'; // Medium → still flag for review
+        } else if (aiProbability > 75) {
+          newStatus = 'under_review'; // Flag for review
+          scoreStatus = 'flagged';
+        } else if (aiProbability > 60) {
+          newStatus = 'published'; // Add transparency label but publish
           scoreStatus = 'review';
+          authenticityNotes =
+              'HUMAN SCORE: ${(100 - aiProbability).toStringAsFixed(1)}% [REVIEW]';
         } else {
-          newStatus = 'published'; // Low → keep published
+          newStatus = 'published'; // Auto-publish safe content
           scoreStatus = 'pass';
         }
 
@@ -595,6 +643,11 @@ class CommentRepository {
               'status': newStatus,
               'ai_score_status': scoreStatus,
               'verification_session_id': result.analysisId,
+              'ai_metadata': {
+                'authenticity_notes': authenticityNotes,
+                'consensus_strength': result.consensusStrength,
+                'rationale': result.rationale,
+              },
             })
             .eq('id', commentId);
 
@@ -603,8 +656,16 @@ class CommentRepository {
           'score=$aiProbability, status=$newStatus',
         );
 
-        // Create moderation case if flagged
-        if (aiProbability >= 50) {
+        // Send notification to author about AI check result
+        await _sendAiResultNotification(
+          userId: authorId,
+          commentId: commentId,
+          commentStatus: newStatus,
+          aiProbability: aiProbability,
+        );
+
+        // Create moderation case if flagged or review required
+        if (scoreStatus == 'flagged' || scoreStatus == 'review') {
           await _createModerationCase(
             commentId: commentId,
             authorId: authorId,
@@ -795,6 +856,54 @@ class CommentRepository {
     } catch (e) {
       debugPrint('CommentRepository: Error moderating comment $commentId - $e');
       return false;
+    }
+  }
+
+  /// Send a notification to the comment author about AI detection result.
+  Future<void> _sendAiResultNotification({
+    required String userId,
+    required String commentId,
+    required String commentStatus,
+    required double aiProbability,
+  }) async {
+    try {
+      String title;
+      String body;
+      String type;
+
+      switch (commentStatus) {
+        case 'published':
+          // Don't notify for published comments - too noisy
+          return;
+        case 'under_review':
+          title = 'Comment Under Review';
+          body = 'Your comment is being reviewed by our moderation team.';
+          type = 'mention'; // Using 'mention' as valid DB type for system notifications
+          break;
+        case 'deleted':
+          title = 'Comment Not Published';
+          body = 'Your comment was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence).';
+          type = 'mention';
+          break;
+        default:
+          return; // Don't send notification for unknown status
+      }
+
+      await _notificationRepository.createNotification(
+        userId: userId,
+        type: type,
+        title: title,
+        body: body,
+        commentId: commentId,
+      );
+
+      debugPrint(
+        'CommentRepository: Sent AI result notification to $userId for comment $commentId (status: $commentStatus)',
+      );
+    } catch (e) {
+      debugPrint(
+        'CommentRepository: Error sending AI result notification - $e',
+      );
     }
   }
 }

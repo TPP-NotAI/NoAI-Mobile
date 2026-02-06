@@ -26,11 +26,11 @@ class AiDetectionResult {
   factory AiDetectionResult.fromJson(Map<String, dynamic> json) {
     return AiDetectionResult(
       analysisId: json['analysis_id'] as String? ?? '',
-      result: json['final_result'] as String? ?? 'HUMAN-GENERATED',
-      confidence: (json['final_confidence'] as num?)?.toDouble() ?? 0.0,
+      result: json['result'] as String? ?? 'HUMAN-GENERATED',
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
       contentType: json['content_type'] as String? ?? '',
       consensusStrength: json['consensus_strength'] as String?,
-      rationale: json['final_rationale'] as String?,
+      rationale: json['rationale'] as String?,
       combinedEvidence: (json['combined_evidence'] as List<dynamic>?)
           ?.map((e) => e.toString())
           .toList(),

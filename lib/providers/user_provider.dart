@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:noai/models/user.dart'
+import 'package:rooverse/models/user.dart'
     as app_models; // Alias your custom User model
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
@@ -8,6 +8,7 @@ import '../repositories/follow_repository.dart';
 import '../repositories/block_repository.dart';
 import '../repositories/report_repository.dart';
 import '../repositories/mute_repository.dart';
+import '../repositories/wallet_repository.dart';
 
 class UserProvider with ChangeNotifier {
   final SupabaseService _supabase = SupabaseService();
@@ -15,6 +16,7 @@ class UserProvider with ChangeNotifier {
   late final BlockRepository _blockRepository;
   late final MuteRepository _muteRepository;
   final ReportRepository _reportRepository = ReportRepository();
+  final WalletRepository _walletRepository = WalletRepository();
 
   List<app_models.User> _users = [];
   app_models.User? _currentUser;
@@ -371,76 +373,34 @@ class UserProvider with ChangeNotifier {
     required String toUsername,
     required double amount,
     String? memo,
+    String? referencePostId,
+    String? referenceCommentId,
+    Map<String, dynamic>? metadata,
   }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // 1. Find receiver ID by username
-      final receiverResponse = await _supabase.client
-          .from(SupabaseConfig.profilesTable)
-          .select('user_id')
-          .eq('username', toUsername)
-          .maybeSingle();
+      debugPrint(
+        'UserProvider: Transferring $amount ROO from $fromUserId to @$toUsername...',
+      );
 
-      if (receiverResponse == null) {
-        throw Exception('User @$toUsername not found');
-      }
+      final resolved = await resolveUsernameToAddress(toUsername);
+      final recipientUserId = resolved['userId']!;
+      final recipientAddress = resolved['address']!;
 
-      final String toUserId = receiverResponse['user_id'] as String;
+      await _walletRepository.transferToExternal(
+        userId: fromUserId,
+        toAddress: recipientAddress,
+        amount: amount,
+        memo: memo,
+        referencePostId: referencePostId,
+        referenceCommentId: referenceCommentId,
+        metadata: metadata,
+      );
 
-      // 2. We should ideally use a transaction or RPC here.
-      // Since we are client-side, we'll do sequential updates.
-      // NOTE: In production, this MUST be an atomic RPC function on the server.
-
-      // Get current balance to verify again (safety)
-      final balanceResponse = await _supabase.client
-          .from(SupabaseConfig.walletsTable)
-          .select('balance_rc')
-          .eq('user_id', fromUserId)
-          .single();
-
-      final currentBalance = (balanceResponse['balance_rc'] as num).toDouble();
-      if (currentBalance < amount) {
-        throw Exception('Insufficient balance');
-      }
-
-      // Debit sender
-      await _supabase.client
-          .from(SupabaseConfig.walletsTable)
-          .update({'balance_rc': currentBalance - amount})
-          .eq('user_id', fromUserId);
-
-      // Credit receiver
-      final receiverBalanceResponse = await _supabase.client
-          .from(SupabaseConfig.walletsTable)
-          .select('balance_rc')
-          .eq('user_id', toUserId)
-          .single();
-
-      final receiverBalance = (receiverBalanceResponse['balance_rc'] as num)
-          .toDouble();
-
-      await _supabase.client
-          .from(SupabaseConfig.walletsTable)
-          .update({'balance_rc': receiverBalance + amount})
-          .eq('user_id', toUserId);
-
-      // Record transaction
-      await _supabase.client
-          .from(SupabaseConfig.roocoinTransactionsTable)
-          .insert({
-            'from_user_id': fromUserId,
-            'to_user_id': toUserId,
-            'amount_rc': amount,
-            'tx_type': 'transfer',
-            'memo': memo,
-            'status': 'completed',
-            'completed_at': DateTime.now().toIso8601String(),
-          });
-
-      // Refresh data
+      // Refresh local user data to show updated balance
       await fetchUser(fromUserId);
       await fetchTransactions(fromUserId);
 
@@ -453,6 +413,50 @@ class UserProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<Map<String, String>> resolveUsernameToAddress(String username) async {
+    final cleanUsername = username.startsWith('@')
+        ? username.substring(1)
+        : username;
+    if (cleanUsername.trim().isEmpty) {
+      throw Exception('Username is required');
+    }
+
+    final recipientProfile = await _supabase.client
+        .from(SupabaseConfig.profilesTable)
+        .select('user_id')
+        .ilike('username', cleanUsername)
+        .maybeSingle();
+
+    if (recipientProfile == null) {
+      throw Exception('User @$cleanUsername not found');
+    }
+
+    final recipientUserId = recipientProfile['user_id'] as String;
+
+    final recipientWallet = await _supabase.client
+        .from(SupabaseConfig.walletsTable)
+        .select('wallet_address')
+        .eq('user_id', recipientUserId)
+        .maybeSingle();
+
+    final recipientAddress =
+        recipientWallet?['wallet_address'] as String? ?? '';
+
+    if (recipientAddress.startsWith('PENDING_ACTIVATION_')) {
+      throw Exception('User @$cleanUsername has not activated their wallet yet');
+    }
+
+    final evmRegex = RegExp(r'^0x[a-fA-F0-9]{40}$');
+    if (!evmRegex.hasMatch(recipientAddress)) {
+      throw Exception('User @$cleanUsername has not activated their wallet yet');
+    }
+
+    return {
+      'userId': recipientUserId,
+      'address': recipientAddress,
+    };
   }
 
   // Update user profile
@@ -776,4 +780,43 @@ class UserProvider with ChangeNotifier {
 
     return success;
   }
+  // ─────────────────────────────────────────────────────────────────────────
+  // USER SEARCH
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Search users by username or display name.
+  Future<List<app_models.User>> searchUsers(String query) async {
+    if (query.trim().isEmpty) return [];
+    _isLoading =
+        true; // Optional: might not want to set global loading for local search
+    notifyListeners();
+
+    try {
+      final response = await _supabase.client
+          .from(SupabaseConfig.profilesTable)
+          .select('*, ${SupabaseConfig.walletsTable}(*)')
+          .or('username.ilike.%$query%,display_name.ilike.%$query%')
+          .limit(20);
+
+      final users = (response as List)
+          .map(
+            (json) => app_models.User.fromSupabase(
+              json,
+              wallet: json[SupabaseConfig.walletsTable],
+            ),
+          )
+          .toList();
+
+      return users;
+    } catch (e) {
+      debugPrint('UserProvider: Error searching users - $e');
+      return [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MUTE / UNMUTE (Existing code follows...)
 }

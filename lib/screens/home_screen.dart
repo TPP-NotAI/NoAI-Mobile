@@ -48,7 +48,7 @@ class HomeScreen extends StatelessWidget {
 
                 // Subtitle
                 Text(
-                  'Explore trending conversations and\nhuman-verified content on NOAI.',
+                  'Explore trending conversations and\nhuman-verified content on ROOVERSE.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.onSurfaceVariant,

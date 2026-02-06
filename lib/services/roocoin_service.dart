@@ -38,7 +38,15 @@ class RoocoinService {
       headers['Authorization'] = 'Bearer $token';
     }
 
-    debugPrint('RoocoinService: Computed headers: $headers');
+    final maskedHeaders = Map<String, String>.from(headers);
+    if (maskedHeaders.containsKey('x-api-key')) {
+      maskedHeaders['x-api-key'] = '***${key.substring(min(key.length, 5))}';
+    }
+    if (maskedHeaders.containsKey('Authorization')) {
+      maskedHeaders['Authorization'] = 'Bearer ***';
+    }
+
+    debugPrint('RoocoinService: Computed headers: $maskedHeaders');
     return headers;
   }
 

@@ -5,8 +5,8 @@ import '../../config/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
-import 'package:noai/services/referral_service.dart';
-import 'package:noai/services/supabase_service.dart';
+import 'package:rooverse/services/referral_service.dart';
+import 'package:rooverse/services/supabase_service.dart';
 
 class SignupScreen extends StatefulWidget {
   final VoidCallback onSignup;
@@ -263,7 +263,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   children: const [
                     TextSpan(text: 'Secure your identity on '),
                     TextSpan(
-                      text: 'NOAI',
+                      text: 'ROOVERSE',
                       style: TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,

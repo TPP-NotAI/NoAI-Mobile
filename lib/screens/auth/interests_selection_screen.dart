@@ -266,7 +266,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'NOAI',
+                                'ROOVERSE',
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,

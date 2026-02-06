@@ -13,6 +13,7 @@ import 'providers/language_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/story_provider.dart';
 import 'providers/wallet_provider.dart';
+import 'providers/staking_provider.dart';
 import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'services/presence_service.dart';
@@ -43,6 +44,7 @@ import 'utils/platform_utils.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
 import 'screens/auth/banned_screen.dart';
 import 'services/daily_login_service.dart';
+import 'widgets/welcome_dialog.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -75,6 +77,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => WalletProvider()),
+        ChangeNotifierProvider(create: (_) => StakingProvider()),
         Provider(create: (_) => DeepLinkService()),
       ],
       child: Consumer<ThemeProvider>(
@@ -319,16 +322,16 @@ class _MainShellState extends State<MainShell> {
   void _checkWelcomeBonus() {
     final walletProvider = context.read<WalletProvider>();
     if (walletProvider.wasWelcomeBonusAwarded && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            '🎉Welcome! You\'ve received 100 ROO as a registration bonus!',
-          ),
-          backgroundColor: Colors.blueAccent,
-          duration: Duration(seconds: 5),
-        ),
-      );
       walletProvider.consumeWelcomeBonus();
+      WelcomeDialog.show(
+        context,
+        onViewWallet: () {
+          setState(() => _index = 2);
+        },
+        onStartExploring: () {
+          // Stay on feed (index 0)
+        },
+      );
     }
   }
 
@@ -357,7 +360,7 @@ class _MainShellState extends State<MainShell> {
       if (rewarded && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('🎁 Daily login bonus! You earned 5 ROO!'),
+            content: Text('🎁 Daily login bonus! You earned 1 ROO!'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 3),
           ),
@@ -439,7 +442,7 @@ class _MainShellState extends State<MainShell> {
 
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: const NoaiAppBar(),
+      appBar: const RooverseAppBar(),
       body: SafeArea(
         child: IndexedStack(index: _index, children: _screens),
       ),
@@ -453,11 +456,11 @@ class _MainShellState extends State<MainShell> {
 }
 
 /* ───────────────────────────────────────────── */
-/* NOAI WEB-PARITY APP BAR                        */
+/* ROOVERSE WEB-PARITY APP BAR                    */
 /* ───────────────────────────────────────────── */
 
-class NoaiAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const NoaiAppBar({super.key});
+class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const RooverseAppBar({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -475,7 +478,7 @@ class NoaiAppBar extends StatelessWidget implements PreferredSizeWidget {
           const Text('🛡️', style: TextStyle(fontSize: 22)),
           const SizedBox(width: 8),
           Text(
-            'NOAI',
+            'ROOVERSE',
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 18,

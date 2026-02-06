@@ -70,7 +70,7 @@ class FAQScreen extends StatelessWidget {
                 _FAQItem(
                   question: 'How do I create an account?',
                   answer:
-                      'Tap "Sign Up" on the login screen, enter your email and username, accept the NOAI Content Policy, and complete email verification. You\'ll then need to complete human verification to access all features.',
+                      'Tap "Sign Up" on the login screen, enter your email and username, accept the ROOVERSE Content Policy, and complete email verification. You\'ll then need to complete human verification to access all features.',
                 ),
                 _FAQItem(
                   question: 'What is human verification?',
@@ -80,7 +80,7 @@ class FAQScreen extends StatelessWidget {
                 _FAQItem(
                   question: 'Can I use AI tools to help create content?',
                   answer:
-                      'No. NOAI strictly prohibits AI-generated content. All posts, comments, and media must be created entirely by humans.',
+                      'No. ROOVERSE strictly prohibits AI-generated content. All posts, comments, and media must be created entirely by humans.',
                 ),
               ],
             ),
@@ -96,7 +96,7 @@ class FAQScreen extends StatelessWidget {
                 _FAQItem(
                   question: 'What is RooCoin (ROO)?',
                   answer:
-                      'RooCoin is NOAI\'s native cryptocurrency token. You earn ROO by posting quality content, engaging authentically, and contributing to the community.',
+                      'RooCoin is ROOVERSE\'s native cryptocurrency token. You earn ROO by posting quality content, engaging authentically, and contributing to the community.',
                 ),
                 _FAQItem(
                   question: 'How do I earn RooCoin?',

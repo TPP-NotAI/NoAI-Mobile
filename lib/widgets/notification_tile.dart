@@ -35,18 +35,27 @@ class NotificationTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Actor Avatar with Badge
+            // Avatar with Badge - System notifications show shield icon
             Stack(
               children: [
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: colors.surfaceVariant,
-                  backgroundImage: notification.actor?.avatarUrl != null
+                  backgroundColor: _isSystemNotification(notification.type)
+                      ? _getBadgeColor(notification.type).withOpacity(0.15)
+                      : colors.surfaceVariant,
+                  backgroundImage: !_isSystemNotification(notification.type) &&
+                          notification.actor?.avatarUrl != null
                       ? NetworkImage(notification.actor!.avatarUrl!)
                       : null,
-                  child: notification.actor?.avatarUrl == null
-                      ? Icon(Icons.person, color: colors.onSurfaceVariant)
-                      : null,
+                  child: _isSystemNotification(notification.type)
+                      ? Icon(
+                          Icons.shield,
+                          color: _getBadgeColor(notification.type),
+                          size: 24,
+                        )
+                      : notification.actor?.avatarUrl == null
+                          ? Icon(Icons.person, color: colors.onSurfaceVariant)
+                          : null,
                 ),
                 Positioned(
                   right: 0,
@@ -74,25 +83,37 @@ class NotificationTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  RichText(
-                    text: TextSpan(
+                  // System notifications (AI check, etc.) show title directly
+                  // User notifications show "[actor] [verb]" format
+                  if (_isSystemNotification(notification.type))
+                    Text(
+                      notification.getDisplayTitle(),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colors.onSurface,
+                        fontWeight: FontWeight.bold,
                         height: 1.3,
                       ),
-                      children: [
-                        TextSpan(
-                          text:
-                              notification.actor?.displayName ??
-                              notification.actor?.username ??
-                              'Someone',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                    )
+                  else
+                    RichText(
+                      text: TextSpan(
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colors.onSurface,
+                          height: 1.3,
                         ),
-                        const TextSpan(text: ' '),
-                        TextSpan(text: _getVerb(notification.type)),
-                      ],
+                        children: [
+                          TextSpan(
+                            text:
+                                notification.actor?.displayName ??
+                                notification.actor?.username ??
+                                'Someone',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const TextSpan(text: ' '),
+                          TextSpan(text: _getVerb(notification.type)),
+                        ],
+                      ),
                     ),
-                  ),
 
                   if (notification.getDisplayBody().isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -156,6 +177,21 @@ class NotificationTile extends StatelessWidget {
         return Colors.orangeAccent;
       case 'follow':
         return Colors.greenAccent;
+      // AI Check - Published (green)
+      case 'post_published':
+      case 'comment_published':
+      case 'story_published':
+        return const Color(0xFF10B981);
+      // AI Check - Under Review (amber)
+      case 'post_review':
+      case 'comment_review':
+      case 'story_review':
+        return Colors.amber;
+      // AI Check - Flagged (red)
+      case 'post_flagged':
+      case 'comment_flagged':
+      case 'story_flagged':
+        return Colors.redAccent;
       default:
         return AppColors.primary;
     }
@@ -176,6 +212,21 @@ class NotificationTile extends StatelessWidget {
         return Icons.alternate_email;
       case 'follow':
         return Icons.person_add;
+      // AI Check - Published
+      case 'post_published':
+      case 'comment_published':
+      case 'story_published':
+        return Icons.check_circle;
+      // AI Check - Under Review
+      case 'post_review':
+      case 'comment_review':
+      case 'story_review':
+        return Icons.pending;
+      // AI Check - Flagged
+      case 'post_flagged':
+      case 'comment_flagged':
+      case 'story_flagged':
+        return Icons.warning;
       default:
         return Icons.notifications;
     }
@@ -201,5 +252,12 @@ class NotificationTile extends StatelessWidget {
       default:
         return 'interacted with you';
     }
+  }
+
+  /// Check if this is a system notification (no actor needed)
+  bool _isSystemNotification(String type) {
+    return type.startsWith('post_') ||
+        type.startsWith('comment_') ||
+        type.startsWith('story_');
   }
 }

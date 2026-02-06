@@ -294,7 +294,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
                   const SizedBox(height: 12),
 
                   Text(
-                    'NOAI is a human-only community. To start earning RooCoin and posting, we need to verify your identity.',
+                    'ROOVERSE is a human-only community. To start earning RooCoin and posting, we need to verify your identity.',
                     style: TextStyle(
                       fontSize: 14,
                       color: scheme.onSurface.withOpacity(0.7),

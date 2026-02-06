@@ -208,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 16),
 
               Text(
-                'NOAI',
+                'ROOVERSE',
                 style: TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.bold,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:noai/models/user.dart';
+import 'package:rooverse/models/user.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
