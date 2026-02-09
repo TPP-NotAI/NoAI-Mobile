@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../config/app_spacing.dart';
+import '../config/app_typography.dart';
 import '../models/comment.dart';
 import '../providers/auth_provider.dart';
 import '../providers/feed_provider.dart';
+import '../services/kyc_verification_service.dart';
+import '../utils/responsive_extensions.dart';
 import '../utils/time_utils.dart';
 import 'video_player_widget.dart';
 import 'full_screen_media_viewer.dart';
@@ -169,18 +173,20 @@ class _CommentCardState extends State<CommentCard> {
         // Comment content
         Padding(
           padding: EdgeInsets.only(
-            left: widget.isReply ? 48 : 16,
-            right: 16,
-            top: 12,
-            bottom: 8,
+            left: widget.isReply
+                ? 48.responsive(context, min: 40, max: 56)
+                : AppSpacing.medium.responsive(context),
+            right: AppSpacing.medium.responsive(context),
+            top: AppSpacing.standard.responsive(context),
+            bottom: AppSpacing.mediumSmall.responsive(context),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Avatar
               Container(
-                width: 32,
-                height: 32,
+                width: 32.responsive(context, min: 28, max: 36),
+                height: 32.responsive(context, min: 28, max: 36),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: colors.outlineVariant),
@@ -196,7 +202,8 @@ class _CommentCardState extends State<CommentCard> {
                               child: Icon(
                                 Icons.person,
                                 color: colors.onSurfaceVariant,
-                                size: 16,
+                                size: AppTypography.responsiveIconSize(
+                                    context, 16),
                               ),
                             );
                           },
@@ -206,12 +213,12 @@ class _CommentCardState extends State<CommentCard> {
                           child: Icon(
                             Icons.person,
                             color: colors.onSurfaceVariant,
-                            size: 16,
+                            size: AppTypography.responsiveIconSize(context, 16),
                           ),
                         ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: AppSpacing.standard.responsive(context)),
 
               // Comment details
               Expanded(
@@ -228,17 +235,22 @@ class _CommentCardState extends State<CommentCard> {
                             color: colors.onSurface,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(
+                            width: AppSpacing.mediumSmall.responsive(context)),
                         Expanded(
                           child: Row(
                             children: [
                               Text(
                                 humanReadableTime(currentComment.timestamp),
                                 style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: AppTypography.responsiveFontSize(
+                                      context, AppTypography.extraSmall),
                                   color: colors.onSurfaceVariant,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(
+                                  width:
+                                      AppSpacing.mediumSmall.responsive(context)),
                               Flexible(
                                 child: _AiCheckBadge(
                                   aiScore: currentComment.aiScore,
@@ -251,15 +263,17 @@ class _CommentCardState extends State<CommentCard> {
                         // More options menu (only for comment author)
                         if (isAuthor)
                           SizedBox(
-                            width: 28,
-                            height: 28,
+                            width: 28.responsive(context, min: 24, max: 32),
+                            height: 28.responsive(context, min: 24, max: 32),
                             child: PopupMenuButton<String>(
                               padding: EdgeInsets.zero,
-                              iconSize: 16,
+                              iconSize:
+                                  AppTypography.responsiveIconSize(context, 16),
                               icon: Icon(
                                 Icons.more_horiz,
                                 color: colors.onSurfaceVariant,
-                                size: 16,
+                                size: AppTypography.responsiveIconSize(
+                                    context, 16),
                               ),
                               onSelected: (value) {
                                 if (value == 'edit') {
@@ -269,13 +283,17 @@ class _CommentCardState extends State<CommentCard> {
                                 }
                               },
                               itemBuilder: (context) => [
-                                const PopupMenuItem(
+                                PopupMenuItem(
                                   value: 'edit',
                                   child: Row(
                                     children: [
-                                      Icon(Icons.edit, size: 18),
-                                      SizedBox(width: 8),
-                                      Text('Edit'),
+                                      Icon(Icons.edit,
+                                          size: AppTypography.responsiveIconSize(
+                                              context, 18)),
+                                      SizedBox(
+                                          width: AppSpacing.mediumSmall
+                                              .responsive(context)),
+                                      const Text('Edit'),
                                     ],
                                   ),
                                 ),
@@ -285,10 +303,13 @@ class _CommentCardState extends State<CommentCard> {
                                     children: [
                                       Icon(
                                         Icons.delete,
-                                        size: 18,
+                                        size: AppTypography.responsiveIconSize(
+                                            context, 18),
                                         color: colors.error,
                                       ),
-                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                          width: AppSpacing.mediumSmall
+                                              .responsive(context)),
                                       Text(
                                         'Delete',
                                         style: TextStyle(color: colors.error),
@@ -301,7 +322,7 @@ class _CommentCardState extends State<CommentCard> {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: AppSpacing.extraSmall.responsive(context)),
 
                     // Inline edit field or comment text
                     if (_isEditing)
@@ -323,7 +344,8 @@ class _CommentCardState extends State<CommentCard> {
 
                       // Media attachment
                       if (currentComment.mediaUrl != null) ...[
-                        const SizedBox(height: 8),
+                        SizedBox(
+                            height: AppSpacing.mediumSmall.responsive(context)),
                         GestureDetector(
                           onTap: () {
                             Navigator.push(
@@ -357,10 +379,12 @@ class _CommentCardState extends State<CommentCard> {
                             );
                           },
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: AppSpacing.responsiveRadius(
+                                context, AppSpacing.radiusLarge),
                             child: currentComment.mediaType == 'video'
                                 ? Container(
-                                    height: 150,
+                                    height:
+                                        150.responsive(context, min: 130, max: 170),
                                     width: double.infinity,
                                     color: Colors.black,
                                     child: Stack(
@@ -370,25 +394,30 @@ class _CommentCardState extends State<CommentCard> {
                                           videoUrl: currentComment.mediaUrl!,
                                         ),
                                         Container(
-                                          padding: const EdgeInsets.all(8),
+                                          padding: EdgeInsets.all(AppSpacing
+                                              .mediumSmall
+                                              .responsive(context)),
                                           decoration: BoxDecoration(
                                             color: Colors.black.withValues(
                                               alpha: 0.5,
                                             ),
                                             shape: BoxShape.circle,
                                           ),
-                                          child: const Icon(
+                                          child: Icon(
                                             Icons.play_arrow,
                                             color: Colors.white,
-                                            size: 30,
+                                            size:
+                                                AppTypography.responsiveIconSize(
+                                                    context, 30),
                                           ),
                                         ),
                                       ],
                                     ),
                                   )
                                 : ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxHeight: 200,
+                                    constraints: BoxConstraints(
+                                      maxHeight:
+                                          200.responsive(context, min: 170, max: 230),
                                     ),
                                     child: Image.network(
                                       currentComment.mediaUrl!,
@@ -398,7 +427,8 @@ class _CommentCardState extends State<CommentCard> {
                                         if (loadingProgress == null)
                                           return child;
                                         return Container(
-                                          height: 150,
+                                          height: 150.responsive(
+                                              context, min: 130, max: 170),
                                           color: colors.surfaceContainerHighest,
                                           child: Center(
                                             child: CircularProgressIndicator(
@@ -418,7 +448,8 @@ class _CommentCardState extends State<CommentCard> {
                                       errorBuilder:
                                           (context, error, stackTrace) {
                                             return Container(
-                                              height: 150,
+                                              height: 150.responsive(
+                                                  context, min: 130, max: 170),
                                               color: colors
                                                   .surfaceContainerHighest,
                                               child: Center(
@@ -436,24 +467,46 @@ class _CommentCardState extends State<CommentCard> {
                         ),
                       ],
                     ],
-                    const SizedBox(height: 8),
+                    SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
 
                     // Actions
                     Row(
                       children: [
                         // Like button
                         InkWell(
-                          onTap: () {
-                            context.read<FeedProvider>().toggleCommentLike(
-                              widget.postId,
-                              currentComment.id,
-                            );
+                          onTap: () async {
+                            try {
+                              await context.read<FeedProvider>().toggleCommentLike(
+                                widget.postId,
+                                currentComment.id,
+                              );
+                            } on KycNotVerifiedException catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context)
+                                  ..hideCurrentSnackBar()
+                                  ..showSnackBar(
+                                    SnackBar(
+                                      content: Text(e.message),
+                                      backgroundColor: Colors.orange,
+                                      action: SnackBarAction(
+                                        label: 'Verify',
+                                        textColor: Colors.white,
+                                        onPressed: () =>
+                                            Navigator.pushNamed(context, '/verify'),
+                                      ),
+                                    ),
+                                  );
+                              }
+                            }
                           },
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppSpacing.responsiveRadius(
+                              context, AppSpacing.radiusLarge),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                            padding: EdgeInsets.symmetric(
+                              horizontal:
+                                  AppSpacing.mediumSmall.responsive(context),
+                              vertical:
+                                  AppSpacing.extraSmall.responsive(context),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -462,16 +515,21 @@ class _CommentCardState extends State<CommentCard> {
                                   currentComment.isLiked
                                       ? Icons.favorite
                                       : Icons.favorite_border,
-                                  size: 14,
+                                  size: AppTypography.responsiveIconSize(
+                                      context, 14),
                                   color: currentComment.isLiked
                                       ? colors.error
                                       : colors.onSurfaceVariant,
                                 ),
                                 if (currentComment.likes > 0) ...[
-                                  const SizedBox(width: 4),
+                                  SizedBox(
+                                      width: AppSpacing.extraSmall
+                                          .responsive(context)),
                                   Text(
                                     '${currentComment.likes}',
                                     style: theme.textTheme.labelSmall?.copyWith(
+                                      fontSize: AppTypography.responsiveFontSize(
+                                          context, AppTypography.badgeText),
                                       fontWeight: FontWeight.w600,
                                       color: currentComment.isLiked
                                           ? colors.error
@@ -483,29 +541,38 @@ class _CommentCardState extends State<CommentCard> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        SizedBox(
+                            width: AppSpacing.largePlus.responsive(context)),
 
                         // Reply button
                         InkWell(
                           onTap: widget.onReplyTap,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppSpacing.responsiveRadius(
+                              context, AppSpacing.radiusLarge),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                            padding: EdgeInsets.symmetric(
+                              horizontal:
+                                  AppSpacing.mediumSmall.responsive(context),
+                              vertical:
+                                  AppSpacing.extraSmall.responsive(context),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
                                   Icons.chat_bubble_outline,
-                                  size: 14,
+                                  size: AppTypography.responsiveIconSize(
+                                      context, 14),
                                   color: colors.onSurfaceVariant,
                                 ),
-                                const SizedBox(width: 4),
+                                SizedBox(
+                                    width: AppSpacing.extraSmall
+                                        .responsive(context)),
                                 Text(
                                   'Reply',
                                   style: theme.textTheme.labelSmall?.copyWith(
+                                    fontSize: AppTypography.responsiveFontSize(
+                                        context, AppTypography.badgeText),
                                     fontWeight: FontWeight.w600,
                                     color: colors.onSurfaceVariant,
                                   ),
@@ -526,26 +593,35 @@ class _CommentCardState extends State<CommentCard> {
         // Show/hide replies button (only for top-level comments with replies)
         if (!widget.isReply && hasReplies)
           Padding(
-            padding: const EdgeInsets.only(left: 60, bottom: 8),
+            padding: EdgeInsets.only(
+              left: 60.responsive(context, min: 52, max: 68),
+              bottom: AppSpacing.mediumSmall.responsive(context),
+            ),
             child: InkWell(
               onTap: () => setState(() => _showReplies = !_showReplies),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius:
+                  AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.mediumSmall.responsive(context),
+                  vertical: AppSpacing.extraSmall.responsive(context),
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       _showReplies ? Icons.expand_less : Icons.expand_more,
-                      size: 16,
+                      size: AppTypography.responsiveIconSize(context, 16),
                       color: colors.primary,
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: AppSpacing.extraSmall.responsive(context)),
                     Text(
                       _showReplies
                           ? 'Hide replies'
                           : 'View $replyCount ${replyCount == 1 ? 'reply' : 'replies'}',
                       style: theme.textTheme.labelSmall?.copyWith(
+                        fontSize: AppTypography.responsiveFontSize(
+                            context, AppTypography.badgeText),
                         fontWeight: FontWeight.w600,
                         color: colors.primary,
                       ),
@@ -585,49 +661,57 @@ class _CommentCardState extends State<CommentCard> {
           style: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface),
           decoration: InputDecoration(
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.standard.responsive(context),
+              vertical: AppSpacing.mediumSmall.responsive(context),
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius:
+                  AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
               borderSide: BorderSide(color: colors.outline),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius:
+                  AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
               borderSide: BorderSide(color: colors.primary),
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
         Row(
           children: [
             SizedBox(
-              height: 30,
+              height: 30.responsive(context, min: 26, max: 34),
               child: TextButton(
                 onPressed: _cancelEditing,
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.standard.responsive(context)),
                 ),
                 child: Text(
                   'Cancel',
                   style: theme.textTheme.labelSmall?.copyWith(
+                    fontSize: AppTypography.responsiveFontSize(
+                        context, AppTypography.badgeText),
                     color: colors.onSurfaceVariant,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
             SizedBox(
-              height: 30,
+              height: 30.responsive(context, min: 26, max: 34),
               child: FilledButton(
                 onPressed: () => _saveEdit(commentId),
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.standard.responsive(context)),
                 ),
                 child: Text(
                   'Save',
                   style: theme.textTheme.labelSmall?.copyWith(
+                    fontSize: AppTypography.responsiveFontSize(
+                        context, AppTypography.badgeText),
                     color: colors.onPrimary,
                   ),
                 ),
@@ -651,7 +735,6 @@ class _AiCheckBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isPending = aiScore == null;
     final bool needsReview = aiScore != null && aiScore! >= 50;
     final bool isPassed = aiScore != null && aiScore! < 50;
 
@@ -669,35 +752,39 @@ class _AiCheckBadge extends StatelessWidget {
       label = 'AI CHECK: PASSED';
     } else {
       badgeColor = colors.onSurfaceVariant;
-      bgColor = colors.surfaceVariant.withValues(alpha: 0.6);
+      bgColor = colors.surfaceContainerHighest.withValues(alpha: 0.6);
       label = 'AI CHECK: PENDING';
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.mediumSmall.responsive(context),
+        vertical: AppSpacing.extraSmall.responsive(context),
+      ),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius:
+            AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
         border: Border.all(color: badgeColor.withValues(alpha: 0.6)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 6,
-            height: 6,
+            width: 6.responsive(context, min: 5, max: 7),
+            height: 6.responsive(context, min: 5, max: 7),
             decoration: BoxDecoration(
               color: badgeColor,
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: AppSpacing.small.responsive(context)),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: AppTypography.responsiveFontSize(context, 10),
               fontWeight: FontWeight.w700,
               letterSpacing: 0.3,
               color: badgeColor,

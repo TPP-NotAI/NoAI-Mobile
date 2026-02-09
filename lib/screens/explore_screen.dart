@@ -403,10 +403,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     switch (_selectedFilter) {
       case 'Trending':
+        // Filter out posts with no likes AND no comments - they shouldn't be trending
+        filtered = filtered.where((p) => p.likes > 0 || p.comments > 0).toList();
+        // Sort by highest engagement (likes + comments)
         filtered = [...filtered]
           ..sort(
-            (a, b) => (b.likes + b.comments + b.tips).compareTo(
-              a.likes + a.comments + a.tips,
+            (a, b) => (b.likes + b.comments).compareTo(
+              a.likes + a.comments,
             ),
           );
         break;
@@ -415,6 +418,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
         break;
       case 'Most Liked':
+        // Filter out posts with no likes
+        filtered = filtered.where((p) => p.likes > 0).toList();
         filtered = [...filtered]..sort((a, b) => b.likes.compareTo(a.likes));
         break;
       case 'Verified':

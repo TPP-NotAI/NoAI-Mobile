@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/app_spacing.dart';
+import '../../config/app_typography.dart';
 import '../../repositories/user_interests_repository.dart';
 import '../../providers/user_provider.dart';
+import '../../utils/responsive_extensions.dart';
 import 'package:provider/provider.dart';
 
 class InterestsSelectionScreen extends StatefulWidget {
@@ -239,16 +242,16 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                   children: [
                     // Header Section
                     Padding(
-                      padding: const EdgeInsets.all(24.0),
+                      padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
                       child: Column(
                         children: [
                           Row(
                             children: [
                               Container(
-                                width: 32,
-                                height: 32,
+                                width: 32.responsive(context, min: 28, max: 36),
+                                height: 32.responsive(context, min: 28, max: 36),
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.standard),
                                   gradient: const LinearGradient(
                                     colors: [
                                       AppColors.primary,
@@ -258,17 +261,17 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                     end: Alignment.bottomRight,
                                   ),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.fingerprint,
-                                  size: 18,
+                                  size: AppTypography.responsiveIconSize(context, 18),
                                   color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: AppSpacing.small.responsive(context)),
                               Text(
                                 'ROOVERSE',
                                 style: TextStyle(
-                                  fontSize: 20,
+                                  fontSize: AppTypography.responsiveFontSize(context, AppTypography.mediumHeading),
                                   fontWeight: FontWeight.bold,
                                   color: scheme.onBackground,
                                   letterSpacing: 0.5,
@@ -276,32 +279,32 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 32),
+                          SizedBox(height: AppSpacing.double_.responsive(context)),
                           Text(
                             _showProfileFields
                                 ? 'Tell us about yourself'
                                 : 'What interests you?',
                             style: TextStyle(
-                              fontSize: 32,
+                              fontSize: AppTypography.responsiveFontSize(context, AppTypography.extraLargeHeading),
                               fontWeight: FontWeight.w800,
                               color: scheme.onBackground,
                               letterSpacing: -0.5,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: AppSpacing.standard.responsive(context)),
                           Text(
                             _showProfileFields
                                 ? 'Set up your identity to start connecting with the community.'
                                 : 'Select at least 3 topics to personalize your experience.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: AppTypography.responsiveFontSize(context, AppTypography.base),
                               color: scheme.onBackground.withOpacity(0.6),
                               height: 1.4,
                             ),
                           ),
                           if (_showProfileFields) ...[
-                            const SizedBox(height: 32),
+                            SizedBox(height: AppSpacing.double_.responsive(context)),
                             _buildProfileField(
                               context,
                               label: 'Display Name',
@@ -309,7 +312,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                               hint: 'What name should we show?',
                               icon: Icons.face_outlined,
                             ),
-                            const SizedBox(height: 20),
+                            SizedBox(height: AppSpacing.medium.responsive(context)),
                             _buildProfileField(
                               context,
                               label: 'Bio',
@@ -318,7 +321,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                               icon: Icons.history_edu_outlined,
                               maxLines: 3,
                             ),
-                            const SizedBox(height: 32),
+                            SizedBox(height: AppSpacing.double_.responsive(context)),
                             Row(
                               children: [
                                 Expanded(
@@ -327,13 +330,13 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                   ),
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.standard.responsive(context),
                                   ),
                                   child: Text(
                                     'PICK YOUR INTERESTS',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: AppTypography.responsiveFontSize(context, AppTypography.tiny),
                                       fontWeight: FontWeight.w800,
                                       color: scheme.onBackground.withOpacity(
                                         0.4,
@@ -350,16 +353,16 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                               ],
                             ),
                           ],
-                          const SizedBox(height: 16),
+                          SizedBox(height: AppSpacing.standard.responsive(context)),
                           if (_selectedInterests.length < 3)
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: AppSpacing.standard.responsive(context),
+                                vertical: AppSpacing.small.responsive(context),
                               ),
                               decoration: BoxDecoration(
                                 color: scheme.errorContainer.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.medium),
                                 border: Border.all(
                                   color: scheme.error.withOpacity(0.2),
                                 ),
@@ -369,14 +372,14 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                 children: [
                                   Icon(
                                     Icons.info_outline,
-                                    size: 14,
+                                    size: AppTypography.responsiveIconSize(context, 14),
                                     color: scheme.error,
                                   ),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: AppSpacing.small.responsive(context)),
                                   Text(
                                     'Select ${3 - _selectedInterests.length} more interests to continue',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: AppTypography.responsiveFontSize(context, AppTypography.tiny),
                                       fontWeight: FontWeight.w600,
                                       color: scheme.error,
                                     ),
@@ -386,13 +389,13 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                             )
                           else
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: AppSpacing.standard.responsive(context),
+                                vertical: AppSpacing.small.responsive(context),
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.green.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.medium),
                                 border: Border.all(
                                   color: Colors.green.withOpacity(0.2),
                                 ),
@@ -400,16 +403,16 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.check_circle_outline,
-                                    size: 14,
+                                    size: AppTypography.responsiveIconSize(context, 14),
                                     color: Colors.green,
                                   ),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: AppSpacing.small.responsive(context)),
                                   Text(
                                     '${_selectedInterests.length} selected interests',
-                                    style: const TextStyle(
-                                      fontSize: 12,
+                                    style: TextStyle(
+                                      fontSize: AppTypography.responsiveFontSize(context, AppTypography.tiny),
                                       fontWeight: FontWeight.bold,
                                       color: Colors.green,
                                     ),
@@ -422,7 +425,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                     ),
                     // Interests List
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.largePlus.responsive(context)),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: _interestCategories.entries.map((category) {
@@ -438,13 +441,13 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
 
                     // Footer
                     Container(
-                      padding: const EdgeInsets.all(24.0),
+                      padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
                       child: Column(
                         children: [
-                          const SizedBox(height: 32),
+                          SizedBox(height: AppSpacing.double_.responsive(context)),
                           SizedBox(
                             width: double.infinity,
-                            height: 56,
+                            height: 56.responsive(context, min: 48, max: 60),
                             child: ElevatedButton(
                               onPressed: _isLoading ? null : _saveAndContinue,
                               style: ElevatedButton.styleFrom(
@@ -453,15 +456,15 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                 disabledBackgroundColor:
                                     scheme.surfaceContainerHighest,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(28),
+                                  borderRadius: AppSpacing.responsiveRadius(context, 28),
                                 ),
                                 elevation: 0,
                               ),
                               child: _isLoading
-                                  ? const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
+                                  ? SizedBox(
+                                      width: 24.responsive(context, min: 20, max: 28),
+                                      height: 24.responsive(context, min: 20, max: 28),
+                                      child: const CircularProgressIndicator(
                                         strokeWidth: 2,
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
@@ -469,24 +472,24 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                             ),
                                       ),
                                     )
-                                  : const Row(
+                                  : Row(
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           'Continue',
                                           style: TextStyle(
-                                            fontSize: 18,
+                                            fontSize: AppTypography.responsiveFontSize(context, AppTypography.smallHeading),
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        SizedBox(width: 8),
-                                        Icon(Icons.arrow_forward, size: 20),
+                                        SizedBox(width: AppSpacing.small.responsive(context)),
+                                        Icon(Icons.arrow_forward, size: AppTypography.responsiveIconSize(context, 20)),
                                       ],
                                     ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: AppSpacing.standard.responsive(context)),
                           if (!_showProfileFields)
                             TextButton(
                               onPressed: _isLoading ? null : widget.onComplete,
@@ -494,7 +497,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                 'Skip for now',
                                 style: TextStyle(
                                   color: scheme.onBackground.withOpacity(0.6),
-                                  fontSize: 14,
+                                  fontSize: AppTypography.responsiveFontSize(context, AppTypography.small),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -527,29 +530,35 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: AppTypography.responsiveFontSize(context, AppTypography.small),
             fontWeight: FontWeight.w600,
             color: scheme.onBackground.withOpacity(0.8),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: AppSpacing.small.responsive(context)),
         TextField(
           controller: controller,
           maxLines: maxLines,
-          style: TextStyle(color: scheme.onSurface),
+          style: TextStyle(
+            color: scheme.onSurface,
+            fontSize: AppTypography.responsiveFontSize(context, AppTypography.base),
+          ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.4)),
-            prefixIcon: Icon(icon, size: 20),
+            hintStyle: TextStyle(
+              color: scheme.onSurface.withOpacity(0.4),
+              fontSize: AppTypography.responsiveFontSize(context, AppTypography.base),
+            ),
+            prefixIcon: Icon(icon, size: AppTypography.responsiveIconSize(context, 20)),
             filled: true,
             fillColor: scheme.surfaceVariant.withOpacity(0.3),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.standard),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.standard.responsive(context),
+              vertical: AppSpacing.standard.responsive(context),
             ),
           ),
         ),
@@ -576,22 +585,22 @@ class _InterestCategory extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: EdgeInsets.only(bottom: AppSpacing.largePlus.responsive(context)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             categoryName,
             style: TextStyle(
-              fontSize: 18,
+              fontSize: AppTypography.responsiveFontSize(context, AppTypography.smallHeading),
               fontWeight: FontWeight.bold,
               color: scheme.onBackground,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: AppSpacing.standard.responsive(context)),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: AppSpacing.small.responsive(context),
+            runSpacing: AppSpacing.small.responsive(context),
             children: interests.map((interest) {
               final isSelected = selectedInterests.contains(interest);
               return _InterestChip(
@@ -632,15 +641,18 @@ class _InterestChip extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.medium),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.standard.responsive(context),
+          vertical: AppSpacing.mediumSmall.responsive(context),
+        ),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.primary.withOpacity(0.15)
               : scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.medium),
           border: Border.all(
             color: isSelected
                 ? AppColors.primary
@@ -652,18 +664,18 @@ class _InterestChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isSelected)
-              Icon(Icons.check_circle, size: 18, color: AppColors.primary)
+              Icon(Icons.check_circle, size: AppTypography.responsiveIconSize(context, 18), color: AppColors.primary)
             else
               Icon(
                 Icons.add_circle_outline,
-                size: 18,
+                size: AppTypography.responsiveIconSize(context, 18),
                 color: scheme.onSurfaceVariant,
               ),
-            const SizedBox(width: 6),
+            SizedBox(width: AppSpacing.extraSmall.responsive(context)),
             Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: AppTypography.responsiveFontSize(context, AppTypography.small),
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 color: isSelected ? AppColors.primary : scheme.onSurfaceVariant,
               ),

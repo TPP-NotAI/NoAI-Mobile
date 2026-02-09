@@ -5,6 +5,7 @@ import '../models/notification_model.dart';
 import '../models/notification_settings.dart';
 import '../repositories/notification_repository.dart';
 import '../services/supabase_service.dart';
+import '../services/push_notification_service.dart';
 import '../config/supabase_config.dart';
 
 class NotificationProvider with ChangeNotifier {
@@ -52,6 +53,58 @@ class NotificationProvider with ChangeNotifier {
             // When a new notification arrives, it won't have the joined profiles/posts.
             // We could either fetch just that one notification or just refresh the list.
             // Refreshing the list is safer to get the joins.
+            await refreshNotifications(userId);
+
+            // Show local push notification with sound
+            final newRecord = payload.newRecord;
+            final title = newRecord['title'] as String? ?? 'ROOVERSE';
+            final body = newRecord['body'] as String? ?? 'You have a new notification';
+            final type = newRecord['type'] as String? ?? 'social';
+
+            await PushNotificationService().showLocalNotification(
+              title: title,
+              body: body,
+              type: type,
+              data: {
+                'notification_id': newRecord['id'],
+                'type': type,
+                'post_id': newRecord['post_id'],
+                'actor_id': newRecord['actor_id'],
+              },
+            );
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: SupabaseConfig.notificationsTable,
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) async {
+            debugPrint(
+              'NotificationProvider: Notification updated via real-time',
+            );
+            // Notification was updated (e.g., marked as read on another device)
+            await refreshNotifications(userId);
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: SupabaseConfig.notificationsTable,
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) async {
+            debugPrint(
+              'NotificationProvider: Notification deleted via real-time',
+            );
+            // Notification was deleted
             await refreshNotifications(userId);
           },
         )

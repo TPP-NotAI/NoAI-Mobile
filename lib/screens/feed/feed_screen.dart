@@ -3,8 +3,11 @@ import 'package:rooverse/providers/user_provider.dart';
 import 'package:rooverse/screens/create/create_post_screen.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/app_spacing.dart';
+import '../../config/app_typography.dart';
 import '../../providers/feed_provider.dart';
 import '../../providers/story_provider.dart';
+import '../../utils/responsive_extensions.dart';
 import '../../widgets/post_card.dart';
 import '../../widgets/comments_sheet.dart';
 import '../../widgets/tip_modal.dart';
@@ -91,9 +94,12 @@ class _FeedScreenState extends State<FeedScreen> {
                     child: Center(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: maxWidth),
-                        child: const Padding(
-                          padding: EdgeInsets.only(top: 8, bottom: 4),
-                          child: StoriesCarousel(),
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            top: AppSpacing.mediumSmall.responsive(context),
+                            bottom: AppSpacing.extraSmall.responsive(context),
+                          ),
+                          child: const StoriesCarousel(),
                         ),
                       ),
                     ),
@@ -118,13 +124,19 @@ class _FeedScreenState extends State<FeedScreen> {
                           children: [
                             Icon(
                               Icons.article_outlined,
-                              size: 64,
+                              size: AppTypography.responsiveIconSize(context, 64),
                               color: colors.onSurfaceVariant.withOpacity(0.4),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(
+                                height:
+                                    AppSpacing.largePlus.responsive(context)),
                             Text(
                               'No posts yet',
-                              style: TextStyle(color: colors.onSurfaceVariant),
+                              style: TextStyle(
+                                fontSize: AppTypography.responsiveFontSize(
+                                    context, AppTypography.base),
+                                color: colors.onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ),
@@ -179,7 +191,9 @@ class _FeedScreenState extends State<FeedScreen> {
                   else if (feed.isLoading)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        padding: EdgeInsets.symmetric(
+                          vertical: AppSpacing.triple.responsive(context),
+                        ),
                         child: Center(
                           child: CircularProgressIndicator(
                             color: colors.primary,
@@ -208,17 +222,21 @@ class CreatePostCard extends StatelessWidget {
     final user = context.watch<UserProvider>().currentUser;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.symmetric(
+        horizontal: AppSpacing.largePlus.responsive(context),
+        vertical: AppSpacing.standard.responsive(context),
+      ),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius:
+            AppSpacing.responsiveRadius(context, AppSpacing.radiusExtraLarge),
         border: Border.all(color: colors.outlineVariant),
         boxShadow: [
           BoxShadow(
             color: colors.shadow.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 8.responsive(context),
+            offset: Offset(0, 2.responsive(context)),
           ),
         ],
       ),
@@ -240,7 +258,7 @@ class CreatePostCard extends StatelessWidget {
                     border: Border.all(color: colors.primary, width: 2),
                   ),
                   child: CircleAvatar(
-                    radius: 20,
+                    radius: 20.responsive(context, min: 17, max: 23),
                     backgroundColor: colors.surfaceContainerHighest,
                     backgroundImage:
                         user != null && user.avatar?.isNotEmpty == true
@@ -250,32 +268,33 @@ class CreatePostCard extends StatelessWidget {
                         ? Icon(
                             Icons.person,
                             color: colors.onSurfaceVariant,
-                            size: 20,
+                            size: AppTypography.responsiveIconSize(context, 20),
                           )
                         : null,
                   ),
                 ),
 
-                const SizedBox(width: 12),
+                SizedBox(width: AppSpacing.standard.responsive(context)),
 
                 /// Input placeholder
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.largePlus.responsive(context),
+                      vertical: AppSpacing.standard.responsive(context),
                     ),
                     decoration: BoxDecoration(
                       color: colors.surfaceContainerHighest.withValues(
                         alpha: 0.5,
                       ),
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: AppSpacing.responsiveRadius(context, 24),
                       border: Border.all(color: colors.outlineVariant),
                     ),
                     child: Text(
                       'Share your verified insights...',
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: AppTypography.responsiveFontSize(
+                            context, AppTypography.mediumText),
                         color: colors.onSurfaceVariant,
                       ),
                     ),
@@ -285,7 +304,7 @@ class CreatePostCard extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: AppSpacing.standard.responsive(context)),
 
           /// Action buttons
           Row(
@@ -359,18 +378,24 @@ class _ActionButton extends StatelessWidget {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius:
+            AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: EdgeInsets.symmetric(
+            vertical: AppSpacing.mediumSmall.responsive(context),
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 6),
+              Icon(icon,
+                  color: color,
+                  size: AppTypography.responsiveIconSize(context, 20)),
+              SizedBox(width: AppSpacing.small.responsive(context)),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: AppTypography.responsiveFontSize(
+                      context, AppTypography.small),
                   fontWeight: FontWeight.w600,
                   color: color,
                 ),

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../config/app_spacing.dart';
+import '../config/app_typography.dart';
+import '../utils/responsive_extensions.dart';
 
 class StoryCard extends StatelessWidget {
   final String username;
@@ -28,9 +31,8 @@ class StoryCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 80,
-        height: 96,
-        margin: const EdgeInsets.only(right: 12),
+        width: 80.responsive(context, min: 70, max: 90),
+        margin: EdgeInsets.only(right: AppSpacing.standard.responsive(context)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -38,8 +40,8 @@ class StoryCard extends StatelessWidget {
               children: [
                 // Avatar with gradient border
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 64.responsive(context, min: 56, max: 72),
+                  height: 64.responsive(context, min: 56, max: 72),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: isCurrentUser || !isViewed
@@ -60,21 +62,21 @@ class StoryCard extends StatelessWidget {
                         ? [
                             BoxShadow(
                               color: colors.primary.withOpacity(0.25),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                              blurRadius: 8.responsive(context),
+                              offset: Offset(0, 2.responsive(context)),
                             ),
                           ]
                         : null,
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(2.5),
+                    padding: EdgeInsets.all(2.5.responsive(context)),
                     child: Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: colors.surface,
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.all(2.5),
+                        padding: EdgeInsets.all(2.5.responsive(context)),
                         child: ClipOval(
                           child: Image.network(
                             storyPreviewUrl?.isNotEmpty == true
@@ -87,7 +89,10 @@ class StoryCard extends StatelessWidget {
                                 child: Icon(
                                   Icons.person,
                                   color: colors.onSurfaceVariant,
-                                  size: 28,
+                                  size: AppTypography.responsiveIconSize(
+                                    context,
+                                    28,
+                                  ),
                                 ),
                               );
                             },
@@ -107,21 +112,24 @@ class StoryCard extends StatelessWidget {
                       behavior: HitTestBehavior.opaque,
                       onTap: onAddTap ?? onTap,
                       child: Container(
-                        width: 22,
-                        height: 22,
+                        width: 22.responsive(context, min: 18, max: 26),
+                        height: 22.responsive(context, min: 18, max: 26),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: colors.primary,
                           border: Border.all(color: colors.surface, width: 2),
                         ),
-                        child:
-                            Icon(Icons.add, color: colors.onPrimary, size: 13),
+                        child: Icon(
+                          Icons.add,
+                          color: colors.onPrimary,
+                          size: AppTypography.responsiveIconSize(context, 13),
+                        ),
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: AppSpacing.small.responsive(context)),
 
             // Username
             Text(
@@ -130,7 +138,7 @@ class StoryCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: theme.textTheme.labelSmall?.copyWith(
-                fontSize: 11,
+                fontSize: AppTypography.responsiveFontSize(context, 11),
                 fontWeight: FontWeight.w500,
                 color: colors.onSurface,
                 height: 1.0,

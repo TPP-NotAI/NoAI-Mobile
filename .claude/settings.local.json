@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:tpp-noai-ai-web-mqic.vercel.app)",
+      "Bash(gh repo view:*)"
+    ]
+  }
+}

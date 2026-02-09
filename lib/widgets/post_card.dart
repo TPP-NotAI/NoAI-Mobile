@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:geocoding/geocoding.dart';
 import '../providers/user_provider.dart';
+import '../utils/responsive_extensions.dart';
+import '../config/app_spacing.dart';
+import '../config/app_typography.dart';
 
 import '../models/post.dart';
 import '../providers/feed_provider.dart';
@@ -20,6 +23,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../repositories/wallet_repository.dart';
 import '../services/roocoin_service.dart';
+import '../services/kyc_verification_service.dart';
 import 'tip_modal.dart';
 
 class PostCard extends StatelessWidget {
@@ -43,17 +47,23 @@ class PostCard extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.standard.responsive(context),
+        vertical: AppSpacing.mediumSmall.responsive(context),
+      ),
       child: Container(
         decoration: BoxDecoration(
           color: colors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppSpacing.responsiveRadius(
+            context,
+            AppSpacing.radiusExtraLarge,
+          ),
           border: Border.all(color: colors.outlineVariant.withOpacity(0.6)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.25),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+              blurRadius: 16.responsive(context),
+              offset: Offset(0, 8.responsive(context)),
             ),
           ],
         ),
@@ -67,24 +77,27 @@ class PostCard extends StatelessWidget {
             if (post.status == 'under_review')
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.largePlus.responsive(context),
+                  vertical: AppSpacing.mediumSmall.responsive(context),
                 ),
                 color: colors.errorContainer,
                 child: Row(
                   children: [
                     Icon(
                       Icons.info_outline,
-                      size: 16,
+                      size: AppTypography.responsiveIconSize(context, 16),
                       color: colors.onErrorContainer,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
                     Expanded(
                       child: Text(
                         'This post is under review by moderators.',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: AppTypography.responsiveFontSize(
+                            context,
+                            AppTypography.badgeText,
+                          ),
                           color: colors.onErrorContainer,
                           fontWeight: FontWeight.w500,
                         ),
@@ -94,30 +107,32 @@ class PostCard extends StatelessWidget {
                 ),
               ),
 
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: _MlScoreBadge(
-                score: post.aiConfidenceScore,
-                isModerated: post.status == 'under_review',
-              ),
-            ),
-
             if (post.isSensitive)
               Container(
                 width: double.infinity,
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                padding: const EdgeInsets.all(12),
+                margin: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.largePlus.responsive(context),
+                  vertical: AppSpacing.mediumSmall.responsive(context),
+                ),
+                padding: AppSpacing.responsiveAll(context, AppSpacing.standard),
                 decoration: BoxDecoration(
                   color: colors.errorContainer.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppSpacing.responsiveRadius(
+                    context,
+                    AppSpacing.radiusLarge,
+                  ),
                   border: Border.all(
                     color: colors.error.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: colors.error),
-                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: colors.error,
+                      size: AppTypography.responsiveIconSize(context, 24),
+                    ),
+                    SizedBox(width: AppSpacing.standard.responsive(context)),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,13 +142,20 @@ class PostCard extends StatelessWidget {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: colors.error,
+                              fontSize: AppTypography.responsiveFontSize(
+                                context,
+                                AppTypography.base,
+                              ),
                             ),
                           ),
                           if (post.sensitiveReason != null)
                             Text(
                               post.sensitiveReason!,
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: AppTypography.responsiveFontSize(
+                                  context,
+                                  AppTypography.badgeText,
+                                ),
                                 color: colors.onErrorContainer,
                               ),
                             ),
@@ -146,11 +168,14 @@ class PostCard extends StatelessWidget {
 
             if (post.title != null && post.title!.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                padding: AppSpacing.responsiveLTRB(context, 16, 8, 16, 0),
                 child: Text(
                   post.title!,
-                  style: const TextStyle(
-                    fontSize: 18,
+                  style: TextStyle(
+                    fontSize: AppTypography.responsiveFontSize(
+                      context,
+                      AppTypography.cardHeading,
+                    ),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -160,10 +185,10 @@ class PostCard extends StatelessWidget {
 
             if (post.tags != null && post.tags!.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                padding: AppSpacing.responsiveLTRB(context, 16, 0, 16, 8),
                 child: Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
+                  spacing: AppSpacing.mediumSmall.responsive(context),
+                  runSpacing: AppSpacing.extraSmall.responsive(context),
                   children: post.tags!.map((tag) {
                     return GestureDetector(
                       onTap: onHashtagTap != null
@@ -174,6 +199,10 @@ class PostCard extends StatelessWidget {
                         style: TextStyle(
                           color: colors.primary,
                           fontWeight: FontWeight.bold,
+                          fontSize: AppTypography.responsiveFontSize(
+                            context,
+                            AppTypography.small,
+                          ),
                         ),
                       ),
                     );
@@ -316,24 +345,28 @@ class _HeaderState extends State<_Header> {
     final post = widget.post;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+      padding: AppSpacing.responsiveLTRB(context, 16, 16, 8, 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
             onTap: widget.onProfileTap,
             child: CircleAvatar(
-              radius: 22,
+              radius: 22.responsive(context, min: 18, max: 26),
               backgroundImage: post.author.avatar.isNotEmpty
                   ? NetworkImage(post.author.avatar)
                   : null,
               backgroundColor: colors.surfaceVariant,
               child: post.author.avatar.isEmpty
-                  ? Icon(Icons.person, color: colors.onSurfaceVariant)
+                  ? Icon(
+                      Icons.person,
+                      color: colors.onSurfaceVariant,
+                      size: AppTypography.responsiveIconSize(context, 22),
+                    )
                   : null,
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: AppSpacing.standard.responsive(context)),
           Expanded(
             child: GestureDetector(
               onTap: widget.onProfileTap,
@@ -342,57 +375,80 @@ class _HeaderState extends State<_Header> {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        post.author.displayName.isNotEmpty
-                            ? post.author.displayName
-                            : post.author.username,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Text(
+                          post.author.displayName.isNotEmpty
+                              ? post.author.displayName
+                              : post.author.username,
+                          style: TextStyle(
+                            fontSize: AppTypography.responsiveFontSize(
+                              context,
+                              AppTypography.small,
+                            ),
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (post.author.isVerified) ...[
-                        const SizedBox(width: 4),
-                        Icon(Icons.verified, size: 14, color: colors.primary),
+                        SizedBox(
+                          width: AppSpacing.extraSmall.responsive(context),
+                        ),
+                        Icon(
+                          Icons.verified,
+                          size: AppTypography.responsiveIconSize(context, 14),
+                          color: colors.primary,
+                        ),
+                      ],
+                      if (post.author.displayName.isNotEmpty &&
+                          post.author.displayName.toLowerCase() !=
+                              post.author.username.toLowerCase()) ...[
+                        SizedBox(width: AppSpacing.small.responsive(context)),
+                        Flexible(
+                          child: Text(
+                            '@${post.author.username}',
+                            style: TextStyle(
+                              fontSize: AppTypography.responsiveFontSize(
+                                context,
+                                AppTypography.badgeText,
+                              ),
+                              color: colors.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ],
                   ),
-                  if (post.author.displayName.isNotEmpty &&
-                      post.author.displayName.toLowerCase() !=
-                          post.author.username.toLowerCase()) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '@${post.author.username}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 4),
+
+                  SizedBox(height: AppSpacing.extraSmall.responsive(context)),
                   Row(
                     children: [
                       Text(
                         humanReadableTime(post.timestamp),
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: AppTypography.responsiveFontSize(
+                            context,
+                            11,
+                          ),
                           color: colors.onSurfaceVariant.withValues(alpha: 0.7),
                         ),
                       ),
-                      if (post.verificationMethod != null &&
-                          post.verificationMethod!.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        _VerificationMethodChip(
-                          method: post.verificationMethod!,
-                        ),
-                      ],
+                      SizedBox(width: AppSpacing.small.responsive(context)),
+                      _MlScoreBadge(
+                        score: post.aiConfidenceScore,
+                        isModerated: post.status == 'under_review',
+                      ),
                       if (post.location != null &&
                           post.location!.isNotEmpty) ...[
                         Text(
                           ' · ',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: AppTypography.responsiveFontSize(
+                              context,
+                              11,
+                            ),
                             color: colors.onSurfaceVariant.withValues(
                               alpha: 0.7,
                             ),
@@ -400,15 +456,15 @@ class _HeaderState extends State<_Header> {
                         ),
                         Icon(
                           Icons.location_on,
-                          size: 12,
+                          size: AppTypography.responsiveIconSize(context, 12),
                           color: colors.onSurfaceVariant.withValues(alpha: 0.7),
                         ),
-                        const SizedBox(width: 2),
+                        SizedBox(width: 2.responsive(context)),
                         Flexible(
                           child: _isLoadingLocation
                               ? SizedBox(
-                                  width: 12,
-                                  height: 12,
+                                  width: 12.responsive(context),
+                                  height: 12.responsive(context),
                                   child: CircularProgressIndicator(
                                     strokeWidth: 1.5,
                                     color: colors.onSurfaceVariant.withValues(
@@ -419,7 +475,10 @@ class _HeaderState extends State<_Header> {
                               : Text(
                                   _displayLocation ?? post.location!,
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: AppTypography.responsiveFontSize(
+                                      context,
+                                      11,
+                                    ),
                                     color: colors.onSurfaceVariant.withValues(
                                       alpha: 0.7,
                                     ),
@@ -436,7 +495,11 @@ class _HeaderState extends State<_Header> {
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
-            icon: Icon(Icons.more_horiz, color: colors.onSurfaceVariant),
+            icon: Icon(
+              Icons.more_horiz,
+              color: colors.onSurfaceVariant,
+              size: AppTypography.responsiveIconSize(context, 24),
+            ),
             onPressed: () => _showPostMenu(context),
           ),
         ],
@@ -498,70 +561,6 @@ class _RepostHeader extends StatelessWidget {
   }
 }
 
-/* ───────────────── VERIFICATION METHOD CHIP ───────────────── */
-
-class _VerificationMethodChip extends StatelessWidget {
-  final String method;
-
-  const _VerificationMethodChip({required this.method});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    // Format the display text
-    String displayText;
-    IconData icon;
-
-    switch (method.toLowerCase()) {
-      case 'text':
-        displayText = 'text';
-        icon = Icons.text_fields;
-        break;
-      case 'image':
-        displayText = 'image';
-        icon = Icons.image_outlined;
-        break;
-      case 'video':
-        displayText = 'video';
-        icon = Icons.videocam_outlined;
-        break;
-      case 'mixed':
-        displayText = 'mixed';
-        icon = Icons.layers_outlined;
-        break;
-      default:
-        // For "ML Detection API" or other custom methods
-        displayText = method;
-        icon = Icons.smart_toy_outlined;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 10, color: colors.onSurfaceVariant),
-          const SizedBox(width: 4),
-          Text(
-            displayText,
-            style: TextStyle(
-              fontSize: 10,
-              color: colors.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /* ───────────────── ML SCORE BADGE ───────────────── */
 
 class _MlScoreBadge extends StatelessWidget {
@@ -572,11 +571,20 @@ class _MlScoreBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final brightness = Theme.of(context).brightness;
+    final isDark = brightness == Brightness.dark;
     final bool isPending = score == null;
 
     final Color badgeColor;
     final Color bgColor;
     final String label;
+
+    // Theme-aware colors
+    const greenAccent = Color(0xFF10B981);
+    const amberAccent = Color(0xFFF59E0B);
+    const redAccent = Color(0xFFEF4444);
+    const grayAccent = Color(0xFF9CA3AF);
 
     // Convert AI confidence score to Human score (invert it)
     // API returns AI probability, we display Human probability
@@ -595,33 +603,45 @@ class _MlScoreBadge extends StatelessWidget {
     // - >40% human = PASS
 
     if (isModerated) {
-      badgeColor = const Color(0xFFF59E0B); // Amber
-      bgColor = const Color(0xFF451A03);
+      badgeColor = amberAccent;
+      bgColor = isDark
+          ? const Color(0xFF451A03)
+          : amberAccent.withValues(alpha: 0.15);
       label = 'UNDER REVIEW';
     } else if (isPending) {
-      badgeColor = const Color(0xFF9CA3AF);
-      bgColor = const Color(0xFF1F2937);
-      label = 'HUMAN SCORE: PENDING';
+      badgeColor = isDark ? grayAccent : colors.onSurfaceVariant;
+      bgColor = isDark
+          ? const Color(0xFF1F2937)
+          : colors.surfaceContainerHighest;
+      label = 'PENDING';
     } else if (humanScore! > 40) {
-      // >40% human (AI <60%) = PASS
-      badgeColor = const Color(0xFF10B981);
-      bgColor = const Color(0xFF052E1C);
-      label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [PASS]';
+      // >40% human (AI <60%) = PASS -> VERIFIED
+      badgeColor = greenAccent;
+      bgColor = isDark
+          ? const Color(0xFF052E1C)
+          : greenAccent.withValues(alpha: 0.15);
+      label = '${humanScore.toStringAsFixed(0)}% VERIFIED';
     } else if (humanScore > 25) {
-      // 26-40% human (AI 60-74%) = LABEL (transparency notice)
-      badgeColor = const Color(0xFFF59E0B); // Amber
-      bgColor = const Color(0xFF451A03);
-      label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [REVIEW]';
+      // 26-40% human (AI 60-74%) = LABEL -> REVIEW
+      badgeColor = amberAccent;
+      bgColor = isDark
+          ? const Color(0xFF451A03)
+          : amberAccent.withValues(alpha: 0.15);
+      label = '${humanScore.toStringAsFixed(0)}% REVIEW';
     } else if (humanScore > 5) {
-      // 5-25% human (AI 75-94%) = FLAG for review
-      badgeColor = const Color(0xFFEF4444);
-      bgColor = const Color(0xFF2D0F0F);
-      label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [FLAG]';
+      // 5-25% human (AI 75-94%) = FLAG -> FLAGGED
+      badgeColor = redAccent;
+      bgColor = isDark
+          ? const Color(0xFF2D0F0F)
+          : redAccent.withValues(alpha: 0.15);
+      label = '${humanScore.toStringAsFixed(0)}% FLAGGED';
     } else {
-      // <5% human (AI 95%+) = BLOCKED
-      badgeColor = const Color(0xFFEF4444);
-      bgColor = const Color(0xFF2D0F0F);
-      label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [AI DETECTED]';
+      // <5% human (AI 95%+) = BLOCKED -> AI DETECTED
+      badgeColor = redAccent;
+      bgColor = isDark
+          ? const Color(0xFF2D0F0F)
+          : redAccent.withValues(alpha: 0.15);
+      label = '${humanScore.toStringAsFixed(0)}% AI DETECTED';
     }
 
     return Container(
@@ -1173,7 +1193,7 @@ class _Actions extends StatelessWidget {
             icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
             label: _format(post.likes),
             isLiked: post.isLiked,
-            onTap: () => feedProvider.toggleLike(post.id),
+            onTap: () => _handleLike(context, feedProvider),
           ),
           const SizedBox(width: 4),
           _ActionButton(
@@ -1221,24 +1241,74 @@ class _Actions extends StatelessWidget {
     );
   }
 
-  void _handleRepost(BuildContext context, FeedProvider feedProvider) {
-    final wasReposted = feedProvider.isReposted(post.id);
-    feedProvider.toggleRepost(post.id);
+  Future<void> _handleLike(
+    BuildContext context,
+    FeedProvider feedProvider,
+  ) async {
+    try {
+      await feedProvider.toggleLike(post.id);
+    } on KycNotVerifiedException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: 'Verify',
+                textColor: Colors.white,
+                onPressed: () => Navigator.pushNamed(context, '/verify'),
+              ),
+            ),
+          );
+      }
+    }
+  }
 
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            wasReposted ? 'Removed repost' : 'Reposted to your profile',
-          ),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
+  Future<void> _handleRepost(
+    BuildContext context,
+    FeedProvider feedProvider,
+  ) async {
+    try {
+      final wasReposted = feedProvider.isReposted(post.id);
+      await feedProvider.toggleRepost(post.id);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                wasReposted ? 'Removed repost' : 'Reposted to your profile',
+              ),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+      }
+    } on KycNotVerifiedException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: 'Verify',
+                textColor: Colors.white,
+                onPressed: () => Navigator.pushNamed(context, '/verify'),
+              ),
+            ),
+          );
+      }
+    }
   }
 
   void _handleBookmark(

@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
+import '../utils/responsive_utils.dart';
 
 /// Typography system matching web application specs
 /// Base font: system-ui, Avenir, Helvetica, Arial, sans-serif
+///
+/// For responsive font sizes, use:
+/// ```dart
+/// fontSize: AppTypography.responsiveFontSize(context, AppTypography.base)
+/// ```
+/// Or with TextStyles:
+/// ```dart
+/// style: AppTypography.responsiveStyle(context, AppTypography.postContent)
+/// ```
 class AppTypography {
   // Font Sizes (matching web rem values, 1rem = 16px)
   static const double extraLargeHeading = 51.2; // 3.2em
@@ -164,4 +174,71 @@ class AppTypography {
     fontSize: base,
     fontWeight: medium,
   );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RESPONSIVE HELPER METHODS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Create a responsive font size (dampened scaling for readability)
+  static double responsiveFontSize(BuildContext context, double size) {
+    return ResponsiveUtils.scaleText(context, size);
+  }
+
+  /// Create a responsive icon size
+  static double responsiveIconSize(BuildContext context, double size) {
+    return ResponsiveUtils.scale(context, size);
+  }
+
+  /// Create a responsive TextStyle from a base style
+  static TextStyle responsiveStyle(BuildContext context, TextStyle style) {
+    if (style.fontSize == null) return style;
+    return style.copyWith(
+      fontSize: responsiveFontSize(context, style.fontSize!),
+    );
+  }
+
+  /// Get responsive authHeading style
+  static TextStyle responsiveAuthHeading(BuildContext context) {
+    return responsiveStyle(context, authHeading);
+  }
+
+  /// Get responsive logoText style
+  static TextStyle responsiveLogoText(BuildContext context) {
+    return responsiveStyle(context, logoText);
+  }
+
+  /// Get responsive profileName style
+  static TextStyle responsiveProfileName(BuildContext context) {
+    return responsiveStyle(context, profileName);
+  }
+
+  /// Get responsive modalHeader style
+  static TextStyle responsiveModalHeader(BuildContext context) {
+    return responsiveStyle(context, modalHeader);
+  }
+
+  /// Get responsive cardTitle style
+  static TextStyle responsiveCardTitle(BuildContext context) {
+    return responsiveStyle(context, cardTitle);
+  }
+
+  /// Get responsive postUsername style
+  static TextStyle responsivePostUsername(BuildContext context) {
+    return responsiveStyle(context, postUsername);
+  }
+
+  /// Get responsive postContent style
+  static TextStyle responsivePostContent(BuildContext context) {
+    return responsiveStyle(context, postContent);
+  }
+
+  /// Get responsive postMeta style
+  static TextStyle responsivePostMeta(BuildContext context) {
+    return responsiveStyle(context, postMeta);
+  }
+
+  /// Get responsive buttonText style
+  static TextStyle responsiveButtonText(BuildContext context) {
+    return responsiveStyle(context, buttonText);
+  }
 }

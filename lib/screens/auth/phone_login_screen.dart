@@ -3,7 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_colors.dart';
+import '../../config/app_spacing.dart';
+import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/responsive_extensions.dart';
 
 class PhoneLoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
@@ -179,11 +182,11 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
         child: Stack(
           children: [
             Positioned(
-              top: -80,
-              right: -80,
+              top: -80.responsive(context),
+              right: -80.responsive(context),
               child: Container(
-                width: 260,
-                height: 260,
+                width: 260.responsive(context, min: 220, max: 300),
+                height: 260.responsive(context, min: 220, max: 300),
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
                     colors: [
@@ -195,10 +198,12 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
               ),
             ),
             SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.double_.responsive(context),
+              ),
               child: Column(
                 children: [
-                  const SizedBox(height: 24),
+                  SizedBox(height: AppSpacing.double_.responsive(context)),
                   Row(
                     children: [
                       IconButton(
@@ -211,13 +216,13 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 24),
+                  SizedBox(height: AppSpacing.double_.responsive(context)),
 
                   Container(
-                    width: 96,
-                    height: 96,
+                    width: 96.responsive(context, min: 80, max: 112),
+                    height: 96.responsive(context, min: 80, max: 112),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(32),
+                      borderRadius: AppSpacing.responsiveRadius(context, 32),
                       gradient: const LinearGradient(
                         colors: [AppColors.primary, Color(0xFF3B82F6)],
                         begin: Alignment.topLeft,
@@ -226,63 +231,76 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                       boxShadow: [
                         BoxShadow(
                           color: AppColors.primary.withOpacity(0.35),
-                          blurRadius: 30,
-                          offset: const Offset(0, 10),
+                          blurRadius: 30.responsive(context),
+                          offset: Offset(0, 10.responsive(context)),
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.phone_android, size: 48, color: Colors.white),
+                    child: Icon(
+                      Icons.phone_android,
+                      size: AppTypography.responsiveIconSize(context, 48),
+                      color: Colors.white,
+                    ),
                   ),
 
-                  const SizedBox(height: 24),
+                  SizedBox(height: AppSpacing.double_.responsive(context)),
 
                   Text(
                     'Login with Phone',
                     style: TextStyle(
-                      fontSize: 28,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.largeHeading),
                       fontWeight: FontWeight.bold,
                       color: scheme.onSurface,
                     ),
                   ),
 
-                  const SizedBox(height: 8),
+                  SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
 
                   Text(
                     'Enter your number to receive a one-time code. This also completes the human verification requirement.',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.base),
                       color: scheme.onSurface.withOpacity(0.7),
                       height: 1.5,
                     ),
                     textAlign: TextAlign.center,
                   ),
 
-                  const SizedBox(height: 32),
+                  SizedBox(height: AppSpacing.triple.responsive(context)),
 
                   if (!_codeSent) _buildPhoneInput(scheme),
                   if (_codeSent) ...[
                     _buildOtpInput(scheme),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppSpacing.largePlus.responsive(context)),
                   ],
 
                   if (_error != null) ...[
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding:
+                          AppSpacing.responsiveAll(context, AppSpacing.standard),
                       decoration: BoxDecoration(
                         color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: AppSpacing.responsiveRadius(
+                            context, AppSpacing.radiusMedium),
                         border: Border.all(color: Colors.red.withOpacity(0.5)),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                          const SizedBox(width: 8),
+                          Icon(Icons.error_outline,
+                              color: Colors.red,
+                              size:
+                                  AppTypography.responsiveIconSize(context, 20)),
+                          SizedBox(
+                              width: AppSpacing.mediumSmall.responsive(context)),
                           Expanded(
                             child: Text(
                               _error!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.red,
-                                fontSize: 13,
+                                fontSize: AppTypography.responsiveFontSize(
+                                    context, AppTypography.small),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -290,12 +308,12 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppSpacing.largePlus.responsive(context)),
                   ],
 
                   SizedBox(
                     width: double.infinity,
-                    height: 56,
+                    height: 56.responsive(context, min: 48, max: 64),
                     child: ElevatedButton(
                       onPressed: _isLoading
                           ? null
@@ -306,18 +324,20 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
+                          borderRadius: AppSpacing.responsiveRadius(context, 28),
                         ),
                         elevation: 0,
-                        disabledBackgroundColor: AppColors.primary.withOpacity(0.6),
+                        disabledBackgroundColor:
+                            AppColors.primary.withOpacity(0.6),
                       ),
                       child: _isLoading
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
+                          ? SizedBox(
+                              height: 24.responsive(context, min: 20, max: 28),
+                              width: 24.responsive(context, min: 20, max: 28),
+                              child: const CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
                           : Row(
@@ -325,27 +345,33 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                               children: [
                                 Text(
                                   _codeSent ? 'Verify & Login' : 'Send Code',
-                                  style: const TextStyle(
-                                    fontSize: 18,
+                                  style: TextStyle(
+                                    fontSize: AppTypography.responsiveFontSize(
+                                        context, AppTypography.smallHeading),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                const Icon(Icons.arrow_forward, size: 20),
+                                SizedBox(
+                                    width: AppSpacing.mediumSmall
+                                        .responsive(context)),
+                                Icon(Icons.arrow_forward,
+                                    size: AppTypography.responsiveIconSize(
+                                        context, 20)),
                               ],
                             ),
                     ),
                   ),
 
                   if (_codeSent) ...[
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppSpacing.largePlus.responsive(context)),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           "Didn't receive the code? ",
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: AppTypography.responsiveFontSize(
+                                context, AppTypography.base),
                             color: scheme.onSurface.withOpacity(0.7),
                           ),
                         ),
@@ -354,7 +380,8 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                           child: Text(
                             'Resend',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: AppTypography.responsiveFontSize(
+                                  context, AppTypography.base),
                               color: _resendCooldown > 0
                                   ? Colors.grey
                                   : AppColors.primary,
@@ -368,22 +395,24 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                         if (_resendCooldown > 0)
                           Text(
                             ' (${_resendCooldown}s)',
-                            style: const TextStyle(
-                              fontSize: 14,
+                            style: TextStyle(
+                              fontSize: AppTypography.responsiveFontSize(
+                                  context, AppTypography.base),
                               color: Colors.grey,
                             ),
                           ),
                       ],
                     ),
 
-                    const SizedBox(height: 8),
+                    SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
 
                     TextButton(
                       onPressed: _changePhoneNumber,
-                      child: const Text(
+                      child: Text(
                         'Change phone number',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: AppTypography.responsiveFontSize(
+                              context, AppTypography.extraSmall),
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
                         ),
@@ -391,7 +420,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                     ),
                   ],
 
-                  const SizedBox(height: 32),
+                  SizedBox(height: AppSpacing.triple.responsive(context)),
                 ],
               ),
             ),
@@ -405,13 +434,16 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius:
+            AppSpacing.responsiveRadius(context, AppSpacing.radiusLarge),
         border: Border.all(color: scheme.outline.withOpacity(0.3)),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.standard.responsive(context),
+            ),
             decoration: BoxDecoration(
               border: Border(
                 right: BorderSide(color: scheme.outline.withOpacity(0.3)),
@@ -426,7 +458,8 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                     child: Text(
                       '${country['code']} ${country['country']}',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: AppTypography.responsiveFontSize(
+                            context, AppTypography.base),
                         color: scheme.onSurface,
                       ),
                     ),
@@ -450,7 +483,8 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
               controller: _phoneController,
               keyboardType: TextInputType.phone,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: AppTypography.responsiveFontSize(
+                    context, AppTypography.smallHeading),
                 color: scheme.onSurface,
                 fontWeight: FontWeight.w500,
               ),
@@ -460,9 +494,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                   color: scheme.onSurface.withOpacity(0.4),
                 ),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.largePlus.responsive(context),
+                  vertical: AppSpacing.largePlus.responsive(context),
                 ),
               ),
               inputFormatters: [
@@ -481,8 +515,8 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List.generate(6, (index) {
         return SizedBox(
-          width: 48,
-          height: 56,
+          width: 48.responsive(context, min: 40, max: 56),
+          height: 56.responsive(context, min: 48, max: 64),
           child: TextField(
             controller: _otpControllers[index],
             focusNode: _otpFocusNodes[index],
@@ -490,7 +524,8 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
             keyboardType: TextInputType.number,
             maxLength: 1,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: AppTypography.responsiveFontSize(
+                  context, AppTypography.mediumHeading),
               fontWeight: FontWeight.bold,
               color: scheme.onSurface,
             ),
@@ -503,15 +538,18 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                 color: scheme.onSurface.withOpacity(0.4),
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: AppSpacing.responsiveRadius(
+                    context, AppSpacing.radiusLarge),
                 borderSide: BorderSide(color: scheme.outline),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: AppSpacing.responsiveRadius(
+                    context, AppSpacing.radiusLarge),
                 borderSide: BorderSide(color: scheme.outline),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: AppSpacing.responsiveRadius(
+                    context, AppSpacing.radiusLarge),
                 borderSide: const BorderSide(
                   color: AppColors.primary,
                   width: 2,

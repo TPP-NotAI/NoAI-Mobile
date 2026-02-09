@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
+import '../../config/app_spacing.dart';
+import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/storage_service.dart';
 import '../../services/secure_storage_service.dart';
+import '../../utils/responsive_extensions.dart';
 import 'phone_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -173,18 +176,21 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: scheme.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.double_.responsive(context),
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 80),
+              SizedBox(height: 80.responsive(context, min: 60, max: 100)),
 
               // Logo and title
               Container(
-                width: 64,
-                height: 64,
+                width: 64.responsive(context, min: 56, max: 72),
+                height: 64.responsive(context, min: 56, max: 72),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: AppSpacing.responsiveRadius(
+                      context, AppSpacing.radiusExtraLarge),
                   gradient: const LinearGradient(
                     colors: [AppColors.primary, Color(0xFF3B82F6)],
                     begin: Alignment.topLeft,
@@ -193,40 +199,42 @@ class _LoginScreenState extends State<LoginScreen> {
                   boxShadow: [
                     BoxShadow(
                       color: AppColors.primary.withOpacity(0.25),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      blurRadius: 12.responsive(context),
+                      offset: Offset(0, 4.responsive(context)),
                     ),
                   ],
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.fingerprint,
-                  size: 32,
+                  size: AppTypography.responsiveIconSize(context, 32),
                   color: Colors.white,
                 ),
               ),
 
-              const SizedBox(height: 16),
+              SizedBox(height: AppSpacing.largePlus.responsive(context)),
 
               Text(
                 'ROOVERSE',
                 style: TextStyle(
-                  fontSize: 36,
+                  fontSize: AppTypography.responsiveFontSize(
+                      context, AppTypography.largeHeading),
                   fontWeight: FontWeight.bold,
                   color: scheme.onBackground,
                 ),
               ),
 
-              const SizedBox(height: 8),
+              SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
 
               Text(
                 'Authentic Human Connection',
                 style: TextStyle(
                   color: scheme.onBackground.withOpacity(0.7),
-                  fontSize: 14,
+                  fontSize: AppTypography.responsiveFontSize(
+                      context, AppTypography.small),
                 ),
               ),
 
-              const SizedBox(height: 48),
+              SizedBox(height: 48.responsive(context, min: 36, max: 56)),
 
               // Login form
               _buildInputField(
@@ -240,7 +248,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 errorText: _emailError,
               ),
 
-              const SizedBox(height: 20),
+              SizedBox(height: AppSpacing.extraLarge.responsive(context)),
 
               _buildInputField(
                 context,
@@ -254,11 +262,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
 
               if (_loginError != null) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: AppSpacing.standard.responsive(context)),
                 _buildErrorMessage(scheme),
               ],
 
-              const SizedBox(height: 16),
+              SizedBox(height: AppSpacing.largePlus.responsive(context)),
 
               // Remember me & Forgot password row
               Row(
@@ -275,8 +283,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         SizedBox(
-                          width: 20,
-                          height: 20,
+                          width: 20.responsive(context, min: 18, max: 22),
+                          height: 20.responsive(context, min: 18, max: 22),
                           child: Checkbox(
                             value: _rememberMe,
                             onChanged: (value) {
@@ -302,11 +310,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(
+                            width: AppSpacing.mediumSmall.responsive(context)),
                         Text(
                           'Remember me',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: AppTypography.responsiveFontSize(
+                                context, AppTypography.small),
                             color: scheme.onSurface.withOpacity(0.8),
                             fontWeight: FontWeight.w500,
                           ),
@@ -322,11 +332,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Forgot Password?',
                       style: TextStyle(
                         color: AppColors.primary,
-                        fontSize: 14,
+                        fontSize: AppTypography.responsiveFontSize(
+                            context, AppTypography.small),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -334,56 +345,60 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
 
-              const SizedBox(height: 8),
+              SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
 
               // Login button
               SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: 56.responsive(context, min: 48, max: 64),
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
+                      borderRadius: AppSpacing.responsiveRadius(context, 28),
                     ),
                     elevation: 0,
                     disabledBackgroundColor: AppColors.primary.withOpacity(0.6),
                   ),
                   child: _isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
+                      ? SizedBox(
+                          height: 24.responsive(context, min: 20, max: 28),
+                          width: 24.responsive(context, min: 20, max: 28),
+                          child: const CircularProgressIndicator(
                             strokeWidth: 2.5,
                             valueColor: AlwaysStoppedAnimation<Color>(
                               Colors.white,
                             ),
                           ),
                         )
-                      : const Text(
+                      : Text(
                           'Login',
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: AppTypography.responsiveFontSize(
+                                context, AppTypography.smallHeading),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                 ),
               ),
 
-              const SizedBox(height: 32),
+              SizedBox(height: AppSpacing.triple.responsive(context)),
 
               // Divider
               Row(
                 children: [
                   Expanded(child: Divider(color: scheme.outline)),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.largePlus.responsive(context),
+                    ),
                     child: Text(
                       'Or continue with',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: AppTypography.responsiveFontSize(
+                            context, AppTypography.small),
                         color: scheme.onBackground.withOpacity(0.6),
                       ),
                     ),
@@ -392,7 +407,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
 
-              const SizedBox(height: 32),
+              SizedBox(height: AppSpacing.triple.responsive(context)),
 
               // Social login buttons
               Row(
@@ -405,7 +420,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () {},
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: AppSpacing.standard.responsive(context)),
                   Expanded(
                     child: _buildSocialButton(
                       context,
@@ -417,18 +432,22 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
 
-              const SizedBox(height: 24),
+              SizedBox(height: AppSpacing.double_.responsive(context)),
 
               SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: 56.responsive(context, min: 48, max: 64),
                 child: OutlinedButton.icon(
                   onPressed: _openPhoneLogin,
-                  icon: Icon(Icons.phone_android, color: scheme.onSurface),
+                  icon: Icon(Icons.phone_android,
+                      color: scheme.onSurface,
+                      size: AppTypography.responsiveIconSize(context, 24)),
                   label: Text(
                     'Login with phone number',
                     style: TextStyle(
                       color: scheme.onSurface,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.base),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -436,24 +455,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     backgroundColor: scheme.surface,
                     side: BorderSide(color: scheme.outline.withOpacity(0.4)),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
+                      borderRadius: AppSpacing.responsiveRadius(context, 28),
                     ),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 8),
+              SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
 
               Text(
                 'Phone login also satisfies the human-verification step.',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: AppTypography.responsiveFontSize(
+                      context, AppTypography.tiny),
                   color: scheme.onSurface.withOpacity(0.6),
                 ),
                 textAlign: TextAlign.center,
               ),
 
-              const SizedBox(height: 24),
+              SizedBox(height: AppSpacing.double_.responsive(context)),
 
               // Sign up link
               Row(
@@ -462,7 +482,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     'New here? ',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.small),
                       color: scheme.onBackground.withOpacity(0.7),
                     ),
                   ),
@@ -476,7 +497,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Text(
                       'Create an Account',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: AppTypography.responsiveFontSize(
+                            context, AppTypography.small),
                         fontWeight: FontWeight.bold,
                         color: scheme.onBackground,
                         decoration: TextDecoration.underline,
@@ -488,7 +510,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
 
-              const SizedBox(height: 32),
+              SizedBox(height: AppSpacing.triple.responsive(context)),
             ],
           ),
         ),
@@ -502,16 +524,18 @@ class _LoginScreenState extends State<LoginScreen> {
     final icon = isRateLimited ? Icons.timer_outlined : Icons.error_outline;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.standard),
       decoration: BoxDecoration(
         color: errorColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
         border: Border.all(color: errorColor.withOpacity(0.5)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: errorColor, size: 20),
-          const SizedBox(width: 8),
+          Icon(icon,
+              color: errorColor,
+              size: AppTypography.responsiveIconSize(context, 20)),
+          SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -520,17 +544,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   _loginError!,
                   style: TextStyle(
                     color: errorColor,
-                    fontSize: 13,
+                    fontSize: AppTypography.responsiveFontSize(
+                        context, AppTypography.small),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 if (isRateLimited) ...[
-                  const SizedBox(height: 4),
+                  SizedBox(height: AppSpacing.extraSmall.responsive(context)),
                   Text(
                     'Please wait a few minutes before trying again.',
                     style: TextStyle(
                       color: errorColor.withOpacity(0.8),
-                      fontSize: 11,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.tiny),
                     ),
                   ),
                 ],
@@ -562,21 +588,23 @@ class _LoginScreenState extends State<LoginScreen> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: AppTypography.responsiveFontSize(
+                context, AppTypography.base),
             fontWeight: FontWeight.w600,
             color: scheme.onBackground.withOpacity(0.9),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
         Focus(
           onFocusChange: (hasFocus) {
             setState(() {});
           },
           child: Container(
-            height: 56,
+            height: 56.responsive(context, min: 48, max: 64),
             decoration: BoxDecoration(
               color: scheme.surface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius:
+                  AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
               border: Border.all(
                 color: hasError
                     ? Colors.red
@@ -593,30 +621,30 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (focusNode?.hasFocus ?? false)
                   BoxShadow(
                     color: AppColors.primary.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    blurRadius: 8.responsive(context),
+                    offset: Offset(0, 2.responsive(context)),
                   )
                 else
                   BoxShadow(
                     color: Colors.black.withOpacity(0.03),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                    blurRadius: 4.responsive(context),
+                    offset: Offset(0, 2.responsive(context)),
                   ),
               ],
             ),
             child: Row(
               children: [
-                const SizedBox(width: 16),
+                SizedBox(width: AppSpacing.largePlus.responsive(context)),
                 Icon(
                   icon,
-                  size: 22,
+                  size: AppTypography.responsiveIconSize(context, 22),
                   color: hasError
                       ? Colors.red
                       : (focusNode?.hasFocus ?? false)
                       ? AppColors.primary
                       : scheme.onSurface.withOpacity(0.5),
                 ),
-                const SizedBox(width: 14),
+                SizedBox(width: AppSpacing.medium.responsive(context)),
                 Expanded(
                   child: TextField(
                     controller: controller,
@@ -625,7 +653,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: keyboardType,
                     style: TextStyle(
                       color: scheme.onSurface,
-                      fontSize: 15,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.base),
                       fontWeight: FontWeight.w500,
                     ),
                     decoration: InputDecoration(
@@ -648,7 +677,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       _obscurePassword
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
-                      size: 22,
+                      size: AppTypography.responsiveIconSize(context, 22),
                       color: scheme.onSurface.withOpacity(0.5),
                     ),
                     onPressed: () {
@@ -657,24 +686,28 @@ class _LoginScreenState extends State<LoginScreen> {
                       });
                     },
                   ),
-                const SizedBox(width: 12),
+                SizedBox(width: AppSpacing.standard.responsive(context)),
               ],
             ),
           ),
         ),
         if (hasError) ...[
-          const SizedBox(height: 8),
+          SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
           Padding(
-            padding: const EdgeInsets.only(left: 4),
+            padding: EdgeInsets.only(
+                left: AppSpacing.extraSmall.responsive(context)),
             child: Row(
               children: [
-                Icon(Icons.error_outline, size: 14, color: Colors.red),
-                const SizedBox(width: 4),
+                Icon(Icons.error_outline,
+                    size: AppTypography.responsiveIconSize(context, 14),
+                    color: Colors.red),
+                SizedBox(width: AppSpacing.extraSmall.responsive(context)),
                 Text(
                   errorText,
                   style: TextStyle(
                     color: Colors.red,
-                    fontSize: 13,
+                    fontSize: AppTypography.responsiveFontSize(
+                        context, AppTypography.small),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -707,12 +740,14 @@ class _LoginScreenState extends State<LoginScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius:
+            AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
         child: Container(
-          height: 54,
+          height: 54.responsive(context, min: 46, max: 62),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius:
+                AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
             border: Border.all(
               color: scheme.outline.withOpacity(0.3),
               width: 1.5,
@@ -720,20 +755,23 @@ class _LoginScreenState extends State<LoginScreen> {
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.03),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
+                blurRadius: 4.responsive(context),
+                offset: Offset(0, 2.responsive(context)),
               ),
             ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 24, color: scheme.onSurface.withOpacity(0.8)),
-              const SizedBox(width: 10),
+              Icon(icon,
+                  size: AppTypography.responsiveIconSize(context, 24),
+                  color: scheme.onSurface.withOpacity(0.8)),
+              SizedBox(width: AppSpacing.small.responsive(context)),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: AppTypography.responsiveFontSize(
+                      context, AppTypography.base),
                   fontWeight: FontWeight.w600,
                   color: scheme.onSurface.withOpacity(0.9),
                 ),

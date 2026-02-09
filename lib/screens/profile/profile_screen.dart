@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:rooverse/models/user.dart';
+import 'package:rooverse/models/user_activity.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../config/app_spacing.dart';
+import '../../config/app_typography.dart';
+import '../../utils/responsive_extensions.dart';
 import '../../widgets/shimmer_loading.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/feed_provider.dart';
@@ -39,6 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final String? targetId = widget.userId ?? authProvider.currentUser?.id;
       if (targetId != null) {
         userProvider.fetchUser(targetId);
+        userProvider.fetchUserActivities(targetId);
         // Load follow and block status if viewing another user's profile
         if (widget.userId != null &&
             widget.userId != authProvider.currentUser?.id) {
@@ -206,20 +211,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // ───────── PROFILE CARD
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: AppSpacing.responsiveAll(
+                    context, AppSpacing.extraLarge),
                 child: Container(
                   decoration: BoxDecoration(
                     color: colors.surfaceContainerHighest.withValues(
                       alpha: 0.3,
                     ),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: AppSpacing.responsiveRadius(
+                        context, AppSpacing.radiusModal),
                     border: Border.all(
                       color: colors.outlineVariant.withValues(alpha: 0.5),
                       width: 1,
                     ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: AppSpacing.responsiveAll(
+                        context, AppSpacing.extraLarge),
                     child: Column(
                       children: [
                         _ProfileHeader(
@@ -250,7 +258,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // ───────── HUMANITY METRICS
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.extraLarge.responsive(context),
+                ),
                 child: _HumanityMetricsCompact(user: user, colors: colors),
               ),
             ),
@@ -273,7 +283,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // ───────── TAB CONTENT
             if (_tabIndex == 0)
-              _ActivityLog(posts: posts, colors: colors)
+              _ActivityLog(activities: userProvider.userActivities, colors: colors)
             else if (_tabIndex == 1)
               _Statistics(user: user, colors: colors)
             else if (_tabIndex == 2)
@@ -424,13 +434,15 @@ class _ProfileHeader extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             CircleAvatar(
-              radius: 48,
+              radius: 48.responsive(context, min: 40, max: 56),
               backgroundImage: user.avatar != null
                   ? NetworkImage(user.avatar!)
                   : null,
               backgroundColor: colors.surfaceContainerHighest,
               child: user.avatar == null
-                  ? Icon(Icons.person, size: 48, color: colors.onSurfaceVariant)
+                  ? Icon(Icons.person,
+                      size: AppTypography.responsiveIconSize(context, 48),
+                      color: colors.onSurfaceVariant)
                   : null,
             ),
             if (user.isVerified)
@@ -438,19 +450,21 @@ class _ProfileHeader extends StatelessWidget {
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  width: 32,
-                  height: 32,
+                  width: 32.responsive(context, min: 28, max: 36),
+                  height: 32.responsive(context, min: 28, max: 36),
                   decoration: BoxDecoration(
                     color: const Color(0xFF10B981),
                     shape: BoxShape.circle,
                     border: Border.all(color: colors.surface, width: 3),
                   ),
-                  child: const Icon(Icons.check, color: Colors.white, size: 18),
+                  child: Icon(Icons.check,
+                      color: Colors.white,
+                      size: AppTypography.responsiveIconSize(context, 18)),
                 ),
               ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -466,17 +480,21 @@ class _ProfileHeader extends StatelessWidget {
               ),
             ),
             if (user.isVerified) ...[
-              const SizedBox(width: 8),
-              Icon(Icons.verified, size: 20, color: colors.primary),
+              SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
+              Icon(Icons.verified,
+                  size: AppTypography.responsiveIconSize(context, 20),
+                  color: colors.primary),
             ],
           ],
         ),
         if (user.displayName.isNotEmpty &&
             user.displayName.toLowerCase() != user.username.toLowerCase()) ...[
-          const SizedBox(height: 4),
+          SizedBox(height: AppSpacing.extraSmall.responsive(context)),
           Text(
             '@${user.username}',
             style: theme.textTheme.titleMedium?.copyWith(
+              fontSize: AppTypography.responsiveFontSize(
+                  context, AppTypography.base),
               color: colors.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
@@ -484,12 +502,16 @@ class _ProfileHeader extends StatelessWidget {
             maxLines: 1,
           ),
         ],
-        const SizedBox(height: 8),
+        SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
         Text(
           user.createdAt != null
               ? 'Member since ${DateFormat('MMM yyyy').format(user.createdAt!)}'
               : '',
-          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+          style: TextStyle(
+            color: colors.onSurfaceVariant,
+            fontSize:
+                AppTypography.responsiveFontSize(context, AppTypography.tiny),
+          ),
           overflow: TextOverflow.ellipsis,
           maxLines: 1,
         ),
@@ -740,10 +762,11 @@ class _HumanityMetricsCompact extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius:
+            AppSpacing.responsiveRadius(context, AppSpacing.radiusExtraLarge),
         border: Border.all(
           color: colors.outlineVariant.withOpacity(0.5),
           width: 1,
@@ -757,7 +780,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
               Text(
                 'HUMANITY METRICS',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: AppTypography.responsiveFontSize(context, 11),
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
                   color: colors.onSurfaceVariant,
@@ -766,12 +789,12 @@ class _HumanityMetricsCompact extends StatelessWidget {
               const Spacer(),
               Icon(
                 Icons.info_outline,
-                size: 18,
+                size: AppTypography.responsiveIconSize(context, 18),
                 color: colors.onSurfaceVariant,
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: AppSpacing.extraLarge.responsive(context)),
           // Trust Score
           Row(
             children: [
@@ -815,8 +838,8 @@ class _HumanityMetricsCompact extends StatelessWidget {
                 ),
               ),
               Container(
-                width: 56,
-                height: 56,
+                width: 56.responsive(context, min: 48, max: 64),
+                height: 56.responsive(context, min: 48, max: 64),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color:
@@ -841,7 +864,8 @@ class _HumanityMetricsCompact extends StatelessWidget {
                         ? 'B'
                         : 'C',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.smallHeading),
                       fontWeight: FontWeight.bold,
                       color: user.trustScore > 80
                           ? const Color(0xFF10B981)
@@ -852,9 +876,9 @@ class _HumanityMetricsCompact extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: AppSpacing.extraLarge.responsive(context)),
           const Divider(height: 1),
-          const SizedBox(height: 16),
+          SizedBox(height: AppSpacing.largePlus.responsive(context)),
           // Human-Verified Posts
           Row(
             children: [
@@ -1116,26 +1140,25 @@ class _ActionRow extends StatelessWidget {
 /* ───────────────── ACTIVITY LOG ───────────────── */
 
 class _ActivityLog extends StatelessWidget {
-  final List posts;
+  final List<UserActivity> activities;
   final ColorScheme colors;
 
-  const _ActivityLog({required this.posts, required this.colors});
+  const _ActivityLog({required this.activities, required this.colors});
 
   @override
   Widget build(BuildContext context) {
-    if (posts.isEmpty) {
+    if (activities.isEmpty) {
       return const SliverFillRemaining(
         child: Center(child: Text('No activity yet')),
       );
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.all(20),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, i) =>
-              _ActivityItem(post: posts[i], colors: colors, postNumber: i + 1),
-          childCount: posts.length > 5 ? 5 : posts.length,
+          (context, i) => _ActivityItem(activity: activities[i], colors: colors),
+          childCount: activities.length > 20 ? 20 : activities.length,
         ),
       ),
     );
@@ -1145,192 +1168,191 @@ class _ActivityLog extends StatelessWidget {
 /* ───────────────── ACTIVITY ITEM ───────────────── */
 
 class _ActivityItem extends StatelessWidget {
-  final dynamic post;
+  final UserActivity activity;
   final ColorScheme colors;
-  final int postNumber;
 
   const _ActivityItem({
-    required this.post,
+    required this.activity,
     required this.colors,
-    required this.postNumber,
   });
+
+  IconData _getIcon() {
+    switch (activity.type) {
+      case UserActivityType.postCreated:
+        return Icons.edit_note;
+      case UserActivityType.postLiked:
+        return Icons.favorite;
+      case UserActivityType.postCommented:
+        return Icons.chat_bubble;
+      case UserActivityType.postReposted:
+        return Icons.repeat;
+      case UserActivityType.userFollowed:
+        return Icons.person_add;
+      case UserActivityType.roocoinEarned:
+        return Icons.add_circle;
+      case UserActivityType.roocoinSpent:
+        return Icons.remove_circle;
+      case UserActivityType.roocoinTransferred:
+        return Icons.send;
+      case UserActivityType.storyCreated:
+        return Icons.auto_stories;
+      case UserActivityType.bookmarkAdded:
+        return Icons.bookmark;
+    }
+  }
+
+  Color _getColor() {
+    switch (activity.type) {
+      case UserActivityType.postCreated:
+        return const Color(0xFF3B82F6); // blue
+      case UserActivityType.postLiked:
+        return const Color(0xFFEF4444); // red
+      case UserActivityType.postCommented:
+        return const Color(0xFF8B5CF6); // purple
+      case UserActivityType.postReposted:
+        return const Color(0xFF10B981); // green
+      case UserActivityType.userFollowed:
+        return const Color(0xFFF59E0B); // amber
+      case UserActivityType.roocoinEarned:
+        return const Color(0xFF10B981); // green
+      case UserActivityType.roocoinSpent:
+        return const Color(0xFFEF4444); // red
+      case UserActivityType.roocoinTransferred:
+        return const Color(0xFFF59E0B); // amber
+      case UserActivityType.storyCreated:
+        return const Color(0xFFEC4899); // pink
+      case UserActivityType.bookmarkAdded:
+        return const Color(0xFF6366F1); // indigo
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final aiScore = post.aiConfidenceScore;
-    final dateStr = post.timestamp != null
-        ? DateFormat('MMM d, yyyy').format(DateTime.parse(post.timestamp))
-        : 'Recently';
+    final dateStr = DateFormat('MMM d, yyyy').format(activity.timestamp);
+    final timeStr = DateFormat('h:mm a').format(activity.timestamp);
+    final activityColor = _getColor();
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colors.outlineVariant.withValues(alpha: 0.5),
-            width: 1,
-          ),
+    return Container(
+      margin: EdgeInsets.only(
+          bottom: AppSpacing.standard.responsive(context)),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius:
+            AppSpacing.responsiveRadius(context, AppSpacing.radiusLarge),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.5),
+          width: 1,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Post number badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'POST #${post.id.substring(0, 4).toUpperCase()}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: colors.onSurfaceVariant,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  dateStr,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-                const Spacer(),
-                if (aiScore != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: aiScore < 20
-                          ? const Color(0xFF052E1C)
-                          : aiScore < 60
-                          ? const Color(0xFF451A03)
-                          : const Color(0xFF450A0A),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: aiScore < 20
-                            ? const Color(0xFF10B981)
-                            : aiScore < 60
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFFEF4444),
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      '${aiScore.toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: aiScore < 20
-                            ? const Color(0xFF10B981)
-                            : aiScore < 60
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFFEF4444),
-                      ),
-                    ),
-                  ),
-              ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Activity icon
+          Container(
+            width: 40.responsive(context, min: 36, max: 46),
+            height: 40.responsive(context, min: 36, max: 46),
+            decoration: BoxDecoration(
+              color: activityColor.withValues(alpha: 0.15),
+              borderRadius:
+                  AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
             ),
-            const SizedBox(height: 12),
-            Text(
-              post.content.length > 60
-                  ? '${post.content.substring(0, 60)}...'
-                  : post.content,
-              style: TextStyle(
-                fontSize: 14,
-                color: colors.onSurface,
-                height: 1.4,
-              ),
+            child: Icon(
+              _getIcon(),
+              size: AppTypography.responsiveIconSize(context, 20),
+              color: activityColor,
             ),
-            const SizedBox(height: 12),
-            Row(
+          ),
+          SizedBox(width: AppSpacing.standard.responsive(context)),
+          // Activity details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Text(
-                        'AI',
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        activity.displayTitle,
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF10B981),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colors.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                // Preview content if available
+                if (activity.previewContent != null) ...[
+                  Text(
+                    activity.previewContent!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colors.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                // Target user info for follow activities
+                if (activity.type == UserActivityType.userFollowed &&
+                    activity.targetUsername != null) ...[
+                  Row(
+                    children: [
+                      if (activity.targetAvatarUrl != null)
+                        CircleAvatar(
+                          radius: 10,
+                          backgroundImage: NetworkImage(activity.targetAvatarUrl!),
+                        )
+                      else
+                        CircleAvatar(
+                          radius: 10,
+                          backgroundColor: colors.surfaceContainerHighest,
+                          child: Icon(
+                            Icons.person,
+                            size: 12,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '@${activity.targetUsername}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.primary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.smartphone, size: 16, color: colors.primary),
-                const SizedBox(width: 4),
-                Text(
-                  'Device Metadata',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Spacer(),
-                if (post.detectionStatus != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                  const SizedBox(height: 6),
+                ],
+                // Timestamp
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      size: 12,
+                      color: colors.onSurfaceVariant,
                     ),
-                    decoration: BoxDecoration(
-                      color: post.detectionStatus == 'pass'
-                          ? const Color(0xFF052E1C)
-                          : post.detectionStatus == 'review'
-                          ? const Color(0xFF451A03)
-                          : const Color(0xFF450A0A),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      post.detectionStatus!.toUpperCase(),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$dateStr at $timeStr',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: post.detectionStatus == 'pass'
-                            ? const Color(0xFF10B981)
-                            : post.detectionStatus == 'review'
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFFEF4444),
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
-                  ),
+                  ],
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1347,7 +1369,7 @@ class _Statistics extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverPadding(
-      padding: const EdgeInsets.all(20),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       sliver: SliverList(
         delegate: SliverChildListDelegate([
           _StatItem(
@@ -1529,12 +1551,12 @@ class _DraftsGrid extends StatelessWidget {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.all(20),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
+          crossAxisSpacing: AppSpacing.mediumSmall.responsive(context),
+          mainAxisSpacing: AppSpacing.mediumSmall.responsive(context),
           childAspectRatio: 1,
         ),
         delegate: SliverChildBuilderDelegate(
@@ -1733,12 +1755,12 @@ class _PostsGrid extends StatelessWidget {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.all(20),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
+          crossAxisSpacing: AppSpacing.mediumSmall.responsive(context),
+          mainAxisSpacing: AppSpacing.mediumSmall.responsive(context),
           childAspectRatio: 1,
         ),
         delegate: SliverChildBuilderDelegate(

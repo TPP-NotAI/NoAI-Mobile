@@ -92,6 +92,11 @@ dependencies:
   swipe_to: ^1.0.6
   share_plus: ^10.0.0
 
+  # Push notifications
+  firebase_core: ^3.3.0
+  firebase_messaging: ^15.0.4
+  flutter_local_notifications: ^17.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

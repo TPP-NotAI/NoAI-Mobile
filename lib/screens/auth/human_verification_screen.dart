@@ -4,8 +4,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/app_colors.dart';
+import '../../config/app_spacing.dart';
+import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/supabase_service.dart';
+import '../../utils/responsive_extensions.dart';
 
 enum VerificationMethod { phone, idDocument, selfie }
 
@@ -181,11 +184,11 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
           children: [
             // Gradient background
             Positioned(
-              top: -100,
-              right: -100,
+              top: -100.responsive(context),
+              right: -100.responsive(context),
               child: Container(
-                width: 300,
-                height: 300,
+                width: 300.responsive(context, min: 250, max: 350),
+                height: 300.responsive(context, min: 250, max: 350),
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
                     colors: [
@@ -198,10 +201,12 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
             ),
 
             SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.double_.responsive(context),
+              ),
               child: Column(
                 children: [
-                  const SizedBox(height: 24),
+                  SizedBox(height: AppSpacing.double_.responsive(context)),
 
                   // Header
                   Row(
@@ -222,32 +227,35 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
                           ),
                         )
                       else
-                        const SizedBox(width: 48),
+                        SizedBox(width: 48.responsive(context, min: 40, max: 56)),
 
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSpacing.standard.responsive(context),
+                          vertical: AppSpacing.small.responsive(context),
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.primarySoft,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppSpacing.responsiveRadius(
+                              context, AppSpacing.radiusMedium),
                           border: Border.all(
                             color: AppColors.primary.withOpacity(0.3),
                           ),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
                             Icon(
                               Icons.verified_user,
-                              size: 16,
+                              size: AppTypography.responsiveIconSize(context, 16),
                               color: AppColors.primary,
                             ),
-                            SizedBox(width: 4),
+                            SizedBox(
+                                width: AppSpacing.extraSmall.responsive(context)),
                             Text(
                               'IDENTITY VERIFICATION',
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: AppTypography.responsiveFontSize(
+                                    context, 10),
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.primary,
                                 letterSpacing: 1,
@@ -259,10 +267,10 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
 
                       IconButton(
                         onPressed: _handleLogout,
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.logout,
                           color: Colors.red,
-                          size: 20,
+                          size: AppTypography.responsiveIconSize(context, 20),
                         ),
                         tooltip: 'Sign Out',
                         style: IconButton.styleFrom(
@@ -272,18 +280,19 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 40),
+                  SizedBox(height: 40.responsive(context, min: 32, max: 48)),
 
                   // Illustration/Icon
                   _buildTopIcon(),
 
-                  const SizedBox(height: 32),
+                  SizedBox(height: AppSpacing.triple.responsive(context)),
 
                   // Title
                   Text(
                     'Verify You\'re Human',
                     style: TextStyle(
-                      fontSize: 28,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.largeHeading),
                       fontWeight: FontWeight.bold,
                       color: scheme.onSurface,
                       letterSpacing: -0.5,
@@ -291,36 +300,37 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
                     textAlign: TextAlign.center,
                   ),
 
-                  const SizedBox(height: 12),
+                  SizedBox(height: AppSpacing.standard.responsive(context)),
 
                   Text(
                     'ROOVERSE is a human-only community. To start earning RooCoin and posting, we need to verify your identity.',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.base),
                       color: scheme.onSurface.withOpacity(0.7),
                       height: 1.5,
                     ),
                     textAlign: TextAlign.center,
                   ),
 
-                  const SizedBox(height: 40),
+                  SizedBox(height: 40.responsive(context, min: 32, max: 48)),
 
                   if (_selectedImage != null)
                     _buildImagePreview(scheme)
                   else
                     _buildOptions(context),
 
-                  const SizedBox(height: 32),
+                  SizedBox(height: AppSpacing.triple.responsive(context)),
 
                   // Action button
                   _buildActionButton(scheme),
 
-                  const SizedBox(height: 24),
+                  SizedBox(height: AppSpacing.double_.responsive(context)),
 
                   // Trust Info
                   _buildTrustInfo(scheme),
 
-                  const SizedBox(height: 32),
+                  SizedBox(height: AppSpacing.triple.responsive(context)),
                 ],
               ),
             ),
@@ -332,10 +342,10 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
 
   Widget _buildTopIcon() {
     return Container(
-      width: 96,
-      height: 96,
+      width: 96.responsive(context, min: 80, max: 112),
+      height: 96.responsive(context, min: 80, max: 112),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: AppSpacing.responsiveRadius(context, 32),
         gradient: const LinearGradient(
           colors: [AppColors.primary, Color(0xFF3B82F6)],
           begin: Alignment.topLeft,
@@ -344,12 +354,14 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withOpacity(0.35),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
+            blurRadius: 30.responsive(context),
+            offset: Offset(0, 10.responsive(context)),
           ),
         ],
       ),
-      child: const Icon(Icons.fingerprint, size: 48, color: Colors.white),
+      child: Icon(Icons.fingerprint,
+          size: AppTypography.responsiveIconSize(context, 48),
+          color: Colors.white),
     );
   }
 
@@ -358,9 +370,10 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
       children: [
         Container(
           width: double.infinity,
-          height: 240,
+          height: 240.responsive(context, min: 200, max: 280),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius:
+                AppSpacing.responsiveRadius(context, AppSpacing.radiusModal),
             border: Border.all(
               color: AppColors.primary.withOpacity(0.5),
               width: 2,
@@ -373,8 +386,8 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
           child: Stack(
             children: [
               Positioned(
-                top: 12,
-                right: 12,
+                top: AppSpacing.standard.responsive(context),
+                right: AppSpacing.standard.responsive(context),
                 child: IconButton(
                   onPressed: () => setState(() => _selectedImage = null),
                   icon: const Icon(Icons.close, color: Colors.white),
@@ -382,32 +395,34 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
                 ),
               ),
               Positioned(
-                bottom: 12,
-                left: 12,
+                bottom: AppSpacing.standard.responsive(context),
+                left: AppSpacing.standard.responsive(context),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.standard.responsive(context),
+                    vertical: AppSpacing.small.responsive(context),
                   ),
                   decoration: BoxDecoration(
                     color: Colors.black54,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius:
+                        AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.check_circle,
                         color: Colors.green,
-                        size: 16,
+                        size: AppTypography.responsiveIconSize(context, 16),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
                       Text(
                         _selectedMethod == VerificationMethod.idDocument
                             ? 'ID Captured'
                             : 'Selfie Captured',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 12,
+                          fontSize: AppTypography.responsiveFontSize(
+                              context, AppTypography.extraSmall),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -418,12 +433,13 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         Text(
           'Make sure your details are clear and legible.',
           style: TextStyle(
             color: scheme.onSurface.withOpacity(0.6),
-            fontSize: 13,
+            fontSize: AppTypography.responsiveFontSize(
+                context, AppTypography.small),
           ),
         ),
       ],
@@ -442,7 +458,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
           badge: 'FASTEST',
           badgeColor: AppColors.primary,
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         _buildVerificationOption(
           context,
           method: VerificationMethod.idDocument,
@@ -450,7 +466,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
           title: 'ID Document',
           subtitle: 'Passport, License, or National ID',
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         _buildVerificationOption(
           context,
           method: VerificationMethod.selfie,
@@ -478,7 +494,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
 
     return SizedBox(
       width: double.infinity,
-      height: 60,
+      height: 60.responsive(context, min: 52, max: 68),
       child: ElevatedButton(
         onPressed: _selectedMethod != null && !_isLoading
             ? _proceedWithVerification
@@ -487,16 +503,16 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: AppSpacing.responsiveRadius(context, 30),
           ),
           elevation: 0,
           disabledBackgroundColor: AppColors.primary.withOpacity(0.4),
         ),
         child: _isLoading
-            ? const SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(
+            ? SizedBox(
+                height: 24.responsive(context, min: 20, max: 28),
+                width: 24.responsive(context, min: 20, max: 28),
+                child: const CircularProgressIndicator(
                   strokeWidth: 2.5,
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
@@ -506,13 +522,15 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
-                      fontSize: 18,
+                    style: TextStyle(
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.smallHeading),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward_rounded, size: 20),
+                  SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
+                  Icon(Icons.arrow_forward_rounded,
+                      size: AppTypography.responsiveIconSize(context, 20)),
                 ],
               ),
       ),
@@ -521,27 +539,28 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
 
   Widget _buildTrustInfo(ColorScheme scheme) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius:
+            AppSpacing.responsiveRadius(context, AppSpacing.radiusExtraLarge),
         border: Border.all(color: scheme.outline.withOpacity(0.1)),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: AppSpacing.responsiveAll(context, AppSpacing.standard),
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.shield_rounded,
               color: AppColors.primary,
-              size: 24,
+              size: AppTypography.responsiveIconSize(context, 24),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: AppSpacing.largePlus.responsive(context)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -549,16 +568,18 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
                 Text(
                   'Privacy First',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: AppTypography.responsiveFontSize(
+                        context, AppTypography.base),
                     fontWeight: FontWeight.bold,
                     color: scheme.onSurface,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: AppSpacing.extraSmall.responsive(context)),
                 Text(
                   'Your data is encrypted and used only for verification purposes.',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: AppTypography.responsiveFontSize(
+                        context, AppTypography.extraSmall),
                     color: scheme.onSurface.withOpacity(0.6),
                   ),
                 ),
@@ -587,12 +608,13 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.all(16),
+        padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.primary.withOpacity(0.08)
               : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius:
+              AppSpacing.responsiveRadius(context, AppSpacing.radiusModal),
           border: Border.all(
             color: isSelected
                 ? AppColors.primary
@@ -603,29 +625,30 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
             if (isSelected)
               BoxShadow(
                 color: AppColors.primary.withOpacity(0.1),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                blurRadius: 12.responsive(context),
+                offset: Offset(0, 4.responsive(context)),
               ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              width: 52,
-              height: 52,
+              width: 52.responsive(context, min: 44, max: 60),
+              height: 52.responsive(context, min: 44, max: 60),
               decoration: BoxDecoration(
                 color: isSelected ? AppColors.primary : scheme.surface,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius:
+                    AppSpacing.responsiveRadius(context, AppSpacing.radiusLarge),
               ),
               child: Icon(
                 icon,
-                size: 26,
+                size: AppTypography.responsiveIconSize(context, 26),
                 color: isSelected
                     ? Colors.white
                     : scheme.onSurface.withOpacity(0.6),
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: AppSpacing.largePlus.responsive(context)),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -635,7 +658,8 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
                       Text(
                         title,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: AppTypography.responsiveFontSize(
+                              context, AppTypography.smallHeading),
                           fontWeight: FontWeight.bold,
                           color: isSelected
                               ? AppColors.primary
@@ -643,21 +667,25 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
                         ),
                       ),
                       if (badge != null) ...[
-                        const SizedBox(width: 8),
+                        SizedBox(
+                            width: AppSpacing.mediumSmall.responsive(context)),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: AppSpacing.small.responsive(context),
+                            vertical: AppSpacing.extraSmall.responsive(context) /
+                                2,
                           ),
                           decoration: BoxDecoration(
                             color: (badgeColor ?? AppColors.primary)
                                 .withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: AppSpacing.responsiveRadius(
+                                context, AppSpacing.radiusSmall),
                           ),
                           child: Text(
                             badge,
                             style: TextStyle(
-                              fontSize: 9,
+                              fontSize: AppTypography.responsiveFontSize(
+                                  context, 9),
                               fontWeight: FontWeight.w900,
                               color: badgeColor ?? AppColors.primary,
                             ),
@@ -666,11 +694,12 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: AppSpacing.extraSmall.responsive(context) / 2),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.small),
                       color: scheme.onSurface.withOpacity(0.5),
                     ),
                   ),
@@ -678,8 +707,8 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen> {
               ),
             ),
             Container(
-              width: 24,
-              height: 24,
+              width: 24.responsive(context, min: 20, max: 28),
+              height: 24.responsive(context, min: 20, max: 28),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(

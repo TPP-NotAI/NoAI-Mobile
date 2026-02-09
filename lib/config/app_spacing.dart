@@ -1,5 +1,13 @@
+import 'package:flutter/material.dart';
+import '../utils/responsive_utils.dart';
+
 /// Spacing system matching web application specs
 /// Base unit: 1rem = 16px
+///
+/// For responsive values, use the extension methods:
+/// ```dart
+/// AppSpacing.largePlus.responsive(context)
+/// ```
 class AppSpacing {
   // Padding values
   static const double tiny = 3.2; // 0.2rem
@@ -31,4 +39,75 @@ class AppSpacing {
   static const double shadowMedium = 10.0;
   static const double shadowLarge = 10.0;
   static const double shadowExtraLarge = 20.0;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RESPONSIVE HELPER METHODS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Get a responsive value scaled to screen size
+  static double responsiveValue(BuildContext context, double value) {
+    return ResponsiveUtils.scale(context, value);
+  }
+
+  /// Get responsive padding with all sides equal
+  static EdgeInsets responsiveAll(BuildContext context, double value) {
+    return EdgeInsets.all(ResponsiveUtils.scale(context, value));
+  }
+
+  /// Get responsive symmetric padding
+  static EdgeInsets responsiveSymmetric(
+    BuildContext context, {
+    double horizontal = 0,
+    double vertical = 0,
+  }) {
+    final factor = ResponsiveUtils.scaleFactor(context);
+    return EdgeInsets.symmetric(
+      horizontal: horizontal * factor,
+      vertical: vertical * factor,
+    );
+  }
+
+  /// Get responsive LTRB padding
+  static EdgeInsets responsiveLTRB(
+    BuildContext context,
+    double left,
+    double top,
+    double right,
+    double bottom,
+  ) {
+    final factor = ResponsiveUtils.scaleFactor(context);
+    return EdgeInsets.fromLTRB(
+      left * factor,
+      top * factor,
+      right * factor,
+      bottom * factor,
+    );
+  }
+
+  /// Get responsive only padding
+  static EdgeInsets responsiveOnly(
+    BuildContext context, {
+    double left = 0,
+    double top = 0,
+    double right = 0,
+    double bottom = 0,
+  }) {
+    final factor = ResponsiveUtils.scaleFactor(context);
+    return EdgeInsets.only(
+      left: left * factor,
+      top: top * factor,
+      right: right * factor,
+      bottom: bottom * factor,
+    );
+  }
+
+  /// Get responsive border radius
+  static BorderRadius responsiveRadius(BuildContext context, double radius) {
+    return BorderRadius.circular(ResponsiveUtils.scale(context, radius));
+  }
+
+  /// Get responsive circular radius
+  static Radius responsiveCircular(BuildContext context, double radius) {
+    return Radius.circular(ResponsiveUtils.scale(context, radius));
+  }
 }
