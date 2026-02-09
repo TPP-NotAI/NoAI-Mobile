@@ -1027,7 +1027,8 @@ class PostRepository {
           confidence: 0.0,
           scoreStatus: 'pass',
           postStatus: 'published',
-          authenticityNotes: 'Auto pass (below detection threshold)',
+          verificationMethod: 'verified',
+          authenticityNotes: 'verified',
         );
         // Award ROO for the post
         try {
@@ -1115,7 +1116,7 @@ class PostRepository {
           postStatus: postStatus,
           analysisId: result.analysisId,
           verificationMethod: result.contentType,
-          authenticityNotes: result.rationale,
+          authenticityNotes: authenticityNotes,
         );
 
         // Send notification to author about AI check result

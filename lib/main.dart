@@ -44,6 +44,7 @@ import 'utils/platform_utils.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
 import 'screens/auth/banned_screen.dart';
 import 'services/daily_login_service.dart';
+import 'services/push_notification_service.dart';
 import 'widgets/welcome_dialog.dart';
 
 void main() async {
@@ -51,6 +52,7 @@ void main() async {
   await dotenv.load(fileName: '.env');
   await StorageService().init();
   await SupabaseService().initialize();
+  await PushNotificationService().initialize();
   PresenceService().start();
   runApp(const MyApp());
 }
@@ -137,7 +139,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
             authProvider.currentUser!.id,
           );
           notificationProvider.startListening(authProvider.currentUser!.id);
-          context.read<ChatProvider>().loadConversations();
+
+          // Load conversations and start listening for real-time chat updates
+          final chatProvider = context.read<ChatProvider>();
+          chatProvider.loadConversations();
+          chatProvider.startListening(authProvider.currentUser!.id);
 
           // Initialize wallet
           context.read<WalletProvider>().initWallet(
@@ -147,6 +153,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
             userProvider.currentUser != null) {
           userProvider.clearCurrentUser();
           context.read<NotificationProvider>().clear();
+          context.read<ChatProvider>().clear();
         }
 
         // Sync blocked user IDs to FeedProvider for filtering

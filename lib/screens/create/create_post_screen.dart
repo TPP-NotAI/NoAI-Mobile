@@ -20,6 +20,7 @@ import '../../services/supabase_service.dart';
 import '../../config/supabase_config.dart';
 import '../../services/storage_service.dart';
 import '../../services/roocoin_service.dart';
+import '../../services/kyc_verification_service.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final String? initialPostType;
@@ -1083,6 +1084,25 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         }
       } else {
         throw Exception('Failed to create post');
+      }
+    } on KycNotVerifiedException catch (e) {
+      if (!mounted) return;
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Verify',
+              textColor: Colors.white,
+              onPressed: () {
+                // Navigate to verification screen
+                Navigator.pushNamed(context, '/verify');
+              },
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (!mounted) return;

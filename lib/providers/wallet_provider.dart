@@ -47,28 +47,12 @@ class WalletProvider with ChangeNotifier {
       await checkNetworkStatus();
 
       // Get or create wallet only if online; otherwise load from DB
+      // Note: getOrCreateWallet -> createWallet already handles welcome bonus
+      // so we don't need to call checkAndAwardWelcomeBonus again here
       if (_isNetworkOnline) {
         _wallet = await _walletRepository.getOrCreateWallet(userId);
       } else {
         _wallet = await _walletRepository.getWallet(userId);
-      }
-
-      // Check and award welcome bonus for existing/new users
-      if (_wallet != null) {
-        try {
-          final awarded = await _walletRepository.checkAndAwardWelcomeBonus(
-            userId,
-          );
-          if (awarded) {
-            debugPrint('Welcome bonus awarded to user $userId');
-            _wasWelcomeBonusAwarded = true;
-            // Update local wallet after bonus
-            _wallet = await _walletRepository.getWallet(userId);
-          }
-        } catch (e) {
-          debugPrint('Error awarding welcome bonus: $e');
-          // Continue even if bonus fails
-        }
       }
 
       // Load transactions

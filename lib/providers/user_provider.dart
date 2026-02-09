@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:rooverse/models/user.dart'
     as app_models; // Alias your custom User model
+import '../models/user_activity.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import '../repositories/follow_repository.dart';
@@ -23,6 +24,7 @@ class UserProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   List<Map<String, dynamic>> _transactions = [];
+  List<UserActivity> _userActivities = [];
   final Map<String, bool> _followStatusCache =
       {}; // Cache follow status by user ID
   final Map<String, bool> _blockStatusCache =
@@ -73,6 +75,7 @@ class UserProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   List<Map<String, dynamic>> get transactions => _transactions;
+  List<UserActivity> get userActivities => _userActivities;
 
   /// Get set of user IDs who have blocked the current user.
   Set<String> get blockedByUserIds => _blockedByUserIds;
@@ -222,12 +225,20 @@ class UserProvider with ChangeNotifier {
         achievements: achievements,
       );
 
-      // Update user with real counts
+      // Calculate trust score: verified content / total content * 100
+      final totalPosts = postsCountRes.count;
+      final verifiedPosts = humanVerifiedCountRes.count;
+      final calculatedTrustScore = totalPosts > 0
+          ? (verifiedPosts / totalPosts) * 100
+          : 0.0;
+
+      // Update user with real counts and calculated trust score
       user = user.copyWith(
         postsCount: postsCountRes.count,
         humanVerifiedPostsCount: humanVerifiedCountRes.count,
         followersCount: followersCountRes.count,
         followingCount: followingCountRes.count,
+        trustScore: calculatedTrustScore,
       );
 
       // If it's the current user, update it
@@ -361,6 +372,168 @@ class UserProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('UserProvider: Error fetching transactions - $e');
       _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Fetch user's own app activities (posts created, likes given, comments made, etc.)
+  Future<void> fetchUserActivities(String userId, {int limit = 50}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final List<UserActivity> activities = [];
+
+      // Fetch posts created by user
+      final postsResponse = await _supabase.client
+          .from(SupabaseConfig.postsTable)
+          .select('id, body, created_at, post_media(media_url)')
+          .eq('author_id', userId)
+          .eq('status', 'published')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      for (final post in postsResponse) {
+        final mediaList = post['post_media'] as List?;
+        activities.add(UserActivity(
+          id: 'post_${post['id']}',
+          type: UserActivityType.postCreated,
+          timestamp: DateTime.parse(post['created_at']),
+          postId: post['id'],
+          postContent: post['body'],
+          postMediaUrl: mediaList?.isNotEmpty == true
+              ? mediaList!.first['media_url']
+              : null,
+        ));
+      }
+
+      // Fetch likes given by user
+      final likesResponse = await _supabase.client
+          .from(SupabaseConfig.reactionsTable)
+          .select('id, created_at, post_id, posts(body)')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      for (final like in likesResponse) {
+        final post = like['posts'];
+        activities.add(UserActivity(
+          id: 'like_${like['id']}',
+          type: UserActivityType.postLiked,
+          timestamp: DateTime.parse(like['created_at']),
+          postId: like['post_id'],
+          postContent: post?['body'],
+        ));
+      }
+
+      // Fetch comments made by user
+      final commentsResponse = await _supabase.client
+          .from(SupabaseConfig.commentsTable)
+          .select('id, body, created_at, post_id, posts(body)')
+          .eq('author_id', userId)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      for (final comment in commentsResponse) {
+        final post = comment['posts'];
+        activities.add(UserActivity(
+          id: 'comment_${comment['id']}',
+          type: UserActivityType.postCommented,
+          timestamp: DateTime.parse(comment['created_at']),
+          postId: comment['post_id'],
+          postContent: post?['body'],
+          commentContent: comment['body'],
+        ));
+      }
+
+      // Fetch follows made by user
+      final followsResponse = await _supabase.client
+          .from(SupabaseConfig.followsTable)
+          .select('id, created_at, following_id, profiles!follows_following_id_fkey(user_id, username, display_name, avatar_url)')
+          .eq('follower_id', userId)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      for (final follow in followsResponse) {
+        final profile = follow['profiles'];
+        activities.add(UserActivity(
+          id: 'follow_${follow['id']}',
+          type: UserActivityType.userFollowed,
+          timestamp: DateTime.parse(follow['created_at']),
+          targetUserId: follow['following_id'],
+          targetUsername: profile?['username'],
+          targetDisplayName: profile?['display_name'],
+          targetAvatarUrl: profile?['avatar_url'],
+        ));
+      }
+
+      // Fetch reposts made by user
+      final repostsResponse = await _supabase.client
+          .from(SupabaseConfig.repostsTable)
+          .select('id, created_at, post_id, posts(body)')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      for (final repost in repostsResponse) {
+        final post = repost['posts'];
+        activities.add(UserActivity(
+          id: 'repost_${repost['id']}',
+          type: UserActivityType.postReposted,
+          timestamp: DateTime.parse(repost['created_at']),
+          postId: repost['post_id'],
+          postContent: post?['body'],
+        ));
+      }
+
+      // Fetch RooCoin transactions
+      final transactionsResponse = await _supabase.client
+          .from(SupabaseConfig.roocoinTransactionsTable)
+          .select('id, created_at, amount, transaction_type, from_user_id, to_user_id, profiles!roocoin_transactions_to_user_id_fkey(username, display_name)')
+          .or('from_user_id.eq.$userId,to_user_id.eq.$userId')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      for (final tx in transactionsResponse) {
+        final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+        final isReceived = tx['to_user_id'] == userId;
+        final isTransfer = tx['transaction_type'] == 'transfer' ||
+            tx['transaction_type'] == 'tip';
+        final profile = tx['profiles'];
+
+        UserActivityType activityType;
+        if (isTransfer && !isReceived) {
+          activityType = UserActivityType.roocoinTransferred;
+        } else if (isReceived) {
+          activityType = UserActivityType.roocoinEarned;
+        } else {
+          activityType = UserActivityType.roocoinSpent;
+        }
+
+        activities.add(UserActivity(
+          id: 'tx_${tx['id']}',
+          type: activityType,
+          timestamp: DateTime.parse(tx['created_at']),
+          amount: amount,
+          transactionType: tx['transaction_type'],
+          targetUsername: profile?['username'],
+          targetDisplayName: profile?['display_name'],
+        ));
+      }
+
+      // Sort all activities by timestamp (newest first)
+      activities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      // Limit to the most recent activities
+      _userActivities = activities.take(limit).toList();
+      _error = null;
+    } catch (e) {
+      debugPrint('UserProvider: Error fetching user activities - $e');
+      _error = e.toString();
+      _userActivities = [];
     } finally {
       _isLoading = false;
       notifyListeners();

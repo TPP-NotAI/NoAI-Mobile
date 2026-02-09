@@ -7,6 +7,7 @@ import '../models/comment.dart';
 import '../providers/feed_provider.dart';
 import '../providers/user_provider.dart';
 import '../repositories/comment_repository.dart';
+import '../services/kyc_verification_service.dart';
 import 'comment_card.dart';
 import 'mention_autocomplete_field.dart';
 
@@ -143,13 +144,35 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
     context.read<FeedProvider>().addCommentLocally(widget.post.id, newComment);
     // Also save to Supabase and update with real ID
-    context.read<FeedProvider>().addCommentWithMedia(
-      widget.post.id,
-      commentText,
-      tempId: tempId,
-      mediaUrl: mediaUrl,
-      mediaType: mediaType,
-    );
+    try {
+      await context.read<FeedProvider>().addCommentWithMedia(
+        widget.post.id,
+        commentText,
+        tempId: tempId,
+        mediaUrl: mediaUrl,
+        mediaType: mediaType,
+      );
+    } on KycNotVerifiedException catch (e) {
+      // Reload comments to clear the optimistic update
+      await context.read<FeedProvider>().loadCommentsForPost(widget.post.id);
+      if (mounted) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: Colors.orange,
+              action: SnackBarAction(
+                label: 'Verify',
+                textColor: Colors.white,
+                onPressed: () => Navigator.pushNamed(context, '/verify'),
+              ),
+            ),
+          );
+      }
+      return;
+    }
 
     _commentController.clear();
     _clearSelectedMedia();
@@ -378,14 +401,40 @@ class _CommentsSheetState extends State<CommentsSheet> {
                 reply,
               );
               // Also save to Supabase and update with real ID
-              context.read<FeedProvider>().addReplyWithMedia(
-                widget.post.id,
-                parentComment.id,
-                replyText,
-                tempId,
-                mediaUrl: mediaUrl,
-                mediaType: mediaType,
-              );
+              try {
+                await context.read<FeedProvider>().addReplyWithMedia(
+                  widget.post.id,
+                  parentComment.id,
+                  replyText,
+                  tempId,
+                  mediaUrl: mediaUrl,
+                  mediaType: mediaType,
+                );
+              } on KycNotVerifiedException catch (e) {
+                // Reload comments to clear the optimistic update
+                await context
+                    .read<FeedProvider>()
+                    .loadCommentsForPost(widget.post.id);
+                if (mounted) {
+                  setSheetState(() => isReplyUploading = false);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: Text(e.message),
+                        backgroundColor: Colors.orange,
+                        action: SnackBarAction(
+                          label: 'Verify',
+                          textColor: Colors.white,
+                          onPressed: () =>
+                              Navigator.pushNamed(context, '/verify'),
+                        ),
+                      ),
+                    );
+                }
+                return;
+              }
 
               Navigator.pop(context);
               setState(() {});

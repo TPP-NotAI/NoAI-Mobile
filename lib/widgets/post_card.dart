@@ -20,6 +20,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../repositories/wallet_repository.dart';
 import '../services/roocoin_service.dart';
+import '../services/kyc_verification_service.dart';
 import 'tip_modal.dart';
 
 class PostCard extends StatelessWidget {
@@ -530,10 +531,14 @@ class _VerificationMethodChip extends StatelessWidget {
         displayText = 'mixed';
         icon = Icons.layers_outlined;
         break;
+      case 'verified':
+        displayText = 'verified';
+        icon = Icons.verified_outlined;
+        break;
       default:
-        // For "ML Detection API" or other custom methods
-        displayText = method;
-        icon = Icons.smart_toy_outlined;
+        // For "ML Detection API" or other custom methods, show as verified
+        displayText = 'verified';
+        icon = Icons.verified_outlined;
     }
 
     return Container(
@@ -572,11 +577,20 @@ class _MlScoreBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final brightness = Theme.of(context).brightness;
+    final isDark = brightness == Brightness.dark;
     final bool isPending = score == null;
 
     final Color badgeColor;
     final Color bgColor;
     final String label;
+
+    // Theme-aware colors
+    const greenAccent = Color(0xFF10B981);
+    const amberAccent = Color(0xFFF59E0B);
+    const redAccent = Color(0xFFEF4444);
+    const grayAccent = Color(0xFF9CA3AF);
 
     // Convert AI confidence score to Human score (invert it)
     // API returns AI probability, we display Human probability
@@ -595,32 +609,44 @@ class _MlScoreBadge extends StatelessWidget {
     // - >40% human = PASS
 
     if (isModerated) {
-      badgeColor = const Color(0xFFF59E0B); // Amber
-      bgColor = const Color(0xFF451A03);
+      badgeColor = amberAccent;
+      bgColor = isDark
+          ? const Color(0xFF451A03)
+          : amberAccent.withValues(alpha: 0.15);
       label = 'UNDER REVIEW';
     } else if (isPending) {
-      badgeColor = const Color(0xFF9CA3AF);
-      bgColor = const Color(0xFF1F2937);
+      badgeColor = isDark ? grayAccent : colors.onSurfaceVariant;
+      bgColor = isDark
+          ? const Color(0xFF1F2937)
+          : colors.surfaceContainerHighest;
       label = 'HUMAN SCORE: PENDING';
     } else if (humanScore! > 40) {
       // >40% human (AI <60%) = PASS
-      badgeColor = const Color(0xFF10B981);
-      bgColor = const Color(0xFF052E1C);
+      badgeColor = greenAccent;
+      bgColor = isDark
+          ? const Color(0xFF052E1C)
+          : greenAccent.withValues(alpha: 0.15);
       label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [PASS]';
     } else if (humanScore > 25) {
       // 26-40% human (AI 60-74%) = LABEL (transparency notice)
-      badgeColor = const Color(0xFFF59E0B); // Amber
-      bgColor = const Color(0xFF451A03);
+      badgeColor = amberAccent;
+      bgColor = isDark
+          ? const Color(0xFF451A03)
+          : amberAccent.withValues(alpha: 0.15);
       label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [REVIEW]';
     } else if (humanScore > 5) {
       // 5-25% human (AI 75-94%) = FLAG for review
-      badgeColor = const Color(0xFFEF4444);
-      bgColor = const Color(0xFF2D0F0F);
+      badgeColor = redAccent;
+      bgColor = isDark
+          ? const Color(0xFF2D0F0F)
+          : redAccent.withValues(alpha: 0.15);
       label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [FLAG]';
     } else {
       // <5% human (AI 95%+) = BLOCKED
-      badgeColor = const Color(0xFFEF4444);
-      bgColor = const Color(0xFF2D0F0F);
+      badgeColor = redAccent;
+      bgColor = isDark
+          ? const Color(0xFF2D0F0F)
+          : redAccent.withValues(alpha: 0.15);
       label = 'HUMAN SCORE: ${humanScore.toStringAsFixed(1)}% [AI DETECTED]';
     }
 
@@ -1173,7 +1199,7 @@ class _Actions extends StatelessWidget {
             icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
             label: _format(post.likes),
             isLiked: post.isLiked,
-            onTap: () => feedProvider.toggleLike(post.id),
+            onTap: () => _handleLike(context, feedProvider),
           ),
           const SizedBox(width: 4),
           _ActionButton(
@@ -1221,24 +1247,68 @@ class _Actions extends StatelessWidget {
     );
   }
 
-  void _handleRepost(BuildContext context, FeedProvider feedProvider) {
-    final wasReposted = feedProvider.isReposted(post.id);
-    feedProvider.toggleRepost(post.id);
+  Future<void> _handleLike(BuildContext context, FeedProvider feedProvider) async {
+    try {
+      await feedProvider.toggleLike(post.id);
+    } on KycNotVerifiedException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: 'Verify',
+                textColor: Colors.white,
+                onPressed: () => Navigator.pushNamed(context, '/verify'),
+              ),
+            ),
+          );
+      }
+    }
+  }
 
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            wasReposted ? 'Removed repost' : 'Reposted to your profile',
-          ),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
+  Future<void> _handleRepost(BuildContext context, FeedProvider feedProvider) async {
+    try {
+      final wasReposted = feedProvider.isReposted(post.id);
+      await feedProvider.toggleRepost(post.id);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                wasReposted ? 'Removed repost' : 'Reposted to your profile',
+              ),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+      }
+    } on KycNotVerifiedException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: 'Verify',
+                textColor: Colors.white,
+                onPressed: () => Navigator.pushNamed(context, '/verify'),
+              ),
+            ),
+          );
+      }
+    }
   }
 
   void _handleBookmark(

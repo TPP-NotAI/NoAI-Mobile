@@ -11,6 +11,7 @@ import '../repositories/report_repository.dart';
 import '../repositories/media_repository.dart';
 import '../repositories/user_interests_repository.dart';
 import '../services/supabase_service.dart';
+import '../services/kyc_verification_service.dart';
 
 class FeedProvider with ChangeNotifier {
   final PostRepository _postRepository = PostRepository();
@@ -22,6 +23,7 @@ class FeedProvider with ChangeNotifier {
   final MediaRepository _mediaRepository = MediaRepository();
   final UserInterestsRepository _interestsRepository =
       UserInterestsRepository();
+  final KycVerificationService _kycService = KycVerificationService();
 
   List<Post> _posts = [];
   List<Post> _draftPosts = [];
@@ -300,9 +302,13 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Toggle like on a post
+  /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
   Future<void> toggleLike(String postId) async {
     final userId = _currentUserId;
     if (userId == null) return;
+
+    // Require KYC verification before liking
+    await _kycService.requireVerification();
 
     final first = _posts.indexWhere((p) => p.id == postId);
     if (first == -1) return;
@@ -343,7 +349,11 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Add tip to a post
+  /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
   Future<void> tipPost(String postId, double amount) async {
+    // Require KYC verification before tipping
+    await _kycService.requireVerification();
+
     final index = _posts.indexWhere((p) => p.id == postId);
     if (index == -1) return;
 
@@ -370,6 +380,7 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Add comment to a post (saves to Supabase and updates local comment with real ID)
+  /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
   Future<Comment?> addComment(
     String postId,
     String body, {
@@ -377,6 +388,9 @@ class FeedProvider with ChangeNotifier {
   }) async {
     final userId = _currentUserId;
     if (userId == null) return null;
+
+    // Require KYC verification before commenting
+    await _kycService.requireVerification();
 
     try {
       final savedComment = await _commentRepository.addComment(
@@ -471,6 +485,7 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Add comment with media to a post (saves to Supabase)
+  /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
   Future<Comment?> addCommentWithMedia(
     String postId,
     String body, {
@@ -480,6 +495,9 @@ class FeedProvider with ChangeNotifier {
   }) async {
     final userId = _currentUserId;
     if (userId == null) return null;
+
+    // Require KYC verification before commenting
+    await _kycService.requireVerification();
 
     try {
       final savedComment = await _commentRepository.addComment(
@@ -562,9 +580,13 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Toggle like on a comment
+  /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
   Future<void> toggleCommentLike(String postId, String commentId) async {
     final userId = _currentUserId;
     if (userId == null) return;
+
+    // Require KYC verification before liking
+    await _kycService.requireVerification();
 
     final postIndex = _posts.indexWhere((p) => p.id == postId);
     if (postIndex == -1) return;
@@ -615,6 +637,7 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Add reply to a comment (saves to Supabase and updates local reply with real ID)
+  /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
   Future<void> addReply(
     String postId,
     String commentId,
@@ -623,6 +646,9 @@ class FeedProvider with ChangeNotifier {
   ) async {
     final userId = _currentUserId;
     if (userId == null) return;
+
+    // Require KYC verification before replying
+    await _kycService.requireVerification();
 
     try {
       final savedReply = await _commentRepository.addComment(
@@ -739,6 +765,7 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Add reply with media to a comment (saves to Supabase)
+  /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
   Future<void> addReplyWithMedia(
     String postId,
     String commentId,
@@ -749,6 +776,9 @@ class FeedProvider with ChangeNotifier {
   }) async {
     final userId = _currentUserId;
     if (userId == null) return;
+
+    // Require KYC verification before replying
+    await _kycService.requireVerification();
 
     try {
       final savedReply = await _commentRepository.addComment(
@@ -1053,9 +1083,13 @@ class FeedProvider with ChangeNotifier {
     return _repostedPostIds.contains(postId);
   }
 
+  /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
   Future<void> toggleRepost(String postId) async {
     final userId = _currentUserId;
     if (userId == null) return;
+
+    // Require KYC verification before reposting
+    await _kycService.requireVerification();
 
     final wasReposted = _repostedPostIds.contains(postId);
     final oldCount = _repostCounts[postId] ?? 0;
@@ -1126,6 +1160,7 @@ class FeedProvider with ChangeNotifier {
   }
 
   // Create a new post with optional media, tags, location, and mentions
+  /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
   Future<Post?> createPost(
     String body, {
     String? title,
@@ -1137,6 +1172,9 @@ class FeedProvider with ChangeNotifier {
   }) async {
     final userId = _currentUserId;
     if (userId == null) return null;
+
+    // Require KYC verification before posting
+    await _kycService.requireVerification();
 
     try {
       final newPost = await _postRepository.createPost(

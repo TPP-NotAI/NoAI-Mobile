@@ -6,7 +6,6 @@ import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import 'package:rooverse/models/user.dart';
 import 'package:rooverse/services/referral_service.dart';
-import '../repositories/wallet_repository.dart';
 
 /// Authentication status states.
 enum AuthStatus { initial, loading, authenticated, unauthenticated }
@@ -19,7 +18,6 @@ enum RecoveryStep { email, otp, newPassword, success }
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
   final SupabaseService _supabase = SupabaseService();
-  final WalletRepository _walletRepository = WalletRepository();
 
   AuthStatus _status = AuthStatus.initial;
   User? _currentUser;
@@ -177,17 +175,10 @@ class AuthProvider with ChangeNotifier {
           ? 'Your account has been suspended. Some features are restricted.'
           : null;
 
-      // Ensure a real on-chain wallet exists for this user.
-      // Run in background to avoid blocking login UI.
-      Future.microtask(() async {
-        try {
-          final online = await _walletRepository.checkApiHealth();
-          if (!online) return;
-          await _walletRepository.getOrCreateWallet(userId);
-        } catch (e) {
-          debugPrint('AuthProvider: Wallet activation failed - $e');
-        }
-      });
+      // Note: Wallet initialization is handled by WalletProvider.initWallet()
+      // which is called from main.dart after auth state changes.
+      // Don't call getOrCreateWallet here to avoid race conditions
+      // that could award the welcome bonus multiple times.
     } catch (e) {
       debugPrint('AuthProvider: Error loading user - $e');
       // Even if profile loading fails, user is still authenticated

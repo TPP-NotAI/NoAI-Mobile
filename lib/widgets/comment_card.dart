@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/comment.dart';
 import '../providers/auth_provider.dart';
 import '../providers/feed_provider.dart';
+import '../services/kyc_verification_service.dart';
 import '../utils/time_utils.dart';
 import 'video_player_widget.dart';
 import 'full_screen_media_viewer.dart';
@@ -443,11 +444,30 @@ class _CommentCardState extends State<CommentCard> {
                       children: [
                         // Like button
                         InkWell(
-                          onTap: () {
-                            context.read<FeedProvider>().toggleCommentLike(
-                              widget.postId,
-                              currentComment.id,
-                            );
+                          onTap: () async {
+                            try {
+                              await context.read<FeedProvider>().toggleCommentLike(
+                                widget.postId,
+                                currentComment.id,
+                              );
+                            } on KycNotVerifiedException catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context)
+                                  ..hideCurrentSnackBar()
+                                  ..showSnackBar(
+                                    SnackBar(
+                                      content: Text(e.message),
+                                      backgroundColor: Colors.orange,
+                                      action: SnackBarAction(
+                                        label: 'Verify',
+                                        textColor: Colors.white,
+                                        onPressed: () =>
+                                            Navigator.pushNamed(context, '/verify'),
+                                      ),
+                                    ),
+                                  );
+                              }
+                            }
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(

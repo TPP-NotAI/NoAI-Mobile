@@ -2,10 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/conversation.dart';
 import '../models/message.dart';
 import '../services/chat_service.dart';
+import '../services/supabase_service.dart';
 
 class ChatProvider extends ChangeNotifier {
   static const _recentlyReadRetention = Duration(days: 30);
@@ -13,11 +15,15 @@ class ChatProvider extends ChangeNotifier {
   static const _deletedMessagesKey = 'chat_locally_deleted';
 
   final _chatService = ChatService();
+  final _supabase = SupabaseService().client;
   final Map<String, DateTime> _recentlyReadAt = {};
   final Set<String> _locallyDeletedMessageIds = {};
   Future<void>? _cacheInit;
   SharedPreferences? _preferences;
   bool _cacheDirty = false;
+  String? _currentUserId;
+  RealtimeChannel? _messagesChannel;
+  RealtimeChannel? _threadsChannel;
 
   List<Conversation> _conversations = [];
   List<Conversation> get conversations => _conversations;
@@ -27,6 +33,176 @@ class ChatProvider extends ChangeNotifier {
 
   int get totalUnreadCount =>
       _conversations.fold(0, (sum, c) => sum + c.unreadCount);
+
+  @override
+  void dispose() {
+    stopListening();
+    super.dispose();
+  }
+
+  /// Start listening for real-time chat updates
+  void startListening(String userId) {
+    if (_currentUserId == userId && _messagesChannel != null) {
+      return; // Already listening for this user
+    }
+
+    stopListening();
+    _currentUserId = userId;
+
+    // Listen for new messages in any thread the user participates in
+    _messagesChannel = _supabase
+        .channel('chat:messages:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'dm_messages',
+          callback: (payload) {
+            debugPrint('ChatProvider: New message received via real-time');
+            _handleNewMessage(payload.newRecord);
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'dm_messages',
+          callback: (payload) {
+            debugPrint('ChatProvider: Message updated via real-time');
+            // Message was updated (e.g., AI moderation status changed)
+            notifyListeners();
+          },
+        )
+        .subscribe();
+
+    // Listen for thread updates (last_message_at changes) and participant changes
+    _threadsChannel = _supabase
+        .channel('chat:threads:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'dm_threads',
+          callback: (payload) {
+            debugPrint('ChatProvider: Thread updated via real-time');
+            _handleThreadUpdate(payload.newRecord);
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'dm_participants',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            debugPrint('ChatProvider: New conversation detected');
+            // New conversation - refresh the list
+            loadConversations();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'dm_participants',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            debugPrint('ChatProvider: Participant updated (unread count sync)');
+            // Unread count changed (possibly from another device) - refresh
+            _handleParticipantUpdate(payload.newRecord);
+          },
+        )
+        .subscribe();
+
+    debugPrint('ChatProvider: Started listening for user=$userId');
+  }
+
+  /// Stop listening for real-time updates
+  void stopListening() {
+    if (_messagesChannel != null) {
+      _supabase.removeChannel(_messagesChannel!);
+      _messagesChannel = null;
+    }
+    if (_threadsChannel != null) {
+      _supabase.removeChannel(_threadsChannel!);
+      _threadsChannel = null;
+    }
+    _currentUserId = null;
+  }
+
+  /// Handle incoming new message from real-time
+  void _handleNewMessage(Map<String, dynamic> messageData) {
+    final threadId = messageData['thread_id'] as String?;
+    final senderId = messageData['sender_id'] as String?;
+
+    if (threadId == null) return;
+
+    // Find the conversation
+    final index = _conversations.indexWhere((c) => c.id == threadId);
+
+    if (index != -1) {
+      final conversation = _conversations[index];
+      final newMessage = Message.fromSupabase(messageData);
+
+      // Update the conversation with new message info
+      final updatedConversation = conversation.copyWith(
+        lastMessage: newMessage,
+        lastMessageAt: newMessage.createdAt,
+        // Increment unread if message is from someone else
+        unreadCount: senderId != _currentUserId
+            ? conversation.unreadCount + 1
+            : conversation.unreadCount,
+      );
+
+      // Move conversation to top of list
+      _conversations.removeAt(index);
+      _conversations.insert(0, updatedConversation);
+      notifyListeners();
+    } else {
+      // New conversation we don't have yet - refresh the list
+      loadConversations();
+    }
+  }
+
+  /// Handle thread update from real-time
+  void _handleThreadUpdate(Map<String, dynamic> threadData) {
+    final threadId = threadData['id'] as String?;
+    if (threadId == null) return;
+
+    final index = _conversations.indexWhere((c) => c.id == threadId);
+    if (index != -1) {
+      // Refresh to get updated data
+      loadConversations();
+    }
+  }
+
+  /// Handle participant update from real-time (unread count sync)
+  void _handleParticipantUpdate(Map<String, dynamic> participantData) {
+    final threadId = participantData['thread_id'] as String?;
+    final unreadCount = participantData['unread_count'] as int? ?? 0;
+
+    if (threadId == null) return;
+
+    final index = _conversations.indexWhere((c) => c.id == threadId);
+    if (index != -1) {
+      _conversations[index] = _conversations[index].copyWith(
+        unreadCount: unreadCount,
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Clear all chat data and stop listening (called on logout)
+  void clear() {
+    stopListening();
+    _conversations = [];
+    _recentlyReadAt.clear();
+    _locallyDeletedMessageIds.clear();
+    notifyListeners();
+  }
 
   /// Fetch conversations from DB.
   Future<void> loadConversations({bool showArchived = false}) async {

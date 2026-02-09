@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rooverse/models/user.dart';
+import 'package:rooverse/models/user_activity.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -39,6 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final String? targetId = widget.userId ?? authProvider.currentUser?.id;
       if (targetId != null) {
         userProvider.fetchUser(targetId);
+        userProvider.fetchUserActivities(targetId);
         // Load follow and block status if viewing another user's profile
         if (widget.userId != null &&
             widget.userId != authProvider.currentUser?.id) {
@@ -273,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // ───────── TAB CONTENT
             if (_tabIndex == 0)
-              _ActivityLog(posts: posts, colors: colors)
+              _ActivityLog(activities: userProvider.userActivities, colors: colors)
             else if (_tabIndex == 1)
               _Statistics(user: user, colors: colors)
             else if (_tabIndex == 2)
@@ -1116,14 +1118,14 @@ class _ActionRow extends StatelessWidget {
 /* ───────────────── ACTIVITY LOG ───────────────── */
 
 class _ActivityLog extends StatelessWidget {
-  final List posts;
+  final List<UserActivity> activities;
   final ColorScheme colors;
 
-  const _ActivityLog({required this.posts, required this.colors});
+  const _ActivityLog({required this.activities, required this.colors});
 
   @override
   Widget build(BuildContext context) {
-    if (posts.isEmpty) {
+    if (activities.isEmpty) {
       return const SliverFillRemaining(
         child: Center(child: Text('No activity yet')),
       );
@@ -1133,9 +1135,8 @@ class _ActivityLog extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, i) =>
-              _ActivityItem(post: posts[i], colors: colors, postNumber: i + 1),
-          childCount: posts.length > 5 ? 5 : posts.length,
+          (context, i) => _ActivityItem(activity: activities[i], colors: colors),
+          childCount: activities.length > 20 ? 20 : activities.length,
         ),
       ),
     );
@@ -1145,192 +1146,188 @@ class _ActivityLog extends StatelessWidget {
 /* ───────────────── ACTIVITY ITEM ───────────────── */
 
 class _ActivityItem extends StatelessWidget {
-  final dynamic post;
+  final UserActivity activity;
   final ColorScheme colors;
-  final int postNumber;
 
   const _ActivityItem({
-    required this.post,
+    required this.activity,
     required this.colors,
-    required this.postNumber,
   });
+
+  IconData _getIcon() {
+    switch (activity.type) {
+      case UserActivityType.postCreated:
+        return Icons.edit_note;
+      case UserActivityType.postLiked:
+        return Icons.favorite;
+      case UserActivityType.postCommented:
+        return Icons.chat_bubble;
+      case UserActivityType.postReposted:
+        return Icons.repeat;
+      case UserActivityType.userFollowed:
+        return Icons.person_add;
+      case UserActivityType.roocoinEarned:
+        return Icons.add_circle;
+      case UserActivityType.roocoinSpent:
+        return Icons.remove_circle;
+      case UserActivityType.roocoinTransferred:
+        return Icons.send;
+      case UserActivityType.storyCreated:
+        return Icons.auto_stories;
+      case UserActivityType.bookmarkAdded:
+        return Icons.bookmark;
+    }
+  }
+
+  Color _getColor() {
+    switch (activity.type) {
+      case UserActivityType.postCreated:
+        return const Color(0xFF3B82F6); // blue
+      case UserActivityType.postLiked:
+        return const Color(0xFFEF4444); // red
+      case UserActivityType.postCommented:
+        return const Color(0xFF8B5CF6); // purple
+      case UserActivityType.postReposted:
+        return const Color(0xFF10B981); // green
+      case UserActivityType.userFollowed:
+        return const Color(0xFFF59E0B); // amber
+      case UserActivityType.roocoinEarned:
+        return const Color(0xFF10B981); // green
+      case UserActivityType.roocoinSpent:
+        return const Color(0xFFEF4444); // red
+      case UserActivityType.roocoinTransferred:
+        return const Color(0xFFF59E0B); // amber
+      case UserActivityType.storyCreated:
+        return const Color(0xFFEC4899); // pink
+      case UserActivityType.bookmarkAdded:
+        return const Color(0xFF6366F1); // indigo
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final aiScore = post.aiConfidenceScore;
-    final dateStr = post.timestamp != null
-        ? DateFormat('MMM d, yyyy').format(DateTime.parse(post.timestamp))
-        : 'Recently';
+    final dateStr = DateFormat('MMM d, yyyy').format(activity.timestamp);
+    final timeStr = DateFormat('h:mm a').format(activity.timestamp);
+    final activityColor = _getColor();
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colors.outlineVariant.withValues(alpha: 0.5),
-            width: 1,
-          ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.5),
+          width: 1,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Post number badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'POST #${post.id.substring(0, 4).toUpperCase()}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: colors.onSurfaceVariant,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  dateStr,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-                const Spacer(),
-                if (aiScore != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: aiScore < 20
-                          ? const Color(0xFF052E1C)
-                          : aiScore < 60
-                          ? const Color(0xFF451A03)
-                          : const Color(0xFF450A0A),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: aiScore < 20
-                            ? const Color(0xFF10B981)
-                            : aiScore < 60
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFFEF4444),
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      '${aiScore.toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: aiScore < 20
-                            ? const Color(0xFF10B981)
-                            : aiScore < 60
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFFEF4444),
-                      ),
-                    ),
-                  ),
-              ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Activity icon
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: activityColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(height: 12),
-            Text(
-              post.content.length > 60
-                  ? '${post.content.substring(0, 60)}...'
-                  : post.content,
-              style: TextStyle(
-                fontSize: 14,
-                color: colors.onSurface,
-                height: 1.4,
-              ),
+            child: Icon(
+              _getIcon(),
+              size: 20,
+              color: activityColor,
             ),
-            const SizedBox(height: 12),
-            Row(
+          ),
+          const SizedBox(width: 12),
+          // Activity details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Text(
-                        'AI',
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        activity.displayTitle,
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF10B981),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colors.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                // Preview content if available
+                if (activity.previewContent != null) ...[
+                  Text(
+                    activity.previewContent!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colors.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                // Target user info for follow activities
+                if (activity.type == UserActivityType.userFollowed &&
+                    activity.targetUsername != null) ...[
+                  Row(
+                    children: [
+                      if (activity.targetAvatarUrl != null)
+                        CircleAvatar(
+                          radius: 10,
+                          backgroundImage: NetworkImage(activity.targetAvatarUrl!),
+                        )
+                      else
+                        CircleAvatar(
+                          radius: 10,
+                          backgroundColor: colors.surfaceContainerHighest,
+                          child: Icon(
+                            Icons.person,
+                            size: 12,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '@${activity.targetUsername}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.primary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.smartphone, size: 16, color: colors.primary),
-                const SizedBox(width: 4),
-                Text(
-                  'Device Metadata',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Spacer(),
-                if (post.detectionStatus != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                  const SizedBox(height: 6),
+                ],
+                // Timestamp
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      size: 12,
+                      color: colors.onSurfaceVariant,
                     ),
-                    decoration: BoxDecoration(
-                      color: post.detectionStatus == 'pass'
-                          ? const Color(0xFF052E1C)
-                          : post.detectionStatus == 'review'
-                          ? const Color(0xFF451A03)
-                          : const Color(0xFF450A0A),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      post.detectionStatus!.toUpperCase(),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$dateStr at $timeStr',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: post.detectionStatus == 'pass'
-                            ? const Color(0xFF10B981)
-                            : post.detectionStatus == 'review'
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFFEF4444),
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
-                  ),
+                  ],
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
