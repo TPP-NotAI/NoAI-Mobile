@@ -1,13 +1,21 @@
-/// Supabase configuration constants.
-///
-/// Replace the placeholder values with your actual Supabase project credentials.
-class SupabaseConfig {
-  // TODO: Add your Supabase project URL
-  static const String supabaseUrl = '';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-  // TODO: Add your Supabase anon/public key
-  static const String supabaseAnonKey = '';
+/// Supabase configuration loaded from environment variables.
+///
+/// Requires a `.env` file in the project root with:
+///   SUPABASE_URL=your_project_url
+///   SUPABASE_ANON_KEY=your_anon_key
+class SupabaseConfig {
+  static String get supabaseUrl => dotenv.env['SUPABASE_URL'] ?? '';
+  static String get supabaseAnonKey => dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+
   // Table names matching the database schema
+  // Storage buckets (must exist in Supabase project)
+  static const String avatarBucket = 'avatars';
+  static const String postMediaBucket = 'post-media';
+  static const String commentMediaBucket = 'post-media';
+  static const String chatMediaBucket = 'dm-attachments';
+
   static const String profilesTable = 'profiles';
   static const String postsTable = 'posts';
   static const String commentsTable = 'comments';
@@ -42,4 +50,7 @@ class SupabaseConfig {
   static const String profileLinksTable = 'profile_links';
   static const String bookmarksTable = 'bookmarks';
   static const String repostsTable = 'reposts';
+  static const String mutesTable = 'mutes';
+  static const String storiesTable = 'stories';
+  static const String storyViewsTable = 'story_views';
 }
