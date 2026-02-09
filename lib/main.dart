@@ -17,6 +17,7 @@ import 'providers/staking_provider.dart';
 import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'services/presence_service.dart';
+
 import 'services/deep_link_service.dart';
 import 'models/view_enum.dart';
 import 'screens/auth/splash_screen.dart';

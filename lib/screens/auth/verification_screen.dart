@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
+import '../../config/app_spacing.dart';
+import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/responsive_extensions.dart';
 
 class VerificationScreen extends StatefulWidget {
   final VoidCallback onVerify;
@@ -141,10 +144,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
             // Gradient background blur
             Positioned(
               top: 0,
-              left: MediaQuery.of(context).size.width / 2 - 200,
+              left: MediaQuery.of(context).size.width / 2 -
+                  200.responsive(context, min: 160, max: 240),
               child: Container(
-                width: 400,
-                height: 400,
+                width: 400.responsive(context, min: 320, max: 480),
+                height: 400.responsive(context, min: 320, max: 480),
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
                     colors: [
@@ -158,12 +162,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
             // Main content
             SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.double_.responsive(context),
+              ),
               child: Column(
                 children: [
                   // Header
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    padding: EdgeInsets.symmetric(
+                      vertical: AppSpacing.double_.responsive(context),
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -178,29 +186,34 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: AppSpacing.standard.responsive(context),
+                            vertical: AppSpacing.small.responsive(context),
                           ),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: AppSpacing.responsiveRadius(
+                                context, AppSpacing.radiusMedium),
                             border: Border.all(
                               color: AppColors.primary.withOpacity(0.2),
                             ),
                           ),
                           child: Row(
-                            children: const [
+                            children: [
                               Icon(
                                 Icons.token,
-                                size: 16,
+                                size: AppTypography.responsiveIconSize(
+                                    context, 16),
                                 color: AppColors.primary,
                               ),
-                              SizedBox(width: 4),
+                              SizedBox(
+                                  width:
+                                      AppSpacing.extraSmall.responsive(context)),
                               Text(
                                 'EARN ROO',
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: AppTypography.responsiveFontSize(
+                                      context, 10),
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.primary,
                                   letterSpacing: 1.5,
@@ -209,19 +222,19 @@ class _VerificationScreenState extends State<VerificationScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 40),
+                        SizedBox(width: 40.responsive(context, min: 32, max: 48)),
                       ],
                     ),
                   ),
 
-                  const SizedBox(height: 48),
+                  SizedBox(height: 48.responsive(context, min: 36, max: 56)),
 
                   // Animated mail icon
                   Container(
-                    width: 96,
-                    height: 96,
+                    width: 96.responsive(context, min: 80, max: 112),
+                    height: 96.responsive(context, min: 80, max: 112),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(32),
+                      borderRadius: AppSpacing.responsiveRadius(context, 32),
                       gradient: const LinearGradient(
                         colors: [AppColors.primary, Color(0xFF3B82F6)],
                         begin: Alignment.topLeft,
@@ -230,8 +243,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       boxShadow: [
                         BoxShadow(
                           color: AppColors.primary.withOpacity(0.4),
-                          blurRadius: 40,
-                          offset: const Offset(0, 10),
+                          blurRadius: 40.responsive(context),
+                          offset: Offset(0, 10.responsive(context)),
                         ),
                       ],
                       border: Border.all(color: Colors.white.withOpacity(0.15)),
@@ -240,33 +253,35 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       children: [
                         Center(
                           child: Container(
-                            width: 80,
-                            height: 80,
+                            width: 80.responsive(context, min: 68, max: 92),
+                            height: 80.responsive(context, min: 68, max: 92),
                             decoration: BoxDecoration(
                               color: scheme.surface.withOpacity(0.25),
-                              borderRadius: BorderRadius.circular(24),
+                              borderRadius:
+                                  AppSpacing.responsiveRadius(context, 24),
                             ),
                             child: Icon(
                               Icons.mail,
-                              size: 40,
+                              size: AppTypography.responsiveIconSize(context, 40),
                               color: scheme.onSurface,
                             ),
                           ),
                         ),
                         Positioned(
-                          top: -4,
-                          right: -4,
+                          top: -4.responsive(context),
+                          right: -4.responsive(context),
                           child: Container(
-                            width: 32,
-                            height: 32,
+                            width: 32.responsive(context, min: 28, max: 36),
+                            height: 32.responsive(context, min: 28, max: 36),
                             decoration: BoxDecoration(
                               color: scheme.surface,
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius:
+                                  AppSpacing.responsiveRadius(context, 16),
                               border: Border.all(color: scheme.outline),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.lock,
-                              size: 16,
+                              size: AppTypography.responsiveIconSize(context, 16),
                               color: AppColors.primary,
                             ),
                           ),
@@ -275,26 +290,28 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 40),
+                  SizedBox(height: 40.responsive(context, min: 32, max: 48)),
 
                   // Title
                   Text(
                     'Check your email',
                     style: TextStyle(
-                      fontSize: 32,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.extraLargeHeading),
                       fontWeight: FontWeight.bold,
                       color: scheme.onBackground,
                       letterSpacing: -0.5,
                     ),
                   ),
 
-                  const SizedBox(height: 12),
+                  SizedBox(height: AppSpacing.standard.responsive(context)),
 
                   RichText(
                     textAlign: TextAlign.center,
                     text: TextSpan(
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: AppTypography.responsiveFontSize(
+                            context, AppTypography.base),
                         color: scheme.onBackground.withOpacity(0.7),
                         height: 1.5,
                       ),
@@ -314,15 +331,15 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 48),
+                  SizedBox(height: 48.responsive(context, min: 36, max: 56)),
 
                   // Code input fields
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: List.generate(6, (index) {
                       return SizedBox(
-                        width: 48,
-                        height: 56,
+                        width: 48.responsive(context, min: 40, max: 56),
+                        height: 56.responsive(context, min: 48, max: 64),
                         child: TextField(
                           controller: _controllers[index],
                           focusNode: _focusNodes[index],
@@ -330,7 +347,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           keyboardType: TextInputType.number,
                           maxLength: 1,
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: AppTypography.responsiveFontSize(
+                                context, AppTypography.mediumHeading),
                             fontWeight: FontWeight.bold,
                             color: scheme.onSurface,
                           ),
@@ -343,15 +361,18 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               color: scheme.onSurface.withOpacity(0.4),
                             ),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: AppSpacing.responsiveRadius(
+                                  context, AppSpacing.radiusLarge),
                               borderSide: BorderSide(color: scheme.outline),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: AppSpacing.responsiveRadius(
+                                  context, AppSpacing.radiusLarge),
                               borderSide: BorderSide(color: scheme.outline),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: AppSpacing.responsiveRadius(
+                                  context, AppSpacing.radiusLarge),
                               borderSide: const BorderSide(
                                 color: AppColors.primary,
                                 width: 2,
@@ -373,32 +394,37 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     }),
                   ),
 
-                  const SizedBox(height: 48),
+                  SizedBox(height: 48.responsive(context, min: 36, max: 56)),
 
                   // Error message
                   if (_error != null) ...[
                     Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 16),
+                      padding:
+                          AppSpacing.responsiveAll(context, AppSpacing.standard),
+                      margin: EdgeInsets.only(
+                          bottom: AppSpacing.largePlus.responsive(context)),
                       decoration: BoxDecoration(
                         color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: AppSpacing.responsiveRadius(
+                            context, AppSpacing.radiusMedium),
                         border: Border.all(color: Colors.red.withOpacity(0.5)),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.error_outline,
                             color: Colors.red,
-                            size: 20,
+                            size: AppTypography.responsiveIconSize(context, 20),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(
+                              width: AppSpacing.mediumSmall.responsive(context)),
                           Expanded(
                             child: Text(
                               _error!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.red,
-                                fontSize: 13,
+                                fontSize: AppTypography.responsiveFontSize(
+                                    context, AppTypography.small),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -411,50 +437,54 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   // Verify button
                   SizedBox(
                     width: double.infinity,
-                    height: 56,
+                    height: 56.responsive(context, min: 48, max: 64),
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _handleVerify,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
+                          borderRadius: AppSpacing.responsiveRadius(context, 28),
                         ),
                         elevation: 0,
                         shadowColor: AppColors.primary.withOpacity(0.3),
-                        disabledBackgroundColor: AppColors.primary.withOpacity(
-                          0.6,
-                        ),
+                        disabledBackgroundColor:
+                            AppColors.primary.withOpacity(0.6),
                       ),
                       child: _isLoading
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
+                          ? SizedBox(
+                              height: 24.responsive(context, min: 20, max: 28),
+                              width: 24.responsive(context, min: 20, max: 28),
+                              child: const CircularProgressIndicator(
                                 strokeWidth: 2.5,
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   Colors.white,
                                 ),
                               ),
                             )
-                          : const Row(
+                          : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
                                   'Verify Account',
                                   style: TextStyle(
-                                    fontSize: 18,
+                                    fontSize: AppTypography.responsiveFontSize(
+                                        context, AppTypography.smallHeading),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                SizedBox(width: 8),
-                                Icon(Icons.arrow_forward, size: 20),
+                                SizedBox(
+                                    width: AppSpacing.mediumSmall
+                                        .responsive(context)),
+                                Icon(Icons.arrow_forward,
+                                    size: AppTypography.responsiveIconSize(
+                                        context, 20)),
                               ],
                             ),
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  SizedBox(height: AppSpacing.double_.responsive(context)),
 
                   // Resend
                   Column(
@@ -465,15 +495,17 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           Text(
                             "Didn't receive the code? ",
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: AppTypography.responsiveFontSize(
+                                  context, AppTypography.base),
                               color: scheme.onBackground.withOpacity(0.7),
                             ),
                           ),
                           if (_isResending)
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                            SizedBox(
+                              width: 16.responsive(context, min: 14, max: 18),
+                              height: 16.responsive(context, min: 14, max: 18),
+                              child:
+                                  const CircularProgressIndicator(strokeWidth: 2),
                             )
                           else
                             GestureDetector(
@@ -481,7 +513,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               child: Text(
                                 'Resend Email',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: AppTypography.responsiveFontSize(
+                                      context, AppTypography.base),
                                   color: _resendCooldown > 0
                                       ? const Color(0xFF64748B)
                                       : AppColors.primary,
@@ -495,22 +528,24 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           if (_resendCooldown > 0)
                             Text(
                               ' (${_resendCooldown ~/ 60}:${(_resendCooldown % 60).toString().padLeft(2, '0')})',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF64748B),
+                              style: TextStyle(
+                                fontSize: AppTypography.responsiveFontSize(
+                                    context, AppTypography.base),
+                                color: const Color(0xFF64748B),
                               ),
                             ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: AppSpacing.largePlus.responsive(context)),
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text(
+                        child: Text(
                           'CHANGE EMAIL ADDRESS',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize:
+                                AppTypography.responsiveFontSize(context, 10),
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF64748B),
+                            color: const Color(0xFF64748B),
                             letterSpacing: 1.5,
                           ),
                         ),
@@ -518,7 +553,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 48),
+                  SizedBox(height: 48.responsive(context, min: 36, max: 56)),
                 ],
               ),
             ),

@@ -19,7 +19,7 @@ class PushNotificationService {
   factory PushNotificationService() => _instance;
   PushNotificationService._internal();
 
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  late FirebaseMessaging _messaging;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -28,33 +28,35 @@ class PushNotificationService {
   // Notification channels for Android
   static const AndroidNotificationChannel _socialChannel =
       AndroidNotificationChannel(
-    'rooverse_social',
-    'Social Notifications',
-    description: 'Notifications for likes, comments, and follows',
-    importance: Importance.high,
-    playSound: true,
-    enableVibration: true,
-  );
+        'rooverse_social',
+        'Social Notifications',
+        description: 'Notifications for likes, comments, and follows',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      );
 
   static const AndroidNotificationChannel _messageChannel =
       AndroidNotificationChannel(
-    'rooverse_messages',
-    'Messages',
-    description: 'Notifications for direct messages and chats',
-    importance: Importance.max,
-    playSound: true,
-    enableVibration: true,
-  );
+        'rooverse_messages',
+        'Messages',
+        description: 'Notifications for direct messages and chats',
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+      );
 
   static const AndroidNotificationChannel _walletChannel =
       AndroidNotificationChannel(
-    'rooverse_wallet',
-    'Wallet Notifications',
-    description: 'Notifications for transactions and rewards',
-    importance: Importance.high,
-    playSound: true,
-    enableVibration: true,
-  );
+        'rooverse_wallet',
+        'Wallet Notifications',
+        description: 'Notifications for transactions and rewards',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      );
+
+  bool _isFirebaseAvailable = false;
 
   /// Initialize push notification service
   Future<void> initialize() async {
@@ -63,10 +65,13 @@ class PushNotificationService {
     try {
       // Initialize Firebase
       await Firebase.initializeApp();
+      _messaging = FirebaseMessaging.instance;
+      _isFirebaseAvailable = true;
 
       // Set up background message handler
       FirebaseMessaging.onBackgroundMessage(
-          _firebaseMessagingBackgroundHandler);
+        _firebaseMessagingBackgroundHandler,
+      );
 
       // Request permissions
       await _requestPermissions();
@@ -99,6 +104,7 @@ class PushNotificationService {
       debugPrint('PushNotificationService: Initialized successfully');
     } catch (e) {
       debugPrint('PushNotificationService: Failed to initialize - $e');
+      _isFirebaseAvailable = false;
     }
   }
 
@@ -115,7 +121,8 @@ class PushNotificationService {
     );
 
     debugPrint(
-        'PushNotificationService: Permission status - ${settings.authorizationStatus}');
+      'PushNotificationService: Permission status - ${settings.authorizationStatus}',
+    );
 
     // For iOS foreground presentation options
     await _messaging.setForegroundNotificationPresentationOptions(
@@ -127,8 +134,9 @@ class PushNotificationService {
 
   /// Initialize local notifications plugin
   Future<void> _initializeLocalNotifications() async {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
 
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -150,9 +158,10 @@ class PushNotificationService {
   /// Create Android notification channels
   Future<void> _createNotificationChannels() async {
     if (Platform.isAndroid) {
-      final androidPlugin =
-          _localNotifications.resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
 
       if (androidPlugin != null) {
         await androidPlugin.createNotificationChannel(_socialChannel);
@@ -217,14 +226,17 @@ class PushNotificationService {
 
   /// Handle notification tap from FCM
   void _handleNotificationTap(RemoteMessage message) {
-    debugPrint('PushNotificationService: Notification tapped - ${message.data}');
+    debugPrint(
+      'PushNotificationService: Notification tapped - ${message.data}',
+    );
     _navigateToScreen(message.data);
   }
 
   /// Handle local notification tap
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint(
-        'PushNotificationService: Local notification tapped - ${response.payload}');
+      'PushNotificationService: Local notification tapped - ${response.payload}',
+    );
     if (response.payload != null) {
       try {
         final data = jsonDecode(response.payload!) as Map<String, dynamic>;
@@ -321,23 +333,42 @@ class PushNotificationService {
 
   /// Subscribe to a topic
   Future<void> subscribeToTopic(String topic) async {
-    await _messaging.subscribeToTopic(topic);
-    debugPrint('PushNotificationService: Subscribed to $topic');
+    if (!_isFirebaseAvailable) return;
+    try {
+      await _messaging.subscribeToTopic(topic);
+      debugPrint('PushNotificationService: Subscribed to $topic');
+    } catch (e) {
+      debugPrint('PushNotificationService: Failed to subscribe to topic - $e');
+    }
   }
 
   /// Unsubscribe from a topic
   Future<void> unsubscribeFromTopic(String topic) async {
-    await _messaging.unsubscribeFromTopic(topic);
-    debugPrint('PushNotificationService: Unsubscribed from $topic');
+    if (!_isFirebaseAvailable) return;
+    try {
+      await _messaging.unsubscribeFromTopic(topic);
+      debugPrint('PushNotificationService: Unsubscribed from $topic');
+    } catch (e) {
+      debugPrint(
+        'PushNotificationService: Failed to unsubscribe from topic - $e',
+      );
+    }
   }
 
   /// Get current FCM token
   Future<String?> getToken() async {
-    return await _messaging.getToken();
+    if (!_isFirebaseAvailable) return null;
+    try {
+      return await _messaging.getToken();
+    } catch (e) {
+      debugPrint('PushNotificationService: Failed to get token - $e');
+      return null;
+    }
   }
 
   /// Delete FCM token (for logout)
   Future<void> deleteToken() async {
+    if (!_isFirebaseAvailable) return;
     try {
       await _messaging.deleteToken();
       debugPrint('PushNotificationService: Token deleted');

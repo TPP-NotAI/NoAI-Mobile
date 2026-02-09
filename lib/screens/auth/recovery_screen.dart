@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
+import '../../config/app_spacing.dart';
+import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/responsive_extensions.dart';
 
 class RecoveryScreen extends StatefulWidget {
   final VoidCallback onBack;
@@ -149,13 +152,17 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       backgroundColor: scheme.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.double_.responsive(context),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: EdgeInsets.symmetric(
+                  vertical: AppSpacing.largePlus.responsive(context),
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -175,32 +182,33 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                     Text(
                       'RECOVERY',
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize:
+                            AppTypography.responsiveFontSize(context, 10),
                         fontWeight: FontWeight.bold,
                         color: scheme.onBackground.withOpacity(0.6),
                         letterSpacing: 2,
                       ),
                     ),
-                    const SizedBox(width: 40),
+                    SizedBox(width: 40.responsive(context, min: 32, max: 48)),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 24),
+              SizedBox(height: AppSpacing.double_.responsive(context)),
 
               // Progress indicators
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _buildProgressDot(0, currentStep, scheme),
-                  const SizedBox(width: 12),
+                  SizedBox(width: AppSpacing.standard.responsive(context)),
                   _buildProgressDot(1, currentStep, scheme),
-                  const SizedBox(width: 12),
+                  SizedBox(width: AppSpacing.standard.responsive(context)),
                   _buildProgressDot(2, currentStep, scheme),
                 ],
               ),
 
-              const SizedBox(height: 32),
+              SizedBox(height: AppSpacing.triple.responsive(context)),
 
               // Step Content
               if (currentStep == RecoveryStep.email)
@@ -212,7 +220,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
               else if (currentStep == RecoveryStep.success)
                 _buildSuccessStep(scheme, authProvider),
 
-              const SizedBox(height: 48),
+              SizedBox(height: 48.responsive(context, min: 36, max: 56)),
             ],
           ),
         ),
@@ -237,8 +245,10 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
     completed = currentIdx > index;
 
     return Container(
-      width: active ? 32 : 8,
-      height: 8,
+      width: active
+          ? 32.responsive(context, min: 28, max: 36)
+          : 8.responsive(context, min: 6, max: 10),
+      height: 8.responsive(context, min: 6, max: 10),
       decoration: BoxDecoration(
         color: active || completed ? AppColors.primary : scheme.outline,
         borderRadius: BorderRadius.circular(4),
@@ -246,7 +256,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
             ? [
                 BoxShadow(
                   color: AppColors.primary.withOpacity(0.3),
-                  blurRadius: 8,
+                  blurRadius: 8.responsive(context),
                 ),
               ]
             : null,
@@ -259,11 +269,12 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildTitleSection('Forgot Password?'),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         RichText(
           text: TextSpan(
             style: TextStyle(
-              fontSize: 16,
+              fontSize: AppTypography.responsiveFontSize(
+                  context, AppTypography.smallHeading),
               color: scheme.onBackground.withOpacity(0.7),
               height: 1.5,
             ),
@@ -283,7 +294,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 40),
+        SizedBox(height: 40.responsive(context, min: 32, max: 48)),
         _buildTextField(
           controller: _emailController,
           focusNode: _emailFocusNode,
@@ -294,27 +305,28 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           scheme: scheme,
         ),
         if (_error != null) _buildErrorMessage(),
-        const SizedBox(height: 24),
+        SizedBox(height: AppSpacing.double_.responsive(context)),
         _buildButton(
           text: 'Send Code',
           onPressed: _handleSendEmail,
           isLoading: _isLoading,
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         Center(
           child: TextButton(
             onPressed: widget.onBack,
             child: Text(
               'Remember your password? Log In',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: AppTypography.responsiveFontSize(
+                    context, AppTypography.base),
                 fontWeight: FontWeight.bold,
                 color: scheme.onBackground.withOpacity(0.7),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 48),
+        SizedBox(height: 48.responsive(context, min: 36, max: 56)),
         _buildSecurityCard(scheme),
       ],
     );
@@ -325,16 +337,17 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildTitleSection('Verify Code'),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         Text(
           'We\'ve sent a 6-digit verification code to ${authProvider.pendingEmail ?? 'your email'}. Please enter it below to proceed.',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: AppTypography.responsiveFontSize(
+                context, AppTypography.smallHeading),
             color: scheme.onBackground.withOpacity(0.7),
             height: 1.5,
           ),
         ),
-        const SizedBox(height: 40),
+        SizedBox(height: 40.responsive(context, min: 32, max: 48)),
         _buildTextField(
           controller: _otpController,
           focusNode: _otpFocusNode,
@@ -345,26 +358,28 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           scheme: scheme,
         ),
         if (_error != null) _buildErrorMessage(),
-        const SizedBox(height: 24),
+        SizedBox(height: AppSpacing.double_.responsive(context)),
         _buildButton(
           text: 'Verify Code',
           onPressed: _handleVerifyOtp,
           isLoading: _isLoading,
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         Center(
           child: TextButton(
             onPressed: _handleSendEmail,
-            child: const Text(
+            child: Text(
               'Resend Code',
               style: TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.bold,
+                fontSize: AppTypography.responsiveFontSize(
+                    context, AppTypography.base),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 48),
+        SizedBox(height: 48.responsive(context, min: 36, max: 56)),
         _buildSecurityCard(scheme),
       ],
     );
@@ -375,16 +390,17 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildTitleSection('New Password'),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         Text(
           'Verification successful! Create a strong new password for your account.',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: AppTypography.responsiveFontSize(
+                context, AppTypography.smallHeading),
             color: scheme.onBackground.withOpacity(0.7),
             height: 1.5,
           ),
         ),
-        const SizedBox(height: 40),
+        SizedBox(height: 40.responsive(context, min: 32, max: 48)),
         _buildTextField(
           controller: _passwordController,
           focusNode: _passwordFocusNode,
@@ -397,7 +413,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
               setState(() => _obscurePassword = !_obscurePassword),
           scheme: scheme,
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: AppSpacing.extraLarge.responsive(context)),
         _buildTextField(
           controller: _confirmPasswordController,
           focusNode: _confirmPasswordFocusNode,
@@ -412,13 +428,13 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           scheme: scheme,
         ),
         if (_error != null) _buildErrorMessage(),
-        const SizedBox(height: 32),
+        SizedBox(height: AppSpacing.triple.responsive(context)),
         _buildButton(
           text: 'Reset Password',
           onPressed: _handleResetPassword,
           isLoading: _isLoading,
         ),
-        const SizedBox(height: 48),
+        SizedBox(height: 48.responsive(context, min: 36, max: 56)),
         _buildSecurityCard(scheme),
       ],
     );
@@ -426,24 +442,27 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
 
   Widget _buildSecurityCard(ColorScheme scheme) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
       decoration: BoxDecoration(
         color: AppColors.primary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius:
+            AppSpacing.responsiveRadius(context, AppSpacing.radiusLarge),
         border: Border.all(color: AppColors.primary.withOpacity(0.1)),
       ),
       child: Row(
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 32.responsive(context, min: 28, max: 36),
+            height: 32.responsive(context, min: 28, max: 36),
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: AppSpacing.responsiveRadius(context, 16),
             ),
-            child: const Icon(Icons.shield, size: 18, color: AppColors.primary),
+            child: Icon(Icons.shield,
+                size: AppTypography.responsiveIconSize(context, 18),
+                color: AppColors.primary),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: AppSpacing.standard.responsive(context)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -451,17 +470,17 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                 Text(
                   'ROOCOIN PROTECTED',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: AppTypography.responsiveFontSize(context, 10),
                     fontWeight: FontWeight.bold,
                     color: scheme.onBackground,
                     letterSpacing: 1.5,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: AppSpacing.extraSmall.responsive(context)),
                 Text(
                   'End-to-end encrypted credential reset.',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: AppTypography.responsiveFontSize(context, 10),
                     color: scheme.onBackground.withOpacity(0.6),
                   ),
                 ),
@@ -476,32 +495,39 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
   Widget _buildSuccessStep(ColorScheme scheme, AuthProvider authProvider) {
     return Column(
       children: [
-        const SizedBox(height: 40),
+        SizedBox(height: 40.responsive(context, min: 32, max: 48)),
         Container(
-          width: 80,
-          height: 80,
+          width: 80.responsive(context, min: 68, max: 92),
+          height: 80.responsive(context, min: 68, max: 92),
           decoration: BoxDecoration(
             color: Colors.green.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.check_circle, size: 48, color: Colors.green),
+          child: Icon(Icons.check_circle,
+              size: AppTypography.responsiveIconSize(context, 48),
+              color: Colors.green),
         ),
-        const SizedBox(height: 24),
-        const Text(
+        SizedBox(height: AppSpacing.double_.responsive(context)),
+        Text(
           'Password Reset!',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: AppTypography.responsiveFontSize(
+                context, AppTypography.mediumHeading),
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         Text(
           'Your password has been successfully reset. You can now use your new password to log in.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: AppTypography.responsiveFontSize(
+                context, AppTypography.smallHeading),
             color: scheme.onBackground.withOpacity(0.7),
             height: 1.5,
           ),
         ),
-        const SizedBox(height: 48),
+        SizedBox(height: 48.responsive(context, min: 36, max: 56)),
         _buildButton(
           text: 'Back to Login',
           onPressed: () {
@@ -519,13 +545,15 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          children: const [
-            Icon(Icons.lock_reset, size: 20, color: AppColors.primary),
-            SizedBox(width: 8),
+          children: [
+            Icon(Icons.lock_reset,
+                size: AppTypography.responsiveIconSize(context, 20),
+                color: AppColors.primary),
+            SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
             Text(
               'SECURE RECOVERY',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: AppTypography.responsiveFontSize(context, 10),
                 fontWeight: FontWeight.bold,
                 color: AppColors.primary,
                 letterSpacing: 1.5,
@@ -533,11 +561,12 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 32,
+          style: TextStyle(
+            fontSize: AppTypography.responsiveFontSize(
+                context, AppTypography.extraLargeHeading),
             fontWeight: FontWeight.bold,
             height: 1.2,
             letterSpacing: -0.5,
@@ -565,17 +594,19 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize:
+                AppTypography.responsiveFontSize(context, AppTypography.base),
             fontWeight: FontWeight.w600,
             color: scheme.onBackground.withOpacity(0.9),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
         Container(
-          height: 56,
+          height: 56.responsive(context, min: 48, max: 64),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius:
+                AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
             border: Border.all(
               color: focusNode.hasFocus
                   ? AppColors.primary
@@ -585,22 +616,26 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 16),
+              SizedBox(width: AppSpacing.largePlus.responsive(context)),
               Icon(
                 icon,
                 color: focusNode.hasFocus
                     ? AppColors.primary
                     : scheme.onSurface.withOpacity(0.5),
-                size: 22,
+                size: AppTypography.responsiveIconSize(context, 22),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: AppSpacing.medium.responsive(context)),
               Expanded(
                 child: TextField(
                   controller: controller,
                   focusNode: focusNode,
                   keyboardType: keyboardType,
                   obscureText: obscureText,
-                  style: TextStyle(color: scheme.onSurface, fontSize: 15),
+                  style: TextStyle(
+                    color: scheme.onSurface,
+                    fontSize: AppTypography.responsiveFontSize(
+                        context, AppTypography.base),
+                  ),
                   decoration: InputDecoration(
                     hintText: hint,
                     hintStyle: TextStyle(
@@ -621,12 +656,12 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                     obscureText
                         ? Icons.visibility_outlined
                         : Icons.visibility_off_outlined,
-                    size: 20,
+                    size: AppTypography.responsiveIconSize(context, 20),
                     color: scheme.onSurface.withOpacity(0.5),
                   ),
                   onPressed: onTogglePassword,
                 ),
-              const SizedBox(width: 12),
+              SizedBox(width: AppSpacing.standard.responsive(context)),
             ],
           ),
         ),
@@ -636,16 +671,22 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
 
   Widget _buildErrorMessage() {
     return Padding(
-      padding: const EdgeInsets.only(top: 8, left: 4),
+      padding: EdgeInsets.only(
+        top: AppSpacing.mediumSmall.responsive(context),
+        left: AppSpacing.extraSmall.responsive(context),
+      ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, size: 14, color: Colors.red),
-          const SizedBox(width: 4),
+          Icon(Icons.error_outline,
+              size: AppTypography.responsiveIconSize(context, 14),
+              color: Colors.red),
+          SizedBox(width: AppSpacing.extraSmall.responsive(context)),
           Text(
             _error!,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.red,
-              fontSize: 13,
+              fontSize: AppTypography.responsiveFontSize(
+                  context, AppTypography.small),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -661,30 +702,31 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
   }) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 56.responsive(context, min: 48, max: 64),
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: AppSpacing.responsiveRadius(context, 28),
           ),
           elevation: 0,
         ),
         child: isLoading
-            ? const SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(
+            ? SizedBox(
+                height: 24.responsive(context, min: 20, max: 28),
+                width: 24.responsive(context, min: 20, max: 28),
+                child: const CircularProgressIndicator(
                   strokeWidth: 2,
                   color: Colors.white,
                 ),
               )
             : Text(
                 text,
-                style: const TextStyle(
-                  fontSize: 18,
+                style: TextStyle(
+                  fontSize: AppTypography.responsiveFontSize(
+                      context, AppTypography.smallHeading),
                   fontWeight: FontWeight.bold,
                 ),
               ),

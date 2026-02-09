@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../../config/app_spacing.dart';
+import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/staking_provider.dart';
 import '../../config/app_colors.dart';
+import '../../utils/responsive_extensions.dart';
 import 'send_roo_screen.dart';
 import 'receive_roo_screen.dart';
 import 'staking_screen.dart';
@@ -232,7 +235,10 @@ class _WalletScreenState extends State<WalletScreen> {
               // Header
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: AppSpacing.responsiveAll(
+                    context,
+                    AppSpacing.largePlus,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -244,36 +250,47 @@ class _WalletScreenState extends State<WalletScreen> {
                               'Wallet Overview',
                               style: TextStyle(
                                 color: colors.onSurface,
-                                fontSize: 24,
+                                fontSize: AppTypography.responsiveFontSize(
+                                  context,
+                                  AppTypography.mediumHeading,
+                                ),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            SizedBox(
+                              height: AppSpacing.extraSmall.responsive(context),
+                            ),
                             Text(
                               'Manage your RooCoin assets and track yield performance.',
                               style: TextStyle(
                                 color: colors.onSurfaceVariant,
-                                fontSize: 13,
+                                fontSize: AppTypography.responsiveFontSize(
+                                  context,
+                                  AppTypography.extraSmall,
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSpacing.standard.responsive(context),
+                          vertical: AppSpacing.small.responsive(context),
                         ),
                         decoration: BoxDecoration(
                           color: colors.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: AppSpacing.responsiveRadius(
+                            context,
+                            20,
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
-                              width: 8,
-                              height: 8,
+                              width: 8.responsive(context, min: 6, max: 10),
+                              height: 8.responsive(context, min: 6, max: 10),
                               decoration: BoxDecoration(
                                 color: walletProvider.isNetworkOnline
                                     ? AppColors.success
@@ -281,14 +298,19 @@ class _WalletScreenState extends State<WalletScreen> {
                                 shape: BoxShape.circle,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: AppSpacing.mediumSmall.responsive(context),
+                            ),
                             Text(
                               walletProvider.isNetworkOnline
                                   ? 'Online'
                                   : 'Offline',
                               style: TextStyle(
                                 color: colors.onSurfaceVariant,
-                                fontSize: 12,
+                                fontSize: AppTypography.responsiveFontSize(
+                                  context,
+                                  AppTypography.tiny,
+                                ),
                               ),
                             ),
                           ],
@@ -309,7 +331,9 @@ class _WalletScreenState extends State<WalletScreen> {
                 // Main Balance Card (Full Width)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.largePlus.responsive(context),
+                    ),
                     child: Column(
                       children: [
                         if (!walletProvider.isWalletActivated)
@@ -328,11 +352,18 @@ class _WalletScreenState extends State<WalletScreen> {
                 // APY and Total Earned Cards Row
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.largePlus.responsive(context),
+                      AppSpacing.standard.responsive(context),
+                      AppSpacing.largePlus.responsive(context),
+                      0,
+                    ),
                     child: Row(
                       children: [
                         Expanded(child: _buildApyCard(stakingProvider, colors)),
-                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: AppSpacing.standard.responsive(context),
+                        ),
                         Expanded(child: _buildTotalEarnedCard(wallet, colors)),
                       ],
                     ),
@@ -342,7 +373,10 @@ class _WalletScreenState extends State<WalletScreen> {
                 // Balance Breakdown
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: AppSpacing.responsiveAll(
+                      context,
+                      AppSpacing.largePlus,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
@@ -353,7 +387,9 @@ class _WalletScreenState extends State<WalletScreen> {
                             colors,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: AppSpacing.standard.responsive(context),
+                        ),
                         Expanded(
                           child: _buildBreakdownCard(
                             'STAKED',
@@ -362,7 +398,9 @@ class _WalletScreenState extends State<WalletScreen> {
                             colors,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: AppSpacing.standard.responsive(context),
+                        ),
                         Expanded(
                           child: _buildBreakdownCard(
                             'PENDING',
@@ -380,18 +418,24 @@ class _WalletScreenState extends State<WalletScreen> {
                 // Refer & Earn Card
                 SliverToBoxAdapter(
                   child: Container(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+                    margin: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.largePlus.responsive(context),
+                      vertical: AppSpacing.mediumSmall.responsive(context),
                     ),
-                    padding: const EdgeInsets.all(20),
+                    padding: AppSpacing.responsiveAll(
+                      context,
+                      AppSpacing.extraLarge,
+                    ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: AppSpacing.responsiveRadius(
+                        context,
+                        AppSpacing.radiusExtraLarge,
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,14 +494,22 @@ class _WalletScreenState extends State<WalletScreen> {
                 // Recent Activity Header
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.largePlus.responsive(context),
+                      AppSpacing.double_.responsive(context),
+                      AppSpacing.largePlus.responsive(context),
+                      AppSpacing.standard.responsive(context),
+                    ),
                     child: Row(
                       children: [
                         Text(
                           'Recent Activity',
                           style: TextStyle(
                             color: colors.onSurface,
-                            fontSize: 18,
+                            fontSize: AppTypography.responsiveFontSize(
+                              context,
+                              AppTypography.smallHeading,
+                            ),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -467,7 +519,8 @@ class _WalletScreenState extends State<WalletScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const TransactionHistoryScreen(),
+                                builder: (_) =>
+                                    const TransactionHistoryScreen(),
                               ),
                             );
                           },
@@ -488,27 +541,41 @@ class _WalletScreenState extends State<WalletScreen> {
                 if (transactions.isEmpty)
                   SliverToBoxAdapter(
                     child: Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(40),
+                      margin: AppSpacing.responsiveAll(
+                        context,
+                        AppSpacing.largePlus,
+                      ),
+                      padding: AppSpacing.responsiveAll(
+                        context,
+                        AppSpacing.largeTriple,
+                      ),
                       decoration: BoxDecoration(
                         color: colors.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: AppSpacing.responsiveRadius(
+                          context,
+                          AppSpacing.radiusLarge,
+                        ),
                       ),
                       child: Column(
                         children: [
                           Icon(
                             Icons.history,
-                            size: 48,
+                            size: AppTypography.responsiveIconSize(context, 48),
                             color: colors.onSurfaceVariant.withValues(
                               alpha: 0.5,
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(
+                            height: AppSpacing.largePlus.responsive(context),
+                          ),
                           Text(
                             'No recent activity',
                             style: TextStyle(
                               color: colors.onSurfaceVariant,
-                              fontSize: 14,
+                              fontSize: AppTypography.responsiveFontSize(
+                                context,
+                                AppTypography.small,
+                              ),
                             ),
                           ),
                         ],
@@ -551,28 +618,37 @@ class _WalletScreenState extends State<WalletScreen> {
                           : _rooOrange;
 
                       return Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 6,
+                        margin: EdgeInsets.symmetric(
+                          horizontal: AppSpacing.largePlus.responsive(context),
+                          vertical: AppSpacing.small.responsive(context),
                         ),
-                        padding: const EdgeInsets.all(16),
+                        padding: AppSpacing.responsiveAll(
+                          context,
+                          AppSpacing.largePlus,
+                        ),
                         decoration: BoxDecoration(
                           color: colors.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppSpacing.responsiveRadius(
+                            context,
+                            AppSpacing.radiusLarge,
+                          ),
                           border: Border.all(color: colors.outline),
                         ),
                         child: Row(
                           children: [
                             Container(
-                              width: 40,
-                              height: 40,
+                              width: 40.responsive(context, min: 36, max: 46),
+                              height: 40.responsive(context, min: 36, max: 46),
                               decoration: BoxDecoration(
                                 color:
                                     (isSent
                                             ? AppColors.error
                                             : AppColors.success)
                                         .withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: AppSpacing.responsiveRadius(
+                                  context,
+                                  AppSpacing.radiusLarge,
+                                ),
                               ),
                               child: Icon(
                                 isSent ? Icons.north_east : Icons.south_west,
@@ -581,7 +657,9 @@ class _WalletScreenState extends State<WalletScreen> {
                                     : AppColors.success,
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: AppSpacing.standard.responsive(context),
+                            ),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -663,10 +741,13 @@ class _WalletScreenState extends State<WalletScreen> {
     final usdValue = balance * 0.16;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.double_),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusExtraLarge,
+        ),
         border: Border.all(color: _rooOrange, width: 2),
       ),
       child: Column(
@@ -851,12 +932,11 @@ class _WalletScreenState extends State<WalletScreen> {
               onPressed: walletProvider.isLoading
                   ? null
                   : () async {
-                      final ok =
-                          await walletProvider.activateWallet(userId);
+                      final ok = await walletProvider.activateWallet(userId);
                       if (!context.mounted) return;
                       if (!ok) {
-                        final msg = walletProvider.error ??
-                            'Failed to activate wallet';
+                        final msg =
+                            walletProvider.error ?? 'Failed to activate wallet';
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(msg),
@@ -939,10 +1019,13 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget _buildApyCard(StakingProvider stakingProvider, ColorScheme colors) {
     final avgApy = stakingProvider.userSummary.avgApy;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusLarge,
+        ),
         border: Border.all(color: colors.outline),
       ),
       child: Column(
@@ -964,31 +1047,35 @@ class _WalletScreenState extends State<WalletScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                avgApy > 0 ? '${avgApy.toStringAsFixed(1)}%' : '8.5%',
-                style: const TextStyle(
-                  color: _rooGold,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
-                ),
-              ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  '+0.05%',
-                  style: TextStyle(
-                    color: AppColors.success,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  avgApy > 0 ? '${avgApy.toStringAsFixed(1)}%' : '8.5%',
+                  style: const TextStyle(
+                    color: _rooGold,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'monospace',
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '+0.05%',
+                    style: TextStyle(
+                      color: AppColors.success,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -998,10 +1085,13 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget _buildTotalEarnedCard(dynamic wallet, ColorScheme colors) {
     final totalEarned = wallet?.lifetimeEarnedRc ?? 0.0;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusLarge,
+        ),
         border: Border.all(color: colors.outline),
       ),
       child: Column(
@@ -1023,13 +1113,17 @@ class _WalletScreenState extends State<WalletScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            '${totalEarned.toStringAsFixed(0)}',
-            style: TextStyle(
-              color: colors.onSurface,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${totalEarned.toStringAsFixed(0)}',
+              style: TextStyle(
+                color: colors.onSurface,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'monospace',
+              ),
             ),
           ),
           Text(
@@ -1054,10 +1148,13 @@ class _WalletScreenState extends State<WalletScreen> {
     bool isReward = false,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusLarge,
+        ),
         border: Border.all(color: colors.outline),
       ),
       child: Column(
@@ -1073,32 +1170,36 @@ class _WalletScreenState extends State<WalletScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                isReward
-                    ? '+${value.toStringAsFixed(1)}'
-                    : value.toStringAsFixed(1),
-                style: TextStyle(
-                  color: isReward ? AppColors.success : colors.onSurface,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
-                ),
-              ),
-              const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Text(
-                  unit,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  isReward
+                      ? '+${value.toStringAsFixed(1)}'
+                      : value.toStringAsFixed(1),
                   style: TextStyle(
-                    color: colors.onSurfaceVariant,
-                    fontSize: 12,
+                    color: isReward ? AppColors.success : colors.onSurface,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'monospace',
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(
+                    unit,
+                    style: TextStyle(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

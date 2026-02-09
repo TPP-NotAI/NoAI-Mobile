@@ -390,7 +390,7 @@ class UserProvider with ChangeNotifier {
       // Fetch posts created by user
       final postsResponse = await _supabase.client
           .from(SupabaseConfig.postsTable)
-          .select('id, body, created_at, post_media(media_url)')
+          .select('id, body, created_at, post_media(storage_path)')
           .eq('author_id', userId)
           .eq('status', 'published')
           .order('created_at', ascending: false)
@@ -398,16 +398,30 @@ class UserProvider with ChangeNotifier {
 
       for (final post in postsResponse) {
         final mediaList = post['post_media'] as List?;
-        activities.add(UserActivity(
-          id: 'post_${post['id']}',
-          type: UserActivityType.postCreated,
-          timestamp: DateTime.parse(post['created_at']),
-          postId: post['id'],
-          postContent: post['body'],
-          postMediaUrl: mediaList?.isNotEmpty == true
-              ? mediaList!.first['media_url']
-              : null,
-        ));
+
+        String? mediaUrl;
+        if (mediaList != null && mediaList.isNotEmpty) {
+          final path = mediaList.first['storage_path'] as String?;
+          if (path != null) {
+            if (path.startsWith('http')) {
+              mediaUrl = path;
+            } else {
+              mediaUrl =
+                  '${SupabaseConfig.supabaseUrl}/storage/v1/object/public/${SupabaseConfig.postMediaBucket}/$path';
+            }
+          }
+        }
+
+        activities.add(
+          UserActivity(
+            id: 'post_${post['id']}',
+            type: UserActivityType.postCreated,
+            timestamp: DateTime.parse(post['created_at']),
+            postId: post['id'],
+            postContent: post['body'],
+            postMediaUrl: mediaUrl,
+          ),
+        );
       }
 
       // Fetch likes given by user
@@ -420,13 +434,15 @@ class UserProvider with ChangeNotifier {
 
       for (final like in likesResponse) {
         final post = like['posts'];
-        activities.add(UserActivity(
-          id: 'like_${like['id']}',
-          type: UserActivityType.postLiked,
-          timestamp: DateTime.parse(like['created_at']),
-          postId: like['post_id'],
-          postContent: post?['body'],
-        ));
+        activities.add(
+          UserActivity(
+            id: 'like_${like['id']}',
+            type: UserActivityType.postLiked,
+            timestamp: DateTime.parse(like['created_at']),
+            postId: like['post_id'],
+            postContent: post?['body'],
+          ),
+        );
       }
 
       // Fetch comments made by user
@@ -439,35 +455,41 @@ class UserProvider with ChangeNotifier {
 
       for (final comment in commentsResponse) {
         final post = comment['posts'];
-        activities.add(UserActivity(
-          id: 'comment_${comment['id']}',
-          type: UserActivityType.postCommented,
-          timestamp: DateTime.parse(comment['created_at']),
-          postId: comment['post_id'],
-          postContent: post?['body'],
-          commentContent: comment['body'],
-        ));
+        activities.add(
+          UserActivity(
+            id: 'comment_${comment['id']}',
+            type: UserActivityType.postCommented,
+            timestamp: DateTime.parse(comment['created_at']),
+            postId: comment['post_id'],
+            postContent: post?['body'],
+            commentContent: comment['body'],
+          ),
+        );
       }
 
       // Fetch follows made by user
       final followsResponse = await _supabase.client
           .from(SupabaseConfig.followsTable)
-          .select('id, created_at, following_id, profiles!follows_following_id_fkey(user_id, username, display_name, avatar_url)')
+          .select(
+            'id, created_at, following_id, profiles!follows_following_id_fkey(user_id, username, display_name, avatar_url)',
+          )
           .eq('follower_id', userId)
           .order('created_at', ascending: false)
           .limit(limit);
 
       for (final follow in followsResponse) {
         final profile = follow['profiles'];
-        activities.add(UserActivity(
-          id: 'follow_${follow['id']}',
-          type: UserActivityType.userFollowed,
-          timestamp: DateTime.parse(follow['created_at']),
-          targetUserId: follow['following_id'],
-          targetUsername: profile?['username'],
-          targetDisplayName: profile?['display_name'],
-          targetAvatarUrl: profile?['avatar_url'],
-        ));
+        activities.add(
+          UserActivity(
+            id: 'follow_${follow['id']}',
+            type: UserActivityType.userFollowed,
+            timestamp: DateTime.parse(follow['created_at']),
+            targetUserId: follow['following_id'],
+            targetUsername: profile?['username'],
+            targetDisplayName: profile?['display_name'],
+            targetAvatarUrl: profile?['avatar_url'],
+          ),
+        );
       }
 
       // Fetch reposts made by user
@@ -480,19 +502,23 @@ class UserProvider with ChangeNotifier {
 
       for (final repost in repostsResponse) {
         final post = repost['posts'];
-        activities.add(UserActivity(
-          id: 'repost_${repost['id']}',
-          type: UserActivityType.postReposted,
-          timestamp: DateTime.parse(repost['created_at']),
-          postId: repost['post_id'],
-          postContent: post?['body'],
-        ));
+        activities.add(
+          UserActivity(
+            id: 'repost_${repost['id']}',
+            type: UserActivityType.postReposted,
+            timestamp: DateTime.parse(repost['created_at']),
+            postId: repost['post_id'],
+            postContent: post?['body'],
+          ),
+        );
       }
 
       // Fetch RooCoin transactions
       final transactionsResponse = await _supabase.client
           .from(SupabaseConfig.roocoinTransactionsTable)
-          .select('id, created_at, amount, transaction_type, from_user_id, to_user_id, profiles!roocoin_transactions_to_user_id_fkey(username, display_name)')
+          .select(
+            'id, created_at, amount, transaction_type, from_user_id, to_user_id, profiles!roocoin_transactions_to_user_id_fkey(username, display_name)',
+          )
           .or('from_user_id.eq.$userId,to_user_id.eq.$userId')
           .order('created_at', ascending: false)
           .limit(limit);
@@ -500,7 +526,8 @@ class UserProvider with ChangeNotifier {
       for (final tx in transactionsResponse) {
         final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
         final isReceived = tx['to_user_id'] == userId;
-        final isTransfer = tx['transaction_type'] == 'transfer' ||
+        final isTransfer =
+            tx['transaction_type'] == 'transfer' ||
             tx['transaction_type'] == 'tip';
         final profile = tx['profiles'];
 
@@ -513,15 +540,17 @@ class UserProvider with ChangeNotifier {
           activityType = UserActivityType.roocoinSpent;
         }
 
-        activities.add(UserActivity(
-          id: 'tx_${tx['id']}',
-          type: activityType,
-          timestamp: DateTime.parse(tx['created_at']),
-          amount: amount,
-          transactionType: tx['transaction_type'],
-          targetUsername: profile?['username'],
-          targetDisplayName: profile?['display_name'],
-        ));
+        activities.add(
+          UserActivity(
+            id: 'tx_${tx['id']}',
+            type: activityType,
+            timestamp: DateTime.parse(tx['created_at']),
+            amount: amount,
+            transactionType: tx['transaction_type'],
+            targetUsername: profile?['username'],
+            targetDisplayName: profile?['display_name'],
+          ),
+        );
       }
 
       // Sort all activities by timestamp (newest first)
@@ -618,18 +647,19 @@ class UserProvider with ChangeNotifier {
         recipientWallet?['wallet_address'] as String? ?? '';
 
     if (recipientAddress.startsWith('PENDING_ACTIVATION_')) {
-      throw Exception('User @$cleanUsername has not activated their wallet yet');
+      throw Exception(
+        'User @$cleanUsername has not activated their wallet yet',
+      );
     }
 
     final evmRegex = RegExp(r'^0x[a-fA-F0-9]{40}$');
     if (!evmRegex.hasMatch(recipientAddress)) {
-      throw Exception('User @$cleanUsername has not activated their wallet yet');
+      throw Exception(
+        'User @$cleanUsername has not activated their wallet yet',
+      );
     }
 
-    return {
-      'userId': recipientUserId,
-      'address': recipientAddress,
-    };
+    return {'userId': recipientUserId, 'address': recipientAddress};
   }
 
   // Update user profile

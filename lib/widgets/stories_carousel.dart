@@ -9,6 +9,8 @@ import 'package:chewie/chewie.dart';
 import 'package:image/image.dart' as img;
 
 import '../config/supabase_config.dart';
+import '../config/app_spacing.dart';
+import '../utils/responsive_extensions.dart';
 import '../models/story.dart';
 import '../models/story_media_input.dart';
 import '../providers/auth_provider.dart';
@@ -49,20 +51,28 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
     // Loading skeleton
     if (storyProvider.isLoading && stories.isEmpty && myStories.isEmpty) {
       return Container(
-        height: 104,
+        height: 104.responsive(context, min: 94, max: 114),
         decoration: BoxDecoration(
           color: colors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppSpacing.responsiveRadius(
+            context,
+            AppSpacing.radiusExtraLarge,
+          ),
           border: Border.all(color: colors.outlineVariant),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.largePlus.responsive(context),
+          vertical: AppSpacing.standard.responsive(context),
+        ),
         child: Row(
           children: List.generate(
             5,
             (index) => Container(
-              width: 64,
-              height: 64,
-              margin: EdgeInsets.only(right: index == 4 ? 0 : 12),
+              width: 64.responsive(context, min: 56, max: 72),
+              height: 64.responsive(context, min: 56, max: 72),
+              margin: EdgeInsets.only(
+                right: index == 4 ? 0 : AppSpacing.standard.responsive(context),
+              ),
               decoration: BoxDecoration(
                 color: colors.surfaceVariant.withValues(alpha: 0.6),
                 shape: BoxShape.circle,
@@ -84,15 +94,21 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
     );
 
     return Container(
-      height: 110,
+      height: 140.responsive(context, min: 124, max: 156),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusExtraLarge,
+        ),
         border: Border.all(color: colors.outlineVariant),
       ),
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.standard.responsive(context),
+          vertical: AppSpacing.standard.responsive(context),
+        ),
         children: cards,
       ),
     );
@@ -317,14 +333,19 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                                         width: 220,
                                         decoration: BoxDecoration(
                                           color: Colors.black12,
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                         child: media.mediaType == 'video'
                                             ? Container(
-                                                color: Colors.black.withOpacity(0.75),
+                                                color: Colors.black.withOpacity(
+                                                  0.75,
+                                                ),
                                                 alignment: Alignment.center,
                                                 child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: const [
                                                     Icon(
                                                       Icons.play_circle_fill,
@@ -336,7 +357,8 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                                                       'Video ready',
                                                       style: TextStyle(
                                                         color: Colors.white,
-                                                        fontWeight: FontWeight.w600,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                       ),
                                                     ),
                                                   ],
@@ -345,14 +367,17 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                                             : Image.network(
                                                 media.url,
                                                 fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) => Container(
-                                                  color: Colors.grey.shade900,
-                                                  alignment: Alignment.center,
-                                                  child: const Icon(
-                                                    Icons.broken_image,
-                                                    color: Colors.white,
-                                                  ),
-                                                ),
+                                                errorBuilder: (_, __, ___) =>
+                                                    Container(
+                                                      color:
+                                                          Colors.grey.shade900,
+                                                      alignment:
+                                                          Alignment.center,
+                                                      child: const Icon(
+                                                        Icons.broken_image,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
                                               ),
                                       ),
                                       Positioned(
@@ -360,8 +385,8 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                                         right: 6,
                                         child: IconButton(
                                           style: IconButton.styleFrom(
-                                            backgroundColor:
-                                                Colors.black.withOpacity(0.55),
+                                            backgroundColor: Colors.black
+                                                .withOpacity(0.55),
                                             foregroundColor: Colors.white,
                                             minimumSize: const Size(32, 32),
                                             padding: EdgeInsets.zero,
@@ -371,7 +396,9 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                                               ? null
                                               : () {
                                                   setState(() {
-                                                    selectedMedia.removeAt(index);
+                                                    selectedMedia.removeAt(
+                                                      index,
+                                                    );
                                                   });
                                                 },
                                         ),

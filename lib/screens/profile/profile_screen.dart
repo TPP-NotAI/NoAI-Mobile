@@ -5,6 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../config/app_spacing.dart';
+import '../../config/app_typography.dart';
+import '../../utils/responsive_extensions.dart';
 import '../../widgets/shimmer_loading.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/feed_provider.dart';
@@ -208,20 +211,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // ───────── PROFILE CARD
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: AppSpacing.responsiveAll(
+                    context, AppSpacing.extraLarge),
                 child: Container(
                   decoration: BoxDecoration(
                     color: colors.surfaceContainerHighest.withValues(
                       alpha: 0.3,
                     ),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: AppSpacing.responsiveRadius(
+                        context, AppSpacing.radiusModal),
                     border: Border.all(
                       color: colors.outlineVariant.withValues(alpha: 0.5),
                       width: 1,
                     ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: AppSpacing.responsiveAll(
+                        context, AppSpacing.extraLarge),
                     child: Column(
                       children: [
                         _ProfileHeader(
@@ -252,7 +258,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // ───────── HUMANITY METRICS
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.extraLarge.responsive(context),
+                ),
                 child: _HumanityMetricsCompact(user: user, colors: colors),
               ),
             ),
@@ -426,13 +434,15 @@ class _ProfileHeader extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             CircleAvatar(
-              radius: 48,
+              radius: 48.responsive(context, min: 40, max: 56),
               backgroundImage: user.avatar != null
                   ? NetworkImage(user.avatar!)
                   : null,
               backgroundColor: colors.surfaceContainerHighest,
               child: user.avatar == null
-                  ? Icon(Icons.person, size: 48, color: colors.onSurfaceVariant)
+                  ? Icon(Icons.person,
+                      size: AppTypography.responsiveIconSize(context, 48),
+                      color: colors.onSurfaceVariant)
                   : null,
             ),
             if (user.isVerified)
@@ -440,19 +450,21 @@ class _ProfileHeader extends StatelessWidget {
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  width: 32,
-                  height: 32,
+                  width: 32.responsive(context, min: 28, max: 36),
+                  height: 32.responsive(context, min: 28, max: 36),
                   decoration: BoxDecoration(
                     color: const Color(0xFF10B981),
                     shape: BoxShape.circle,
                     border: Border.all(color: colors.surface, width: 3),
                   ),
-                  child: const Icon(Icons.check, color: Colors.white, size: 18),
+                  child: Icon(Icons.check,
+                      color: Colors.white,
+                      size: AppTypography.responsiveIconSize(context, 18)),
                 ),
               ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.largePlus.responsive(context)),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -468,17 +480,21 @@ class _ProfileHeader extends StatelessWidget {
               ),
             ),
             if (user.isVerified) ...[
-              const SizedBox(width: 8),
-              Icon(Icons.verified, size: 20, color: colors.primary),
+              SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
+              Icon(Icons.verified,
+                  size: AppTypography.responsiveIconSize(context, 20),
+                  color: colors.primary),
             ],
           ],
         ),
         if (user.displayName.isNotEmpty &&
             user.displayName.toLowerCase() != user.username.toLowerCase()) ...[
-          const SizedBox(height: 4),
+          SizedBox(height: AppSpacing.extraSmall.responsive(context)),
           Text(
             '@${user.username}',
             style: theme.textTheme.titleMedium?.copyWith(
+              fontSize: AppTypography.responsiveFontSize(
+                  context, AppTypography.base),
               color: colors.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
@@ -486,12 +502,16 @@ class _ProfileHeader extends StatelessWidget {
             maxLines: 1,
           ),
         ],
-        const SizedBox(height: 8),
+        SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
         Text(
           user.createdAt != null
               ? 'Member since ${DateFormat('MMM yyyy').format(user.createdAt!)}'
               : '',
-          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+          style: TextStyle(
+            color: colors.onSurfaceVariant,
+            fontSize:
+                AppTypography.responsiveFontSize(context, AppTypography.tiny),
+          ),
           overflow: TextOverflow.ellipsis,
           maxLines: 1,
         ),
@@ -742,10 +762,11 @@ class _HumanityMetricsCompact extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius:
+            AppSpacing.responsiveRadius(context, AppSpacing.radiusExtraLarge),
         border: Border.all(
           color: colors.outlineVariant.withOpacity(0.5),
           width: 1,
@@ -759,7 +780,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
               Text(
                 'HUMANITY METRICS',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: AppTypography.responsiveFontSize(context, 11),
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
                   color: colors.onSurfaceVariant,
@@ -768,12 +789,12 @@ class _HumanityMetricsCompact extends StatelessWidget {
               const Spacer(),
               Icon(
                 Icons.info_outline,
-                size: 18,
+                size: AppTypography.responsiveIconSize(context, 18),
                 color: colors.onSurfaceVariant,
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: AppSpacing.extraLarge.responsive(context)),
           // Trust Score
           Row(
             children: [
@@ -817,8 +838,8 @@ class _HumanityMetricsCompact extends StatelessWidget {
                 ),
               ),
               Container(
-                width: 56,
-                height: 56,
+                width: 56.responsive(context, min: 48, max: 64),
+                height: 56.responsive(context, min: 48, max: 64),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color:
@@ -843,7 +864,8 @@ class _HumanityMetricsCompact extends StatelessWidget {
                         ? 'B'
                         : 'C',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: AppTypography.responsiveFontSize(
+                          context, AppTypography.smallHeading),
                       fontWeight: FontWeight.bold,
                       color: user.trustScore > 80
                           ? const Color(0xFF10B981)
@@ -854,9 +876,9 @@ class _HumanityMetricsCompact extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: AppSpacing.extraLarge.responsive(context)),
           const Divider(height: 1),
-          const SizedBox(height: 16),
+          SizedBox(height: AppSpacing.largePlus.responsive(context)),
           // Human-Verified Posts
           Row(
             children: [
@@ -1132,7 +1154,7 @@ class _ActivityLog extends StatelessWidget {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.all(20),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
           (context, i) => _ActivityItem(activity: activities[i], colors: colors),
@@ -1211,11 +1233,13 @@ class _ActivityItem extends StatelessWidget {
     final activityColor = _getColor();
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.only(
+          bottom: AppSpacing.standard.responsive(context)),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius:
+            AppSpacing.responsiveRadius(context, AppSpacing.radiusLarge),
         border: Border.all(
           color: colors.outlineVariant.withValues(alpha: 0.5),
           width: 1,
@@ -1226,19 +1250,20 @@ class _ActivityItem extends StatelessWidget {
         children: [
           // Activity icon
           Container(
-            width: 40,
-            height: 40,
+            width: 40.responsive(context, min: 36, max: 46),
+            height: 40.responsive(context, min: 36, max: 46),
             decoration: BoxDecoration(
               color: activityColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius:
+                  AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
             ),
             child: Icon(
               _getIcon(),
-              size: 20,
+              size: AppTypography.responsiveIconSize(context, 20),
               color: activityColor,
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: AppSpacing.standard.responsive(context)),
           // Activity details
           Expanded(
             child: Column(
@@ -1344,7 +1369,7 @@ class _Statistics extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverPadding(
-      padding: const EdgeInsets.all(20),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       sliver: SliverList(
         delegate: SliverChildListDelegate([
           _StatItem(
@@ -1526,12 +1551,12 @@ class _DraftsGrid extends StatelessWidget {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.all(20),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
+          crossAxisSpacing: AppSpacing.mediumSmall.responsive(context),
+          mainAxisSpacing: AppSpacing.mediumSmall.responsive(context),
           childAspectRatio: 1,
         ),
         delegate: SliverChildBuilderDelegate(
@@ -1730,12 +1755,12 @@ class _PostsGrid extends StatelessWidget {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.all(20),
+      padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
+          crossAxisSpacing: AppSpacing.mediumSmall.responsive(context),
+          mainAxisSpacing: AppSpacing.mediumSmall.responsive(context),
           childAspectRatio: 1,
         ),
         delegate: SliverChildBuilderDelegate(

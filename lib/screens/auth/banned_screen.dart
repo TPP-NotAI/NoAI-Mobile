@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:rooverse/screens/support/contact_support_screen.dart'; // Ensure the correct import path
+import 'package:rooverse/screens/support/contact_support_screen.dart';
+import '../../config/app_spacing.dart';
+import '../../config/app_typography.dart';
+import '../../utils/responsive_extensions.dart';
 
 class BannedScreen extends StatelessWidget {
   const BannedScreen({Key? key}) : super(key: key);
@@ -9,30 +12,47 @@ class BannedScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Account Banned')),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.block, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            const Text(
-              'Your account has been banned.',
-              style: TextStyle(fontSize: 18),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                // Navigate to the Contact Support screen
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ContactSupportScreen(),
+        child: Padding(
+          padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.block,
+                size: AppTypography.responsiveIconSize(context, 64),
+                color: Colors.red,
+              ),
+              SizedBox(height: AppSpacing.standard.responsive(context)),
+              Text(
+                'Your account has been banned.',
+                style: TextStyle(
+                  fontSize: AppTypography.responsiveFontSize(context, AppTypography.smallHeading),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: AppSpacing.standard.responsive(context)),
+              SizedBox(
+                width: double.infinity,
+                height: 48.responsive(context, min: 44, max: 52),
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ContactSupportScreen(),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'Contact Support',
+                    style: TextStyle(
+                      fontSize: AppTypography.responsiveFontSize(context, AppTypography.base),
+                    ),
                   ),
-                );
-              },
-              child: const Text('Contact Support'),
-            ),
-          ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

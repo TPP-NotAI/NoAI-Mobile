@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import '../utils/responsive_utils.dart';
 
-/// Extension to easily access theme-aware colors throughout the app
+/// Extension to easily access theme-aware colors and responsive utilities
 extension ThemeExtension on BuildContext {
   /// Returns true if the current theme is dark mode
   bool get isDarkMode => Theme.of(this).brightness == Brightness.dark;
@@ -37,4 +38,39 @@ extension ThemeExtension on BuildContext {
 
   /// Quick access to color scheme
   ColorScheme get colorScheme => Theme.of(this).colorScheme;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RESPONSIVE UTILITIES
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Get the screen size category (small, medium, large)
+  ScreenSize get screenSizeCategory => ResponsiveUtils.screenSize(this);
+
+  /// Check if screen is compact (small phones)
+  bool get isCompactScreen => ResponsiveUtils.isCompact(this);
+
+  /// Check if screen is large
+  bool get isLargeScreen => ResponsiveUtils.isLarge(this);
+
+  /// Get the scaling factor for this screen
+  double get responsiveScale => ResponsiveUtils.scaleFactor(this);
+
+  /// Scale a value based on screen width
+  double responsive(double value, {double? min, double? max}) {
+    return ResponsiveUtils.scale(this, value, min: min, max: max);
+  }
+
+  /// Scale a text value (dampened for readability)
+  double responsiveText(double value) {
+    return ResponsiveUtils.scaleText(this, value);
+  }
+
+  /// Get screen width
+  double get screenWidth => ResponsiveUtils.screenWidth(this);
+
+  /// Get screen height
+  double get screenHeight => ResponsiveUtils.screenHeight(this);
+
+  /// Get minimum touch target size
+  double get minTouchTarget => ResponsiveUtils.minTouchTarget(this);
 }
