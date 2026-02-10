@@ -1440,10 +1440,12 @@ class _ActionButton extends StatelessWidget {
       textColor = colors.onSurfaceVariant;
     }
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Padding(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1454,6 +1456,7 @@ class _ActionButton extends StatelessWidget {
               Text(label!, style: TextStyle(fontSize: 13, color: textColor)),
             ],
           ],
+        ),
         ),
       ),
     );
@@ -1737,9 +1740,11 @@ class _MenuOption extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final color = destructive ? const Color(0xFFEF4444) : colors.onSurface;
 
-    return InkWell(
-      onTap: onTap ?? () => Navigator.pop(context),
-      child: Container(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap ?? () => Navigator.pop(context),
+        child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Row(
@@ -1757,6 +1762,7 @@ class _MenuOption extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

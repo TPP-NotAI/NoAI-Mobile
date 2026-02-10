@@ -182,10 +182,12 @@ class _ReportSheetState extends State<ReportSheet> {
               final reason = _reportReasons[index];
               final isSelected = _selectedReason == reason['value'];
 
-              return InkWell(
-                onTap: () => setState(() => _selectedReason = reason['value']),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => setState(() => _selectedReason = reason['value']),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -232,6 +234,7 @@ class _ReportSheetState extends State<ReportSheet> {
                         ),
                     ],
                   ),
+                ),
                 ),
               );
             }),

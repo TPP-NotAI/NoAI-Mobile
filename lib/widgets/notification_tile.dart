@@ -17,9 +17,11 @@ class NotificationTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return InkWell(
-      onTap: onTap,
-      child: Container(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: notification.isRead
@@ -157,6 +159,7 @@ class NotificationTile extends StatelessWidget {
                 ),
               ),
           ],
+        ),
         ),
       ),
     );

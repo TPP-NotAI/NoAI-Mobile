@@ -182,9 +182,11 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
   ) {
     final scheme = Theme.of(context).colorScheme;
 
-    return InkWell(
-      onTap: () => onChanged(optionValue),
-      child: Padding(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onChanged(optionValue),
+        child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
@@ -202,6 +204,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
@@ -250,10 +253,12 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
   }) {
     final scheme = Theme.of(context).colorScheme;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: scheme.surface,
@@ -288,6 +293,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
             ),
             Icon(Icons.chevron_right, color: scheme.onSurface.withOpacity(0.3)),
           ],
+        ),
         ),
       ),
     );

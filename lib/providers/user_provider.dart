@@ -471,7 +471,7 @@ class UserProvider with ChangeNotifier {
       final followsResponse = await _supabase.client
           .from(SupabaseConfig.followsTable)
           .select(
-            'id, created_at, following_id, profiles!follows_following_id_fkey(user_id, username, display_name, avatar_url)',
+            'created_at, follower_id, following_id, profiles!follows_following_id_fkey(user_id, username, display_name, avatar_url)',
           )
           .eq('follower_id', userId)
           .order('created_at', ascending: false)
@@ -481,7 +481,7 @@ class UserProvider with ChangeNotifier {
         final profile = follow['profiles'];
         activities.add(
           UserActivity(
-            id: 'follow_${follow['id']}',
+            id: 'follow_${follow['follower_id']}_${follow['following_id']}',
             type: UserActivityType.userFollowed,
             timestamp: DateTime.parse(follow['created_at']),
             targetUserId: follow['following_id'],
@@ -517,7 +517,7 @@ class UserProvider with ChangeNotifier {
       final transactionsResponse = await _supabase.client
           .from(SupabaseConfig.roocoinTransactionsTable)
           .select(
-            'id, created_at, amount, transaction_type, from_user_id, to_user_id, profiles!roocoin_transactions_to_user_id_fkey(username, display_name)',
+            'id, created_at, amount, transaction_type, from_user_id, to_user_id',
           )
           .or('from_user_id.eq.$userId,to_user_id.eq.$userId')
           .order('created_at', ascending: false)
@@ -529,7 +529,6 @@ class UserProvider with ChangeNotifier {
         final isTransfer =
             tx['transaction_type'] == 'transfer' ||
             tx['transaction_type'] == 'tip';
-        final profile = tx['profiles'];
 
         UserActivityType activityType;
         if (isTransfer && !isReceived) {
@@ -547,8 +546,6 @@ class UserProvider with ChangeNotifier {
             timestamp: DateTime.parse(tx['created_at']),
             amount: amount,
             transactionType: tx['transaction_type'],
-            targetUsername: profile?['username'],
-            targetDisplayName: profile?['display_name'],
           ),
         );
       }

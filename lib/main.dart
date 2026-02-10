@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
@@ -41,7 +40,6 @@ import 'screens/chat/chat_list_screen.dart';
 import 'screens/support/contact_support_screen.dart';
 import 'screens/support/faq_screen.dart';
 import 'config/app_constants.dart';
-import 'utils/platform_utils.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
 import 'screens/auth/banned_screen.dart';
 import 'services/daily_login_service.dart';
@@ -425,35 +423,12 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final isIOS = PlatformUtils.shouldUseCupertino(context);
     final colors = Theme.of(context).colorScheme;
 
-    if (isIOS) {
-      return CupertinoTabScaffold(
-        tabBar: CupertinoTabBar(
-          currentIndex: _index,
-          onTap: (i) => setState(() => _index = i),
-          items: _destinations
-              .map(
-                (d) => BottomNavigationBarItem(
-                  icon: d.icon,
-                  activeIcon: d.selectedIcon ?? d.icon,
-                  label: d.label,
-                ),
-              )
-              .toList(),
-        ),
-        tabBuilder: (_, i) =>
-            CupertinoPageScaffold(child: SafeArea(child: _screens[i])),
-      );
-    }
-
     return Scaffold(
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
       appBar: const RooverseAppBar(),
-      body: SafeArea(
-        child: IndexedStack(index: _index, children: _screens),
-      ),
+      body: IndexedStack(index: _index, children: _screens),
       bottomNavigationBar: AdaptiveNavigationBar(
         currentIndex: _index,
         destinations: _destinations,
@@ -829,24 +804,27 @@ class _ProfileItem extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final color = destructive ? colors.error : colors.onSurface;
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(width: 16),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: color,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Row(
+            children: [
+              Icon(icon, color: color),
+              const SizedBox(width: 16),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -266,9 +266,11 @@ class _TipModalState extends State<TipModal> {
                     runSpacing: 12,
                     children: _quickAmounts.map((amount) {
                       final isSelected = _selectedAmount == amount;
-                      return InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
                           setState(() {
                             _selectedAmount = amount;
                             _customAmountController.clear();
@@ -301,7 +303,7 @@ class _TipModalState extends State<TipModal> {
                             ),
                           ),
                         ),
-                      );
+                        ),);
                     }).toList(),
                   ),
                 ],

@@ -447,10 +447,12 @@ class SettingsScreen extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
@@ -488,6 +490,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

@@ -1153,30 +1153,39 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     icon: const Icon(Icons.close),
                     onPressed: _handleClose,
                   ),
-                  Row(
-                    children: [
-                      Text('New Post', style: theme.textTheme.titleMedium),
-                      if (_isDraftLoaded) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colors.primaryContainer,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
                           child: Text(
-                            'Draft',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onPrimaryContainer,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            'New Post',
+                            style: theme.textTheme.titleMedium,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (_isDraftLoaded) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.primaryContainer,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'Draft',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colors.onPrimaryContainer,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                   const Spacer(),
                   TextButton(

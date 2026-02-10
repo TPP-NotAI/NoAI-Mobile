@@ -104,7 +104,7 @@ class BookmarksScreen extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (_) =>
-                                  ProfileScreen(userId: post.author.userId),
+                                  ProfileScreen(userId: post.author.userId, showAppBar: true),
                             ),
                           );
                         },

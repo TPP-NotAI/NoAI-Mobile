@@ -62,10 +62,12 @@ class LanguageScreen extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isSelected
@@ -97,6 +99,7 @@ class LanguageScreen extends StatelessWidget {
                 Icon(Icons.check_circle, color: AppColors.primary, size: 24),
             ],
           ),
+        ),
         ),
       ),
     );

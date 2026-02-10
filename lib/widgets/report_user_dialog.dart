@@ -156,10 +156,12 @@ class _ReasonTile extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
             color: selected
@@ -191,6 +193,7 @@ class _ReasonTile extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

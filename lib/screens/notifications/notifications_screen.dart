@@ -205,7 +205,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ProfileScreen(userId: notification.actorId),
+            builder: (_) => ProfileScreen(userId: notification.actorId, showAppBar: true),
           ),
         );
       }

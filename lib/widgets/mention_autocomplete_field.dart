@@ -217,8 +217,10 @@ class _MentionAutocompleteFieldState extends State<MentionAutocompleteField> {
                     user['display_name'] as String? ?? user['username'] as String;
                 final username = user['username'] as String;
 
-                return InkWell(
-                  borderRadius: BorderRadius.circular(
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(
                     index == 0 && index == _suggestions.length - 1
                         ? 12
                         : index == 0
@@ -277,6 +279,7 @@ class _MentionAutocompleteFieldState extends State<MentionAutocompleteField> {
                         ),
                       ],
                     ),
+                  ),
                   ),
                 );
               },

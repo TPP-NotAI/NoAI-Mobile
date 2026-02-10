@@ -95,10 +95,15 @@ class _FeedScreenState extends State<FeedScreen> {
                       child: ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: maxWidth),
                         child: Padding(
-                          padding: EdgeInsets.only(
-                            top: AppSpacing.mediumSmall.responsive(context),
-                            bottom: AppSpacing.extraSmall.responsive(context),
-                          ),
+                            // Aggressively reduce vertical spacing for small screens and iOS
+                            padding: EdgeInsets.only(
+                            top: (MediaQuery.of(context).size.height < 750 || Theme.of(context).platform == TargetPlatform.iOS)
+                              ? AppSpacing.tiny.responsive(context)
+                              : AppSpacing.mediumSmall.responsive(context),
+                            bottom: (MediaQuery.of(context).size.height < 750 || Theme.of(context).platform == TargetPlatform.iOS)
+                              ? AppSpacing.tiny.responsive(context)
+                              : AppSpacing.extraSmall.responsive(context),
+                            ),
                           child: const StoriesCarousel(),
                         ),
                       ),
@@ -376,31 +381,34 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius:
-            AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            vertical: AppSpacing.mediumSmall.responsive(context),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon,
-                  color: color,
-                  size: AppTypography.responsiveIconSize(context, 20)),
-              SizedBox(width: AppSpacing.small.responsive(context)),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: AppTypography.responsiveFontSize(
-                      context, AppTypography.small),
-                  fontWeight: FontWeight.w600,
-                  color: color,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius:
+              AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              vertical: AppSpacing.mediumSmall.responsive(context),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon,
+                    color: color,
+                    size: AppTypography.responsiveIconSize(context, 20)),
+                SizedBox(width: AppSpacing.small.responsive(context)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: AppTypography.responsiveFontSize(
+                        context, AppTypography.small),
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

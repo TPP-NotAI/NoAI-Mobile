@@ -473,8 +473,10 @@ class _CommentCardState extends State<CommentCard> {
                     Row(
                       children: [
                         // Like button
-                        InkWell(
-                          onTap: () async {
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () async {
                             try {
                               await context.read<FeedProvider>().toggleCommentLike(
                                 widget.postId,
@@ -540,13 +542,16 @@ class _CommentCardState extends State<CommentCard> {
                               ],
                             ),
                           ),
+                          ),
                         ),
                         SizedBox(
                             width: AppSpacing.largePlus.responsive(context)),
 
                         // Reply button
-                        InkWell(
-                          onTap: widget.onReplyTap,
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: widget.onReplyTap,
                           borderRadius: AppSpacing.responsiveRadius(
                               context, AppSpacing.radiusLarge),
                           child: Padding(
@@ -580,6 +585,7 @@ class _CommentCardState extends State<CommentCard> {
                               ],
                             ),
                           ),
+                          ),
                         ),
                       ],
                     ),
@@ -597,8 +603,10 @@ class _CommentCardState extends State<CommentCard> {
               left: 60.responsive(context, min: 52, max: 68),
               bottom: AppSpacing.mediumSmall.responsive(context),
             ),
-            child: InkWell(
-              onTap: () => setState(() => _showReplies = !_showReplies),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => setState(() => _showReplies = !_showReplies),
               borderRadius:
                   AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
               child: Padding(
@@ -628,6 +636,7 @@ class _CommentCardState extends State<CommentCard> {
                     ),
                   ],
                 ),
+              ),
               ),
             ),
           ),

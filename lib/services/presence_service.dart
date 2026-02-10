@@ -9,11 +9,13 @@ class PresenceService with WidgetsBindingObserver {
 
   Timer? _updateTimer;
   final _supabase = SupabaseService().client;
+  int _consecutiveErrors = 0;
 
   void start() {
     WidgetsBinding.instance.addObserver(this);
+    _consecutiveErrors = 0;
     _startTimer();
-    _updateStatus(); // Initial update
+    _updateStatus();
   }
 
   void stop() {
@@ -23,7 +25,9 @@ class PresenceService with WidgetsBindingObserver {
 
   void _startTimer() {
     _updateTimer?.cancel();
-    _updateTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Back off if we keep getting errors: 30s, 60s, 120s, max 5min
+    final intervalSeconds = 30 * (1 << _consecutiveErrors.clamp(0, 3));
+    _updateTimer = Timer.periodic(Duration(seconds: intervalSeconds), (timer) {
       _updateStatus();
     });
   }
@@ -42,8 +46,19 @@ class PresenceService with WidgetsBindingObserver {
           .from('profiles')
           .update({'last_active_at': DateTime.now().toIso8601String()})
           .eq('user_id', userId);
+      if (_consecutiveErrors > 0) {
+        _consecutiveErrors = 0;
+        _startTimer(); // Reset to normal interval
+      }
     } catch (e) {
-      debugPrint('Error updating presence: $e');
+      _consecutiveErrors++;
+      if (_consecutiveErrors <= 2) {
+        debugPrint('Error updating presence: $e');
+      }
+      if (_consecutiveErrors == 3) {
+        debugPrint('Presence updates failing repeatedly, backing off');
+        _startTimer(); // Restart with longer interval
+      }
     }
   }
 

@@ -64,18 +64,22 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
           horizontal: AppSpacing.largePlus.responsive(context),
           vertical: AppSpacing.standard.responsive(context),
         ),
-        child: Row(
-          children: List.generate(
-            5,
-            (index) => Container(
-              width: 64.responsive(context, min: 56, max: 72),
-              height: 64.responsive(context, min: 56, max: 72),
-              margin: EdgeInsets.only(
-                right: index == 4 ? 0 : AppSpacing.standard.responsive(context),
-              ),
-              decoration: BoxDecoration(
-                color: colors.surfaceVariant.withValues(alpha: 0.6),
-                shape: BoxShape.circle,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          child: Row(
+            children: List.generate(
+              5,
+              (index) => Container(
+                width: 64.responsive(context, min: 56, max: 72),
+                height: 64.responsive(context, min: 56, max: 72),
+                margin: EdgeInsets.only(
+                  right: index == 4 ? 0 : AppSpacing.standard.responsive(context),
+                ),
+                decoration: BoxDecoration(
+                  color: colors.surfaceVariant.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
           ),
@@ -93,6 +97,8 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
       hasOtherStories: hasOtherStories,
     );
 
+    // Reduce vertical padding at the bottom for phones
+    final isSmallScreen = MediaQuery.of(context).size.height < 750;
     return Container(
       height: 140.responsive(context, min: 124, max: 156),
       decoration: BoxDecoration(
@@ -107,7 +113,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(
           horizontal: AppSpacing.standard.responsive(context),
-          vertical: AppSpacing.standard.responsive(context),
+          vertical: isSmallScreen ? 4.0 : AppSpacing.standard.responsive(context),
         ),
         children: cards,
       ),
@@ -241,6 +247,12 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
             });
           }
 
+          int wordCount = captionController.text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+          bool canShare = selectedMedia.isNotEmpty || (captionController.text.trim().isNotEmpty && wordCount <= 250);
+          String? textError;
+          if (captionController.text.trim().isNotEmpty && wordCount > 250) {
+            textError = 'Text stories are limited to 250 words.';
+          }
           return AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -452,7 +464,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                 TextField(
                   controller: captionController,
                   decoration: InputDecoration(
-                    hintText: 'Add a caption...',
+                    hintText: 'Add a caption or share a text story (max 250 words)',
                     filled: true,
                     fillColor: colors.surfaceVariant.withValues(alpha: 0.25),
                     border: OutlineInputBorder(
@@ -466,13 +478,15 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                       horizontal: 14,
                       vertical: 12,
                     ),
+                    errorText: textError,
                   ),
                   minLines: 1,
-                  maxLines: 3,
+                  maxLines: 8,
+                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Supported: JPG, PNG, MP4, MOV. Videos should be 15s or less.',
+                  'Supported: JPG, PNG, MP4, MOV. Videos should be 15s or less.\nYou can also share a text-only story (max 250 words).',
                   style: textTheme.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -487,32 +501,28 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                 child: const Text('Cancel'),
               ),
               FilledButton(
-                onPressed: selectedMedia.isEmpty || isUploading
+                onPressed: (!canShare || isUploading)
                     ? null
                     : () async {
                         setState(() {
                           isUploading = true;
                         });
-
                         final storyProvider = context.read<StoryProvider>();
+                        final List<StoryMediaInput> mediaInputs = selectedMedia
+                            .map((m) => StoryMediaInput(url: m.url, mediaType: m.mediaType))
+                            .toList();
+                        final String? caption = captionController.text.trim().isEmpty
+                            ? null
+                            : captionController.text.trim();
+                        // If no media, treat as text-only story
                         final success = await storyProvider.createStories(
-                          mediaItems: selectedMedia
-                              .map(
-                                (m) => StoryMediaInput(
-                                  url: m.url,
-                                  mediaType: m.mediaType,
-                                ),
-                              )
-                              .toList(),
-                          caption: captionController.text.trim().isEmpty
-                              ? null
-                              : captionController.text.trim(),
+                          mediaItems: mediaInputs.isEmpty
+                              ? [StoryMediaInput(url: '', mediaType: 'text')]
+                              : mediaInputs,
+                          caption: caption,
                         );
-
                         if (!mounted) return;
-
                         Navigator.of(dialogContext).pop();
-
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -549,28 +559,31 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
   }) {
     final colors = Theme.of(context).colorScheme;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colors.outlineVariant),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: colors.primary, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: colors.onSurface,
-                fontWeight: FontWeight.w500,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.outlineVariant),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: colors.primary, size: 32),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: colors.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -639,31 +652,34 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
 
   Widget _filterButton(String label, IconData icon, VoidCallback onTap) {
     final colors = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 80,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colors.outlineVariant),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: colors.primary, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: colors.onSurface,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 80,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.outlineVariant),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: colors.primary, size: 24),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: colors.onSurface,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

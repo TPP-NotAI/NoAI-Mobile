@@ -12,10 +12,12 @@ class UserCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
@@ -129,6 +131,7 @@ class UserCard extends StatelessWidget {
                   ),
             ],
           ),
+        ),
         ),
       ),
     );
