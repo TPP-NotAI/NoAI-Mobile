@@ -6,6 +6,8 @@ import '../../models/conversation.dart';
 import 'conversation_thread_page.dart';
 import 'archived_chats_screen.dart';
 import 'package:intl/intl.dart';
+import '../../models/user.dart';
+import '../wallet/user_search_sheet.dart';
 import '../../widgets/shimmer_loading.dart';
 
 class ChatListScreen extends StatefulWidget {
@@ -80,7 +82,39 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 },
               ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _createNewMessage(context),
+        backgroundColor: colors.primary,
+        foregroundColor: colors.onPrimary,
+        child: const Icon(Icons.add_comment_outlined),
+        tooltip: 'New Message',
+      ),
     );
+  }
+
+  Future<void> _createNewMessage(BuildContext context) async {
+    final selectedUser = await showModalBottomSheet<User>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const UserSearchSheet(),
+    );
+
+    if (selectedUser != null && mounted) {
+      final chatProvider = context.read<ChatProvider>();
+      final conversation = await chatProvider.startConversation(
+        selectedUser.id,
+      );
+
+      if (conversation != null && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ConversationThreadPage(conversation: conversation),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -102,6 +136,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
           const Text(
             'Start a conversation with someone!',
             style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: () => _createNewMessage(context),
+            icon: const Icon(Icons.add),
+            label: const Text('Start Messaging'),
           ),
         ],
       ),

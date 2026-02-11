@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../core/extensions/exception_extensions.dart';
 import '../models/staking.dart';
 import '../repositories/staking_repository.dart';
 
@@ -97,7 +98,7 @@ class StakingProvider with ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('StakingProvider: Error staking - $e');
-      _error = e.toString().replaceAll('Exception: ', '');
+      _error = e.userMessage;
       return false;
     } finally {
       _isLoading = false;
@@ -127,7 +128,7 @@ class StakingProvider with ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('StakingProvider: Error unstaking - $e');
-      _error = e.toString().replaceAll('Exception: ', '');
+      _error = e.userMessage;
       return false;
     } finally {
       _isLoading = false;
@@ -156,7 +157,7 @@ class StakingProvider with ChangeNotifier {
       return rewards;
     } catch (e) {
       debugPrint('StakingProvider: Error claiming rewards - $e');
-      _error = e.toString().replaceAll('Exception: ', '');
+      _error = e.userMessage;
       return 0;
     } finally {
       _isLoading = false;

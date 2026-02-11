@@ -196,39 +196,55 @@ class RoocoinService {
         as Map<String, dynamic>;
   }
 
-  /// Transfer ROO to external wallet (e.g., MetaMask)
-  /// Users can move ROO to their own wallet
-  Future<Map<String, dynamic>> transfer({
+  /// Peer-to-peer transfer - User sends ROO to another user on the platform
+  /// This endpoint is preferred for user-to-user transfers as it handles gas more efficiently.
+  Future<Map<String, dynamic>> send({
     required String fromPrivateKey,
     required String toAddress,
     required double amount,
+    Map<String, dynamic>? metadata,
   }) async {
     return await _retryRequest(() async {
           try {
+            // Format amount as string, removing trailing .0 if present
+            final amountStr = amount % 1 == 0
+                ? amount.toInt().toString()
+                : amount.toString();
+
+            final body = {
+              'fromPrivateKey': fromPrivateKey,
+              'toAddress': toAddress,
+              'amount': amountStr,
+              if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
+            };
+
+            debugPrint('RoocoinService: Sending ROO via /api/wallet/send');
+            debugPrint(
+              'RoocoinService: Request Body: ${json.encode({...body, 'fromPrivateKey': '0x***${fromPrivateKey.substring(min(fromPrivateKey.length, 5))}'})}',
+            );
+
             final response = await http.post(
-              Uri.parse('$baseUrl/api/wallet/transfer'),
-              headers: getHeaders(),
-              body: json.encode({
-                'fromPrivateKey': fromPrivateKey,
-                'toAddress': toAddress,
-                'amount': amount.toString(),
-              }),
+              Uri.parse('$baseUrl/api/wallet/send'),
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode(body),
             );
 
             if (response.statusCode == 200) {
               return json.decode(response.body) as Map<String, dynamic>;
             } else {
               throw Exception(
-                'Failed to transfer ROO: ${response.statusCode} - ${response.body}',
+                'Failed to send ROO: ${response.statusCode} - ${response.body}',
               );
             }
           } catch (e) {
-            debugPrint('Error transferring ROO: $e');
+            debugPrint('Error sending ROO: $e');
             rethrow;
           }
-        }, operationName: 'transfer')
+        }, operationName: 'send')
         as Map<String, dynamic>;
   }
+
+  /// Transfer ROO to external wallet (e.g., MetaMask)
 
   /// Distribute rewards to a user for activities
   Future<Map<String, dynamic>> distributeReward({

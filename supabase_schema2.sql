@@ -313,6 +313,8 @@ CREATE TABLE public.dm_messages (
   ai_score_status text DEFAULT 'pass'::text CHECK (ai_score_status = ANY (ARRAY['pass'::text, 'review'::text, 'flagged'::text])),
   ai_metadata jsonb DEFAULT '{}'::jsonb,
   verification_session_id text,
+  delivered_at timestamp with time zone,
+  read_at timestamp with time zone,
   CONSTRAINT dm_messages_pkey PRIMARY KEY (id),
   CONSTRAINT dm_messages_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.dm_threads(id),
   CONSTRAINT dm_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.profiles(user_id),
@@ -407,6 +409,23 @@ CREATE TABLE public.human_verifications (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT human_verifications_pkey PRIMARY KEY (id),
   CONSTRAINT human_verifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.kyc_documents (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  verification_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  document_type text NOT NULL CHECK (document_type = ANY (ARRAY['passport'::text, 'drivers_license'::text, 'national_id'::text, 'utility_bill'::text, 'selfie'::text, 'selfie_with_doc'::text])),
+  document_side text CHECK (document_side = ANY (ARRAY['front'::text, 'back'::text, 'single'::text])),
+  storage_path text NOT NULL,
+  ai_detection_score numeric CHECK (ai_detection_score >= 0::numeric AND ai_detection_score <= 100::numeric),
+  ai_detection_status text CHECK (ai_detection_status = ANY (ARRAY['pass'::text, 'review'::text, 'flagged'::text])),
+  validation_status text DEFAULT 'pending'::text CHECK (validation_status = ANY (ARRAY['pending'::text, 'valid'::text, 'invalid'::text, 'expired'::text, 'ai_rejected'::text])),
+  rejection_reason text,
+  extracted_data jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT kyc_documents_pkey PRIMARY KEY (id),
+  CONSTRAINT kyc_documents_verification_id_fkey FOREIGN KEY (verification_id) REFERENCES public.human_verifications(id),
+  CONSTRAINT kyc_documents_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
 );
 CREATE TABLE public.legal_documents (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -718,6 +737,8 @@ CREATE TABLE public.profiles (
   comments_visibility text NOT NULL DEFAULT 'everyone'::text CHECK (comments_visibility = ANY (ARRAY['everyone'::text, 'followers'::text, 'private'::text])),
   messages_visibility text NOT NULL DEFAULT 'everyone'::text CHECK (messages_visibility = ANY (ARRAY['everyone'::text, 'followers'::text, 'private'::text])),
   birth_date date,
+  avatar_ai_checked boolean DEFAULT false,
+  avatar_ai_score numeric CHECK (avatar_ai_score >= 0::numeric AND avatar_ai_score <= 100::numeric),
   CONSTRAINT profiles_pkey PRIMARY KEY (user_id),
   CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
@@ -764,6 +785,29 @@ CREATE TABLE public.reposts (
   CONSTRAINT reposts_pkey PRIMARY KEY (id),
   CONSTRAINT reposts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
   CONSTRAINT reposts_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id)
+);
+CREATE TABLE public.roocoin_daily_rewards (
+  user_id uuid NOT NULL,
+  reward_date date NOT NULL,
+  total_earned_rc numeric NOT NULL DEFAULT 0,
+  breakdown jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT roocoin_daily_rewards_pkey PRIMARY KEY (user_id, reward_date),
+  CONSTRAINT roocoin_daily_rewards_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.roocoin_reward_global_limits (
+  id smallint NOT NULL DEFAULT 1 CHECK (id = 1),
+  daily_cap numeric NOT NULL DEFAULT 50,
+  CONSTRAINT roocoin_reward_global_limits_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.roocoin_reward_limits (
+  activity_type text NOT NULL,
+  daily_cap numeric NOT NULL DEFAULT 0,
+  cooldown_seconds integer NOT NULL DEFAULT 0,
+  is_one_time boolean NOT NULL DEFAULT false,
+  requires_verified boolean NOT NULL DEFAULT false,
+  CONSTRAINT roocoin_reward_limits_pkey PRIMARY KEY (activity_type)
 );
 CREATE TABLE public.roocoin_transactions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -862,6 +906,7 @@ CREATE TABLE public.stories (
   status text CHECK (status = ANY (ARRAY['pass'::text, 'review'::text, 'flagged'::text])),
   verification_session_id text,
   ai_metadata jsonb DEFAULT '{}'::jsonb,
+  ai_score_status text CHECK (ai_score_status = ANY (ARRAY['pass'::text, 'review'::text, 'flagged'::text])),
   CONSTRAINT stories_pkey PRIMARY KEY (id),
   CONSTRAINT stories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
 );
@@ -914,6 +959,33 @@ CREATE TABLE public.subscriptions (
   CONSTRAINT subscriptions_subscriber_id_fkey FOREIGN KEY (subscriber_id) REFERENCES public.profiles(user_id),
   CONSTRAINT subscriptions_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.profiles(user_id),
   CONSTRAINT subscriptions_tier_id_fkey FOREIGN KEY (tier_id) REFERENCES public.creator_tiers(id)
+);
+CREATE TABLE public.support_ticket_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  ticket_id uuid NOT NULL,
+  sender_id uuid NOT NULL,
+  message text NOT NULL,
+  is_staff boolean NOT NULL DEFAULT false,
+  attachments jsonb DEFAULT '[]'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT support_ticket_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT support_ticket_messages_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.support_tickets(id),
+  CONSTRAINT support_ticket_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.support_tickets (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  subject text NOT NULL,
+  category text NOT NULL CHECK (category = ANY (ARRAY['account'::text, 'content'::text, 'wallet'::text, 'technical'::text, 'verification'::text, 'other'::text])),
+  priority text NOT NULL DEFAULT 'medium'::text CHECK (priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'urgent'::text])),
+  status text NOT NULL DEFAULT 'open'::text CHECK (status = ANY (ARRAY['open'::text, 'in_progress'::text, 'waiting_response'::text, 'resolved'::text, 'closed'::text])),
+  assigned_to uuid,
+  resolved_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT support_tickets_pkey PRIMARY KEY (id),
+  CONSTRAINT support_tickets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT support_tickets_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.profiles(user_id)
 );
 CREATE TABLE public.tags (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1019,6 +1091,29 @@ CREATE TABLE public.user_achievements (
   CONSTRAINT user_achievements_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
   CONSTRAINT user_achievements_achievement_id_fkey FOREIGN KEY (achievement_id) REFERENCES public.achievements(id)
 );
+CREATE TABLE public.user_activities (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  activity_type text NOT NULL CHECK (activity_type = ANY (ARRAY['login'::text, 'logout'::text, 'post'::text, 'comment'::text, 'like'::text, 'follow'::text, 'unfollow'::text, 'share'::text, 'bookmark'::text, 'story'::text, 'tip'::text, 'stake'::text, 'unstake'::text, 'reward'::text, 'transaction'::text, 'profile_update'::text, 'settings_change'::text, 'verification'::text, 'password_change'::text, 'email_change'::text])),
+  target_type text CHECK (target_type = ANY (ARRAY['post'::text, 'comment'::text, 'user'::text, 'story'::text, 'wallet'::text, 'settings'::text])),
+  target_id uuid,
+  description text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  ip_address text,
+  user_agent text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_activities_pkey PRIMARY KEY (id),
+  CONSTRAINT user_activities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.user_fcm_tokens (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  token text NOT NULL,
+  platform text NOT NULL,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_fcm_tokens_pkey PRIMARY KEY (id),
+  CONSTRAINT user_fcm_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.user_reports (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   reporter_id uuid NOT NULL,
@@ -1065,6 +1160,24 @@ CREATE TABLE public.user_wallet_keys (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT user_wallet_keys_pkey PRIMARY KEY (id),
   CONSTRAINT user_wallet_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.veriff_sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  veriff_session_id text NOT NULL UNIQUE,
+  user_id uuid NOT NULL,
+  session_url text NOT NULL,
+  session_token text,
+  vendor_data text,
+  status text NOT NULL DEFAULT 'created'::text CHECK (status = ANY (ARRAY['created'::text, 'started'::text, 'submitted'::text, 'approved'::text, 'declined'::text, 'resubmission_requested'::text, 'expired'::text, 'abandoned'::text, 'review'::text])),
+  decision_code integer,
+  person_data jsonb,
+  document_data jsonb,
+  verification_result jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone,
+  CONSTRAINT veriff_sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT veriff_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
 );
 CREATE TABLE public.wallets (
   user_id uuid NOT NULL,

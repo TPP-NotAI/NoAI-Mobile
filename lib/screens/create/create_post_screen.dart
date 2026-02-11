@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,11 +8,13 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:image/image.dart' as img;
+import 'package:rooverse/models/moderation_result.dart';
+import 'package:rooverse/repositories/post_repository.dart';
+import 'package:rooverse/services/ai_detection_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../providers/feed_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../providers/wallet_provider.dart';
 import '../../repositories/tag_repository.dart';
 import '../../repositories/mention_repository.dart';
 import '../../widgets/mention_autocomplete_field.dart';
@@ -21,6 +24,8 @@ import '../../config/supabase_config.dart';
 import '../../services/storage_service.dart';
 import '../../services/roocoin_service.dart';
 import '../../services/kyc_verification_service.dart';
+import '../../utils/verification_utils.dart';
+import '../../widgets/verification_required_widget.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final String? initialPostType;
@@ -36,8 +41,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _titleController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
+  final PostRepository _postRepo = PostRepository();
   final TagRepository _tagRepository = TagRepository();
   final MentionRepository _mentionRepository = MentionRepository();
+  final AiDetectionService _aiDetectionService = AiDetectionService();
+
+  // Real-time moderation state
+  Timer? _textModerationTimer;
+  bool _isModeratingText = false;
+  ModerationResult? _textModerationResult;
 
   late String _postType;
   bool _isPosting = false;
@@ -121,8 +133,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     if (_isLoadingPostCost) return;
     _isLoadingPostCost = true;
     try {
-      final response = await SupabaseService()
-          .client
+      final response = await SupabaseService().client
           .from(SupabaseConfig.platformConfigTable)
           .select('default_publish_fee_rc')
           .eq('id', 1)
@@ -138,7 +149,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             _postCostRoo = effectiveFee;
           });
         }
-        await _storageService.setString('post_cost_rc', effectiveFee.toString());
+        await _storageService.setString(
+          'post_cost_rc',
+          effectiveFee.toString(),
+        );
         await _storageService.setString(
           'post_cost_rc_ts',
           DateTime.now().millisecondsSinceEpoch.toString(),
@@ -150,7 +164,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         _postCostLoadFailed = true;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Could not refresh ROO posting fee. Using cached value.'),
+            content: Text(
+              'Could not refresh ROO posting fee. Using cached value.',
+            ),
           ),
         );
       }
@@ -171,11 +187,37 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   void _onContentChanged() {
-    // Auto-detect hashtags and mentions as user types
     setState(() {
       _hasUnsavedChanges = true;
     });
-    // Removed auto-save - only save when user clicks Save Draft button
+
+    // Real-time moderation debouncing
+    _textModerationTimer?.cancel();
+    _textModerationTimer = Timer(const Duration(milliseconds: 800), () {
+      _moderateCurrentText();
+    });
+  }
+
+  Future<void> _moderateCurrentText() async {
+    final text = _contentController.text.trim();
+    if (text.isEmpty) {
+      if (mounted) setState(() => _textModerationResult = null);
+      return;
+    }
+
+    if (mounted) setState(() => _isModeratingText = true);
+
+    try {
+      final res = await _aiDetectionService.moderateText(text);
+      if (mounted) {
+        setState(() {
+          _textModerationResult = res;
+          _isModeratingText = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isModeratingText = false);
+    }
   }
 
   Future<void> _pickMedia({required bool fromCamera}) async {
@@ -188,6 +230,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         if (image != null) {
           // Ask user if they want to crop
           File finalImage = File(image.path);
+
+          // Proactive moderation
+          _moderateMedia(finalImage, 'image');
 
           if (mounted) {
             setState(() {
@@ -202,8 +247,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             : await _imagePicker.pickVideo(source: ImageSource.gallery);
 
         if (video != null) {
+          final videoFile = File(video.path);
+
+          // Proactive moderation
+          _moderateMedia(videoFile, 'video');
+
           setState(() {
-            _selectedMediaFiles.add(File(video.path));
+            _selectedMediaFiles.add(videoFile);
             _selectedMediaTypes.add('video');
           });
         }
@@ -213,6 +263,56 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e')));
+    }
+  }
+
+  Future<void> _moderateMedia(File file, String type) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Checking content safety...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    try {
+      final res = type == 'image'
+          ? await _aiDetectionService.moderateImage(file)
+          : await _aiDetectionService.moderateVideo(file);
+
+      if (res != null && res.flagged) {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('Content Warning'),
+              ],
+            ),
+            content: Text(
+              'Our AI detected potentially harmful content in your ${type}: ${res.details ?? "violation detected"}.\n\n'
+              'If you post this, it may be hidden or your account could be flagged.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('I Understand'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _removeMedia(_selectedMediaFiles.indexOf(file));
+                },
+                child: const Text('Remove Media'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Proactive moderation failed: $e');
     }
   }
 
@@ -627,13 +727,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primaryContainer
-                        .withValues(alpha: 0.3),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.4),
                     ),
                   ),
                   child: Row(
@@ -641,7 +742,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -657,17 +760,23 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           children: [
                             Text(
                               '${_postCostRoo.toStringAsFixed(_postCostRoo % 1 == 0 ? 0 : 2)} ROO will be used',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                  ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               'This amount will be deducted from your wallet',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
                             ),
                           ],
                         ),
@@ -896,87 +1005,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  Future<bool> _confirmAndPayPostFee() async {
-    final walletProvider = context.read<WalletProvider>();
-    final user = context.read<UserProvider>().currentUser;
-
-    if (user == null) return false;
-
-    // Refresh wallet to get latest balance
-    await walletProvider.refreshWallet(user.id);
-    final wallet = walletProvider.wallet;
-
-    if (wallet == null) {
-      if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error: Could not retrieve wallet information'),
-        ),
-      );
-      return false;
-    }
-
-    // Check balance
-    // TODO: Fetch this from PlatformConfig. Server currently errors on spending for POST_CREATE (500).
-    // Temporarily setting to 0.0 to allow posting.
-    final double postCost = _postCostRoo;
-    if (postCost > 0 && wallet.balanceRc < postCost) {
-      if (!mounted) return false;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Insufficient Funds'),
-          content: Text(
-            'Posting requires $postCost ROO. Your balance is ${wallet.balanceRc} ROO.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // Navigate to wallet?
-              },
-              child: const Text('Get ROO'),
-            ),
-          ],
-        ),
-      );
-      return false;
-    }
-
-    // Process Payment (user already confirmed in preview dialog)
-    if (postCost > 0) {
-      try {
-        await walletProvider.spendRoo(
-          userId: user.id,
-          amount: postCost,
-          activityType: RoocoinActivityType.postCreate,
-          metadata: {'platform': 'app'},
-        );
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Payment failed: $e')));
-        }
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   Future<void> _createPost() async {
     if (_contentController.text.trim().isEmpty && _selectedMediaFiles.isEmpty) {
       return;
     }
 
-    // 1. Pay the 1 ROO fee
-    final paid = await _confirmAndPayPostFee();
-    if (!paid) return;
+    // 0. Verify Human Status
+    final isVerified = await VerificationUtils.checkVerification(context);
+    if (!mounted || !isVerified) return;
+    // 1. Post creation is now a reward (+10 ROO) processed in PostRepository
+    // final paid = await _confirmAndPayPostFee();
+    // if (!mounted || !paid) return;
 
     setState(() => _isPosting = true);
 
@@ -1034,57 +1073,70 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (!mounted) return;
       final feedProvider = context.read<FeedProvider>();
       final titleText = _titleController.text.trim();
-      final post = await feedProvider.createPost(
-        _contentController.text.trim(),
-        title: titleText.isNotEmpty ? titleText : null,
-        mediaFiles: _selectedMediaFiles.isNotEmpty ? _selectedMediaFiles : null,
-        mediaTypes: _selectedMediaTypes.isNotEmpty ? _selectedMediaTypes : null,
-        tags: allTags.isNotEmpty ? allTags : null,
-        location: _selectedLocation,
-        mentionedUserIds: mentionedUserIds.isNotEmpty ? mentionedUserIds : null,
-      );
+      final contentText = _contentController.text.trim();
 
-      if (!mounted) return;
-      if (!context.mounted) return;
+      // Capture lists to avoid issues after clearing controllers
+      final mediaFiles = _selectedMediaFiles.isNotEmpty
+          ? List<File>.from(_selectedMediaFiles)
+          : null;
+      final mediaTypes = _selectedMediaTypes.isNotEmpty
+          ? List<String>.from(_selectedMediaTypes)
+          : null;
+      final taggedIds = mentionedUserIds.isNotEmpty ? mentionedUserIds : null;
+      final loc = _selectedLocation;
+      final tagsList = allTags.isNotEmpty ? allTags : null;
 
-      if (post != null) {
-        // ROO reward is now handled in PostRepository upon successful publication
-        // (either via auto-approval or admin moderation)
+      // 1. Clear form and draft immediately
+      _contentController.clear();
+      _titleController.clear();
+      _selectedMediaFiles.clear();
+      _selectedMediaTypes.clear();
+      _selectedTags.clear();
+      _taggedPeople.clear();
+      _selectedLocation = null;
+      _certifyHumanGenerated = false;
+      await _clearDraft();
 
-        // Show success snackbar (non-blocking)
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Post published successfully!'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-
-        // Clear the form and draft
-        _contentController.clear();
-        _titleController.clear();
-        _selectedMediaFiles.clear();
-        _selectedMediaTypes.clear();
-        _selectedTags.clear();
-        _taggedPeople.clear();
-        _selectedLocation = null;
-        _certifyHumanGenerated = false;
-        await _clearDraft();
+      if (mounted) {
         setState(() {
           _hasUnsavedChanges = false;
+          _isPosting = false; // Reset early as we are leaving
         });
-
-        // Call the callback if provided (for embedded navigation)
-        if (widget.onPostCreated != null) {
-          widget.onPostCreated!();
-        } else if (Navigator.canPop(context)) {
-          // Only pop if we were pushed onto the stack
-          Navigator.pop(context);
-        }
-      } else {
-        throw Exception('Failed to create post');
       }
+
+      // 2. Navigate back immediately
+      if (widget.onPostCreated != null) {
+        widget.onPostCreated!();
+      } else if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+        // Show success snackbar on the feed screen
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Publishing your post...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // 3. Trigger post creation in background (do not await)
+      feedProvider
+          .createPost(
+            contentText,
+            title: titleText.isNotEmpty ? titleText : null,
+            mediaFiles: mediaFiles,
+            mediaTypes: mediaTypes,
+            tags: tagsList,
+            location: loc,
+            mentionedUserIds: taggedIds,
+          )
+          .then((post) {
+            if (post != null) {
+              debugPrint('Post created successfully in background');
+            }
+          })
+          .catchError((e) {
+            debugPrint('Optimistic Post Error: $e');
+          });
     } on KycNotVerifiedException catch (e) {
       if (!mounted) return;
       if (context.mounted) {
@@ -1097,8 +1149,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               label: 'Verify',
               textColor: Colors.white,
               onPressed: () {
-                // Navigate to verification screen
-                Navigator.pushNamed(context, '/verify');
+                if (context.mounted) {
+                  Navigator.pushNamed(context, '/verify');
+                }
               },
             ),
           ),
@@ -1109,7 +1162,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to create post: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to start posting: $e')));
       }
     } finally {
       if (mounted) {
@@ -1122,6 +1175,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final user = context.watch<UserProvider>().currentUser;
 
     final hasContent =
         _contentController.text.trim().isNotEmpty ||
@@ -1222,7 +1276,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       if (_postCostRoo > 0) {
                         return Tooltip(
                           message:
-                              'You’ll be charged ${_postCostRoo.toStringAsFixed(2)} ROO',
+                              'You’ll earn ${_postCostRoo.toStringAsFixed(2)} ROO',
                           child: postButton,
                         );
                       }
@@ -1358,21 +1412,90 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ),
 
                     // Text input
-                    MentionAutocompleteField(
-                      controller: _contentController,
-                      maxLines: null,
-                      minLines: _postType == 'Text' ? 8 : 5,
-                      maxLength: _maxCharacterLimit,
-                      style: theme.textTheme.bodyMedium,
-                      decoration: InputDecoration(
-                        hintText: _postType == 'Text'
-                            ? 'Share your thoughts...'
-                            : 'Add a caption...',
-                        hintStyle: theme.textTheme.bodyMedium,
-                        border: InputBorder.none,
-                        counterText: '', // Hide default counter
+                    // Text input
+                    if (user?.isVerified == true)
+                      MentionAutocompleteField(
+                        controller: _contentController,
+                        maxLines: null,
+                        minLines: _postType == 'Text' ? 8 : 5,
+                        maxLength: _maxCharacterLimit,
+                        style: theme.textTheme.bodyMedium,
+                        decoration: InputDecoration(
+                          hintText: _postType == 'Text'
+                              ? 'Share your thoughts...'
+                              : 'Add a caption...',
+                          hintStyle: theme.textTheme.bodyMedium,
+                          border: InputBorder.none,
+                          counterText: '', // Hide default counter
+                        ),
+                      )
+                    else
+                      VerificationRequiredWidget(
+                        message:
+                            'You need to be a verified human to create posts.',
+                        onVerifyTap: () {
+                          if (context.mounted) {
+                            Navigator.pushNamed(context, '/verify');
+                          }
+                        },
                       ),
-                    ),
+
+                    // Real-time moderation warning
+                    if (_textModerationResult != null &&
+                        _textModerationResult!.flagged)
+                      Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.red.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              color: Colors.red,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Warning: ${_textModerationResult!.details ?? "Content contains potential policy violations."}',
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    if (_isModeratingText)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Checking content safety...',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                     // Character count
                     Align(

@@ -328,6 +328,8 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
         .toList();
     final consensusStrength = aiMetadata['consensus_strength'] as String?;
     final classification = aiMetadata['classification'] as String?;
+    final moderation = aiMetadata['moderation'] as Map<String, dynamic>?;
+    final safetyScore = (aiMetadata['safety_score'] as num?)?.toDouble();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -472,6 +474,8 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
             consensusStrength: consensusStrength,
             rationale: rationale,
             combinedEvidence: combinedEvidence,
+            moderation: moderation,
+            safetyScore: safetyScore,
           ),
 
           // Moderation action buttons (for moderators, not the post author)
@@ -574,6 +578,8 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
         .toList();
     final consensusStrength = aiMetadata['consensus_strength'] as String?;
     final classification = aiMetadata['classification'] as String?;
+    final moderation = aiMetadata['moderation'] as Map<String, dynamic>?;
+    final safetyScore = (aiMetadata['safety_score'] as num?)?.toDouble();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -701,6 +707,8 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
             consensusStrength: consensusStrength,
             rationale: rationale,
             combinedEvidence: combinedEvidence,
+            moderation: moderation,
+            safetyScore: safetyScore,
           ),
 
           // Appeal entry point for comments
@@ -768,6 +776,8 @@ class _AiAnalysisCard extends StatefulWidget {
   final String? consensusStrength;
   final String? rationale;
   final List<String>? combinedEvidence;
+  final Map<String, dynamic>? moderation;
+  final double? safetyScore;
 
   const _AiAnalysisCard({
     required this.confidence,
@@ -775,6 +785,8 @@ class _AiAnalysisCard extends StatefulWidget {
     this.consensusStrength,
     this.rationale,
     this.combinedEvidence,
+    this.moderation,
+    this.safetyScore,
   });
 
   @override
@@ -860,8 +872,87 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
                   color: widget.violationColor,
                 ),
               ),
+              if (widget.safetyScore != null) ...[
+                const Spacer(),
+                Text(
+                  'Safety Score: ',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: scheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
+                Text(
+                  '${widget.safetyScore!.toStringAsFixed(0)}/100',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: widget.safetyScore! > 80
+                        ? Colors.green
+                        : widget.safetyScore! > 50
+                        ? Colors.orange
+                        : Colors.red,
+                  ),
+                ),
+              ],
             ],
           ),
+
+          // Moderation Flags — always visible if flagged
+          if (widget.moderation != null &&
+              (widget.moderation!['flagged'] == true)) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                ...(widget.moderation!['categories'] as Map<String, dynamic>?)
+                        ?.entries
+                        .where((e) => e.value == true)
+                        .map(
+                          (e) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: Colors.red.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Text(
+                              e.key.toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ),
+                        ) ??
+                    [],
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'SEVERITY: ${(widget.moderation!['severity'] as String? ?? 'none').toUpperCase()}',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
 
           // Expanded details (rationale + evidence)
           if (_expanded) ...[

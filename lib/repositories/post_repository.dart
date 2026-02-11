@@ -19,7 +19,8 @@ class PostRepository {
   final MediaRepository _mediaRepository = MediaRepository();
   final TagRepository _tagRepository = TagRepository();
   final MentionRepository _mentionRepository = MentionRepository();
-  final NotificationRepository _notificationRepository = NotificationRepository();
+  final NotificationRepository _notificationRepository =
+      NotificationRepository();
   final AiDetectionService _aiDetectionService = AiDetectionService();
 
   /// Fetch paginated feed of published posts.
@@ -551,7 +552,21 @@ class PostRepository {
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Fetch the complete post with all relations
-      return await getPost(postId, currentUserId: authorId);
+      final post = await getPost(postId, currentUserId: authorId);
+
+      // Award 10 ROO to the author for creating a post
+      try {
+        final walletRepo = WalletRepository();
+        await walletRepo.earnRoo(
+          userId: authorId,
+          activityType: RoocoinActivityType.postCreate,
+          referencePostId: postId,
+        );
+      } catch (e) {
+        debugPrint('PostRepository: Error awarding ROO for post creation - $e');
+      }
+
+      return post;
     } catch (e) {
       debugPrint('PostRepository: Error creating post - $e');
       return null;
@@ -1010,7 +1025,8 @@ class PostRepository {
       final hasMedia = mediaFiles != null && mediaFiles.isNotEmpty;
 
       // Log when short text is skipped
-      if (trimmedBody.isNotEmpty && trimmedBody.length < _minAiDetectionLength) {
+      if (trimmedBody.isNotEmpty &&
+          trimmedBody.length < _minAiDetectionLength) {
         debugPrint(
           'PostRepository: Skipping text detection for short post $postId '
           '(${trimmedBody.length} chars < $_minAiDetectionLength)',
@@ -1039,9 +1055,7 @@ class PostRepository {
             referencePostId: postId,
           );
         } catch (e) {
-          debugPrint(
-            'PostRepository: Error awarding ROO for short post - $e',
-          );
+          debugPrint('PostRepository: Error awarding ROO for short post - $e');
         }
         return 0.0;
       }
@@ -1050,7 +1064,10 @@ class PostRepository {
 
       if (hasText && hasMedia) {
         // Both text and media: run mixed detection
-        result = await _aiDetectionService.detectMixed(trimmedBody, mediaFiles.first);
+        result = await _aiDetectionService.detectMixed(
+          trimmedBody,
+          mediaFiles.first,
+        );
       } else if (hasText) {
         // Text only (and long enough): run text detection
         result = await _aiDetectionService.detectText(trimmedBody);
@@ -1064,8 +1081,6 @@ class PostRepository {
       if (result != null) {
         // The API's confidence represents certainty in its classification
         // label, NOT AI probability. Convert to AI probability:
-        //   "AI-GENERATED" / "LIKELY AI-GENERATED"     → aiProb = confidence
-        //   "HUMAN-GENERATED" / "LIKELY HUMAN-GENERATED" → aiProb = 100 - confidence
         final bool isAiResult =
             result.result == 'AI-GENERATED' ||
             result.result == 'LIKELY AI-GENERATED';
@@ -1074,11 +1089,26 @@ class PostRepository {
             : 100 - result.confidence;
 
         // Map AI probability to score status & post status (aligned with API docs)
-        final String scoreStatus;
-        final String postStatus;
+        String scoreStatus;
+        String postStatus;
         String? authenticityNotes = result.rationale;
 
-        if (aiProbability > 95) {
+        // Check standalone moderation result first
+        final mod = result.moderation;
+        final bool isModerationFlagged = mod?.flagged ?? false;
+
+        if (isModerationFlagged) {
+          scoreStatus = 'flagged';
+          // Follow recommended action
+          if (mod?.recommendedAction == 'block' ||
+              mod?.recommendedAction == 'block_and_report') {
+            postStatus = 'deleted';
+          } else {
+            postStatus = 'under_review';
+          }
+          authenticityNotes =
+              'CONTENT MODERATION: ${mod?.details ?? "Harmful content detected"}';
+        } else if (aiProbability > 95) {
           scoreStatus = 'flagged';
           postStatus = 'deleted'; // Auto-block high-confidence AI content
         } else if (aiProbability > 75) {
@@ -1095,6 +1125,23 @@ class PostRepository {
         }
 
         if (postStatus == 'published') {
+          // Addition: Auto-label as sensitive if moderation flagged categories like 'sexual' or 'violence'
+          // but recommended action was 'allow' or 'warn'.
+          final bool shouldAutoLabelSensitive =
+              isModerationFlagged &&
+              (mod?.categories['sexual'] == true ||
+                  mod?.categories['violence'] == true);
+
+          if (shouldAutoLabelSensitive) {
+            await updatePost(
+              postId: postId,
+              currentUserId: authorId,
+              isSensitive: true,
+              sensitiveReason:
+                  'AI Auto-detected: ${mod?.details ?? "Potentially sensitive content"}',
+            );
+          }
+
           try {
             final walletRepo = WalletRepository();
             await walletRepo.earnRoo(
@@ -1128,7 +1175,9 @@ class PostRepository {
         );
 
         // Automatically create a moderation case if flagged or review required
-        if (scoreStatus == 'flagged' || scoreStatus == 'review') {
+        if (scoreStatus == 'flagged' ||
+            scoreStatus == 'review' ||
+            isModerationFlagged) {
           await _createModerationCase(
             postId: postId,
             authorId: authorId,
@@ -1140,6 +1189,8 @@ class PostRepository {
               'rationale': result.rationale,
               'combined_evidence': result.combinedEvidence,
               'classification': result.result,
+              'moderation': result.moderation?.toJson(),
+              'safety_score': result.safetyScore,
             },
           );
         }
@@ -1230,16 +1281,19 @@ class PostRepository {
         case 'published':
           title = 'Post Published';
           body = 'Your post passed verification and is now live!';
-          type = 'mention'; // Using 'mention' as valid DB type for system notifications
+          type =
+              'mention'; // Using 'mention' as valid DB type for system notifications
           break;
         case 'under_review':
           title = 'Post Under Review';
-          body = 'Your post is being reviewed by our moderation team. You\'ll be notified once a decision is made.';
+          body =
+              'Your post is being reviewed by our moderation team. You\'ll be notified once a decision is made.';
           type = 'mention';
           break;
         case 'deleted':
           title = 'Post Not Published';
-          body = 'Your post was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence). If you believe this is an error, please contact support.';
+          body =
+              'Your post was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence). If you believe this is an error, please contact support.';
           type = 'mention';
           break;
         default:
@@ -1258,9 +1312,7 @@ class PostRepository {
         'PostRepository: Sent AI result notification to $userId for post $postId (status: $postStatus)',
       );
     } catch (e) {
-      debugPrint(
-        'PostRepository: Error sending AI result notification - $e',
-      );
+      debugPrint('PostRepository: Error sending AI result notification - $e');
     }
   }
 }

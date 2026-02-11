@@ -28,7 +28,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
   List<TrendingTag> _trendingTags = [];
   bool _isLoadingTags = true;
   List<Map<String, dynamic>> _userSearchResults = [];
-  bool _isSearchingUsers = false;
 
   @override
   void initState() {
@@ -64,7 +63,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       return;
     }
 
-    setState(() => _isSearchingUsers = true);
+    setState(() {});
 
     Set<String> blockedUserIds = {};
     Set<String> blockedByUserIds = {};
@@ -88,14 +87,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
       if (mounted) {
         setState(() {
           _userSearchResults = results;
-          _isSearchingUsers = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _userSearchResults = [];
-          _isSearchingUsers = false;
         });
       }
     }
@@ -245,6 +242,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   );
                 }, childCount: filteredPosts.length),
               ),
+            // Added bottom safe padding to ensure last item is fully accessible
+            const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
           ],
         ),
       ),
@@ -404,13 +403,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
     switch (_selectedFilter) {
       case 'Trending':
         // Filter out posts with no likes AND no comments - they shouldn't be trending
-        filtered = filtered.where((p) => p.likes > 0 || p.comments > 0).toList();
+        filtered = filtered
+            .where((p) => p.likes > 0 || p.comments > 0)
+            .toList();
         // Sort by highest engagement (likes + comments)
         filtered = [...filtered]
           ..sort(
-            (a, b) => (b.likes + b.comments).compareTo(
-              a.likes + a.comments,
-            ),
+            (a, b) => (b.likes + b.comments).compareTo(a.likes + a.comments),
           );
         break;
       case 'Latest':

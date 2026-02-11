@@ -100,7 +100,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
     // Reduce vertical padding at the bottom for phones
     final isSmallScreen = MediaQuery.of(context).size.height < 750;
     return Container(
-      height: 140.responsive(context, min: 124, max: 156),
+      height: 115.responsive(context, min: 105, max: 125),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: AppSpacing.responsiveRadius(
@@ -113,7 +113,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(
           horizontal: AppSpacing.standard.responsive(context),
-          vertical: isSmallScreen ? 4.0 : AppSpacing.standard.responsive(context),
+          vertical: AppSpacing.tiny.responsive(context),
         ),
         children: cards,
       ),

@@ -6,6 +6,9 @@ import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import 'package:rooverse/models/user.dart';
 import 'package:rooverse/services/referral_service.dart';
+import '../core/errors/error_mapper.dart';
+import '../core/errors/app_exception.dart';
+import '../utils/snackbar_utils.dart';
 
 /// Authentication status states.
 enum AuthStatus { initial, loading, authenticated, unauthenticated }
@@ -202,30 +205,27 @@ class AuthProvider with ChangeNotifier {
   }
 
   /// Sign in with email and password.
-  Future<bool> signIn(String email, String password) async {
+  Future<void> signIn(String email, String password) async {
     _error = null;
+    _status = AuthStatus.loading;
     notifyListeners();
 
     try {
       await _authService.signIn(email: email, password: password);
       // Auth state listener will handle the rest
-      return true;
-    } on AuthException catch (e) {
-      _error = _mapAuthError(e.message);
+    } catch (e, stack) {
+      final appException = ErrorMapper.map(e, stack);
+      _error = appException.userMessage;
       _status = AuthStatus.unauthenticated;
       notifyListeners();
-      return false;
-    } catch (e) {
-      _error = 'An unexpected error occurred';
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return false;
+      throw appException; // Re-throw for UI to handle with SnackBarUtils
     }
   }
 
   /// Sign up a new user.
-  Future<bool> signUp(String email, String password, String username) async {
+  Future<void> signUp(String email, String password, String username) async {
     _error = null;
+    _status = AuthStatus.loading;
     notifyListeners();
 
     try {
@@ -241,42 +241,24 @@ class AuthProvider with ChangeNotifier {
         _pendingEmail = email;
         _status = AuthStatus.unauthenticated;
         notifyListeners();
-        return true;
+        return;
       }
 
       // If session exists, user is auto-confirmed
       // Auth state listener will handle loading the user
-      return true;
-    } on AuthException catch (e) {
-      _error = _mapAuthError(e.message);
+    } catch (e, stack) {
+      final appException = ErrorMapper.map(e, stack);
+      _error = appException.userMessage;
       _status = AuthStatus.unauthenticated;
       notifyListeners();
-      return false;
-    } on PostgrestException catch (e) {
-      // Handle database errors (e.g., duplicate username)
-      if (e.message.contains('duplicate') ||
-          e.message.contains('unique constraint')) {
-        _error = 'Username is already taken';
-      } else {
-        _error = 'Failed to create profile';
-      }
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return false;
-    } catch (e) {
-      _error = 'An unexpected error occurred';
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return false;
+      throw appException; // Re-throw for UI to handle with SnackBarUtils
     }
   }
 
   /// Verify email with OTP code.
-  Future<bool> verifyEmail(String token) async {
+  Future<void> verifyEmail(String token) async {
     if (_pendingEmail == null) {
-      _error = 'No email pending verification';
-      notifyListeners();
-      return false;
+      throw ValidationException.required('email verification');
     }
 
     _status = AuthStatus.loading;
@@ -287,17 +269,12 @@ class AuthProvider with ChangeNotifier {
       await _authService.verifyOtp(email: _pendingEmail!, token: token);
       _pendingEmail = null;
       // Auth state listener will handle the rest
-      return true;
-    } on AuthException catch (e) {
-      _error = _mapAuthError(e.message);
+    } catch (e, stack) {
+      final appException = ErrorMapper.map(e, stack);
+      _error = appException.userMessage;
       _status = AuthStatus.unauthenticated;
       notifyListeners();
-      return false;
-    } catch (e) {
-      _error = 'Verification failed';
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return false;
+      throw appException; // Re-throw for UI to handle with SnackBarUtils
     }
   }
 

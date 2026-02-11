@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/storage_service.dart';
 import '../../services/secure_storage_service.dart';
 import '../../utils/responsive_extensions.dart';
+import '../../utils/snackbar_utils.dart';
 import 'phone_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -147,24 +148,15 @@ class _LoginScreenState extends State<LoginScreen> {
     // Try Supabase auth
     final authProvider = context.read<AuthProvider>();
     if (!mounted) return;
-    final success = await authProvider.signIn(email, password);
 
-    if (!mounted) return;
-
-    if (success) {
+    try {
+      await authProvider.signIn(email, password);
       // Auth state listener will load the user profile
       widget.onLogin();
-    } else {
-      final errorMsg = authProvider.error ?? 'Invalid email or password';
-      final isRateLimited =
-          errorMsg.toLowerCase().contains('too many') ||
-          errorMsg.toLowerCase().contains('rate limit') ||
-          errorMsg.toLowerCase().contains('try again later');
-      setState(() {
-        _loginError = errorMsg;
-        _isRateLimited = isRateLimited;
-        _isLoading = false;
-      });
+    } catch (e) {
+      if (!mounted) return;
+      SnackBarUtils.showError(context, e);
+      setState(() => _isLoading = false);
     }
   }
 

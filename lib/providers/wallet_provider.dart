@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../core/extensions/exception_extensions.dart';
 import '../models/wallet.dart';
 import '../repositories/wallet_repository.dart';
 import '../services/roocoin_service.dart';
@@ -132,7 +133,7 @@ class WalletProvider with ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('WalletProvider: Error activating wallet - $e');
-      _error = e.toString().replaceAll('Exception: ', '');
+      _error = e.userMessage;
       return false;
     } finally {
       _isLoading = false;
@@ -191,7 +192,7 @@ class WalletProvider with ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('Error spending ROO: $e');
-      _error = e.toString().replaceAll('Exception: ', '');
+      _error = e.userMessage;
       return false;
     } finally {
       _isLoading = false;
@@ -231,7 +232,7 @@ class WalletProvider with ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('Error transferring: $e');
-      _error = e.toString().replaceAll('Exception: ', '');
+      _error = e.userMessage;
       return false;
     } finally {
       _isLoading = false;
@@ -265,7 +266,7 @@ class WalletProvider with ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('Error earning ROO: $e');
-      _error = e.toString().replaceAll('Exception: ', '');
+      _error = e.userMessage;
       return false;
     } finally {
       _isLoading = false;
@@ -285,7 +286,7 @@ class WalletProvider with ChangeNotifier {
       );
       await refreshWallet(userId);
     } catch (e) {
-      _error = e.toString();
+      _error = e.userMessage;
     } finally {
       _isLoading = false;
       notifyListeners();

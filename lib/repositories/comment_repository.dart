@@ -615,11 +615,24 @@ class CommentRepository {
             : 100 - result.confidence;
 
         // Determine new status based on AI probability (aligned with API docs)
-        final String newStatus;
+        String newStatus;
         String scoreStatus = 'pass';
         String? authenticityNotes = result.rationale;
 
-        if (aiProbability > 95) {
+        // Check standalone moderation result first
+        final mod = result.moderation;
+        final bool isModerationFlagged = mod?.flagged ?? false;
+
+        if (isModerationFlagged) {
+          scoreStatus = 'flagged';
+          // Follow recommended action
+          if (mod?.recommendedAction == 'block' || mod?.recommendedAction == 'block_and_report') {
+            newStatus = 'deleted';
+          } else {
+            newStatus = 'under_review';
+          }
+          authenticityNotes = 'CONTENT MODERATION: ${mod?.details ?? "Harmful content detected"}';
+        } else if (aiProbability > 95) {
           newStatus = 'deleted'; // Auto-block high-confidence AI content
           scoreStatus = 'flagged';
         } else if (aiProbability > 75) {
@@ -647,6 +660,8 @@ class CommentRepository {
                 'authenticity_notes': authenticityNotes,
                 'consensus_strength': result.consensusStrength,
                 'rationale': result.rationale,
+                'moderation': result.moderation?.toJson(),
+                'safety_score': result.safetyScore,
               },
             })
             .eq('id', commentId);
@@ -665,7 +680,7 @@ class CommentRepository {
         );
 
         // Create moderation case if flagged or review required
-        if (scoreStatus == 'flagged' || scoreStatus == 'review') {
+        if (scoreStatus == 'flagged' || scoreStatus == 'review' || isModerationFlagged) {
           await _createModerationCase(
             commentId: commentId,
             authorId: authorId,
@@ -676,6 +691,8 @@ class CommentRepository {
               'rationale': result.rationale,
               'combined_evidence': result.combinedEvidence,
               'classification': result.result,
+              'moderation': result.moderation?.toJson(),
+              'safety_score': result.safetyScore,
             },
           );
         } else {
@@ -695,7 +712,8 @@ class CommentRepository {
         }
 
         return aiProbability;
-      } else {
+      }
+ else {
         debugPrint(
           'CommentRepository: AI detection returned null for comment $commentId',
         );

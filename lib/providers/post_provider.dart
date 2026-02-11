@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
+import '../core/extensions/exception_extensions.dart';
 import '../models/post.dart';
 import '../services/api_service.dart';
+import '../core/errors/error_mapper.dart';
+import '../core/errors/app_exception.dart';
 
 class PostProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
@@ -23,7 +26,7 @@ class PostProvider with ChangeNotifier {
       _posts = await _apiService.getPosts();
       _error = null;
     } catch (e) {
-      _error = e.toString();
+      _error = e.userMessage;
       _posts = [];
     } finally {
       _isLoading = false;
@@ -41,7 +44,7 @@ class PostProvider with ChangeNotifier {
       _posts = await _apiService.getPostsByUser(userId);
       _error = null;
     } catch (e) {
-      _error = e.toString();
+      _error = e.userMessage;
       _posts = [];
     } finally {
       _isLoading = false;
@@ -55,9 +58,11 @@ class PostProvider with ChangeNotifier {
       final newPost = await _apiService.createPost(post);
       _posts.insert(0, newPost);
       notifyListeners();
-    } catch (e) {
-      _error = e.toString();
+    } catch (e, stack) {
+      final appException = ErrorMapper.map(e, stack);
+      _error = appException.userMessage;
       notifyListeners();
+      throw appException; // Re-throw for UI to handle
     }
   }
 
@@ -70,9 +75,11 @@ class PostProvider with ChangeNotifier {
         _posts[index] = updatedPost;
         notifyListeners();
       }
-    } catch (e) {
-      _error = e.toString();
+    } catch (e, stack) {
+      final appException = ErrorMapper.map(e, stack);
+      _error = appException.userMessage;
       notifyListeners();
+      throw appException; // Re-throw for UI to handle
     }
   }
 
@@ -83,7 +90,7 @@ class PostProvider with ChangeNotifier {
       _posts.removeWhere((post) => post.id == id);
       notifyListeners();
     } catch (e) {
-      _error = e.toString();
+      _error = e.userMessage;
       notifyListeners();
     }
   }

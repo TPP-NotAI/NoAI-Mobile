@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
+import '../core/errors/error_mapper.dart';
 
 /// Service for handling authentication operations with Supabase.
 class AuthService {
@@ -19,13 +20,17 @@ class AuthService {
     required String username,
     String? displayName,
   }) async {
-    final response = await _supabase.auth.signUp(
-      email: email,
-      password: password,
-      data: {'username': username, 'display_name': displayName ?? username},
-    );
+    try {
+      final response = await _supabase.auth.signUp(
+        email: email,
+        password: password,
+        data: {'username': username, 'display_name': displayName ?? username},
+      );
 
-    return response;
+      return response;
+    } catch (e, stack) {
+      throw ErrorMapper.map(e, stack);
+    }
   }
 
   /// Sign in with email and password.
@@ -33,15 +38,23 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    return await _supabase.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
+    try {
+      return await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+    } catch (e, stack) {
+      throw ErrorMapper.map(e, stack);
+    }
   }
 
   /// Sign out the current user.
   Future<void> signOut() async {
-    await _supabase.auth.signOut();
+    try {
+      await _supabase.auth.signOut();
+    } catch (e, stack) {
+      throw ErrorMapper.map(e, stack);
+    }
   }
 
   /// Send a password reset email.

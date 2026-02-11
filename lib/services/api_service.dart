@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/user.dart';
 import '../models/post.dart';
+import '../core/errors/error_mapper.dart';
 
 class ApiService {
   static const String baseUrl = 'https://jsonplaceholder.typicode.com';
@@ -22,8 +23,8 @@ class ApiService {
       } else {
         throw Exception('Failed to load posts');
       }
-    } catch (e) {
-      throw Exception('Error fetching posts: $e');
+    } catch (e, stack) {
+      throw ErrorMapper.map(e, stack);
     }
   }
 
@@ -105,8 +106,8 @@ class ApiService {
       } else {
         throw Exception('Failed to create post');
       }
-    } catch (e) {
-      throw Exception('Error creating post: $e');
+    } catch (e, stack) {
+      throw ErrorMapper.map(e, stack);
     }
   }
 
@@ -124,8 +125,8 @@ class ApiService {
       } else {
         throw Exception('Failed to update post');
       }
-    } catch (e) {
-      throw Exception('Error updating post: $e');
+    } catch (e, stack) {
+      throw ErrorMapper.map(e, stack);
     }
   }
 
@@ -139,8 +140,8 @@ class ApiService {
       if (response.statusCode != 200) {
         throw Exception('Failed to delete post');
       }
-    } catch (e) {
-      throw Exception('Error deleting post: $e');
+    } catch (e, stack) {
+      throw ErrorMapper.map(e, stack);
     }
   }
 }

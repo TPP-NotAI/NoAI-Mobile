@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/wallet.dart';
 import '../services/roocoin_service.dart';
 import '../services/secure_storage_service.dart';
+import '../core/extensions/exception_extensions.dart';
 
 /// Repository for managing wallet data and Roocoin integration
 class WalletRepository {
@@ -192,21 +193,18 @@ class WalletRepository {
       // Fetch fresh to get updated balance
       final freshWallet = await getWallet(userId);
       return freshWallet!;
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint(
         'WalletRepository: Error during wallet repair for $userId: $e',
       );
       // If DB update fails, we are in a bad state (Key changed, DB not).
       // But we must return something usable to the UI.
       // Re-fetch existing wallet and patch address?
-      // Actually, swallowing this error is what caused the original issue.
-      // However, throwing here crashes the app flow.
-      // Attempt to return a memory-patched wallet, but log CRITICAL error.
       final existingWallet = await getWallet(userId);
       if (existingWallet != null) {
         return existingWallet.copyWith(walletAddress: address, balanceRc: 100);
       }
-      rethrow;
+      throw e.toAppException(stack);
     }
   }
 
@@ -551,11 +549,12 @@ class WalletRepository {
         debugPrint('Error checking recipient: $e');
       }
 
-      // 3. Execute transfer on blockchain
-      final result = await _roocoinService.transfer(
+      // 3. Execute transfer on blockchain using the new peer-to-peer endpoint
+      final result = await _roocoinService.send(
         fromPrivateKey: privateKey,
         toAddress: toAddress,
         amount: amount,
+        metadata: memo != null ? {'note': memo} : null,
       );
 
       final txHash = result['transactionHash'] as String?;
@@ -583,8 +582,9 @@ class WalletRepository {
       final senderBalanceData = await _roocoinService.getBalance(
         wallet.walletAddress,
       );
-      final senderChainBalance =
-          double.parse(senderBalanceData['balance'] as String);
+      final senderChainBalance = double.parse(
+        senderBalanceData['balance'] as String,
+      );
       await _supabase
           .from('wallets')
           .update({
@@ -632,8 +632,9 @@ class WalletRepository {
             final recipientBalanceData = await _roocoinService.getBalance(
               recipientAddress,
             );
-            final recipientChainBalance =
-                double.parse(recipientBalanceData['balance'] as String);
+            final recipientChainBalance = double.parse(
+              recipientBalanceData['balance'] as String,
+            );
 
             await _supabase
                 .from('wallets')
@@ -730,7 +731,9 @@ class WalletRepository {
         return wallet;
       }
 
-      debugPrint('WalletRepository: Fetching blockchain balance for ${wallet.walletAddress}...');
+      debugPrint(
+        'WalletRepository: Fetching blockchain balance for ${wallet.walletAddress}...',
+      );
 
       // Get balance from blockchain
       final balanceData = await _roocoinService.getBalance(
@@ -741,7 +744,9 @@ class WalletRepository {
 
       final blockchainBalance = double.parse(balanceData['balance'] as String);
 
-      debugPrint('WalletRepository: Blockchain balance: $blockchainBalance, DB balance: ${wallet.balanceRc}');
+      debugPrint(
+        'WalletRepository: Blockchain balance: $blockchainBalance, DB balance: ${wallet.balanceRc}',
+      );
 
       // Update database
       await _supabase
@@ -752,7 +757,9 @@ class WalletRepository {
           })
           .eq('user_id', userId);
 
-      debugPrint('WalletRepository: Updated DB with blockchain balance: $blockchainBalance');
+      debugPrint(
+        'WalletRepository: Updated DB with blockchain balance: $blockchainBalance',
+      );
 
       return wallet.copyWith(balanceRc: blockchainBalance);
     } catch (e) {

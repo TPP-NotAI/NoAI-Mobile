@@ -76,12 +76,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
       _error = null;
     });
 
-    final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.verifyEmail(code);
+    try {
+      final authProvider = context.read<AuthProvider>();
+      await authProvider.verifyEmail(code);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (success) {
       // Poll for profile creation (database trigger might be slow)
       bool profileLoaded = false;
       int attempts = 0;
@@ -97,9 +97,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
       if (!mounted) return;
       widget.onVerify();
-    } else {
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error = authProvider.error ?? 'Verification failed';
+        _error = context.read<AuthProvider>().error ?? 'Verification failed';
         _isLoading = false;
       });
     }

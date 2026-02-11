@@ -11,6 +11,8 @@ import 'create/edit_post_screen.dart';
 import '../widgets/full_screen_media_viewer.dart';
 import '../widgets/mention_rich_text.dart';
 import '../widgets/mention_autocomplete_field.dart';
+import '../utils/verification_utils.dart';
+import '../widgets/verification_required_widget.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -62,6 +64,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Future<void> _submitComment() async {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
+
+    // Verify Human Status
+    final isVerified = await VerificationUtils.checkVerification(context);
+    if (!mounted || !isVerified) return;
 
     setState(() => _submittingComment = true);
 
@@ -781,60 +787,79 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             ),
           ),
           // Comment Input
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: MentionAutocompleteField(
-                      controller: _commentController,
-                      decoration: InputDecoration(
-                        hintText: 'Add a comment...',
-                        filled: true,
-                        fillColor: colors.surfaceContainerHighest.withValues(
-                          alpha: 0.5,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                      ),
-                      textCapitalization: TextCapitalization.sentences,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _submittingComment ? null : _submitComment,
-                    icon: _submittingComment
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.send),
+          if (authProvider.currentUser?.isVerified == true)
+            Container(
+              decoration: BoxDecoration(
+                color: colors.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
                   ),
                 ],
               ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: MentionAutocompleteField(
+                          controller: _commentController,
+                          decoration: InputDecoration(
+                            hintText: 'Add a comment...',
+                            filled: true,
+                            fillColor: colors.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                          ),
+                          textCapitalization: TextCapitalization.sentences,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton.filled(
+                        onPressed: _submittingComment ? null : _submitComment,
+                        icon: _submittingComment
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.send),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: VerificationRequiredWidget(
+                  message: 'Verify your identity to comment on this post.',
+                  onVerifyTap: () {
+                    if (context.mounted) {
+                      Navigator.pushNamed(context, '/verify');
+                    }
+                  },
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );

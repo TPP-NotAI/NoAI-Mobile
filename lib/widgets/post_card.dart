@@ -1259,7 +1259,11 @@ class _Actions extends StatelessWidget {
               action: SnackBarAction(
                 label: 'Verify',
                 textColor: Colors.white,
-                onPressed: () => Navigator.pushNamed(context, '/verify'),
+                onPressed: () {
+                  if (context.mounted) {
+                    Navigator.pushNamed(context, '/verify');
+                  }
+                },
               ),
             ),
           );
@@ -1303,7 +1307,11 @@ class _Actions extends StatelessWidget {
               action: SnackBarAction(
                 label: 'Verify',
                 textColor: Colors.white,
-                onPressed: () => Navigator.pushNamed(context, '/verify'),
+                onPressed: () {
+                  if (context.mounted) {
+                    Navigator.pushNamed(context, '/verify');
+                  }
+                },
               ),
             ),
           );
@@ -1446,17 +1454,17 @@ class _ActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: iconColor),
-            if (label != null) ...[
-              const SizedBox(width: 6),
-              Text(label!, style: TextStyle(fontSize: 13, color: textColor)),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: iconColor),
+              if (label != null) ...[
+                const SizedBox(width: 6),
+                Text(label!, style: TextStyle(fontSize: 13, color: textColor)),
+              ],
             ],
-          ],
-        ),
+          ),
         ),
       ),
     );
@@ -1745,24 +1753,26 @@ class _MenuOption extends StatelessWidget {
       child: InkWell(
         onTap: onTap ?? () => Navigator.pop(context),
         child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Row(
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: color,
-                  fontWeight: destructive ? FontWeight.w600 : FontWeight.normal,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            children: [
+              Icon(icon, color: color),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: color,
+                    fontWeight: destructive
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );

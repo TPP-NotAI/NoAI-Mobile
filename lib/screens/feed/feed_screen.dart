@@ -95,20 +95,16 @@ class _FeedScreenState extends State<FeedScreen> {
                       child: ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: maxWidth),
                         child: Padding(
-                            // Aggressively reduce vertical spacing for small screens and iOS
-                            padding: EdgeInsets.only(
-                            top: (MediaQuery.of(context).size.height < 750 || Theme.of(context).platform == TargetPlatform.iOS)
-                              ? AppSpacing.tiny.responsive(context)
-                              : AppSpacing.mediumSmall.responsive(context),
-                            bottom: (MediaQuery.of(context).size.height < 750 || Theme.of(context).platform == TargetPlatform.iOS)
-                              ? AppSpacing.tiny.responsive(context)
-                              : AppSpacing.extraSmall.responsive(context),
-                            ),
+                          padding: EdgeInsets.only(
+                            top: AppSpacing.standard.responsive(context),
+                            bottom: 0,
+                          ),
                           child: const StoriesCarousel(),
                         ),
                       ),
                     ),
                   ),
+
                   /// ───────────────── CREATE POST (WEB STYLE) ─────────────────
                   SliverToBoxAdapter(
                     child: Center(
@@ -129,17 +125,22 @@ class _FeedScreenState extends State<FeedScreen> {
                           children: [
                             Icon(
                               Icons.article_outlined,
-                              size: AppTypography.responsiveIconSize(context, 64),
+                              size: AppTypography.responsiveIconSize(
+                                context,
+                                64,
+                              ),
                               color: colors.onSurfaceVariant.withOpacity(0.4),
                             ),
                             SizedBox(
-                                height:
-                                    AppSpacing.largePlus.responsive(context)),
+                              height: AppSpacing.largePlus.responsive(context),
+                            ),
                             Text(
                               'No posts yet',
                               style: TextStyle(
                                 fontSize: AppTypography.responsiveFontSize(
-                                    context, AppTypography.base),
+                                  context,
+                                  AppTypography.base,
+                                ),
                                 color: colors.onSurfaceVariant,
                               ),
                             ),
@@ -206,6 +207,8 @@ class _FeedScreenState extends State<FeedScreen> {
                         ),
                       ),
                     ),
+                  // Added bottom safe padding to ensure last post action buttons are fully accessible
+                  const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
                 ],
               );
             },
@@ -234,8 +237,10 @@ class CreatePostCard extends StatelessWidget {
       padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius:
-            AppSpacing.responsiveRadius(context, AppSpacing.radiusExtraLarge),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusExtraLarge,
+        ),
         border: Border.all(color: colors.outlineVariant),
         boxShadow: [
           BoxShadow(
@@ -299,7 +304,9 @@ class CreatePostCard extends StatelessWidget {
                       'Share your verified insights...',
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
-                            context, AppTypography.mediumText),
+                          context,
+                          AppTypography.mediumText,
+                        ),
                         color: colors.onSurfaceVariant,
                       ),
                     ),
@@ -385,8 +392,10 @@ class _ActionButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius:
-              AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
+          borderRadius: AppSpacing.responsiveRadius(
+            context,
+            AppSpacing.radiusSmall,
+          ),
           child: Padding(
             padding: EdgeInsets.symmetric(
               vertical: AppSpacing.mediumSmall.responsive(context),
@@ -394,15 +403,19 @@ class _ActionButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon,
-                    color: color,
-                    size: AppTypography.responsiveIconSize(context, 20)),
+                Icon(
+                  icon,
+                  color: color,
+                  size: AppTypography.responsiveIconSize(context, 20),
+                ),
                 SizedBox(width: AppSpacing.small.responsive(context)),
                 Text(
                   label,
                   style: TextStyle(
                     fontSize: AppTypography.responsiveFontSize(
-                        context, AppTypography.small),
+                      context,
+                      AppTypography.small,
+                    ),
                     fontWeight: FontWeight.w600,
                     color: color,
                   ),

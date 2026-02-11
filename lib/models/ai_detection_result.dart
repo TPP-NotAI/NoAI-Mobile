@@ -1,3 +1,5 @@
+import 'moderation_result.dart';
+
 /// Response model for the NOAI AI Detection API.
 class AiDetectionResult {
   final String analysisId;
@@ -11,6 +13,8 @@ class AiDetectionResult {
   final String? rationale;
   final List<String>? combinedEvidence;
   final List<dynamic>? modelAnalyses;
+  final ModerationResult? moderation;
+  final double? safetyScore;
 
   AiDetectionResult({
     required this.analysisId,
@@ -21,6 +25,8 @@ class AiDetectionResult {
     this.rationale,
     this.combinedEvidence,
     this.modelAnalyses,
+    this.moderation,
+    this.safetyScore,
   });
 
   factory AiDetectionResult.fromJson(Map<String, dynamic> json) {
@@ -35,6 +41,10 @@ class AiDetectionResult {
           ?.map((e) => e.toString())
           .toList(),
       modelAnalyses: json['model_analyses'] as List<dynamic>?,
+      moderation: json['moderation'] != null
+          ? ModerationResult.fromJson(json['moderation'] as Map<String, dynamic>)
+          : null,
+      safetyScore: (json['safety_score'] as num?)?.toDouble(),
     );
   }
 }

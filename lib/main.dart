@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
@@ -16,8 +19,10 @@ import 'providers/staking_provider.dart';
 import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'services/presence_service.dart';
+import 'services/connectivity_service.dart';
 
 import 'services/deep_link_service.dart';
+import 'core/extensions/exception_extensions.dart';
 import 'models/view_enum.dart';
 import 'screens/auth/splash_screen.dart';
 import 'screens/auth/onboarding_screen.dart';
@@ -44,16 +49,71 @@ import 'widgets/adaptive/adaptive_navigation.dart';
 import 'screens/auth/banned_screen.dart';
 import 'services/daily_login_service.dart';
 import 'services/push_notification_service.dart';
+import 'widgets/connectivity_overlay.dart';
 import 'widgets/welcome_dialog.dart';
+import 'utils/snackbar_utils.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
-  await StorageService().init();
-  await SupabaseService().initialize();
-  await PushNotificationService().initialize();
-  PresenceService().start();
-  runApp(const MyApp());
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      // Set up global Flutter error handling (for framework errors)
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FlutterError.presentError(details);
+        debugPrint('Flutter Error: ${details.exception}');
+        // You could also report to Sentry/Firebase Crashlytics here
+      };
+
+      // Set up global platform error handling (for async errors)
+      PlatformDispatcher.instance.onError = (error, stack) {
+        debugPrint('Platform Error: $error');
+        // You could also report to Sentry/Firebase Crashlytics here
+        return true; // Error was handled
+      };
+
+      // Replace the default Flutter error widget with a more user-friendly one
+      ErrorWidget.builder = (FlutterErrorDetails details) {
+        return Material(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Oops! Something went wrong',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    details.exception.userMessage,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      };
+
+      await dotenv.load(fileName: '.env');
+      await StorageService().init();
+      await SupabaseService().initialize();
+      await PushNotificationService().initialize();
+      await ConnectivityService().initialize();
+      PresenceService().start();
+
+      runApp(const MyApp());
+    },
+    (error, stackTrace) {
+      debugPrint('Zoned Guarded Error: $error');
+      debugPrint('Stack trace: $stackTrace');
+    },
+  );
 }
 
 /* ───────────────────────────────────────────── */
@@ -88,10 +148,99 @@ class MyApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             theme: themeProvider.theme,
             home: const AuthWrapper(),
+            builder: (context, child) {
+              // Add connectivity overlay and error boundary
+              return ConnectivityOverlay(
+                child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
+              );
+            },
           );
         },
       ),
     );
+  }
+}
+
+/// Global error boundary to catch and display unhandled errors
+class ErrorBoundary extends StatefulWidget {
+  final Widget child;
+
+  const ErrorBoundary({super.key, required this.child});
+
+  @override
+  State<ErrorBoundary> createState() => _ErrorBoundaryState();
+}
+
+class _ErrorBoundaryState extends State<ErrorBoundary> {
+  bool _hasError = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // Catch UI-level errors that don't trigger ErrorWidget.builder
+    // such as errors in builds or async operations that affect this branch
+  }
+
+  void _handleError(Object error, StackTrace stackTrace) {
+    if (!mounted) return;
+
+    setState(() {
+      _hasError = true;
+      _errorMessage = error.userMessage;
+    });
+
+    debugPrint('ErrorBoundary caught error: $error');
+    debugPrint('Stack trace: $stackTrace');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Oops! Something went wrong',
+                  style: Theme.of(context).textTheme.titleLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage ?? 'An unexpected error occurred',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _hasError = false;
+                      _errorMessage = null;
+                    });
+                  },
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return widget.child;
   }
 }
 
@@ -471,12 +620,21 @@ class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
-        IconButton(
-          icon: Icon(Icons.chat_bubble_outline, color: colors.onSurface),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ChatListScreen()),
+        Consumer<ChatProvider>(
+          builder: (context, chatProvider, child) {
+            final unreadCount = chatProvider.totalUnreadCount;
+            return Badge(
+              label: Text('$unreadCount'),
+              isLabelVisible: unreadCount > 0,
+              child: IconButton(
+                icon: Icon(Icons.chat_bubble_outline, color: colors.onSurface),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ChatListScreen()),
+                  );
+                },
+              ),
             );
           },
         ),

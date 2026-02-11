@@ -176,12 +176,12 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _isLoading = true);
 
     // Try Supabase signup
-    final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.signUp(email, password, username);
+    try {
+      final authProvider = context.read<AuthProvider>();
+      await authProvider.signUp(email, password, username);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (success) {
       // Apply referral code if provided
       final referralCode = _referralController.text.trim();
       if (referralCode.isNotEmpty) {
@@ -198,9 +198,10 @@ class _SignupScreenState extends State<SignupScreen> {
 
       // Proceed to verification screen
       widget.onSignup();
-    } else {
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _signupError = authProvider.error ?? 'Signup failed';
+        _signupError = context.read<AuthProvider>().error ?? 'Signup failed';
         _isLoading = false;
       });
     }

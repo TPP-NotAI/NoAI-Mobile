@@ -1,7 +1,10 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:rooverse/models/moderation_result.dart';
+import 'package:rooverse/services/ai_detection_service.dart';
 import '../models/post.dart';
 import '../models/comment.dart';
 import '../providers/feed_provider.dart';
@@ -25,6 +28,12 @@ class _CommentsSheetState extends State<CommentsSheet> {
   final FocusNode _commentFocus = FocusNode();
   final ImagePicker _imagePicker = ImagePicker();
   final CommentRepository _commentRepo = CommentRepository();
+  final AiDetectionService _aiDetectionService = AiDetectionService();
+
+  // Real-time moderation state
+  Timer? _textModerationTimer;
+  bool _isModeratingText = false;
+  ModerationResult? _textModerationResult;
 
   File? _selectedMediaFile;
   String? _selectedMediaType; // 'image' or 'video'
@@ -35,6 +44,36 @@ class _CommentsSheetState extends State<CommentsSheet> {
   void initState() {
     super.initState();
     _loadComments();
+    _commentController.addListener(_onCommentTextChanged);
+  }
+
+  void _onCommentTextChanged() {
+    _textModerationTimer?.cancel();
+    _textModerationTimer = Timer(const Duration(milliseconds: 800), () {
+      _moderateText();
+    });
+  }
+
+  Future<void> _moderateText() async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty) {
+      if (mounted) setState(() => _textModerationResult = null);
+      return;
+    }
+
+    if (mounted) setState(() => _isModeratingText = true);
+
+    try {
+      final res = await _aiDetectionService.moderateText(text);
+      if (mounted) {
+        setState(() {
+          _textModerationResult = res;
+          _isModeratingText = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isModeratingText = false);
+    }
   }
 
   Future<void> _loadComments() async {
@@ -46,6 +85,8 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
   @override
   void dispose() {
+    _commentController.removeListener(_onCommentTextChanged);
+    _textModerationTimer?.cancel();
     _commentController.dispose();
     _commentFocus.dispose();
     super.dispose();
@@ -69,8 +110,13 @@ class _CommentsSheetState extends State<CommentsSheet> {
       }
 
       if (file != null && mounted) {
+        final mediaFile = File(file.path);
+
+        // Proactive moderation
+        _moderateMedia(mediaFile, isVideo ? 'video' : 'image');
+
         setState(() {
-          _selectedMediaFile = File(file!.path);
+          _selectedMediaFile = mediaFile;
           _selectedMediaType = isVideo ? 'video' : 'image';
         });
       }
@@ -80,6 +126,49 @@ class _CommentsSheetState extends State<CommentsSheet> {
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e')));
       }
+    }
+  }
+
+  Future<void> _moderateMedia(File file, String type) async {
+    try {
+      final res = type == 'image'
+          ? await _aiDetectionService.moderateImage(file)
+          : await _aiDetectionService.moderateVideo(file);
+
+      if (res != null && res.flagged) {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('Content Warning'),
+              ],
+            ),
+            content: Text(
+              'Our AI detected potentially harmful content in your ${type}: ${res.details ?? "violation detected"}.\n\n'
+              'If you post this, it may be hidden or your account could be flagged.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('I Understand'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _clearSelectedMedia();
+                },
+                child: const Text('Remove Media'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Proactive moderation failed: $e');
     }
   }
 
@@ -166,7 +255,11 @@ class _CommentsSheetState extends State<CommentsSheet> {
               action: SnackBarAction(
                 label: 'Verify',
                 textColor: Colors.white,
-                onPressed: () => Navigator.pushNamed(context, '/verify'),
+                onPressed: () {
+                  if (context.mounted) {
+                    Navigator.pushNamed(context, '/verify');
+                  }
+                },
               ),
             ),
           );
@@ -412,9 +505,9 @@ class _CommentsSheetState extends State<CommentsSheet> {
                 );
               } on KycNotVerifiedException catch (e) {
                 // Reload comments to clear the optimistic update
-                await context
-                    .read<FeedProvider>()
-                    .loadCommentsForPost(widget.post.id);
+                await context.read<FeedProvider>().loadCommentsForPost(
+                  widget.post.id,
+                );
                 if (mounted) {
                   setSheetState(() => isReplyUploading = false);
                   Navigator.pop(context);
@@ -427,8 +520,11 @@ class _CommentsSheetState extends State<CommentsSheet> {
                         action: SnackBarAction(
                           label: 'Verify',
                           textColor: Colors.white,
-                          onPressed: () =>
-                              Navigator.pushNamed(context, '/verify'),
+                          onPressed: () {
+                            if (context.mounted) {
+                              Navigator.pushNamed(context, '/verify');
+                            }
+                          },
                         ),
                       ),
                     );
@@ -444,268 +540,276 @@ class _CommentsSheetState extends State<CommentsSheet> {
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Reply to',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colors.onSurface,
+              child: SafeArea(
+                bottom: true,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Reply to',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colors.onSurface,
+                            ),
                           ),
+                          const Spacer(),
+                          IconButton(
+                            icon: Icon(
+                              Icons.close,
+                              color: colors.onSurfaceVariant,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Parent comment preview
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: colors.outlineVariant),
                         ),
-                        const Spacer(),
-                        IconButton(
-                          icon: Icon(
-                            Icons.close,
-                            color: colors.onSurfaceVariant,
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundImage:
+                                  parentComment.author.avatar != null
+                                  ? NetworkImage(parentComment.author.avatar!)
+                                  : null,
+                              child: parentComment.author.avatar == null
+                                  ? Icon(
+                                      Icons.person,
+                                      color: colors.onSurfaceVariant,
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    parentComment.author.displayName,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: colors.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    parentComment.text,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Media preview for reply
+                      if (replyMediaFile != null) ...[
+                        Container(
+                          height: 120,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: colors.outlineVariant),
                           ),
-                          onPressed: () => Navigator.pop(context),
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: replyMediaType == 'video'
+                                    ? Container(
+                                        width: double.infinity,
+                                        color: Colors.black,
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.videocam,
+                                            color: Colors.white,
+                                            size: 40,
+                                          ),
+                                        ),
+                                      )
+                                    : Image.file(
+                                        replyMediaFile!,
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                      ),
+                              ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: GestureDetector(
+                                  onTap: () => setSheetState(() {
+                                    replyMediaFile = null;
+                                    replyMediaType = null;
+                                  }),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.black.withValues(
+                                        alpha: 0.6,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (replyMediaType == 'video')
+                                const Positioned(
+                                  bottom: 8,
+                                  left: 8,
+                                  child: Text(
+                                    'Video selected',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 12),
 
-                    // Parent comment preview
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: colors.outlineVariant),
-                      ),
-                      child: Row(
+                      // Reply input with media button
+                      Row(
                         children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundImage: parentComment.author.avatar != null
-                                ? NetworkImage(parentComment.author.avatar!)
-                                : null,
-                            child: parentComment.author.avatar == null
-                                ? Icon(
-                                    Icons.person,
-                                    color: colors.onSurfaceVariant,
-                                  )
-                                : null,
+                          Expanded(
+                            child: MentionAutocompleteField(
+                              controller: replyController,
+                              autofocus: true,
+                              maxLines: 3,
+                              minLines: 1,
+                              style: TextStyle(color: colors.onSurface),
+                              decoration: InputDecoration(
+                                hintText: 'Write your reply...',
+                                hintStyle: TextStyle(
+                                  color: colors.onSurfaceVariant,
+                                ),
+                                filled: true,
+                                fillColor: colors.surfaceContainerHighest,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: colors.outline),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: colors.primary,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  parentComment.author.displayName,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: colors.onSurface,
+                          IconButton(
+                            onPressed: () {
+                              showModalBottomSheet(
+                                context: context,
+                                backgroundColor: colors.surface,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(20),
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  parentComment.text,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colors.onSurfaceVariant,
+                                builder: (ctx) => SafeArea(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ListTile(
+                                          leading: Icon(
+                                            Icons.photo_library,
+                                            color: colors.primary,
+                                          ),
+                                          title: const Text(
+                                            'Photo from Gallery',
+                                          ),
+                                          onTap: () {
+                                            Navigator.pop(ctx);
+                                            pickReplyMedia(ImageSource.gallery);
+                                          },
+                                        ),
+                                        ListTile(
+                                          leading: Icon(
+                                            Icons.camera_alt,
+                                            color: colors.secondary,
+                                          ),
+                                          title: const Text('Take a Photo'),
+                                          onTap: () {
+                                            Navigator.pop(ctx);
+                                            pickReplyMedia(ImageSource.camera);
+                                          },
+                                        ),
+                                        ListTile(
+                                          leading: Icon(
+                                            Icons.videocam,
+                                            color: colors.tertiary,
+                                          ),
+                                          title: const Text('Video'),
+                                          onTap: () {
+                                            Navigator.pop(ctx);
+                                            pickReplyMedia(
+                                              ImageSource.gallery,
+                                              isVideo: true,
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ],
+                              );
+                            },
+                            icon: Icon(
+                              Icons.image_outlined,
+                              color: colors.onSurfaceVariant,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                    // Media preview for reply
-                    if (replyMediaFile != null) ...[
-                      Container(
-                        height: 120,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colors.outlineVariant),
-                        ),
-                        child: Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: replyMediaType == 'video'
-                                  ? Container(
-                                      width: double.infinity,
-                                      color: Colors.black,
-                                      child: const Center(
-                                        child: Icon(
-                                          Icons.videocam,
-                                          color: Colors.white,
-                                          size: 40,
-                                        ),
-                                      ),
-                                    )
-                                  : Image.file(
-                                      replyMediaFile!,
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                    ),
-                            ),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: GestureDetector(
-                                onTap: () => setSheetState(() {
-                                  replyMediaFile = null;
-                                  replyMediaType = null;
-                                }),
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.black.withValues(alpha: 0.6),
+                      // Reply button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: isReplyUploading ? null : submitReply,
+                          child: isReplyUploading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            if (replyMediaType == 'video')
-                              const Positioned(
-                                bottom: 8,
-                                left: 8,
-                                child: Text(
-                                  'Video selected',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                          ],
+                                )
+                              : const Text('Reply'),
                         ),
                       ),
                     ],
-
-                    // Reply input with media button
-                    Row(
-                      children: [
-                        Expanded(
-                          child: MentionAutocompleteField(
-                            controller: replyController,
-                            autofocus: true,
-                            maxLines: 3,
-                            minLines: 1,
-                            style: TextStyle(color: colors.onSurface),
-                            decoration: InputDecoration(
-                              hintText: 'Write your reply...',
-                              hintStyle: TextStyle(
-                                color: colors.onSurfaceVariant,
-                              ),
-                              filled: true,
-                              fillColor: colors.surfaceContainerHighest,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: colors.outline),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: colors.primary,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: colors.surface,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(20),
-                                ),
-                              ),
-                              builder: (ctx) => SafeArea(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      ListTile(
-                                        leading: Icon(
-                                          Icons.photo_library,
-                                          color: colors.primary,
-                                        ),
-                                        title: const Text('Photo from Gallery'),
-                                        onTap: () {
-                                          Navigator.pop(ctx);
-                                          pickReplyMedia(ImageSource.gallery);
-                                        },
-                                      ),
-                                      ListTile(
-                                        leading: Icon(
-                                          Icons.camera_alt,
-                                          color: colors.secondary,
-                                        ),
-                                        title: const Text('Take a Photo'),
-                                        onTap: () {
-                                          Navigator.pop(ctx);
-                                          pickReplyMedia(ImageSource.camera);
-                                        },
-                                      ),
-                                      ListTile(
-                                        leading: Icon(
-                                          Icons.videocam,
-                                          color: colors.tertiary,
-                                        ),
-                                        title: const Text('Video'),
-                                        onTap: () {
-                                          Navigator.pop(ctx);
-                                          pickReplyMedia(
-                                            ImageSource.gallery,
-                                            isVideo: true,
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                          icon: Icon(
-                            Icons.image_outlined,
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Reply button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isReplyUploading ? null : submitReply,
-                        child: isReplyUploading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Reply'),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -805,6 +909,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                 }
 
                 return ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 24),
                   itemCount: comments.length,
                   itemBuilder: (context, index) {
                     final comment = comments[index];
@@ -820,153 +925,190 @@ class _CommentsSheetState extends State<CommentsSheet> {
           ),
 
           // Comment input
-          Container(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 12,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 12,
-            ),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              border: Border(top: BorderSide(color: colors.outlineVariant)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Media preview
-                if (_selectedMediaFile != null) ...[
-                  Container(
-                    height: 120,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: colors.outlineVariant),
-                    ),
-                    child: Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: _selectedMediaType == 'video'
-                              ? Container(
-                                  width: double.infinity,
-                                  color: Colors.black,
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.videocam,
-                                      color: Colors.white,
-                                      size: 40,
+          SafeArea(
+            bottom: true,
+            child: Container(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 12,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 12,
+              ),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                border: Border(top: BorderSide(color: colors.outlineVariant)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Media preview
+                  if (_selectedMediaFile != null) ...[
+                    Container(
+                      height: 120,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colors.outlineVariant),
+                      ),
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: _selectedMediaType == 'video'
+                                ? Container(
+                                    width: double.infinity,
+                                    color: Colors.black,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.videocam,
+                                        color: Colors.white,
+                                        size: 40,
+                                      ),
                                     ),
+                                  )
+                                : Image.file(
+                                    _selectedMediaFile!,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: double.infinity,
                                   ),
-                                )
-                              : Image.file(
-                                  _selectedMediaFile!,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  height: double.infinity,
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: GestureDetector(
+                              onTap: _clearSelectedMedia,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.black.withValues(alpha: 0.6),
                                 ),
-                        ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: GestureDetector(
-                            onTap: _clearSelectedMedia,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.black.withValues(alpha: 0.6),
-                              ),
-                              child: const Icon(
-                                Icons.close,
-                                color: Colors.white,
-                                size: 16,
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        if (_selectedMediaType == 'video')
-                          const Positioned(
-                            bottom: 8,
-                            left: 8,
-                            child: Text(
-                              'Video selected',
-                              style: TextStyle(color: Colors.white),
+                          if (_selectedMediaType == 'video')
+                            const Positioned(
+                              bottom: 8,
+                              left: 8,
+                              child: Text(
+                                'Video selected',
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-                Row(
-                  children: [
-                    Consumer<UserProvider>(
-                      builder: (context, userProvider, _) {
-                        final user = userProvider.currentUser;
-                        return CircleAvatar(
-                          radius: 16,
-                          backgroundImage: user?.avatar != null
-                              ? NetworkImage(user!.avatar!)
-                              : null,
-                          child: user?.avatar == null
-                              ? const Icon(Icons.person, size: 16)
-                              : null,
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: MentionAutocompleteField(
-                        controller: _commentController,
-                        focusNode: _commentFocus,
-                        style: TextStyle(color: colors.onSurface),
-                        decoration: InputDecoration(
-                          hintText: 'Add a comment...',
-                          hintStyle: TextStyle(color: colors.onSurfaceVariant),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            borderSide: BorderSide(color: colors.outline),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            borderSide: BorderSide(
-                              color: colors.primary,
-                              width: 2,
-                            ),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                        ),
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _addComment(),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: _isUploading ? null : _showMediaPickerOptions,
-                      icon: Icon(
-                        Icons.image_outlined,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: _isUploading ? null : _addComment,
-                      icon: _isUploading
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: colors.primary,
-                              ),
-                            )
-                          : Icon(Icons.send, color: colors.primary),
                     ),
                   ],
-                ),
-              ],
+                  Row(
+                    children: [
+                      Consumer<UserProvider>(
+                        builder: (context, userProvider, _) {
+                          final user = userProvider.currentUser;
+                          return CircleAvatar(
+                            radius: 16,
+                            backgroundImage: user?.avatar != null
+                                ? NetworkImage(user!.avatar!)
+                                : null,
+                            child: user?.avatar == null
+                                ? const Icon(Icons.person, size: 16)
+                                : null,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            MentionAutocompleteField(
+                              controller: _commentController,
+                              focusNode: _commentFocus,
+                              style: TextStyle(color: colors.onSurface),
+                              decoration: InputDecoration(
+                                hintText: 'Add a comment...',
+                                hintStyle: TextStyle(
+                                  color: colors.onSurfaceVariant,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide(color: colors.outline),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide(
+                                    color: colors.primary,
+                                    width: 2,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                              ),
+                              textInputAction: TextInputAction.send,
+                              onSubmitted: (_) => _addComment(),
+                            ),
+                            if (_textModerationResult != null &&
+                                _textModerationResult!.flagged)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4, left: 8),
+                                child: Text(
+                                  '⚠️ Potential policy violation: ${_textModerationResult!.details ?? "Check content"}',
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            if (_isModeratingText)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4, left: 8),
+                                child: Text(
+                                  'Checking safety...',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: _isUploading
+                            ? null
+                            : _showMediaPickerOptions,
+                        icon: Icon(
+                          Icons.image_outlined,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: _isUploading ? null : _addComment,
+                        icon: _isUploading
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colors.primary,
+                                ),
+                              )
+                            : Icon(Icons.send, color: colors.primary),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],

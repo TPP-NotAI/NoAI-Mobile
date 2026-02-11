@@ -212,14 +212,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: AppSpacing.responsiveAll(
-                    context, AppSpacing.extraLarge),
+                  context,
+                  AppSpacing.extraLarge,
+                ),
                 child: Container(
                   decoration: BoxDecoration(
                     color: colors.surfaceContainerHighest.withValues(
                       alpha: 0.3,
                     ),
                     borderRadius: AppSpacing.responsiveRadius(
-                        context, AppSpacing.radiusModal),
+                      context,
+                      AppSpacing.radiusModal,
+                    ),
                     border: Border.all(
                       color: colors.outlineVariant.withValues(alpha: 0.5),
                       width: 1,
@@ -227,7 +231,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: Padding(
                     padding: AppSpacing.responsiveAll(
-                        context, AppSpacing.extraLarge),
+                      context,
+                      AppSpacing.extraLarge,
+                    ),
                     child: Column(
                       children: [
                         _ProfileHeader(
@@ -283,7 +289,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // ───────── TAB CONTENT
             if (_tabIndex == 0)
-              _ActivityLog(activities: userProvider.userActivities, colors: colors)
+              _ActivityLog(
+                activities: userProvider.userActivities,
+                colors: colors,
+              )
             else if (_tabIndex == 1)
               _Statistics(user: user, colors: colors)
             else if (_tabIndex == 2)
@@ -307,6 +316,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   }
                 },
               ),
+            // Added bottom safe padding to ensure last item is fully accessible
+            const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
           ],
         ),
       ),
@@ -440,9 +451,11 @@ class _ProfileHeader extends StatelessWidget {
                   : null,
               backgroundColor: colors.surfaceContainerHighest,
               child: user.avatar == null
-                  ? Icon(Icons.person,
+                  ? Icon(
+                      Icons.person,
                       size: AppTypography.responsiveIconSize(context, 48),
-                      color: colors.onSurfaceVariant)
+                      color: colors.onSurfaceVariant,
+                    )
                   : null,
             ),
             if (user.isVerified)
@@ -457,9 +470,11 @@ class _ProfileHeader extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: colors.surface, width: 3),
                   ),
-                  child: Icon(Icons.check,
-                      color: Colors.white,
-                      size: AppTypography.responsiveIconSize(context, 18)),
+                  child: Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: AppTypography.responsiveIconSize(context, 18),
+                  ),
                 ),
               ),
           ],
@@ -481,9 +496,11 @@ class _ProfileHeader extends StatelessWidget {
             ),
             if (user.isVerified) ...[
               SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
-              Icon(Icons.verified,
-                  size: AppTypography.responsiveIconSize(context, 20),
-                  color: colors.primary),
+              Icon(
+                Icons.verified,
+                size: AppTypography.responsiveIconSize(context, 20),
+                color: colors.primary,
+              ),
             ],
           ],
         ),
@@ -494,7 +511,9 @@ class _ProfileHeader extends StatelessWidget {
             '@${user.username}',
             style: theme.textTheme.titleMedium?.copyWith(
               fontSize: AppTypography.responsiveFontSize(
-                  context, AppTypography.base),
+                context,
+                AppTypography.base,
+              ),
               color: colors.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
@@ -509,8 +528,10 @@ class _ProfileHeader extends StatelessWidget {
               : '',
           style: TextStyle(
             color: colors.onSurfaceVariant,
-            fontSize:
-                AppTypography.responsiveFontSize(context, AppTypography.tiny),
+            fontSize: AppTypography.responsiveFontSize(
+              context,
+              AppTypography.tiny,
+            ),
           ),
           overflow: TextOverflow.ellipsis,
           maxLines: 1,
@@ -765,8 +786,10 @@ class _HumanityMetricsCompact extends StatelessWidget {
       padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withOpacity(0.3),
-        borderRadius:
-            AppSpacing.responsiveRadius(context, AppSpacing.radiusExtraLarge),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusExtraLarge,
+        ),
         border: Border.all(
           color: colors.outlineVariant.withOpacity(0.5),
           width: 1,
@@ -865,7 +888,9 @@ class _HumanityMetricsCompact extends StatelessWidget {
                         : 'C',
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
-                          context, AppTypography.smallHeading),
+                        context,
+                        AppTypography.smallHeading,
+                      ),
                       fontWeight: FontWeight.bold,
                       color: user.trustScore > 80
                           ? const Color(0xFF10B981)
@@ -1157,7 +1182,8 @@ class _ActivityLog extends StatelessWidget {
       padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, i) => _ActivityItem(activity: activities[i], colors: colors),
+          (context, i) =>
+              _ActivityItem(activity: activities[i], colors: colors),
           childCount: activities.length > 20 ? 20 : activities.length,
         ),
       ),
@@ -1171,10 +1197,7 @@ class _ActivityItem extends StatelessWidget {
   final UserActivity activity;
   final ColorScheme colors;
 
-  const _ActivityItem({
-    required this.activity,
-    required this.colors,
-  });
+  const _ActivityItem({required this.activity, required this.colors});
 
   IconData _getIcon() {
     switch (activity.type) {
@@ -1233,13 +1256,14 @@ class _ActivityItem extends StatelessWidget {
     final activityColor = _getColor();
 
     return Container(
-      margin: EdgeInsets.only(
-          bottom: AppSpacing.standard.responsive(context)),
+      margin: EdgeInsets.only(bottom: AppSpacing.standard.responsive(context)),
       padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius:
-            AppSpacing.responsiveRadius(context, AppSpacing.radiusLarge),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusLarge,
+        ),
         border: Border.all(
           color: colors.outlineVariant.withValues(alpha: 0.5),
           width: 1,
@@ -1254,8 +1278,10 @@ class _ActivityItem extends StatelessWidget {
             height: 40.responsive(context, min: 36, max: 46),
             decoration: BoxDecoration(
               color: activityColor.withValues(alpha: 0.15),
-              borderRadius:
-                  AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
+              borderRadius: AppSpacing.responsiveRadius(
+                context,
+                AppSpacing.radiusMedium,
+              ),
             ),
             child: Icon(
               _getIcon(),
@@ -1306,7 +1332,9 @@ class _ActivityItem extends StatelessWidget {
                       if (activity.targetAvatarUrl != null)
                         CircleAvatar(
                           radius: 10,
-                          backgroundImage: NetworkImage(activity.targetAvatarUrl!),
+                          backgroundImage: NetworkImage(
+                            activity.targetAvatarUrl!,
+                          ),
                         )
                       else
                         CircleAvatar(

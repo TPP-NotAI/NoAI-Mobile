@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:rooverse/models/user.dart'
     as app_models; // Alias your custom User model
+import '../core/extensions/exception_extensions.dart';
 import '../models/user_activity.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
@@ -150,7 +151,7 @@ class UserProvider with ChangeNotifier {
           .toList();
       _error = null;
     } catch (e) {
-      _error = e.toString();
+      _error = e.userMessage;
       _users = [];
     } finally {
       _isLoading = false;
@@ -261,7 +262,7 @@ class UserProvider with ChangeNotifier {
       _error = null;
     } catch (e) {
       debugPrint('UserProvider: Error fetching user - $e');
-      _error = e.toString();
+      _error = e.userMessage;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -371,7 +372,7 @@ class UserProvider with ChangeNotifier {
       _transactions = List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('UserProvider: Error fetching transactions - $e');
-      _error = e.toString();
+      _error = e.userMessage;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -558,7 +559,7 @@ class UserProvider with ChangeNotifier {
       _error = null;
     } catch (e) {
       debugPrint('UserProvider: Error fetching user activities - $e');
-      _error = e.toString();
+      _error = e.userMessage;
       _userActivities = [];
     } finally {
       _isLoading = false;
@@ -605,7 +606,7 @@ class UserProvider with ChangeNotifier {
 
       return true;
     } catch (e) {
-      _error = e.toString().replaceFirst('Exception: ', '');
+      _error = e.userMessage;
       debugPrint('UserProvider: Error transferring ROO - $e');
       return false;
     } finally {
@@ -678,7 +679,7 @@ class UserProvider with ChangeNotifier {
       await fetchUser(userId);
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = e.userMessage;
       debugPrint('UserProvider: Error updating profile - $e');
       return false;
     } finally {
@@ -712,7 +713,7 @@ class UserProvider with ChangeNotifier {
       await fetchUser(userId);
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = e.userMessage;
       debugPrint('UserProvider: Error updating privacy settings - $e');
       return false;
     } finally {

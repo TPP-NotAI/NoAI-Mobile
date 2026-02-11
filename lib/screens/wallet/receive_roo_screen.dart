@@ -5,6 +5,7 @@ import '../../config/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/wallet_provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class ReceiveRooScreen extends StatelessWidget {
   const ReceiveRooScreen({super.key});
@@ -156,32 +157,21 @@ class ReceiveRooScreen extends StatelessWidget {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.qr_code_2,
-                          size: 120,
-                          color: Colors.grey[800],
+                    child: Center(
+                      child: QrImageView(
+                        data: walletAddress,
+                        version: QrVersions.auto,
+                        size: 200.0,
+                        gapless: false,
+                        eyeStyle: const QrEyeStyle(
+                          eyeShape: QrEyeShape.square,
+                          color: Colors.black,
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'QR Code',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[700],
-                          ),
+                        dataModuleStyle: const QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.square,
+                          color: Colors.black,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '@${user.username}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),

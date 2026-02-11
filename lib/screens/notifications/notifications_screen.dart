@@ -127,6 +127,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
 
     return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 120),
       itemCount: provider.notifications.length,
       itemBuilder: (context, index) {
         final notification = provider.notifications[index];
@@ -141,22 +142,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           confirmDismiss: (direction) async {
             return await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('Delete Notification'),
-                content: const Text('Are you sure you want to delete this notification?'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Cancel'),
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Delete Notification'),
+                    content: const Text(
+                      'Are you sure you want to delete this notification?',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                  ),
-                ],
-              ),
-            ) ?? false;
+                ) ??
+                false;
           },
           onDismissed: (direction) {
             provider.deleteNotification(notification.id);
@@ -205,7 +212,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ProfileScreen(userId: notification.actorId, showAppBar: true),
+            builder: (_) =>
+                ProfileScreen(userId: notification.actorId, showAppBar: true),
           ),
         );
       }
