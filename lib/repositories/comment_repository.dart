@@ -10,7 +10,7 @@ import '../services/ai_detection_service.dart';
 import 'notification_repository.dart';
 import 'mention_repository.dart';
 import 'wallet_repository.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 
 /// Repository for comment-related Supabase operations.
 class CommentRepository {
@@ -585,17 +585,23 @@ class CommentRepository {
           })
           .eq('id', commentId);
 
-      // Award ROO for the comment
+      // Award ROOK for the comment (skip if commenting on own post)
       try {
-        final walletRepo = WalletRepository();
-        await walletRepo.earnRoo(
-          userId: authorId,
-          activityType: RoocoinActivityType.postComment,
-          referenceCommentId: commentId,
+        final isSelf = await _isCommentOnOwnPost(
+          commentId: commentId,
+          authorId: authorId,
         );
+        if (!isSelf) {
+          final walletRepo = WalletRepository();
+          await walletRepo.earnRoo(
+            userId: authorId,
+            activityType: RookenActivityType.postComment,
+            referenceCommentId: commentId,
+          );
+        }
       } catch (e) {
         debugPrint(
-          'CommentRepository: Error awarding ROO for short comment - $e',
+          'CommentRepository: Error awarding ROOK for short comment - $e',
         );
       }
 
@@ -696,17 +702,23 @@ class CommentRepository {
             },
           );
         } else {
-          // Comment passed AI check - award 2 ROO to author
+          // Comment passed AI check - award 2 ROOK to author (skip if own post)
           try {
-            final walletRepo = WalletRepository();
-            await walletRepo.earnRoo(
-              userId: authorId,
-              activityType: RoocoinActivityType.postComment,
-              referenceCommentId: commentId,
+            final isSelf = await _isCommentOnOwnPost(
+              commentId: commentId,
+              authorId: authorId,
             );
+            if (!isSelf) {
+              final walletRepo = WalletRepository();
+              await walletRepo.earnRoo(
+                userId: authorId,
+                activityType: RookenActivityType.postComment,
+                referenceCommentId: commentId,
+              );
+            }
           } catch (e) {
             debugPrint(
-              'CommentRepository: Error awarding ROO for comment - $e',
+              'CommentRepository: Error awarding ROOK for comment - $e',
             );
           }
         }
@@ -797,28 +809,39 @@ class CommentRepository {
           .update(updates)
           .eq('id', commentId);
 
-      // If approved, award 2 ROO to comment author
-      if (action == 'approve') {
-        try {
-          final comment = await _client
-              .from(SupabaseConfig.commentsTable)
-              .select('author_id')
-              .eq('id', commentId)
-              .single();
+        // If approved, award 2 ROOK to comment author (skip if own post)
+        if (action == 'approve') {
+          try {
+            final comment = await _client
+                .from(SupabaseConfig.commentsTable)
+                .select('author_id, post_id')
+                .eq('id', commentId)
+                .single();
 
-          final authorId = comment['author_id'] as String;
-          final walletRepo = WalletRepository();
-          await walletRepo.earnRoo(
-            userId: authorId,
-            activityType: RoocoinActivityType.postComment,
-            referenceCommentId: commentId,
-          );
-        } catch (e) {
-          debugPrint(
-            'CommentRepository: Error awarding ROO on comment approval - $e',
-          );
+            final authorId = comment['author_id'] as String;
+            final postId = comment['post_id'] as String?;
+
+            bool isSelf = false;
+            if (postId != null && postId.isNotEmpty) {
+              isSelf = await _isAuthorOfPost(
+                authorId: authorId,
+                postId: postId,
+              );
+            }
+
+            if (isSelf) return true;
+            final walletRepo = WalletRepository();
+            await walletRepo.earnRoo(
+              userId: authorId,
+              activityType: RookenActivityType.postComment,
+              referenceCommentId: commentId,
+            );
+          } catch (e) {
+            debugPrint(
+              'CommentRepository: Error awarding ROOK on comment approval - $e',
+            );
+          }
         }
-      }
 
       // Resolve the moderation case
       try {
@@ -873,6 +896,50 @@ class CommentRepository {
       return true;
     } catch (e) {
       debugPrint('CommentRepository: Error moderating comment $commentId - $e');
+      return false;
+    }
+  }
+
+  Future<bool> _isCommentOnOwnPost({
+    required String commentId,
+    required String authorId,
+  }) async {
+    try {
+      final comment = await _client
+          .from(SupabaseConfig.commentsTable)
+          .select('post_id')
+          .eq('id', commentId)
+          .single();
+
+      final postId = comment['post_id'] as String?;
+      if (postId == null || postId.isEmpty) return false;
+
+      return await _isAuthorOfPost(authorId: authorId, postId: postId);
+    } catch (e) {
+      debugPrint(
+        'CommentRepository: Error checking self-comment for $commentId - $e',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> _isAuthorOfPost({
+    required String authorId,
+    required String postId,
+  }) async {
+    try {
+      final post = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('author_id')
+          .eq('id', postId)
+          .single();
+
+      final postAuthorId = post['author_id'] as String?;
+      return postAuthorId == authorId;
+    } catch (e) {
+      debugPrint(
+        'CommentRepository: Error checking post author for $postId - $e',
+      );
       return false;
     }
   }

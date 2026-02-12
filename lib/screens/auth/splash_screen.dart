@@ -152,7 +152,7 @@ class SplashScreen extends StatelessWidget {
                     const Icon(Icons.token, size: 14, color: AppColors.primary),
                     const SizedBox(width: 8),
                     Text(
-                      'Powered by RooCoin',
+                      'Powered by Rooken',
                       style: TextStyle(
                         fontSize: 14,
                         color: scheme.onBackground.withOpacity(0.6),

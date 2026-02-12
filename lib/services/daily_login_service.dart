@@ -1,14 +1,15 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/supabase_service.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 
 /// Service to track daily logins and reward users
 class DailyLoginService {
   final _client = SupabaseService().client;
   final _walletRepo = WalletRepository();
 
-  /// Check and reward daily login (1 ROO per day)
+  /// Check and reward daily login (1 ROOK per day)
   /// Returns true if reward was given, false if already claimed today
   Future<bool> checkAndRewardDailyLogin(String userId) async {
     try {
@@ -29,7 +30,7 @@ class DailyLoginService {
       final existingReward = todaysTxs.any((tx) {
         final metadata = tx['metadata'];
         if (metadata is Map) {
-          return metadata['activityType'] == RoocoinActivityType.dailyLogin;
+          return metadata['activityType'] == RookenActivityType.dailyLogin;
         }
         return false;
       });
@@ -41,20 +42,45 @@ class DailyLoginService {
         return false;
       }
 
-      // Award 1 ROO for daily login
+      // Award 1 ROOK for daily login
       await _walletRepo.earnRoo(
         userId: userId,
-        activityType: RoocoinActivityType.dailyLogin,
+        activityType: RookenActivityType.dailyLogin,
         metadata: {
           'login_date': today.toIso8601String(),
           'day_of_week': today.weekday,
         },
       );
 
-      debugPrint('DailyLoginService: Awarded 1 ROO to $userId for daily login');
+      debugPrint('DailyLoginService: Awarded 1 ROOK to $userId for daily login');
       return true;
     } catch (e) {
       debugPrint('DailyLoginService: Error checking daily login - $e');
+      return false;
+    }
+  }
+
+  /// Check daily login once per app-open day per user (client-side guard)
+  /// Returns true if reward was given, false if skipped or already claimed today
+  Future<bool> checkAndRewardDailyLoginOnAppOpen(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final today = DateTime.now().toUtc();
+      final todayKey = _dateKey(today);
+      final lastCheckKey = 'daily_login_last_check_$userId';
+
+      final lastCheck = prefs.getString(lastCheckKey);
+      if (lastCheck == todayKey) {
+        debugPrint(
+          'DailyLoginService: Skipping daily login check (already checked today)',
+        );
+        return false;
+      }
+
+      await prefs.setString(lastCheckKey, todayKey);
+      return await checkAndRewardDailyLogin(userId);
+    } catch (e) {
+      debugPrint('DailyLoginService: Error in app-open check - $e');
       return false;
     }
   }
@@ -68,7 +94,7 @@ class DailyLoginService {
           .select('created_at')
           .eq('to_user_id', userId)
           .contains('metadata', {
-            'activityType': RoocoinActivityType.dailyLogin,
+            'activityType': RookenActivityType.dailyLogin,
           })
           .order('created_at', ascending: false)
           .limit(365); // Check up to 1 year
@@ -136,7 +162,7 @@ class DailyLoginService {
       final existingReward = todaysTxs.any((tx) {
         final metadata = tx['metadata'];
         if (metadata is Map) {
-          return metadata['activityType'] == RoocoinActivityType.dailyLogin;
+          return metadata['activityType'] == RookenActivityType.dailyLogin;
         }
         return false;
       });
@@ -146,5 +172,12 @@ class DailyLoginService {
       debugPrint('DailyLoginService: Error checking if can claim - $e');
       return false;
     }
+  }
+
+  String _dateKey(DateTime date) {
+    final d = DateTime.utc(date.year, date.month, date.day);
+    return '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
   }
 }

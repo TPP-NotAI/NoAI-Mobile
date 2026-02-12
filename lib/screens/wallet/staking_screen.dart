@@ -165,7 +165,7 @@ class _StakingScreenState extends State<StakingScreen> {
                   children: [
                     // Header subtitle
                     Text(
-                      'Lock your RooCoin to validate your humanity, earn yields, and gain visibility priority.',
+                      'Lock your Rooken to validate your humanity, earn yields, and gain visibility priority.',
                       style: TextStyle(
                         color: colors.onSurfaceVariant,
                         fontSize: 14,
@@ -405,7 +405,7 @@ class _StakingScreenState extends State<StakingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(Icons.tune, 'Stake RooCoin', colors),
+          _buildSectionHeader(Icons.tune, 'Stake Rooken', colors),
           const SizedBox(height: 20),
 
           // Amount Input
@@ -552,7 +552,7 @@ class _StakingScreenState extends State<StakingScreen> {
                     )
                   : const Icon(Icons.lock_outline),
               label: Text(
-                _isStaking ? 'STAKING...' : 'STAKE ROOCOIN',
+                _isStaking ? 'STAKING...' : 'STAKE ROOKEN',
                 style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
               ),
               style: ElevatedButton.styleFrom(

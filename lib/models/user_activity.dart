@@ -5,9 +5,9 @@ enum UserActivityType {
   postCommented,
   postReposted,
   userFollowed,
-  roocoinEarned,
-  roocoinSpent,
-  roocoinTransferred,
+  rookenEarned,
+  rookenSpent,
+  rookenTransferred,
   storyCreated,
   bookmarkAdded,
 }
@@ -57,12 +57,12 @@ class UserActivity {
         return 'Reposted';
       case UserActivityType.userFollowed:
         return 'Followed ${targetDisplayName ?? '@$targetUsername'}';
-      case UserActivityType.roocoinEarned:
-        return 'Earned ${amount?.toStringAsFixed(1)} ROO';
-      case UserActivityType.roocoinSpent:
-        return 'Spent ${amount?.toStringAsFixed(1)} ROO';
-      case UserActivityType.roocoinTransferred:
-        return 'Transferred ${amount?.toStringAsFixed(1)} ROO to @$targetUsername';
+      case UserActivityType.rookenEarned:
+        return 'Earned ${amount?.toStringAsFixed(1)} ROOK';
+      case UserActivityType.rookenSpent:
+        return 'Spent ${amount?.toStringAsFixed(1)} ROOK';
+      case UserActivityType.rookenTransferred:
+        return 'Transferred ${amount?.toStringAsFixed(1)} ROOK to @$targetUsername';
       case UserActivityType.storyCreated:
         return 'Created a story';
       case UserActivityType.bookmarkAdded:
@@ -83,11 +83,11 @@ class UserActivity {
         return 'repeat';
       case UserActivityType.userFollowed:
         return 'person_add';
-      case UserActivityType.roocoinEarned:
+      case UserActivityType.rookenEarned:
         return 'add_circle';
-      case UserActivityType.roocoinSpent:
+      case UserActivityType.rookenSpent:
         return 'remove_circle';
-      case UserActivityType.roocoinTransferred:
+      case UserActivityType.rookenTransferred:
         return 'send';
       case UserActivityType.storyCreated:
         return 'auto_stories';
@@ -109,11 +109,11 @@ class UserActivity {
         return '#10B981'; // green
       case UserActivityType.userFollowed:
         return '#F59E0B'; // amber
-      case UserActivityType.roocoinEarned:
+      case UserActivityType.rookenEarned:
         return '#10B981'; // green
-      case UserActivityType.roocoinSpent:
+      case UserActivityType.rookenSpent:
         return '#EF4444'; // red
-      case UserActivityType.roocoinTransferred:
+      case UserActivityType.rookenTransferred:
         return '#F59E0B'; // amber
       case UserActivityType.storyCreated:
         return '#EC4899'; // pink

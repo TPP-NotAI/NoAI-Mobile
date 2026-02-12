@@ -3,7 +3,7 @@ import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
 import 'notification_repository.dart';
 import 'wallet_repository.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 import '../services/viral_content_service.dart';
 
 /// Repository for reaction (like/unlike) operations.
@@ -152,18 +152,21 @@ class ReactionRepository {
           postId: postId,
         );
 
-        // Award 0.1 ROO to post author for receiving a like
-        try {
-          final walletRepo = WalletRepository();
-          await walletRepo.earnRoo(
-            userId: postAuthorId,
-            activityType: RoocoinActivityType.postLike,
-            referencePostId: postId,
-          );
-        } catch (e) {
-          debugPrint(
-            'ReactionRepository: Error awarding ROO for post like - $e',
-          );
+        // Award 0.1 ROOK to the user who liked the post (per API activity rules)
+        // Skip if the user is liking their own post.
+        if (postAuthorId != userId) {
+          try {
+            final walletRepo = WalletRepository();
+            await walletRepo.earnRoo(
+              userId: userId,
+              activityType: RookenActivityType.postLike,
+              referencePostId: postId,
+            );
+          } catch (e) {
+            debugPrint(
+              'ReactionRepository: Error awarding ROOK for post like - $e',
+            );
+          }
         }
 
         // Check if post has gone viral and award bonus

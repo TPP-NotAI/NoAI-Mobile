@@ -510,7 +510,8 @@ class _MainShellState extends State<MainShell> {
       }
 
       final dailyLoginService = DailyLoginService();
-      final rewarded = await dailyLoginService.checkAndRewardDailyLogin(userId);
+      final rewarded = await dailyLoginService
+          .checkAndRewardDailyLoginOnAppOpen(userId);
 
       if (rewarded && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

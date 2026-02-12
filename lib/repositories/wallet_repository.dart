@@ -1,22 +1,22 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/wallet.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 import '../services/secure_storage_service.dart';
 import '../core/extensions/exception_extensions.dart';
 
-/// Repository for managing wallet data and Roocoin integration
+/// Repository for managing wallet data and Rooken integration
 class WalletRepository {
   final SupabaseClient _supabase;
-  final RoocoinService _roocoinService;
+  final RookenService _rookenService;
   final SecureStorageService _secureStorage;
 
   WalletRepository({
     SupabaseClient? supabase,
-    RoocoinService? roocoinService,
+    RookenService? rookenService,
     SecureStorageService? secureStorage,
   }) : _supabase = supabase ?? Supabase.instance.client,
-       _roocoinService = roocoinService ?? RoocoinService(),
+       _rookenService = rookenService ?? RookenService(),
        _secureStorage = secureStorage ?? SecureStorageService();
 
   /// Get wallet for a user
@@ -41,8 +41,8 @@ class WalletRepository {
   /// This creates both the blockchain wallet and the database entry
   Future<Wallet> createWallet(String userId) async {
     try {
-      // 1. Create blockchain wallet via Roocoin API
-      final walletData = await _roocoinService.createWallet();
+      // 1. Create blockchain wallet via Rooken API
+      final walletData = await _rookenService.createWallet();
       final address = walletData['address'] as String;
       final privateKey = walletData['privateKey'] as String;
 
@@ -69,7 +69,7 @@ class WalletRepository {
           .select()
           .single();
 
-      // 4. Award welcome bonus (100 ROO)
+      // 4. Award welcome bonus (100 ROOK)
       try {
         await checkAndAwardWelcomeBonus(userId, address: address);
 
@@ -140,7 +140,7 @@ class WalletRepository {
 
   Future<Wallet> _repairWallet(String userId) async {
     // 1. Create new blockchain wallet
-    final walletData = await _roocoinService.createWallet();
+    final walletData = await _rookenService.createWallet();
     final address = walletData['address'] as String;
     final privateKey = walletData['privateKey'] as String;
 
@@ -208,7 +208,7 @@ class WalletRepository {
     }
   }
 
-  /// Spend ROO for platform actions (e.g., creating a post)
+  /// Spend ROOK for platform actions (e.g., creating a post)
   Future<Map<String, dynamic>> spendRoo({
     required String userId,
     required double amount,
@@ -288,7 +288,7 @@ class WalletRepository {
     }
 
     // 2. Execute spend transaction on blockchain
-    final result = await _roocoinService.spend(
+    final result = await _rookenService.spend(
       userPrivateKey: privateKey,
       amount: amount,
       activityType: activityType,
@@ -322,7 +322,7 @@ class WalletRepository {
     return result;
   }
 
-  /// Earn ROO for platform activities
+  /// Earn ROOK for platform activities
   Future<Map<String, dynamic>> earnRoo({
     required String userId,
     required String activityType,
@@ -336,12 +336,12 @@ class WalletRepository {
       // 1. Get wallet (using getOrCreateWallet for automatic repair)
       final wallet = await getOrCreateWallet(userId);
 
-      // 2. Distribute reward via Roocoin API
+      // 2. Distribute reward via Rooken API
       if (!_isValidAddress(wallet.walletAddress)) {
         throw Exception('Invalid wallet address: ${wallet.walletAddress}');
       }
 
-      final result = await _roocoinService.distributeReward(
+      final result = await _rookenService.distributeReward(
         userAddress: wallet.walletAddress,
         activityType: activityType,
         metadata: metadata,
@@ -396,13 +396,13 @@ class WalletRepository {
 
       return result;
     } catch (e) {
-      debugPrint('Error earning ROO: $e');
+      debugPrint('Error earning ROOK: $e');
       rethrow;
     }
   }
 
   /// Check if user has received their welcome bonus and award it if not
-  /// This handles both new users and existing users from before Roocoin
+  /// This handles both new users and existing users from before Rooken
   Future<bool> checkAndAwardWelcomeBonus(
     String userId, {
     String? address,
@@ -421,7 +421,7 @@ class WalletRepository {
         final metadata = tx['metadata'];
         if (metadata is Map) {
           final type = metadata['activityType'] ?? metadata['source'];
-          return type == RoocoinActivityType.welcomeBonus ||
+          return type == RookenActivityType.welcomeBonus ||
               type == 'WELCOME_BONUS';
         }
         return false;
@@ -448,13 +448,13 @@ class WalletRepository {
         walletAddress = wallet.walletAddress;
       }
 
-      // 3. Award reward via Roocoin API Faucet (gives 100 ROO)
+      // 3. Award reward via Rooken API Faucet (gives 100 ROOK)
       if (!_isValidAddress(walletAddress)) {
         debugPrint('Skipping welcome bonus: Invalid address $walletAddress');
         return false;
       }
 
-      final result = await _roocoinService.requestFaucet(
+      final result = await _rookenService.requestFaucet(
         address: walletAddress,
         amount: 100.0,
       );
@@ -492,7 +492,7 @@ class WalletRepository {
     }
   }
 
-  /// Transfer ROO to another user or external wallet
+  /// Transfer ROOK to another user or external wallet
   Future<Map<String, dynamic>> transferToExternal({
     required String userId,
     required String toAddress,
@@ -550,7 +550,7 @@ class WalletRepository {
       }
 
       // 3. Execute transfer on blockchain using the new peer-to-peer endpoint
-      final result = await _roocoinService.send(
+      final result = await _rookenService.send(
         fromPrivateKey: privateKey,
         toAddress: toAddress,
         amount: amount,
@@ -578,17 +578,37 @@ class WalletRepository {
         'completed_at': DateTime.now().toIso8601String(),
       });
 
-      // 5. Update sender's wallet balance from blockchain and daily limit
-      final senderBalanceData = await _roocoinService.getBalance(
-        wallet.walletAddress,
-      );
-      final senderChainBalance = double.parse(
-        senderBalanceData['balance'] as String,
-      );
+      // 5. Update sender's wallet balance and daily limit.
+      // Prefer remainingBalance from API if available; otherwise fall back to chain balance.
+      double? newBalance;
+      if (result['remainingBalance'] != null) {
+        newBalance = double.parse(result['remainingBalance'] as String);
+      }
+
+      double? senderChainBalance;
+      if (newBalance == null) {
+        final senderBalanceData = await _rookenService.getBalance(
+          wallet.walletAddress,
+        );
+        senderChainBalance = double.parse(
+          senderBalanceData['balance'] as String,
+        );
+        newBalance = senderChainBalance;
+      }
+
+      // If chain balance hasn't updated yet, apply an optimistic deduction so UI reflects the send.
+      if (senderChainBalance != null &&
+          (senderChainBalance - wallet.balanceRc).abs() < 0.0001 &&
+          amount > 0) {
+        newBalance = (wallet.balanceRc - amount).clamp(0, double.infinity);
+        debugPrint(
+          'WalletRepository: Chain balance unchanged after transfer; applying optimistic deduction to $newBalance',
+        );
+      }
       await _supabase
           .from('wallets')
           .update({
-            'balance_rc': senderChainBalance,
+            'balance_rc': newBalance,
             'daily_sent_today_rc': wallet.dailySentTodayRc + amount,
             'updated_at': DateTime.now().toIso8601String(),
           })
@@ -629,7 +649,7 @@ class WalletRepository {
               recipientWallet['wallet_address'] as String? ?? '';
 
           if (_isValidAddress(recipientAddress)) {
-            final recipientBalanceData = await _roocoinService.getBalance(
+            final recipientBalanceData = await _rookenService.getBalance(
               recipientAddress,
             );
             final recipientChainBalance = double.parse(
@@ -664,7 +684,7 @@ class WalletRepository {
               'user_id': recipientUserId,
               'type': 'roocoin_received',
               'title': 'ROO Received!',
-              'body': '$senderName sent you ${amount.toStringAsFixed(2)} ROO',
+              'body': '$senderName sent you ${amount.toStringAsFixed(2)} ROOK',
               'actor_id': userId,
               'metadata': {
                 'amount': amount,
@@ -677,7 +697,7 @@ class WalletRepository {
           }
 
           debugPrint(
-            'In-app transfer: Updated recipient $recipientUserId balance (+$amount ROO)',
+            'In-app transfer: Updated recipient $recipientUserId balance (+$amount ROOK)',
           );
         } catch (e) {
           debugPrint('Error updating recipient wallet: $e');
@@ -687,13 +707,13 @@ class WalletRepository {
 
       return result;
     } catch (e) {
-      debugPrint('Error transferring ROO: $e');
+      debugPrint('Error transferring ROOK: $e');
       rethrow;
     }
   }
 
   /// Get transaction history for a user
-  Future<List<RoocoinTransaction>> getTransactions({
+  Future<List<RookenTransaction>> getTransactions({
     required String userId,
     int limit = 50,
     int offset = 0,
@@ -707,7 +727,7 @@ class WalletRepository {
           .range(offset, offset + limit - 1);
 
       return (response as List)
-          .map((json) => RoocoinTransaction.fromSupabase(json))
+          .map((json) => RookenTransaction.fromSupabase(json))
           .toList();
     } catch (e) {
       debugPrint('Error getting transactions: $e');
@@ -736,7 +756,7 @@ class WalletRepository {
       );
 
       // Get balance from blockchain
-      final balanceData = await _roocoinService.getBalance(
+      final balanceData = await _rookenService.getBalance(
         wallet.walletAddress,
       );
 
@@ -768,13 +788,13 @@ class WalletRepository {
     }
   }
 
-  /// Check if Roocoin API is healthy
+  /// Check if Rooken API is healthy
   Future<bool> checkApiHealth() async {
     try {
-      final health = await _roocoinService.checkHealth();
+      final health = await _rookenService.checkHealth();
       return health['status'] == 'ok';
     } catch (e) {
-      debugPrint('Roocoin API health check failed: $e');
+      debugPrint('Rooken API health check failed: $e');
       return false;
     }
   }

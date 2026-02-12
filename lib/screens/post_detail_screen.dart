@@ -13,6 +13,7 @@ import '../widgets/mention_rich_text.dart';
 import '../widgets/mention_autocomplete_field.dart';
 import '../utils/verification_utils.dart';
 import '../widgets/verification_required_widget.dart';
+import '../services/viral_content_service.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -41,6 +42,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     _post = widget.post;
     _editController = TextEditingController(text: _post.content);
     _loadComments();
+    _checkViralReward();
   }
 
   @override
@@ -58,6 +60,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         _comments = comments;
         _loadingComments = false;
       });
+    }
+  }
+
+  Future<void> _checkViralReward() async {
+    try {
+      final viralService = ViralContentService();
+      await viralService.checkAndRewardViralPost(_post.id, _post.authorId);
+    } catch (e) {
+      debugPrint('PostDetailScreen: Error checking viral reward - $e');
     }
   }
 

@@ -44,8 +44,8 @@ Map<String, dynamic> _$WalletToJson(Wallet instance) => <String, dynamic>{
   'updatedAt': instance.updatedAt.toIso8601String(),
 };
 
-RoocoinTransaction _$RoocoinTransactionFromJson(Map<String, dynamic> json) =>
-    RoocoinTransaction(
+RookenTransaction _$RookenTransactionFromJson(Map<String, dynamic> json) =>
+    RookenTransaction(
       id: json['id'] as String,
       txType: json['txType'] as String,
       status: json['status'] as String,
@@ -68,7 +68,7 @@ RoocoinTransaction _$RoocoinTransactionFromJson(Map<String, dynamic> json) =>
       failureReason: json['failureReason'] as String?,
     );
 
-Map<String, dynamic> _$RoocoinTransactionToJson(RoocoinTransaction instance) =>
+Map<String, dynamic> _$RookenTransactionToJson(RookenTransaction instance) =>
     <String, dynamic>{
       'id': instance.id,
       'txType': instance.txType,

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../services/supabase_service.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 
 /// Service to track and reward referrals
 class ReferralService {
@@ -42,7 +42,7 @@ class ReferralService {
   }
 
   /// Apply a referral code when a new user signs up
-  /// Awards 50 ROO to the referrer
+  /// Awards 50 ROOK to the referrer
   Future<bool> applyReferralCode(String newUserId, String referralCode) async {
     try {
       // Find the referrer
@@ -96,7 +96,7 @@ class ReferralService {
     }
   }
 
-  /// Complete a referral and award ROO when the referred user gets verified
+  /// Complete a referral and award ROOK when the referred user gets verified
   /// This should be called when a new user completes verification
   Future<bool> completeReferral(String referredUserId) async {
     try {
@@ -118,10 +118,10 @@ class ReferralService {
       final referrerId = referral['referrer_user_id'] as String;
       final referralId = referral['id'] as String;
 
-      // Award 50 ROO to the referrer
+      // Award 50 ROOK to the referrer
       await _walletRepo.earnRoo(
         userId: referrerId,
-        activityType: RoocoinActivityType.referral,
+        activityType: RookenActivityType.referral,
         metadata: {
           'referred_user_id': referredUserId,
           'referral_code': referral['referral_code'],
@@ -139,7 +139,7 @@ class ReferralService {
           .eq('id', referralId);
 
       debugPrint(
-        'ReferralService: Completed referral and awarded 50 ROO to $referrerId',
+        'ReferralService: Completed referral and awarded 50 ROOK to $referrerId',
       );
       return true;
     } catch (e) {
@@ -166,7 +166,7 @@ class ReferralService {
         'total_referrals': total,
         'completed_referrals': completed,
         'pending_referrals': pending,
-        'total_earned': completed * 50, // 50 ROO per completed referral
+        'total_earned': completed * 50, // 50 ROOK per completed referral
       };
     } catch (e) {
       debugPrint('ReferralService: Error getting referral stats - $e');

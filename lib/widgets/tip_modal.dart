@@ -38,11 +38,12 @@ class _TipModalState extends State<TipModal> {
   }
 
   Future<void> _sendTip() async {
-    if (_selectedAmount <= 0) return;
+    if (_selectedAmount <= 0 || _isProcessing) return;
 
     final authProvider = context.read<AuthProvider>();
     final userProvider = context.read<UserProvider>();
     final feedProvider = context.read<FeedProvider>();
+    final walletProvider = context.read<WalletProvider>();
     final user = authProvider.currentUser;
 
     if (user == null) {
@@ -51,7 +52,7 @@ class _TipModalState extends State<TipModal> {
     }
 
     if (_selectedAmount > user.balance) {
-      _showError('Insufficient RooCoin balance');
+      _showError('Insufficient Rooken balance');
       return;
     }
 
@@ -62,43 +63,52 @@ class _TipModalState extends State<TipModal> {
 
     setState(() => _isProcessing = true);
 
-    // 1. Perform the transfer
-    final success = await userProvider.transferRoo(
-      fromUserId: user.id,
-      toUsername: widget.post.author.username,
-      amount: _selectedAmount,
-      memo: 'Tip for post: ${widget.post.content.split('\n').first}',
-      referencePostId: widget.post.id,
-      metadata: {'activityType': 'tip'},
-    );
+    try {
+      // 1. Perform the transfer
+      final success = await userProvider.transferRoo(
+        fromUserId: user.id,
+        toUsername: widget.post.author.username,
+        amount: _selectedAmount,
+        memo: 'Tip for post: ${widget.post.content.split('\n').first}',
+        referencePostId: widget.post.id,
+        metadata: {'activityType': 'tip'},
+      );
 
-    if (success) {
-      // 2. Update post tip total
-      await feedProvider.tipPost(widget.post.id, _selectedAmount);
+      if (success) {
+        // 2. Update post tip total
+        await feedProvider.tipPost(widget.post.id, _selectedAmount);
 
-      // 3. Refresh wallet balance across the app
-      if (mounted) {
-        context.read<WalletProvider>().loadWallet(user.id);
-        // Also refresh AuthProvider to ensure balance updates in this modal
-        context.read<AuthProvider>().reloadCurrentUser();
-      }
+        // 3. Refresh wallet balance across the app (use refreshWallet to sync from blockchain)
+        if (mounted) {
+          await walletProvider.refreshWallet(user.id);
+          // Also refresh AuthProvider to ensure balance updates in this modal
+          await authProvider.reloadCurrentUser();
+        }
 
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Sent ${_selectedAmount.toStringAsFixed(0)} ROO tip!',
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Sent ${_selectedAmount.toStringAsFixed(0)} ROO tip!',
+              ),
+              backgroundColor: Colors.green.shade600,
+              behavior: SnackBarBehavior.floating,
             ),
-            backgroundColor: Colors.green.shade600,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+          );
+        }
+      } else {
+        if (mounted) {
+          _showError(userProvider.error ?? 'Failed to send tip');
+        }
       }
-    } else {
+    } catch (e) {
+      if (mounted) {
+        _showError('Failed to send tip: ${e.toString()}');
+      }
+    } finally {
       if (mounted) {
         setState(() => _isProcessing = false);
-        _showError(userProvider.error ?? 'Failed to send tip');
       }
     }
   }
@@ -187,7 +197,7 @@ class _TipModalState extends State<TipModal> {
                   const SizedBox(height: 16),
 
                   Text(
-                    'Send RooCoin Tip',
+                    'Send Rooken Tip',
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: colors.onSurface,

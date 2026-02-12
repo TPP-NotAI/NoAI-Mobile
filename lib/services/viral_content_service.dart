@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 
 /// Service to detect and reward viral content
 class ViralContentService {
@@ -10,15 +10,11 @@ class ViralContentService {
   final _walletRepo = WalletRepository();
 
   // Viral thresholds
-  static const int viralLikeThreshold = 1000;
-  static const int viralRepostThreshold = 100;
-  static const int viralCommentThreshold = 200;
+  static const int viralViewThreshold = 10000;
 
   /// Check if a post has gone viral and reward if not already rewarded
   /// A post is considered viral if it has:
-  /// - 1000+ likes OR
-  /// - 100+ reposts OR
-  /// - 200+ comments
+  /// - 10,000+ views
   Future<bool> checkAndRewardViralPost(String postId, String authorId) async {
     try {
       // Check if already rewarded for this post
@@ -28,7 +24,7 @@ class ViralContentService {
           .eq('to_user_id', authorId)
           .eq('reference_post_id', postId)
           .contains('metadata', {
-            'activityType': RoocoinActivityType.contentViral,
+            'activityType': RookenActivityType.contentViral,
           })
           .maybeSingle();
 
@@ -42,43 +38,29 @@ class ViralContentService {
       // Get post engagement metrics
       final post = await _client
           .from(SupabaseConfig.postsTable)
-          .select('id, author_id, likes_count, comments_count')
+          .select('id, author_id, views_count')
           .eq('id', postId)
           .single();
-
-      // Get repost count
-      final reposts = await _client
-          .from(SupabaseConfig.repostsTable)
-          .select('id')
-          .eq('post_id', postId);
-
-      final likesCount = post['likes_count'] as int? ?? 0;
-      final commentsCount = post['comments_count'] as int? ?? 0;
-      final repostsCount = (reposts as List).length;
+      final viewsCount = post['views_count'] as int? ?? 0;
 
       // Check if viral
-      final isViral =
-          likesCount >= viralLikeThreshold ||
-          repostsCount >= viralRepostThreshold ||
-          commentsCount >= viralCommentThreshold;
+      final isViral = viewsCount >= viralViewThreshold;
 
       if (isViral) {
-        // Award 100 ROO for viral content
+        // Award 100 ROOK for viral content
         await _walletRepo.earnRoo(
           userId: authorId,
-          activityType: RoocoinActivityType.contentViral,
+          activityType: RookenActivityType.contentViral,
           referencePostId: postId,
           metadata: {
-            'likes': likesCount,
-            'reposts': repostsCount,
-            'comments': commentsCount,
+            'views': viewsCount,
             'viral_date': DateTime.now().toIso8601String(),
           },
         );
 
         debugPrint(
-          'ViralContentService: Awarded 100 ROO to $authorId for viral post $postId '
-          '(likes: $likesCount, reposts: $repostsCount, comments: $commentsCount)',
+          'ViralContentService: Awarded 100 ROOK to $authorId for viral post $postId '
+          '(views: $viewsCount)',
         );
         return true;
       }
@@ -95,55 +77,26 @@ class ViralContentService {
     try {
       final post = await _client
           .from(SupabaseConfig.postsTable)
-          .select('likes_count, comments_count')
+          .select('views_count')
           .eq('id', postId)
           .single();
-
-      final reposts = await _client
-          .from(SupabaseConfig.repostsTable)
-          .select('id')
-          .eq('post_id', postId);
-
-      final likesCount = post['likes_count'] as int? ?? 0;
-      final commentsCount = post['comments_count'] as int? ?? 0;
-      final repostsCount = (reposts as List).length;
-
-      final likesProgress = (likesCount / viralLikeThreshold * 100)
+      final viewsCount = post['views_count'] as int? ?? 0;
+      final viewsProgress = (viewsCount / viralViewThreshold * 100)
           .clamp(0, 100)
           .round();
-      final repostsProgress = (repostsCount / viralRepostThreshold * 100)
-          .clamp(0, 100)
-          .round();
-      final commentsProgress = (commentsCount / viralCommentThreshold * 100)
-          .clamp(0, 100)
-          .round();
-
-      final maxProgress = [
-        likesProgress,
-        repostsProgress,
-        commentsProgress,
-      ].reduce((a, b) => a > b ? a : b);
 
       return {
-        'overall_progress': maxProgress,
-        'likes_progress': likesProgress,
-        'reposts_progress': repostsProgress,
-        'comments_progress': commentsProgress,
-        'likes_count': likesCount,
-        'reposts_count': repostsCount,
-        'comments_count': commentsCount,
-        'is_viral': maxProgress >= 100,
+        'overall_progress': viewsProgress,
+        'views_progress': viewsProgress,
+        'views_count': viewsCount,
+        'is_viral': viewsProgress >= 100,
       };
     } catch (e) {
       debugPrint('ViralContentService: Error getting viral progress - $e');
       return {
         'overall_progress': 0,
-        'likes_progress': 0,
-        'reposts_progress': 0,
-        'comments_progress': 0,
-        'likes_count': 0,
-        'reposts_count': 0,
-        'comments_count': 0,
+        'views_progress': 0,
+        'views_count': 0,
         'is_viral': false,
       };
     }

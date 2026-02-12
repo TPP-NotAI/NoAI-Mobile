@@ -261,7 +261,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               height: AppSpacing.extraSmall.responsive(context),
                             ),
                             Text(
-                              'Manage your RooCoin assets and track yield performance.',
+                              'Manage your Rooken assets and track yield performance.',
                               style: TextStyle(
                                 color: colors.onSurfaceVariant,
                                 fontSize: AppTypography.responsiveFontSize(
@@ -460,7 +460,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Invite your friends to ROOVERSE and earn extra RooCoin for every verified human you refer!',
+                          'Invite your friends to ROOVERSE and earn extra Rooken for every verified human you refer!',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 13,

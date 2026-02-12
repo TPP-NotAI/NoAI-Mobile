@@ -11,7 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ai_detection_result.dart';
 import '../services/ai_detection_service.dart';
 import 'wallet_repository.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 
 /// Repository for post-related Supabase operations.
 class PostRepository {
@@ -554,16 +554,16 @@ class PostRepository {
       // Fetch the complete post with all relations
       final post = await getPost(postId, currentUserId: authorId);
 
-      // Award 10 ROO to the author for creating a post
+      // Award 10 ROOK to the author for creating a post
       try {
         final walletRepo = WalletRepository();
         await walletRepo.earnRoo(
           userId: authorId,
-          activityType: RoocoinActivityType.postCreate,
+          activityType: RookenActivityType.postCreate,
           referencePostId: postId,
         );
       } catch (e) {
-        debugPrint('PostRepository: Error awarding ROO for post creation - $e');
+        debugPrint('PostRepository: Error awarding ROOK for post creation - $e');
       }
 
       return post;
@@ -924,7 +924,7 @@ class PostRepository {
           .update(updates)
           .eq('id', postId);
 
-      // If approved, award ROO to the author
+      // If approved, award ROOK to the author
       if (action == 'approve') {
         try {
           final post = await _client
@@ -937,12 +937,12 @@ class PostRepository {
           final walletRepo = WalletRepository();
           await walletRepo.earnRoo(
             userId: authorId,
-            activityType: RoocoinActivityType.postCreate,
+            activityType: RookenActivityType.postCreate,
             referencePostId: postId,
           );
         } catch (e) {
           debugPrint(
-            'PostRepository: Error awarding ROO on moderation approval - $e',
+            'PostRepository: Error awarding ROOK on moderation approval - $e',
           );
         }
       }
@@ -1046,16 +1046,16 @@ class PostRepository {
           verificationMethod: 'verified',
           authenticityNotes: 'verified',
         );
-        // Award ROO for the post
+        // Award ROOK for the post
         try {
           final walletRepo = WalletRepository();
           await walletRepo.earnRoo(
             userId: authorId,
-            activityType: RoocoinActivityType.postCreate,
+            activityType: RookenActivityType.postCreate,
             referencePostId: postId,
           );
         } catch (e) {
-          debugPrint('PostRepository: Error awarding ROO for short post - $e');
+          debugPrint('PostRepository: Error awarding ROOK for short post - $e');
         }
         return 0.0;
       }
@@ -1146,12 +1146,12 @@ class PostRepository {
             final walletRepo = WalletRepository();
             await walletRepo.earnRoo(
               userId: authorId,
-              activityType: RoocoinActivityType.postCreate,
+              activityType: RookenActivityType.postCreate,
               referencePostId: postId,
             );
           } catch (e) {
             debugPrint(
-              'PostRepository: Error awarding ROO on auto-publish - $e',
+              'PostRepository: Error awarding ROOK on auto-publish - $e',
             );
           }
         }

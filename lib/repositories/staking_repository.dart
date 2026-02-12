@@ -1,21 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/staking.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 import '../services/secure_storage_service.dart';
 
 /// Repository for staking operations
 class StakingRepository {
   final SupabaseClient _supabase;
-  final RoocoinService _roocoinService;
+  final RookenService _rookenService;
   final SecureStorageService _secureStorage;
 
   StakingRepository({
     SupabaseClient? supabase,
-    RoocoinService? roocoinService,
+    RookenService? roocoinService,
     SecureStorageService? secureStorage,
   })  : _supabase = supabase ?? Supabase.instance.client,
-        _roocoinService = roocoinService ?? RoocoinService(),
+        _rookenService = roocoinService ?? RookenService(),
         _secureStorage = secureStorage ?? SecureStorageService();
 
   /// Get user's staking positions
@@ -84,7 +84,7 @@ class StakingRepository {
     }
   }
 
-  /// Stake ROO tokens
+  /// Stake ROOK tokens
   Future<StakePosition> stake({
     required String userId,
     required String tierId,
@@ -96,7 +96,7 @@ class StakingRepository {
     }
 
     if (amount < tier.minAmount) {
-      throw Exception('Minimum stake for ${tier.name} is ${tier.minAmount} ROO');
+      throw Exception('Minimum stake for ${tier.name} is ${tier.minAmount} ROOK');
     }
 
     // Get user's wallet
@@ -120,7 +120,7 @@ class StakingRepository {
     // Transfer to staking contract
     try {
       // Use the spend API to move funds to staking
-      await _roocoinService.spend(
+      await _rookenService.spend(
         userPrivateKey: privateKey,
         amount: amount,
         activityType: 'STAKE',
@@ -164,7 +164,7 @@ class StakingRepository {
     return StakePosition.fromSupabase(response);
   }
 
-  /// Unstake ROO tokens (for flexible tier or after lock period)
+  /// Unstake ROOK tokens (for flexible tier or after lock period)
   Future<void> unstake({
     required String userId,
     required String positionId,

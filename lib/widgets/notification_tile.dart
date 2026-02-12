@@ -245,9 +245,9 @@ class NotificationTile extends StatelessWidget {
       case 'reply':
         return 'replied to your comment';
       case 'roocoin_received':
-        return 'sent you RooCoin';
+        return 'sent you Rooken';
       case 'roocoin_sent':
-        return 'successfully sent RooCoin';
+        return 'successfully sent Rooken';
       case 'mention':
         return 'mentioned you';
       case 'follow':

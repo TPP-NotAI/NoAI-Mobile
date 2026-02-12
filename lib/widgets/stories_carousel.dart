@@ -136,8 +136,12 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
         username: userDisplayName,
         avatar: userAvatar,
         storyPreviewUrl: userStories.isNotEmpty
-            ? _resolveUrl(userStories.first.mediaUrl)
+            ? _getStoryPreviewUrl(userStories.first)
             : null,
+        backgroundColor: userStories.isNotEmpty
+            ? userStories.first.backgroundColor
+            : null,
+        isTextStory: userStories.isNotEmpty && userStories.first.mediaType == 'text',
         isCurrentUser: true,
         isViewed: true,
         onTap: () {
@@ -162,7 +166,9 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
           avatar:
               story.author.avatar ??
               'https://picsum.photos/100/100?random=${story.userId.hashCode}',
-          storyPreviewUrl: _resolveUrl(story.mediaUrl),
+          storyPreviewUrl: _getStoryPreviewUrl(story),
+          backgroundColor: story.backgroundColor,
+          isTextStory: story.mediaType == 'text',
           isViewed: story.isViewed,
           onTap: () {
             final provider = context.read<StoryProvider>();
@@ -514,12 +520,12 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                         final String? caption = captionController.text.trim().isEmpty
                             ? null
                             : captionController.text.trim();
-                        // If no media, treat as text-only story
+                        // If no media, treat as text-only story (pass empty list with textOverlay)
                         final success = await storyProvider.createStories(
-                          mediaItems: mediaInputs.isEmpty
-                              ? [StoryMediaInput(url: '', mediaType: 'text')]
-                              : mediaInputs,
-                          caption: caption,
+                          mediaItems: mediaInputs,
+                          caption: mediaInputs.isNotEmpty ? caption : null,
+                          textOverlay: mediaInputs.isEmpty ? caption : null,
+                          backgroundColor: mediaInputs.isEmpty ? '#000000' : null,
                         );
                         if (!mounted) return;
                         Navigator.of(dialogContext).pop();
@@ -1187,8 +1193,17 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
   }
 
   String _resolveUrl(String url) {
+    if (url.isEmpty) return '';
     if (url.startsWith('http')) return url;
     return '${SupabaseConfig.supabaseUrl}/storage/v1/object/public/${SupabaseConfig.postMediaBucket}/$url';
+  }
+
+  /// Get preview URL for a story, returns null for text-only stories
+  String? _getStoryPreviewUrl(Story story) {
+    if (story.mediaType == 'text' || story.mediaUrl.isEmpty) {
+      return null;
+    }
+    return _resolveUrl(story.mediaUrl);
   }
 }
 

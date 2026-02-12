@@ -129,6 +129,7 @@ class StoryRepository {
   /// Create one or more stories for the current user.
   ///
   /// Each media item becomes its own story row. Stories expire 24h after creation.
+  /// For text-only stories, pass an empty mediaItems list with textOverlay set.
   Future<List<Story>> createStories({
     required String userId,
     required List<StoryMediaInput> mediaItems,
@@ -137,24 +138,48 @@ class StoryRepository {
     String? textOverlay,
     Map<String, dynamic>? textPosition,
   }) async {
-    if (mediaItems.isEmpty) return [];
     try {
       final expiresAt = DateTime.now().add(const Duration(hours: 24)).toUtc();
-      final payload = mediaItems
-          .map(
-            (media) => {
-              'user_id': userId,
-              'media_url': media.url,
-              'media_type': media.mediaType,
-              'caption': caption,
-              'background_color': backgroundColor,
-              'text_overlay': textOverlay,
-              'text_position': textPosition,
-              'expires_at': expiresAt.toIso8601String(),
-              'status': 'review', // Start under review for AI moderation
-            },
-          )
-          .toList();
+
+      List<Map<String, dynamic>> payload;
+
+      if (mediaItems.isEmpty) {
+        // Text-only story
+        if (textOverlay == null || textOverlay.trim().isEmpty) {
+          debugPrint('StoryRepository: Cannot create empty story without media or text');
+          return [];
+        }
+        payload = [
+          {
+            'user_id': userId,
+            'media_url': null,
+            'media_type': 'text',
+            'caption': caption,
+            'background_color': backgroundColor ?? '#000000',
+            'text_overlay': textOverlay,
+            'text_position': textPosition,
+            'expires_at': expiresAt.toIso8601String(),
+            'status': 'review', // Start under review for AI moderation
+          },
+        ];
+      } else {
+        // Media stories
+        payload = mediaItems
+            .map(
+              (media) => {
+                'user_id': userId,
+                'media_url': media.url,
+                'media_type': media.mediaType,
+                'caption': caption,
+                'background_color': backgroundColor,
+                'text_overlay': textOverlay,
+                'text_position': textPosition,
+                'expires_at': expiresAt.toIso8601String(),
+                'status': 'review', // Start under review for AI moderation
+              },
+            )
+            .toList();
+      }
 
       final response = await _client
           .from(SupabaseConfig.storiesTable)
@@ -315,7 +340,7 @@ class StoryRepository {
       final trimmedCaption = caption?.trim() ?? '';
       // Only run text detection if caption is long enough
       final hasText = trimmedCaption.length >= _minAiDetectionLength;
-      final hasMedia = mediaType == 'image' || mediaType == 'video';
+      final hasMedia = (mediaType == 'image' || mediaType == 'video') && mediaUrl.isNotEmpty;
 
       if (trimmedCaption.isNotEmpty && trimmedCaption.length < _minAiDetectionLength) {
         debugPrint(

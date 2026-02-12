@@ -222,7 +222,7 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          _buildSectionHeader(context, 'ROOCOIN WALLET'),
+          _buildSectionHeader(context, 'ROOKEN WALLET'),
           _buildSettingsTile(
             context,
             icon: Icons.account_balance_wallet,

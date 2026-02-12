@@ -3,7 +3,7 @@ import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
 import 'notification_repository.dart';
 import 'wallet_repository.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 import '../services/viral_content_service.dart';
 
 /// Repository for repost operations.
@@ -75,26 +75,26 @@ class RepostRepository {
             actorId: userId,
             postId: postId,
           );
+        }
 
-          // Award 5 ROO to post author for receiving a repost
-          try {
-            final walletRepo = WalletRepository();
-            await walletRepo.earnRoo(
-              userId: postAuthorId,
-              activityType: RoocoinActivityType.postShare,
-              referencePostId: postId,
-            );
-          } catch (e) {
-            debugPrint('RepostRepository: Error awarding ROO for repost - $e');
-          }
+        // Award 5 ROOK to the user who reposted
+        try {
+          final walletRepo = WalletRepository();
+          await walletRepo.earnRoo(
+            userId: userId,
+            activityType: RookenActivityType.postShare,
+            referencePostId: postId,
+          );
+        } catch (e) {
+          debugPrint('RepostRepository: Error awarding ROOK for repost - $e');
+        }
 
-          // Check if post has gone viral and award bonus
-          try {
-            final viralService = ViralContentService();
-            await viralService.checkAndRewardViralPost(postId, postAuthorId);
-          } catch (e) {
-            debugPrint('RepostRepository: Error checking viral status - $e');
-          }
+        // Check if post has gone viral and award bonus
+        try {
+          final viralService = ViralContentService();
+          await viralService.checkAndRewardViralPost(postId, postAuthorId);
+        } catch (e) {
+          debugPrint('RepostRepository: Error checking viral status - $e');
         }
       } catch (e) {
         debugPrint('RepostRepository: Error creating repost notification - $e');

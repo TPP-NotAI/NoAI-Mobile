@@ -2,7 +2,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'wallet.g.dart';
 
-/// Represents a user's Roocoin wallet
+/// Represents a user's Rooken wallet
 @JsonSerializable()
 class Wallet {
   final String userId;
@@ -117,9 +117,9 @@ class Wallet {
   }
 }
 
-/// Represents a Roocoin transaction
+/// Represents a Rooken transaction
 @JsonSerializable()
-class RoocoinTransaction {
+class RookenTransaction {
   final String id;
   final String txType;
   final String status;
@@ -137,7 +137,7 @@ class RoocoinTransaction {
   final DateTime? failedAt;
   final String? failureReason;
 
-  RoocoinTransaction({
+  RookenTransaction({
     required this.id,
     required this.txType,
     required this.status,
@@ -160,8 +160,8 @@ class RoocoinTransaction {
   bool get isCompleted => status == 'completed';
   bool get isFailed => status == 'failed';
 
-  factory RoocoinTransaction.fromSupabase(Map<String, dynamic> json) {
-    return RoocoinTransaction(
+  factory RookenTransaction.fromSupabase(Map<String, dynamic> json) {
+    return RookenTransaction(
       id: json['id'] as String,
       txType: json['tx_type'] as String,
       status: json['status'] as String,
@@ -185,7 +185,7 @@ class RoocoinTransaction {
     );
   }
 
-  factory RoocoinTransaction.fromJson(Map<String, dynamic> json) =>
-      _$RoocoinTransactionFromJson(json);
-  Map<String, dynamic> toJson() => _$RoocoinTransactionToJson(this);
+  factory RookenTransaction.fromJson(Map<String, dynamic> json) =>
+      _$RookenTransactionFromJson(json);
+  Map<String, dynamic> toJson() => _$RookenTransactionToJson(this);
 }

@@ -22,7 +22,6 @@ import '../../models/post.dart';
 import '../../services/supabase_service.dart';
 import '../../config/supabase_config.dart';
 import '../../services/storage_service.dart';
-import '../../services/roocoin_service.dart';
 import '../../services/kyc_verification_service.dart';
 import '../../utils/verification_utils.dart';
 import '../../widgets/verification_required_widget.dart';
@@ -759,7 +758,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${_postCostRoo.toStringAsFixed(_postCostRoo % 1 == 0 ? 0 : 2)} ROO will be used',
+                              'You will earn ${_postCostRoo.toStringAsFixed(_postCostRoo % 1 == 0 ? 0 : 2)} ROO',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.w600,
@@ -770,7 +769,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'This amount will be deducted from your wallet',
+                              'This amount will be added to your wallet',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: Theme.of(
@@ -1072,6 +1071,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       // Create the post
       if (!mounted) return;
       final feedProvider = context.read<FeedProvider>();
+      final currentUser = context.read<UserProvider>().currentUser;
       final titleText = _titleController.text.trim();
       final contentText = _contentController.text.trim();
 
@@ -1085,6 +1085,23 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final taggedIds = mentionedUserIds.isNotEmpty ? mentionedUserIds : null;
       final loc = _selectedLocation;
       final tagsList = allTags.isNotEmpty ? allTags : null;
+
+      final optimisticAuthor = currentUser == null
+          ? null
+          : PostAuthor(
+              userId: currentUser.id,
+              displayName: currentUser.displayName.isNotEmpty
+                  ? currentUser.displayName
+                  : currentUser.username,
+              username: currentUser.username,
+              avatar: currentUser.avatar ?? '',
+              isVerified: currentUser.verifiedHuman == 'verified',
+              postsVisibility: currentUser.postsVisibility,
+            );
+
+      final optimisticTags = tagsList == null
+          ? null
+          : tagsList.map((t) => PostTag(id: 'temp_$t', name: t)).toList();
 
       // 1. Clear form and draft immediately
       _contentController.clear();
@@ -1128,6 +1145,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             tags: tagsList,
             location: loc,
             mentionedUserIds: taggedIds,
+            optimisticAuthor: optimisticAuthor,
+            optimisticTags: optimisticTags,
           )
           .then((post) {
             if (post != null) {
@@ -1604,7 +1623,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     _optionCard(
                       context,
                       icon: Icons.token,
-                      title: 'Earn 5.00 RooCoin',
+                      title: 'Earn 5.00 Rooken',
                       subtitle: 'Reward for original content',
                     ),
                     const SizedBox(height: 16),

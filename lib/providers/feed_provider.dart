@@ -1169,12 +1169,32 @@ class FeedProvider with ChangeNotifier {
     List<String>? tags,
     String? location,
     List<String>? mentionedUserIds,
+    PostAuthor? optimisticAuthor,
+    List<PostTag>? optimisticTags,
   }) async {
     final userId = _currentUserId;
     if (userId == null) return null;
 
     // Require KYC verification before posting
     await _kycService.requireVerification();
+
+    String? tempId;
+    if (optimisticAuthor != null) {
+      tempId = 'temp_${DateTime.now().microsecondsSinceEpoch}';
+      final optimisticPost = Post(
+        id: tempId,
+        author: optimisticAuthor,
+        content: body,
+        title: title,
+        tags: optimisticTags,
+        location: location,
+        mentionedUserIds: mentionedUserIds,
+        timestamp: DateTime.now().toUtc().toIso8601String(),
+        status: 'under_review',
+      );
+      _posts.insert(0, optimisticPost);
+      notifyListeners();
+    }
 
     try {
       final newPost = await _postRepository.createPost(
@@ -1189,8 +1209,17 @@ class FeedProvider with ChangeNotifier {
       );
 
       if (newPost != null) {
-        // Add to the beginning of the feed
-        _posts.insert(0, newPost);
+        // Replace optimistic post if present, otherwise add to the beginning
+        if (tempId != null) {
+          final idx = _posts.indexWhere((p) => p.id == tempId);
+          if (idx != -1) {
+            _posts[idx] = newPost;
+          } else {
+            _posts.insert(0, newPost);
+          }
+        } else {
+          _posts.insert(0, newPost);
+        }
         notifyListeners();
 
         // Fire-and-forget: run AI detection in the background.
@@ -1242,6 +1271,10 @@ class FeedProvider with ChangeNotifier {
 
       return newPost;
     } catch (e) {
+      if (tempId != null) {
+        _posts.removeWhere((p) => p.id == tempId);
+        notifyListeners();
+      }
       debugPrint('Failed to create post: $e');
       return null;
     }

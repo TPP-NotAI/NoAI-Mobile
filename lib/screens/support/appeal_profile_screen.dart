@@ -20,7 +20,7 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
     'Verification Rejection',
     'Shadowban / Visibility',
     'Trust Score Correction',
-    'RooCoin Dispute',
+    'Rooken Dispute',
     'Account Restriction',
     'Other',
   ];

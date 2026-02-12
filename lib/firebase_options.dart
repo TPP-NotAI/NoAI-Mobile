@@ -41,46 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCBft77lb6MiCxugr4Wxncv4zwYTDjZmYc',
-    appId: '1:1089008641466:web:13e28ee9a9a6c570dea983',
-    messagingSenderId: '1089008641466',
-    projectId: 'rooverse',
-    authDomain: 'rooverse.firebaseapp.com',
-    storageBucket: 'rooverse.firebasestorage.app',
+    apiKey: 'AIzaSyAts41-7ShsHJFNXdofJdTE2wux0gV0TPE',
+    appId: '1:19404234607:web:c0f95e49dbe09c4b43129a',
+    messagingSenderId: '19404234607',
+    projectId: 'rooverse-production-760d4',
+    authDomain: 'rooverse-production-760d4.firebaseapp.com',
+    storageBucket: 'rooverse-production-760d4.firebasestorage.app',
+    measurementId: 'G-EBB6BB8DR1',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDbhI45H-K7nxeaJxkbyimks2UtOAGFawc',
-    appId: '1:1089008641466:android:2e9a3a33d165be83dea983',
-    messagingSenderId: '1089008641466',
-    projectId: 'rooverse',
-    storageBucket: 'rooverse.firebasestorage.app',
+    apiKey: 'AIzaSyAQO3DVtRn7lU22cO7R7gXIrtLwQqjzhEw',
+    appId: '1:19404234607:android:74063ed05b54833243129a',
+    messagingSenderId: '19404234607',
+    projectId: 'rooverse-production-760d4',
+    storageBucket: 'rooverse-production-760d4.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDiyvW-6OMBakh8hd-uP6Cw1yefdc2Junw',
-    appId: '1:1089008641466:ios:9ce3d1cc6bf8236cdea983',
-    messagingSenderId: '1089008641466',
-    projectId: 'rooverse',
-    storageBucket: 'rooverse.firebasestorage.app',
+    apiKey: 'AIzaSyBRedJq5n-da-pvIdfyGrTozzgGjCneerE',
+    appId: '1:19404234607:ios:42962657d6199d8043129a',
+    messagingSenderId: '19404234607',
+    projectId: 'rooverse-production-760d4',
+    storageBucket: 'rooverse-production-760d4.firebasestorage.app',
     iosBundleId: 'com.example.rooverse',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDiyvW-6OMBakh8hd-uP6Cw1yefdc2Junw',
-    appId: '1:1089008641466:ios:9ce3d1cc6bf8236cdea983',
-    messagingSenderId: '1089008641466',
-    projectId: 'rooverse',
-    storageBucket: 'rooverse.firebasestorage.app',
+    apiKey: 'AIzaSyBRedJq5n-da-pvIdfyGrTozzgGjCneerE',
+    appId: '1:19404234607:ios:42962657d6199d8043129a',
+    messagingSenderId: '19404234607',
+    projectId: 'rooverse-production-760d4',
+    storageBucket: 'rooverse-production-760d4.firebasestorage.app',
     iosBundleId: 'com.example.rooverse',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyCBft77lb6MiCxugr4Wxncv4zwYTDjZmYc',
-    appId: '1:1089008641466:web:aa1f8b94540a959fdea983',
-    messagingSenderId: '1089008641466',
-    projectId: 'rooverse',
-    authDomain: 'rooverse.firebaseapp.com',
-    storageBucket: 'rooverse.firebasestorage.app',
+    apiKey: 'AIzaSyAts41-7ShsHJFNXdofJdTE2wux0gV0TPE',
+    appId: '1:19404234607:web:2f9bda4fcd39b3ca43129a',
+    messagingSenderId: '19404234607',
+    projectId: 'rooverse-production-760d4',
+    authDomain: 'rooverse-production-760d4.firebaseapp.com',
+    storageBucket: 'rooverse-production-760d4.firebasestorage.app',
+    measurementId: 'G-VSF1T3KH7Z',
   );
+
 }

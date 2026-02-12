@@ -7,6 +7,8 @@ class StoryCard extends StatelessWidget {
   final String username;
   final String avatar;
   final String? storyPreviewUrl;
+  final String? backgroundColor;
+  final bool isTextStory;
   final bool isCurrentUser;
   final bool isViewed;
   final VoidCallback? onTap;
@@ -17,6 +19,8 @@ class StoryCard extends StatelessWidget {
     required this.username,
     required this.avatar,
     this.storyPreviewUrl,
+    this.backgroundColor,
+    this.isTextStory = false,
     this.isCurrentUser = false,
     this.isViewed = false,
     this.onTap,
@@ -78,25 +82,27 @@ class StoryCard extends StatelessWidget {
                       child: Padding(
                         padding: EdgeInsets.all(2.5.responsive(context)),
                         child: ClipOval(
-                          child: Image.network(
-                            storyPreviewUrl?.isNotEmpty == true
-                                ? storyPreviewUrl!
-                                : avatar,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: colors.surfaceVariant,
-                                child: Icon(
-                                  Icons.person,
-                                  color: colors.onSurfaceVariant,
-                                  size: AppTypography.responsiveIconSize(
-                                    context,
-                                    28,
-                                  ),
+                          child: isTextStory
+                              ? _buildTextStoryPreview(colors)
+                              : Image.network(
+                                  storyPreviewUrl?.isNotEmpty == true
+                                      ? storyPreviewUrl!
+                                      : avatar,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: colors.surfaceVariant,
+                                      child: Icon(
+                                        Icons.person,
+                                        color: colors.onSurfaceVariant,
+                                        size: AppTypography.responsiveIconSize(
+                                          context,
+                                          28,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                          ),
                         ),
                       ),
                     ),
@@ -145,6 +151,27 @@ class StoryCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextStoryPreview(ColorScheme colors) {
+    Color bgColor = colors.primary;
+    if (backgroundColor != null && backgroundColor!.isNotEmpty) {
+      try {
+        final colorStr = backgroundColor!.replaceFirst('#', '');
+        bgColor = Color(int.parse('FF$colorStr', radix: 16));
+      } catch (_) {}
+    }
+
+    return Container(
+      color: bgColor,
+      child: Center(
+        child: Icon(
+          Icons.text_fields,
+          color: Colors.white.withOpacity(0.8),
+          size: 24,
         ),
       ),
     );

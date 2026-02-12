@@ -241,7 +241,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           isOwn: isOwnProfile,
                           isFollowing: isFollowing,
                         ),
-                        _RooCoinBalance(user: user, colors: colors),
+                        _RookenBalance(user: user, colors: colors),
                         const SizedBox(height: 16),
                         _ActionRow(
                           isOwn: isOwnProfile,
@@ -709,13 +709,13 @@ class _AchievementBadge extends StatelessWidget {
   }
 }
 
-/* ───────────────── ROOCOIN BALANCE ───────────────── */
+/* ───────────────── ROOKEN BALANCE ───────────────── */
 
-class _RooCoinBalance extends StatelessWidget {
+class _RookenBalance extends StatelessWidget {
   final dynamic user;
   final ColorScheme colors;
 
-  const _RooCoinBalance({required this.user, required this.colors});
+  const _RookenBalance({required this.user, required this.colors});
 
   @override
   Widget build(BuildContext context) {
@@ -724,7 +724,7 @@ class _RooCoinBalance extends StatelessWidget {
       children: [
         const SizedBox(height: 16),
         Text(
-          'RooCoin Balance',
+          'Rooken Balance',
           style: TextStyle(
             fontSize: 13,
             color: colors.onSurfaceVariant,
@@ -1211,11 +1211,11 @@ class _ActivityItem extends StatelessWidget {
         return Icons.repeat;
       case UserActivityType.userFollowed:
         return Icons.person_add;
-      case UserActivityType.roocoinEarned:
+      case UserActivityType.rookenEarned:
         return Icons.add_circle;
-      case UserActivityType.roocoinSpent:
+      case UserActivityType.rookenSpent:
         return Icons.remove_circle;
-      case UserActivityType.roocoinTransferred:
+      case UserActivityType.rookenTransferred:
         return Icons.send;
       case UserActivityType.storyCreated:
         return Icons.auto_stories;
@@ -1236,11 +1236,11 @@ class _ActivityItem extends StatelessWidget {
         return const Color(0xFF10B981); // green
       case UserActivityType.userFollowed:
         return const Color(0xFFF59E0B); // amber
-      case UserActivityType.roocoinEarned:
+      case UserActivityType.rookenEarned:
         return const Color(0xFF10B981); // green
-      case UserActivityType.roocoinSpent:
+      case UserActivityType.rookenSpent:
         return const Color(0xFFEF4444); // red
-      case UserActivityType.roocoinTransferred:
+      case UserActivityType.rookenTransferred:
         return const Color(0xFFF59E0B); // amber
       case UserActivityType.storyCreated:
         return const Color(0xFFEC4899); // pink
@@ -1401,8 +1401,8 @@ class _Statistics extends StatelessWidget {
       sliver: SliverList(
         delegate: SliverChildListDelegate([
           _StatItem(
-            label: 'Total Posts',
-            value: user.postsCount.toString(),
+            label: 'Approved Posts',
+            value: user.humanVerifiedPostsCount.toString(),
             colors: colors,
           ),
           const SizedBox(height: 12),
@@ -1453,7 +1453,7 @@ class _Statistics extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _StatItem(
-            label: 'RooCoin Balance',
+            label: 'Rooken Balance',
             value: user.balance.toStringAsFixed(1),
             colors: colors,
           ),

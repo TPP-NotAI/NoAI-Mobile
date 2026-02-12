@@ -87,7 +87,7 @@ class WelcomeDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your human-only social platform powered by RooCoin',
+                    'Your human-only social platform powered by Rooken',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 14,

@@ -495,21 +495,56 @@ class _StoryViewerState extends State<StoryViewer>
   }
 
   Widget _buildStoryContent(Story story) {
+    // Parse background color
+    Color bgColor = Colors.black;
+    if (story.backgroundColor != null && story.backgroundColor!.isNotEmpty) {
+      try {
+        final colorStr = story.backgroundColor!.replaceFirst('#', '');
+        bgColor = Color(int.parse('FF$colorStr', radix: 16));
+      } catch (_) {}
+    }
+
     return Container(
-      color: Colors.black,
+      color: bgColor,
       child: Center(
-        child: story.mediaType == 'video'
-            ? VideoPlayerWidget(videoUrl: _resolveUrl(story.mediaUrl))
-            : Image.network(
-                _resolveUrl(story.mediaUrl),
-                fit: BoxFit.contain,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return const Center(
-                    child: CircularProgressIndicator(color: Colors.white24),
-                  );
-                },
-              ),
+        child: story.mediaType == 'text'
+            // Text-only story - show text overlay centered
+            ? Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  story.textOverlay ?? story.caption ?? '',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              )
+            : story.mediaType == 'video'
+                ? VideoPlayerWidget(videoUrl: _resolveUrl(story.mediaUrl))
+                : story.mediaUrl.isNotEmpty
+                    ? Image.network(
+                        _resolveUrl(story.mediaUrl),
+                        fit: BoxFit.contain,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return const Center(
+                            child: CircularProgressIndicator(color: Colors.white24),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Icon(
+                              Icons.broken_image,
+                              color: Colors.white54,
+                              size: 64,
+                            ),
+                          );
+                        },
+                      )
+                    : const SizedBox.shrink(),
       ),
     );
   }

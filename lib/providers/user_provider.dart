@@ -514,30 +514,29 @@ class UserProvider with ChangeNotifier {
         );
       }
 
-      // Fetch RooCoin transactions
+      // Fetch Rooken transactions
       final transactionsResponse = await _supabase.client
           .from(SupabaseConfig.roocoinTransactionsTable)
           .select(
-            'id, created_at, amount, transaction_type, from_user_id, to_user_id',
+            'id, created_at, amount_rc, tx_type, from_user_id, to_user_id',
           )
           .or('from_user_id.eq.$userId,to_user_id.eq.$userId')
           .order('created_at', ascending: false)
           .limit(limit);
 
       for (final tx in transactionsResponse) {
-        final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+        final amount = (tx['amount_rc'] as num?)?.toDouble() ?? 0.0;
         final isReceived = tx['to_user_id'] == userId;
-        final isTransfer =
-            tx['transaction_type'] == 'transfer' ||
-            tx['transaction_type'] == 'tip';
+        final txType = tx['tx_type'] as String?;
+        final isTransfer = txType == 'transfer' || txType == 'tip';
 
         UserActivityType activityType;
         if (isTransfer && !isReceived) {
-          activityType = UserActivityType.roocoinTransferred;
+          activityType = UserActivityType.rookenTransferred;
         } else if (isReceived) {
-          activityType = UserActivityType.roocoinEarned;
+          activityType = UserActivityType.rookenEarned;
         } else {
-          activityType = UserActivityType.roocoinSpent;
+          activityType = UserActivityType.rookenSpent;
         }
 
         activities.add(
@@ -546,7 +545,7 @@ class UserProvider with ChangeNotifier {
             type: activityType,
             timestamp: DateTime.parse(tx['created_at']),
             amount: amount,
-            transactionType: tx['transaction_type'],
+            transactionType: txType,
           ),
         );
       }

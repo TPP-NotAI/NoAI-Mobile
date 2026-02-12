@@ -103,10 +103,10 @@ class TermsOfServiceScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            _buildSectionTitle(context, '3. RooCoin & Virtual Currency'),
+            _buildSectionTitle(context, '3. Rooken & Virtual Currency'),
             _buildParagraph(
               context,
-              'RooCoin (ROO) is the native token of the ROOVERSE ecosystem. By using RooCoin, you acknowledge:',
+              'Rooken (ROO) is the native token of the ROOVERSE ecosystem. By using Rooken, you acknowledge:',
             ),
             _buildBulletPoint(
               context,

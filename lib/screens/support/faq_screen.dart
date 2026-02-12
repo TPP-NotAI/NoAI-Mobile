@@ -89,24 +89,24 @@ class FAQScreen extends StatelessWidget {
 
             _buildFAQCategory(
               context,
-              'RooCoin & Rewards',
+              'Rooken & Rewards',
               Icons.toll,
               const Color(0xFF10B981),
               [
                 _FAQItem(
-                  question: 'What is RooCoin (ROO)?',
+                  question: 'What is Rooken (ROO)?',
                   answer:
-                      'RooCoin is ROOVERSE\'s native cryptocurrency token. You earn ROO by posting quality content, engaging authentically, and contributing to the community.',
+                      'Rooken is ROOVERSE\'s native cryptocurrency token. You earn ROO by posting quality content, engaging authentically, and contributing to the community.',
                 ),
                 _FAQItem(
-                  question: 'How do I earn RooCoin?',
+                  question: 'How do I earn Rooken?',
                   answer:
                       'You earn ROO by posting original content, receiving tips, accurate moderation, and participation.',
                 ),
                 _FAQItem(
-                  question: 'Can I convert RooCoin to real money?',
+                  question: 'Can I convert Rooken to real money?',
                   answer:
-                      'RooCoin can be traded on supported cryptocurrency exchanges, subject to local regulations.',
+                      'Rooken can be traded on supported cryptocurrency exchanges, subject to local regulations.',
                 ),
                 _FAQItem(
                   question: 'What is staking?',

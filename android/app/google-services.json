@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "1089008641466",
-    "project_id": "rooverse",
-    "storage_bucket": "rooverse.firebasestorage.app"
+    "project_number": "19404234607",
+    "project_id": "rooverse-production-760d4",
+    "storage_bucket": "rooverse-production-760d4.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1089008641466:android:2e9a3a33d165be83dea983",
+        "mobilesdk_app_id": "1:19404234607:android:74063ed05b54833243129a",
         "android_client_info": {
           "package_name": "com.example.rooverse"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDbhI45H-K7nxeaJxkbyimks2UtOAGFawc"
+          "current_key": "AIzaSyAQO3DVtRn7lU22cO7R7gXIrtLwQqjzhEw"
         }
       ],
       "services": {

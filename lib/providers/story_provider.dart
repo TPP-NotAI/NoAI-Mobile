@@ -149,6 +149,7 @@ class StoryProvider extends ChangeNotifier {
   }
 
   /// Create multiple stories from a batch of media uploads.
+  /// For text-only stories, pass an empty mediaItems list with textOverlay set.
   Future<List<Story>> createStories({
     required List<StoryMediaInput> mediaItems,
     String? caption,
@@ -157,7 +158,12 @@ class StoryProvider extends ChangeNotifier {
     Map<String, dynamic>? textPosition,
   }) async {
     final userId = _supabase.currentUser?.id;
-    if (userId == null || mediaItems.isEmpty) return [];
+    if (userId == null) return [];
+
+    // Allow empty mediaItems for text-only stories (must have textOverlay)
+    if (mediaItems.isEmpty && (textOverlay == null || textOverlay.trim().isEmpty)) {
+      return [];
+    }
 
     _isLoading = true;
     notifyListeners();
@@ -178,12 +184,10 @@ class StoryProvider extends ChangeNotifier {
 
         // Trigger AI detection for each
         for (int i = 0; i < newStories.length; i++) {
-          _triggerAiDetection(
-            newStories[i],
-            mediaItems[i].url,
-            mediaItems[i].mediaType,
-            caption,
-          );
+          final story = newStories[i];
+          final mediaUrl = i < mediaItems.length ? mediaItems[i].url : '';
+          final mediaType = i < mediaItems.length ? mediaItems[i].mediaType : 'text';
+          _triggerAiDetection(story, mediaUrl, mediaType, caption ?? textOverlay);
         }
       }
 
@@ -196,6 +200,21 @@ class StoryProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Create a text-only story without media.
+  Future<Story?> createTextStory({
+    required String text,
+    String? backgroundColor,
+    Map<String, dynamic>? textPosition,
+  }) async {
+    final stories = await createStories(
+      mediaItems: [],
+      textOverlay: text,
+      backgroundColor: backgroundColor ?? '#000000',
+      textPosition: textPosition,
+    );
+    return stories.isNotEmpty ? stories.first : null;
   }
 
   Future<void> _triggerAiDetection(

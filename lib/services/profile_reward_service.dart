@@ -2,14 +2,14 @@ import 'package:flutter/foundation.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 
 /// Helper service to track and reward profile completion milestones
 class ProfileRewardService {
   final _client = SupabaseService().client;
   final _walletRepo = WalletRepository();
 
-  /// Check if profile is complete and award ROO if not already rewarded
+  /// Check if profile is complete and award ROOK if not already rewarded
   /// Profile is considered complete if user has:
   /// - Display name
   /// - Bio
@@ -23,7 +23,7 @@ class ProfileRewardService {
           .select('id')
           .eq('to_user_id', userId)
           .contains('metadata', {
-            'activityType': RoocoinActivityType.profileComplete,
+            'activityType': RookenActivityType.profileComplete,
           })
           .maybeSingle();
 
@@ -58,14 +58,14 @@ class ProfileRewardService {
       final isComplete = hasDisplayName && hasBio && hasAvatar && hasSocialLink;
 
       if (isComplete) {
-        // Award 25 ROO for profile completion
+        // Award 25 ROOK for profile completion
         await _walletRepo.earnRoo(
           userId: userId,
-          activityType: RoocoinActivityType.profileComplete,
+          activityType: RookenActivityType.profileComplete,
           metadata: {'completion_date': DateTime.now().toIso8601String()},
         );
         debugPrint(
-          'ProfileRewardService: Awarded 25 ROO to $userId for profile completion',
+          'ProfileRewardService: Awarded 25 ROOK to $userId for profile completion',
         );
         return true;
       }

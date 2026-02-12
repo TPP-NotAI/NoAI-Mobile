@@ -22,7 +22,7 @@ import 'mention_rich_text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 import '../services/kyc_verification_service.dart';
 import 'tip_modal.dart';
 
@@ -183,9 +183,11 @@ class PostCard extends StatelessWidget {
 
             _Content(post: post),
 
+            if (post.hasMedia) _MediaGridView(post: post),
+
             if (post.tags != null && post.tags!.isNotEmpty)
               Padding(
-                padding: AppSpacing.responsiveLTRB(context, 16, 0, 16, 8),
+                padding: AppSpacing.responsiveLTRB(context, 16, 8, 16, 8),
                 child: Wrap(
                   spacing: AppSpacing.mediumSmall.responsive(context),
                   runSpacing: AppSpacing.extraSmall.responsive(context),
@@ -209,8 +211,6 @@ class PostCard extends StatelessWidget {
                   }).toList(),
                 ),
               ),
-
-            if (post.hasMedia) _MediaGridView(post: post),
 
             _Actions(
               post: post,
@@ -423,68 +423,69 @@ class _HeaderState extends State<_Header> {
                   ),
 
                   SizedBox(height: AppSpacing.extraSmall.responsive(context)),
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        humanReadableTime(post.timestamp),
-                        style: TextStyle(
-                          fontSize: AppTypography.responsiveFontSize(
-                            context,
-                            11,
+                      Row(
+                        children: [
+                          Text(
+                            humanReadableTime(post.timestamp),
+                            style: TextStyle(
+                              fontSize: AppTypography.responsiveFontSize(
+                                context,
+                                11,
+                              ),
+                              color:
+                                  colors.onSurfaceVariant.withValues(alpha: 0.7),
+                            ),
                           ),
-                          color: colors.onSurfaceVariant.withValues(alpha: 0.7),
-                        ),
-                      ),
-                      SizedBox(width: AppSpacing.small.responsive(context)),
-                      _MlScoreBadge(
-                        score: post.aiConfidenceScore,
-                        isModerated: post.status == 'under_review',
+                          SizedBox(width: AppSpacing.small.responsive(context)),
+                          _MlScoreBadge(
+                            score: post.aiConfidenceScore,
+                            isModerated: post.status == 'under_review',
+                          ),
+                        ],
                       ),
                       if (post.location != null &&
                           post.location!.isNotEmpty) ...[
-                        Text(
-                          ' · ',
-                          style: TextStyle(
-                            fontSize: AppTypography.responsiveFontSize(
-                              context,
-                              11,
+                        SizedBox(height: 2.responsive(context)),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              size:
+                                  AppTypography.responsiveIconSize(context, 12),
+                              color: colors.onSurfaceVariant.withValues(
+                                alpha: 0.7,
+                              ),
                             ),
-                            color: colors.onSurfaceVariant.withValues(
-                              alpha: 0.7,
+                            SizedBox(width: 2.responsive(context)),
+                            Flexible(
+                              child: _isLoadingLocation
+                                  ? SizedBox(
+                                      width: 12.responsive(context),
+                                      height: 12.responsive(context),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5,
+                                        color: colors.onSurfaceVariant
+                                            .withValues(alpha: 0.7),
+                                      ),
+                                    )
+                                  : Text(
+                                      _displayLocation ?? post.location!,
+                                      style: TextStyle(
+                                        fontSize:
+                                            AppTypography.responsiveFontSize(
+                                          context,
+                                          11,
+                                        ),
+                                        color: colors.onSurfaceVariant
+                                            .withValues(alpha: 0.7),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                             ),
-                          ),
-                        ),
-                        Icon(
-                          Icons.location_on,
-                          size: AppTypography.responsiveIconSize(context, 12),
-                          color: colors.onSurfaceVariant.withValues(alpha: 0.7),
-                        ),
-                        SizedBox(width: 2.responsive(context)),
-                        Flexible(
-                          child: _isLoadingLocation
-                              ? SizedBox(
-                                  width: 12.responsive(context),
-                                  height: 12.responsive(context),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 1.5,
-                                    color: colors.onSurfaceVariant.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                  ),
-                                )
-                              : Text(
-                                  _displayLocation ?? post.location!,
-                                  style: TextStyle(
-                                    fontSize: AppTypography.responsiveFontSize(
-                                      context,
-                                      11,
-                                    ),
-                                    color: colors.onSurfaceVariant.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                          ],
                         ),
                       ],
                     ],
@@ -1358,6 +1359,8 @@ class _Actions extends StatelessWidget {
 
   void _handleShare(BuildContext context) async {
     try {
+      final currentUserId = context.read<AuthProvider>().currentUser?.id;
+
       // Create share text
       final shareText = post.title != null && post.title!.isNotEmpty
           ? '${post.title}\n\n${post.content}\n\nShared from ROOVERSE'
@@ -1369,17 +1372,17 @@ class _Actions extends StatelessWidget {
         subject: post.title ?? 'Check out this post on ROOVERSE',
       );
 
-      // Award 5 ROO to post author for the share
-      if (post.authorId.isNotEmpty) {
+      // Award 5 ROO to the user who shared the post
+      if (currentUserId != null && currentUserId.isNotEmpty) {
         try {
           final walletRepo = WalletRepository();
           await walletRepo.earnRoo(
-            userId: post.authorId,
-            activityType: RoocoinActivityType.postShare,
+            userId: currentUserId,
+            activityType: RookenActivityType.postShare,
             referencePostId: post.id,
           );
         } catch (e) {
-          debugPrint('Error awarding share ROO: $e');
+          debugPrint('Error awarding share ROOK: $e');
         }
       }
 
@@ -1389,7 +1392,7 @@ class _Actions extends StatelessWidget {
           ..clearSnackBars()
           ..showSnackBar(
             const SnackBar(
-              content: Text('Post shared! Author earned 5 ROO 🎉'),
+              content: Text('Post shared! You earned 5 ROOK.'),
               duration: Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
             ),

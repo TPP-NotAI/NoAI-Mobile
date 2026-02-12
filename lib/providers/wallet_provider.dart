@@ -2,13 +2,13 @@ import 'package:flutter/foundation.dart';
 import '../core/extensions/exception_extensions.dart';
 import '../models/wallet.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/roocoin_service.dart';
+import '../services/rooken_service.dart';
 
 class WalletProvider with ChangeNotifier {
   final WalletRepository _walletRepository;
 
   Wallet? _wallet;
-  List<RoocoinTransaction> _transactions = [];
+  List<RookenTransaction> _transactions = [];
   bool _isLoading = false;
   String? _error;
   bool _isNetworkOnline = true;
@@ -18,7 +18,7 @@ class WalletProvider with ChangeNotifier {
     : _walletRepository = walletRepository ?? WalletRepository();
 
   Wallet? get wallet => _wallet;
-  List<RoocoinTransaction> get transactions => _transactions;
+  List<RookenTransaction> get transactions => _transactions;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isNetworkOnline => _isNetworkOnline;
@@ -159,7 +159,7 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  /// Spend ROO (e.g. for creating a post)
+  /// Spend ROOK (e.g. for creating a post)
   Future<bool> spendRoo({
     required String userId,
     required double amount,
@@ -191,7 +191,7 @@ class WalletProvider with ChangeNotifier {
       await loadWallet(userId);
       return true;
     } catch (e) {
-      debugPrint('Error spending ROO: $e');
+      debugPrint('Error spending ROOK: $e');
       _error = e.userMessage;
       return false;
     } finally {
@@ -227,8 +227,7 @@ class WalletProvider with ChangeNotifier {
         metadata: metadata,
       );
 
-      _wallet = await _walletRepository.syncBalance(userId);
-      await fetchTransactions(userId);
+      await loadWallet(userId);
       return true;
     } catch (e) {
       debugPrint('Error transferring: $e');
@@ -240,7 +239,7 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  /// Earn ROO (e.g. from content creation)
+  /// Earn ROOK (e.g. from content creation)
   Future<bool> earnRoo({
     required String userId,
     required double amount,
@@ -265,7 +264,7 @@ class WalletProvider with ChangeNotifier {
       await loadWallet(userId);
       return true;
     } catch (e) {
-      debugPrint('Error earning ROO: $e');
+      debugPrint('Error earning ROOK: $e');
       _error = e.userMessage;
       return false;
     } finally {
@@ -282,7 +281,7 @@ class WalletProvider with ChangeNotifier {
     try {
       await _walletRepository.earnRoo(
         userId: userId,
-        activityType: RoocoinActivityType.dailyLogin,
+        activityType: RookenActivityType.dailyLogin,
       );
       await refreshWallet(userId);
     } catch (e) {

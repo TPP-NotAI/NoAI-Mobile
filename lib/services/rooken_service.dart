@@ -5,8 +5,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'supabase_service.dart';
 
-/// Service for interacting with the Roocoin API
-class RoocoinService {
+/// Service for interacting with the Rooken API
+class RookenService {
   static const String baseUrl = 'https://roocoin-production.up.railway.app';
 
   // Read API key from environment
@@ -17,7 +17,7 @@ class RoocoinService {
     }
     // Don't log full key for security
     debugPrint(
-      'RoocoinService: Using API key: ${key.substring(0, min(10, key.length))}...',
+      'RookenService: Using API key: ${key.substring(0, min(10, key.length))}...',
     );
     return key;
   }
@@ -46,7 +46,7 @@ class RoocoinService {
       maskedHeaders['Authorization'] = 'Bearer ***';
     }
 
-    debugPrint('RoocoinService: Computed headers: $maskedHeaders');
+    debugPrint('RookenService: Computed headers: $maskedHeaders');
     return headers;
   }
 
@@ -120,7 +120,7 @@ class RoocoinService {
 
         final delay = Duration(milliseconds: 2000 * attempts); // 2s, 4s, 6s...
         debugPrint(
-          'RoocoinService: $operationName failed (replacement underpriced). Retrying in ${delay.inSeconds}s (Attempt $attempts/$maxRetries)',
+          'RookenService: $operationName failed (replacement underpriced). Retrying in ${delay.inSeconds}s (Attempt $attempts/$maxRetries)',
         );
         await Future.delayed(delay);
       }
@@ -128,7 +128,7 @@ class RoocoinService {
   }
 
   /// Give test tokens to a wallet (testnet only)
-  /// Default: 100 ROO
+  /// Default: 100 ROOK
   Future<Map<String, dynamic>> requestFaucet({
     required String address,
     double amount = 100.0,
@@ -159,7 +159,7 @@ class RoocoinService {
         as Map<String, dynamic>;
   }
 
-  /// Deduct ROO for platform actions
+  /// Deduct ROOK for platform actions
   /// Check balance first
   /// Returns remaining balance
   Future<Map<String, dynamic>> spend({
@@ -185,18 +185,18 @@ class RoocoinService {
               return json.decode(response.body) as Map<String, dynamic>;
             } else {
               throw Exception(
-                'Failed to spend ROO: ${response.statusCode} - ${response.body}',
+                'Failed to spend ROOK: ${response.statusCode} - ${response.body}',
               );
             }
           } catch (e) {
-            debugPrint('Error spending ROO: $e');
+            debugPrint('Error spending ROOK: $e');
             rethrow;
           }
         }, operationName: 'spend')
         as Map<String, dynamic>;
   }
 
-  /// Peer-to-peer transfer - User sends ROO to another user on the platform
+  /// Peer-to-peer transfer - User sends ROOK to another user on the platform
   /// This endpoint is preferred for user-to-user transfers as it handles gas more efficiently.
   Future<Map<String, dynamic>> send({
     required String fromPrivateKey,
@@ -218,9 +218,9 @@ class RoocoinService {
               if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
             };
 
-            debugPrint('RoocoinService: Sending ROO via /api/wallet/send');
+            debugPrint('RookenService: Sending ROOK via /api/wallet/send');
             debugPrint(
-              'RoocoinService: Request Body: ${json.encode({...body, 'fromPrivateKey': '0x***${fromPrivateKey.substring(min(fromPrivateKey.length, 5))}'})}',
+              'RookenService: Request Body: ${json.encode({...body, 'fromPrivateKey': '0x***${fromPrivateKey.substring(min(fromPrivateKey.length, 5))}'})}',
             );
 
             final response = await http.post(
@@ -233,18 +233,18 @@ class RoocoinService {
               return json.decode(response.body) as Map<String, dynamic>;
             } else {
               throw Exception(
-                'Failed to send ROO: ${response.statusCode} - ${response.body}',
+                'Failed to send ROOK: ${response.statusCode} - ${response.body}',
               );
             }
           } catch (e) {
-            debugPrint('Error sending ROO: $e');
+            debugPrint('Error sending ROOK: $e');
             rethrow;
           }
         }, operationName: 'send')
         as Map<String, dynamic>;
   }
 
-  /// Transfer ROO to external wallet (e.g., MetaMask)
+  /// Transfer ROOK to external wallet (e.g., MetaMask)
 
   /// Distribute rewards to a user for activities
   Future<Map<String, dynamic>> distributeReward({
@@ -257,7 +257,7 @@ class RoocoinService {
             final headers = getHeaders();
 
             debugPrint(
-              'RoocoinService: Requesting reward with headers: $headers',
+              'RookenService: Requesting reward with headers: $headers',
             );
 
             final response = await http.post(
@@ -271,25 +271,25 @@ class RoocoinService {
             );
 
             debugPrint(
-              'RoocoinService: Response status: ${response.statusCode}',
+              'RookenService: Response status: ${response.statusCode}',
             );
-            debugPrint('RoocoinService: Response body: ${response.body}');
+            debugPrint('RookenService: Response body: ${response.body}');
 
             if (response.statusCode == 200) {
               return json.decode(response.body) as Map<String, dynamic>;
             } else if (response.statusCode == 403) {
               debugPrint(
-                'RoocoinService: API authentication failed. Please check ROOCOIN_API_KEY configuration.',
+                'RookenService: API authentication failed. Please check ROOCOIN_API_KEY configuration.',
               );
               throw Exception(
-                'Roocoin API authentication failed (403 - Invalid Token). Key rejected by server.',
+                'Rooken API authentication failed (403 - Invalid Token). Key rejected by server.',
               );
             } else if (response.statusCode == 401) {
               debugPrint(
-                'RoocoinService: API authentication failed (401). Header issue?',
+                'RookenService: API authentication failed (401). Header issue?',
               );
               throw Exception(
-                'Roocoin API authentication failed (401 - No token).',
+                'Rooken API authentication failed (401 - No token).',
               );
             } else {
               throw Exception(
@@ -349,18 +349,18 @@ class RoocoinService {
   }
 }
 
-/// Activity types for Roocoin rewards
-class RoocoinActivityType {
-  static const String postCreate = 'POST_CREATE'; // 10 ROO
-  static const String postLike = 'POST_LIKE'; // 0.1 ROO
-  static const String postComment = 'POST_COMMENT'; // 2 ROO
-  static const String postShare = 'POST_SHARE'; // 5 ROO
-  static const String referral = 'REFERRAL'; // 50 ROO
-  static const String profileComplete = 'PROFILE_COMPLETE'; // 25 ROO
+/// Activity types for Rooken rewards
+class RookenActivityType {
+  static const String postCreate = 'POST_CREATE'; // 10 ROOK
+  static const String postLike = 'POST_LIKE'; // 0.1 ROOK
+  static const String postComment = 'POST_COMMENT'; // 2 ROOK
+  static const String postShare = 'POST_SHARE'; // 5 ROOK
+  static const String referral = 'REFERRAL'; // 50 ROOK
+  static const String profileComplete = 'PROFILE_COMPLETE'; // 25 ROOK
   static const String dailyLogin =
-      'DAILY_LOGIN'; // 1 ROO (Note: Server currently returns 0.5)
-  static const String contentViral = 'CONTENT_VIRAL'; // 100 ROO
-  static const String welcomeBonus = 'WELCOME_BONUS'; // 100 ROO
+      'DAILY_LOGIN'; // 1 ROOK (Note: Server currently returns 0.5)
+  static const String contentViral = 'CONTENT_VIRAL'; // 100 ROOK
+  static const String welcomeBonus = 'WELCOME_BONUS'; // 100 ROOK
 
   static const Map<String, double> rewards = {
     postCreate: 10.0,

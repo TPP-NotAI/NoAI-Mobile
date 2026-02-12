@@ -297,6 +297,21 @@ CREATE TABLE public.creator_tiers (
   CONSTRAINT creator_tiers_pkey PRIMARY KEY (id),
   CONSTRAINT creator_tiers_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.profiles(user_id)
 );
+CREATE TABLE public.detections (
+  id uuid NOT NULL,
+  content_hash character varying,
+  content_type character varying NOT NULL,
+  content_preview text,
+  final_result character varying NOT NULL,
+  final_confidence numeric NOT NULL,
+  consensus_strength character varying NOT NULL,
+  models_used jsonb NOT NULL DEFAULT '[]'::jsonb,
+  model_results jsonb NOT NULL DEFAULT '[]'::jsonb,
+  combined_evidence jsonb NOT NULL DEFAULT '[]'::jsonb,
+  final_rationale text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT detections_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.dm_messages (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   thread_id uuid NOT NULL,
@@ -367,6 +382,18 @@ CREATE TABLE public.faq (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT faq_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.feedback (
+  id bigint NOT NULL DEFAULT nextval('feedback_id_seq'::regclass),
+  detection_id uuid,
+  correct_result character varying NOT NULL,
+  original_result character varying NOT NULL,
+  was_correct boolean NOT NULL,
+  feedback_notes text,
+  source character varying DEFAULT 'user'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT feedback_pkey PRIMARY KEY (id),
+  CONSTRAINT feedback_detection_id_fkey FOREIGN KEY (detection_id) REFERENCES public.detections(id)
+);
 CREATE TABLE public.follows (
   follower_id uuid NOT NULL,
   following_id uuid NOT NULL,
@@ -427,6 +454,17 @@ CREATE TABLE public.kyc_documents (
   CONSTRAINT kyc_documents_verification_id_fkey FOREIGN KEY (verification_id) REFERENCES public.human_verifications(id),
   CONSTRAINT kyc_documents_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
 );
+CREATE TABLE public.learned_patterns (
+  id bigint NOT NULL DEFAULT nextval('learned_patterns_id_seq'::regclass),
+  pattern_type character varying NOT NULL,
+  pattern_text character varying NOT NULL,
+  content_type character varying NOT NULL,
+  result_association character varying NOT NULL,
+  frequency integer DEFAULT 1,
+  accuracy_score numeric DEFAULT 0.50,
+  last_updated timestamp with time zone DEFAULT now(),
+  CONSTRAINT learned_patterns_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.legal_documents (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   type text NOT NULL UNIQUE CHECK (type = ANY (ARRAY['terms'::text, 'privacy'::text, 'cookies'::text, 'content_policy'::text, 'community_guidelines'::text])),
@@ -447,6 +485,14 @@ CREATE TABLE public.mentions (
   CONSTRAINT mentions_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
   CONSTRAINT mentions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id),
   CONSTRAINT mentions_mentioned_user_id_fkey FOREIGN KEY (mentioned_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.model_accuracy (
+  model_name character varying NOT NULL,
+  total_predictions integer DEFAULT 0,
+  correct_predictions integer DEFAULT 0,
+  accuracy numeric DEFAULT 0.0000,
+  last_updated timestamp with time zone DEFAULT now(),
+  CONSTRAINT model_accuracy_pkey PRIMARY KEY (model_name)
 );
 CREATE TABLE public.moderation_cases (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -713,7 +759,7 @@ CREATE TABLE public.profiles (
   cover_image_url text,
   website_url text,
   location text,
-  status USER-DEFINED NOT NULL DEFAULT 'pending_verification'::user_status,
+  status USER-DEFINED NOT NULL DEFAULT 'pending'::user_status,
   verified_human USER-DEFINED NOT NULL DEFAULT 'unverified'::verification_status,
   verification_method USER-DEFINED,
   verified_at timestamp with time zone,
