@@ -612,15 +612,13 @@ class CommentRepository {
       final result = await _aiDetectionService.detectText(trimmedBody);
 
       if (result != null) {
-        // Convert API confidence to AI probability (same logic as posts)
-        final bool isAiResult =
-            result.result == 'AI-GENERATED' ||
-            result.result == 'LIKELY AI-GENERATED';
+        // Result label is normalized to UPPER CASE in fromJson
+        final bool isAiResult = result.result.contains('AI');
         final double aiProbability = isAiResult
             ? result.confidence
             : 100 - result.confidence;
 
-        // Determine new status based on AI probability (aligned with API docs)
+        // Determine new status based on AI probability (aligned with API docs ✅)
         String newStatus;
         String scoreStatus = 'pass';
         String? authenticityNotes = result.rationale;
@@ -632,25 +630,27 @@ class CommentRepository {
         if (isModerationFlagged) {
           scoreStatus = 'flagged';
           // Follow recommended action
-          if (mod?.recommendedAction == 'block' || mod?.recommendedAction == 'block_and_report') {
+          if (mod?.recommendedAction == 'block' ||
+              mod?.recommendedAction == 'block_and_report') {
             newStatus = 'deleted';
           } else {
             newStatus = 'under_review';
           }
-          authenticityNotes = 'CONTENT MODERATION: ${mod?.details ?? "Harmful content detected"}';
-        } else if (aiProbability > 95) {
-          newStatus = 'deleted'; // Auto-block high-confidence AI content
+          authenticityNotes =
+              'CONTENT MODERATION: ${mod?.details ?? "Harmful content detected"}';
+        } else if (aiProbability >= 95) {
+          newStatus = 'deleted'; // Auto-block
           scoreStatus = 'flagged';
-        } else if (aiProbability > 75) {
+        } else if (aiProbability >= 75) {
           newStatus = 'under_review'; // Flag for review
           scoreStatus = 'flagged';
-        } else if (aiProbability > 60) {
-          newStatus = 'published'; // Add transparency label but publish
+        } else if (aiProbability >= 60) {
+          newStatus = 'published'; // Label for transparency
           scoreStatus = 'review';
           authenticityNotes =
               'HUMAN SCORE: ${(100 - aiProbability).toStringAsFixed(1)}% [REVIEW]';
         } else {
-          newStatus = 'published'; // Auto-publish safe content
+          newStatus = 'published'; // Auto-publish
           scoreStatus = 'pass';
         }
 
@@ -686,7 +686,9 @@ class CommentRepository {
         );
 
         // Create moderation case if flagged or review required
-        if (scoreStatus == 'flagged' || scoreStatus == 'review' || isModerationFlagged) {
+        if (scoreStatus == 'flagged' ||
+            scoreStatus == 'review' ||
+            isModerationFlagged) {
           await _createModerationCase(
             commentId: commentId,
             authorId: authorId,
@@ -724,8 +726,7 @@ class CommentRepository {
         }
 
         return aiProbability;
-      }
- else {
+      } else {
         debugPrint(
           'CommentRepository: AI detection returned null for comment $commentId',
         );
@@ -809,39 +810,36 @@ class CommentRepository {
           .update(updates)
           .eq('id', commentId);
 
-        // If approved, award 2 ROOK to comment author (skip if own post)
-        if (action == 'approve') {
-          try {
-            final comment = await _client
-                .from(SupabaseConfig.commentsTable)
-                .select('author_id, post_id')
-                .eq('id', commentId)
-                .single();
+      // If approved, award 2 ROOK to comment author (skip if own post)
+      if (action == 'approve') {
+        try {
+          final comment = await _client
+              .from(SupabaseConfig.commentsTable)
+              .select('author_id, post_id')
+              .eq('id', commentId)
+              .single();
 
-            final authorId = comment['author_id'] as String;
-            final postId = comment['post_id'] as String?;
+          final authorId = comment['author_id'] as String;
+          final postId = comment['post_id'] as String?;
 
-            bool isSelf = false;
-            if (postId != null && postId.isNotEmpty) {
-              isSelf = await _isAuthorOfPost(
-                authorId: authorId,
-                postId: postId,
-              );
-            }
-
-            if (isSelf) return true;
-            final walletRepo = WalletRepository();
-            await walletRepo.earnRoo(
-              userId: authorId,
-              activityType: RookenActivityType.postComment,
-              referenceCommentId: commentId,
-            );
-          } catch (e) {
-            debugPrint(
-              'CommentRepository: Error awarding ROOK on comment approval - $e',
-            );
+          bool isSelf = false;
+          if (postId != null && postId.isNotEmpty) {
+            isSelf = await _isAuthorOfPost(authorId: authorId, postId: postId);
           }
+
+          if (isSelf) return true;
+          final walletRepo = WalletRepository();
+          await walletRepo.earnRoo(
+            userId: authorId,
+            activityType: RookenActivityType.postComment,
+            referenceCommentId: commentId,
+          );
+        } catch (e) {
+          debugPrint(
+            'CommentRepository: Error awarding ROOK on comment approval - $e',
+          );
         }
+      }
 
       // Resolve the moderation case
       try {
@@ -963,11 +961,13 @@ class CommentRepository {
         case 'under_review':
           title = 'Comment Under Review';
           body = 'Your comment is being reviewed by our moderation team.';
-          type = 'mention'; // Using 'mention' as valid DB type for system notifications
+          type =
+              'mention'; // Using 'mention' as valid DB type for system notifications
           break;
         case 'deleted':
           title = 'Comment Not Published';
-          body = 'Your comment was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence).';
+          body =
+              'Your comment was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence).';
           type = 'mention';
           break;
         default:

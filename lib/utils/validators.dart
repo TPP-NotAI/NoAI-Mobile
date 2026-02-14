@@ -1,17 +1,25 @@
 class Validators {
   // Email validation
   static String? validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
+    if (value == null || value.trim().isEmpty) {
       return 'Email is required';
     }
 
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(value)) {
+    // Improved regex to better handle multiple subdomains and standard formats
+    // Matches: user@domain.com, user@sub.domain.co.uk, user.name@domain.info
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$',
+    );
+
+    if (!emailRegex.hasMatch(value.trim())) {
       return 'Please enter a valid email';
     }
 
     return null;
   }
+
+  /// Normalizes email by trimming and converting to lowercase.
+  static String normalizeEmail(String email) => email.trim().toLowerCase();
 
   // Password validation
   static String? validatePassword(String? value) {
@@ -62,7 +70,11 @@ class Validators {
   }
 
   // Min length validation
-  static String? validateMinLength(String? value, int minLength, String fieldName) {
+  static String? validateMinLength(
+    String? value,
+    int minLength,
+    String fieldName,
+  ) {
     if (value == null || value.isEmpty) {
       return '$fieldName is required';
     }
@@ -75,7 +87,11 @@ class Validators {
   }
 
   // Max length validation
-  static String? validateMaxLength(String? value, int maxLength, String fieldName) {
+  static String? validateMaxLength(
+    String? value,
+    int maxLength,
+    String fieldName,
+  ) {
     if (value != null && value.length > maxLength) {
       return '$fieldName must not exceed $maxLength characters';
     }

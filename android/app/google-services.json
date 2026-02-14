@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:19404234607:android:74063ed05b54833243129a",
+        "mobilesdk_app_id": "1:19404234607:android:38f87690a7feffed43129a",
         "android_client_info": {
-          "package_name": "com.example.rooverse"
+          "package_name": "com.theprescientpachyderm.rooverse"
         }
       },
       "oauth_client": [],

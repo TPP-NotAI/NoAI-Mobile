@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import '../utils/validators.dart';
 import '../services/auth_service.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
@@ -11,7 +12,7 @@ import '../core/errors/app_exception.dart';
 import '../utils/snackbar_utils.dart';
 
 /// Authentication status states.
-enum AuthStatus { initial, loading, authenticated, unauthenticated }
+enum AuthStatus { initial, loading, authenticated, unauthenticated, banned }
 
 enum RecoveryStep { email, otp, newPassword, success }
 
@@ -158,11 +159,9 @@ class AuthProvider with ChangeNotifier {
 
       // Check user account status - enforce bans/suspensions
       if (_currentUser != null && _currentUser!.isBanned) {
-        debugPrint('AuthProvider: User is banned - signing out');
+        debugPrint('AuthProvider: User is banned');
         _error = 'Your account has been banned. Please contact support.';
-        _currentUser = null;
-        _status = AuthStatus.unauthenticated;
-        await _authService.signOut();
+        _status = AuthStatus.banned;
         notifyListeners();
         return;
       }
@@ -206,12 +205,13 @@ class AuthProvider with ChangeNotifier {
 
   /// Sign in with email and password.
   Future<void> signIn(String email, String password) async {
+    final normalizedEmail = Validators.normalizeEmail(email);
     _error = null;
     _status = AuthStatus.loading;
     notifyListeners();
 
     try {
-      await _authService.signIn(email: email, password: password);
+      await _authService.signIn(email: normalizedEmail, password: password);
       // Auth state listener will handle the rest
     } catch (e, stack) {
       final appException = ErrorMapper.map(e, stack);
@@ -224,13 +224,14 @@ class AuthProvider with ChangeNotifier {
 
   /// Sign up a new user.
   Future<void> signUp(String email, String password, String username) async {
+    final normalizedEmail = Validators.normalizeEmail(email);
     _error = null;
     _status = AuthStatus.loading;
     notifyListeners();
 
     try {
       final response = await _authService.signUp(
-        email: email,
+        email: normalizedEmail,
         password: password,
         username: username,
       );
@@ -238,7 +239,7 @@ class AuthProvider with ChangeNotifier {
       // Check if email confirmation is required
       if (response.user != null && response.session == null) {
         // Email confirmation required
-        _pendingEmail = email;
+        _pendingEmail = normalizedEmail;
         _status = AuthStatus.unauthenticated;
         notifyListeners();
         return;
@@ -546,7 +547,7 @@ class AuthProvider with ChangeNotifier {
     }
     if (lowerMessage.contains('invalid email') ||
         lowerMessage.contains('email address is not valid')) {
-      return message; // Return the original Supabase error message for debugging
+      return 'Please enter a valid email address';
     }
     if (lowerMessage.contains('rate limit') ||
         lowerMessage.contains('too many requests')) {

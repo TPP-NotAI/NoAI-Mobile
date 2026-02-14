@@ -9,10 +9,11 @@ class AiDetectionResult {
   final String result;
   final double confidence; // 0-100
   final String contentType; // "text", "image", "mixed"
-  final String? consensusStrength; // "strong", "moderate", "weak", "split"
+  final String? consensusStrength;
   final String? rationale;
   final List<String>? combinedEvidence;
-  final List<dynamic>? modelAnalyses;
+  final MetadataAnalysis? metadataAnalysis;
+  final List<ModelResult>? modelResults;
   final ModerationResult? moderation;
   final double? safetyScore;
 
@@ -24,27 +25,126 @@ class AiDetectionResult {
     this.consensusStrength,
     this.rationale,
     this.combinedEvidence,
-    this.modelAnalyses,
+    this.metadataAnalysis,
+    this.modelResults,
     this.moderation,
     this.safetyScore,
   });
 
   factory AiDetectionResult.fromJson(Map<String, dynamic> json) {
+    // API might return 'result' or 'final_result'
+    final String rawResult =
+        (json['final_result'] as String? ??
+                json['result'] as String? ??
+                'HUMAN-GENERATED')
+            .trim()
+            .toUpperCase();
+
+    // API might return 'confidence' or 'final_confidence'
+    final double rawConf =
+        (json['final_confidence'] as num? ?? json['confidence'] as num? ?? 0.0)
+            .toDouble();
+
+    // Some models return 0.0-1.0, some 0-100. Normalize to 0-100.
+    // NOTE: 0.0 is ambiguous, but we treat it as 0.0.
+    final double normalizedConf = rawConf <= 1.0 && rawConf > 0
+        ? rawConf * 100
+        : rawConf;
+
     return AiDetectionResult(
       analysisId: json['analysis_id'] as String? ?? '',
-      result: json['result'] as String? ?? 'HUMAN-GENERATED',
-      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      result: rawResult,
+      confidence: normalizedConf,
       contentType: json['content_type'] as String? ?? '',
       consensusStrength: json['consensus_strength'] as String?,
       rationale: json['rationale'] as String?,
       combinedEvidence: (json['combined_evidence'] as List<dynamic>?)
           ?.map((e) => e.toString())
           .toList(),
-      modelAnalyses: json['model_analyses'] as List<dynamic>?,
+      metadataAnalysis: json['metadata_analysis'] != null
+          ? MetadataAnalysis.fromJson(
+              json['metadata_analysis'] as Map<String, dynamic>,
+            )
+          : null,
+      modelResults: (json['model_results'] as List<dynamic>?)
+          ?.map((e) => ModelResult.fromJson(e as Map<String, dynamic>))
+          .toList(),
       moderation: json['moderation'] != null
-          ? ModerationResult.fromJson(json['moderation'] as Map<String, dynamic>)
+          ? ModerationResult.fromJson(
+              json['moderation'] as Map<String, dynamic>,
+            )
           : null,
       safetyScore: (json['safety_score'] as num?)?.toDouble(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'analysis_id': analysisId,
+      'result': result,
+      'confidence': confidence,
+      'content_type': contentType,
+      'consensus_strength': consensusStrength,
+      'rationale': rationale,
+      'combined_evidence': combinedEvidence,
+      'metadata_analysis': metadataAnalysis?.toJson(),
+      'model_results': modelResults?.map((e) => e.toJson()).toList(),
+      'moderation': moderation?.toJson(),
+      'safety_score': safetyScore,
+    };
+  }
+}
+
+class MetadataAnalysis {
+  final double? adjustment;
+  final List<String> signals;
+
+  MetadataAnalysis({this.adjustment, required this.signals});
+
+  factory MetadataAnalysis.fromJson(Map<String, dynamic> json) {
+    return MetadataAnalysis(
+      adjustment: (json['adjustment'] as num?)?.toDouble(),
+      signals:
+          (json['signals'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'adjustment': adjustment, 'signals': signals};
+  }
+}
+
+class ModelResult {
+  final String model;
+  final String result;
+  final double confidence;
+  final String? reasoning;
+
+  ModelResult({
+    required this.model,
+    required this.result,
+    required this.confidence,
+    this.reasoning,
+  });
+
+  factory ModelResult.fromJson(Map<String, dynamic> json) {
+    return ModelResult(
+      model: json['model'] as String? ?? '',
+      result: json['result'] as String? ?? '',
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      reasoning: json['reasoning'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'model': model,
+      'result': result,
+      'confidence': confidence,
+      'reasoning': reasoning,
+    };
   }
 }

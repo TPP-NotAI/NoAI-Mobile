@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAQO3DVtRn7lU22cO7R7gXIrtLwQqjzhEw',
-    appId: '1:19404234607:android:74063ed05b54833243129a',
+    appId: '1:19404234607:android:38f87690a7feffed43129a',
     messagingSenderId: '19404234607',
     projectId: 'rooverse-production-760d4',
     storageBucket: 'rooverse-production-760d4.firebasestorage.app',

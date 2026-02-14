@@ -113,8 +113,13 @@ class User {
     Map<String, dynamic>? wallet,
     List<UserAchievement>? achievements,
   }) {
+    final userId = profile['user_id'] as String?;
+    if (userId == null) {
+      throw ArgumentError('user_id is required in profile data');
+    }
+
     return User(
-      id: profile['user_id'] as String,
+      id: userId,
       username: profile['username'] as String? ?? 'unknown',
       displayName: profile['display_name'] as String? ?? '',
       email: null, // Email is in auth.users, not profiles
@@ -129,10 +134,10 @@ class User {
       trustScore: (profile['trust_score'] as num?)?.toDouble() ?? 0.0,
       mlScore: (profile['ml_score'] as num?)?.toDouble() ?? 0.0,
       createdAt: profile['created_at'] != null
-          ? DateTime.parse(profile['created_at'] as String)
+          ? DateTime.tryParse(profile['created_at'].toString())
           : null,
       lastSeen: profile['last_active_at'] != null
-          ? DateTime.parse(profile['last_active_at'] as String)
+          ? DateTime.tryParse(profile['last_active_at'].toString())
           : null,
       postsVisibility: profile['posts_visibility'] as String?,
       commentsVisibility: profile['comments_visibility'] as String?,

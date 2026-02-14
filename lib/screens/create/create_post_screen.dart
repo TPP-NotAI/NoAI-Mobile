@@ -227,8 +227,37 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             : await _imagePicker.pickImage(source: ImageSource.gallery);
 
         if (image != null) {
-          // Ask user if they want to crop
           File finalImage = File(image.path);
+
+          // If from camera, copy to a permanent location to ensure file accessibility
+          // Camera images are often stored in temporary cache that may be cleared
+          if (fromCamera) {
+            try {
+              debugPrint(
+                'CreatePostScreen: Copying camera image to stable path...',
+              );
+              // Read the image bytes
+              final bytes = await finalImage.readAsBytes();
+
+              // Create a permanent file path in the app's temporary directory
+              final tempDir = Directory.systemTemp;
+              final timestamp = DateTime.now().millisecondsSinceEpoch;
+              final permanentPath =
+                  '${tempDir.path}/camera_image_$timestamp.jpg';
+
+              // Write to permanent location
+              final permanentFile = File(permanentPath);
+              await permanentFile.writeAsBytes(bytes);
+
+              finalImage = permanentFile;
+              debugPrint(
+                'CreatePostScreen: Saved camera image to: $permanentPath',
+              );
+            } catch (e) {
+              debugPrint('CreatePostScreen: Error copying camera image - $e');
+              // Continue with original file if copy fails
+            }
+          }
 
           // Proactive moderation
           _moderateMedia(finalImage, 'image');
@@ -246,7 +275,36 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             : await _imagePicker.pickVideo(source: ImageSource.gallery);
 
         if (video != null) {
-          final videoFile = File(video.path);
+          File videoFile = File(video.path);
+
+          // If from camera, copy to a permanent location to ensure file accessibility
+          if (fromCamera) {
+            try {
+              debugPrint(
+                'CreatePostScreen: Copying camera video to stable path...',
+              );
+              // Read the video bytes
+              final bytes = await videoFile.readAsBytes();
+
+              // Create a permanent file path in the app's temporary directory
+              final tempDir = Directory.systemTemp;
+              final timestamp = DateTime.now().millisecondsSinceEpoch;
+              final permanentPath =
+                  '${tempDir.path}/camera_video_$timestamp.mp4';
+
+              // Write to permanent location
+              final permanentFile = File(permanentPath);
+              await permanentFile.writeAsBytes(bytes);
+
+              videoFile = permanentFile;
+              debugPrint(
+                'CreatePostScreen: Saved camera video to: $permanentPath',
+              );
+            } catch (e) {
+              debugPrint('CreatePostScreen: Error copying camera video - $e');
+              // Continue with original file if copy fails
+            }
+          }
 
           // Proactive moderation
           _moderateMedia(videoFile, 'video');

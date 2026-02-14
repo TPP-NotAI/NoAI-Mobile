@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:rooverse/screens/support/contact_support_screen.dart';
 import '../../config/app_spacing.dart';
 import '../../config/app_typography.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/responsive_extensions.dart';
 
 class BannedScreen extends StatelessWidget {
@@ -26,7 +28,10 @@ class BannedScreen extends StatelessWidget {
               Text(
                 'Your account has been banned.',
                 style: TextStyle(
-                  fontSize: AppTypography.responsiveFontSize(context, AppTypography.smallHeading),
+                  fontSize: AppTypography.responsiveFontSize(
+                    context,
+                    AppTypography.smallHeading,
+                  ),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -46,7 +51,33 @@ class BannedScreen extends StatelessWidget {
                   child: Text(
                     'Contact Support',
                     style: TextStyle(
-                      fontSize: AppTypography.responsiveFontSize(context, AppTypography.base),
+                      fontSize: AppTypography.responsiveFontSize(
+                        context,
+                        AppTypography.base,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: AppSpacing.standard.responsive(context)),
+              SizedBox(
+                width: double.infinity,
+                height: 48.responsive(context, min: 44, max: 52),
+                child: OutlinedButton(
+                  onPressed: () async {
+                    await context.read<AuthProvider>().signOut();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    foregroundColor: Colors.red,
+                  ),
+                  child: Text(
+                    'Log Out',
+                    style: TextStyle(
+                      fontSize: AppTypography.responsiveFontSize(
+                        context,
+                        AppTypography.base,
+                      ),
                     ),
                   ),
                 ),

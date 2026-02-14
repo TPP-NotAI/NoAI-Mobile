@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../utils/responsive_extensions.dart';
 import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
+import '../../utils/validators.dart';
 import 'package:rooverse/services/referral_service.dart';
 import 'package:rooverse/services/supabase_service.dart';
 
@@ -90,7 +91,7 @@ class _SignupScreenState extends State<SignupScreen> {
     });
 
     final username = _usernameController.text.trim();
-    final email = _emailController.text.trim();
+    final email = Validators.normalizeEmail(_emailController.text);
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
@@ -114,25 +115,9 @@ class _SignupScreenState extends State<SignupScreen> {
       hasError = true;
     }
 
-    // Validate email
-    if (email.isEmpty) {
-      setState(() {
-        _emailError = 'Please enter an email';
-      });
-      hasError = true;
-    } else if (!RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    ).hasMatch(email)) {
-      // Standard email validation regex that matches most valid email formats
-      // This regex ensures:
-      // - Local part: letters, numbers, and common symbols
-      // - @ symbol
-      // - Domain: letters, numbers, dots, hyphens
-      // - TLD: at least 2 letters
-      // This catches invalid formats while allowing valid emails like user.name+tag@gmail.com
-      setState(() {
-        _emailError = 'Please enter a valid email address';
-      });
+    // Normalize and validate email
+    _emailError = Validators.validateEmail(email);
+    if (_emailError != null) {
       hasError = true;
     }
 
@@ -251,7 +236,9 @@ class _SignupScreenState extends State<SignupScreen> {
                 'Join the Human Network',
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(
-                      context, AppTypography.largeHeading),
+                    context,
+                    AppTypography.largeHeading,
+                  ),
                   fontWeight: FontWeight.bold,
                   color: scheme.onBackground,
                 ),
@@ -265,7 +252,9 @@ class _SignupScreenState extends State<SignupScreen> {
                 text: TextSpan(
                   style: TextStyle(
                     fontSize: AppTypography.responsiveFontSize(
-                        context, AppTypography.base),
+                      context,
+                      AppTypography.base,
+                    ),
                     color: scheme.onBackground.withOpacity(0.7),
                   ),
                   children: const [
@@ -380,7 +369,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       text: TextSpan(
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(
-                              context, AppTypography.tiny),
+                            context,
+                            AppTypography.tiny,
+                          ),
                           color: scheme.onSurface.withOpacity(0.7),
                           height: 1.4,
                         ),
@@ -436,11 +427,16 @@ class _SignupScreenState extends State<SignupScreen> {
               if (_signupError != null) ...[
                 SizedBox(height: AppSpacing.largePlus.responsive(context)),
                 Container(
-                  padding: AppSpacing.responsiveAll(context, AppSpacing.standard),
+                  padding: AppSpacing.responsiveAll(
+                    context,
+                    AppSpacing.standard,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.1),
                     borderRadius: AppSpacing.responsiveRadius(
-                        context, AppSpacing.radiusSmall),
+                      context,
+                      AppSpacing.radiusSmall,
+                    ),
                     border: Border.all(color: Colors.red.withOpacity(0.5)),
                   ),
                   child: Row(
@@ -450,14 +446,18 @@ class _SignupScreenState extends State<SignupScreen> {
                         color: Colors.red,
                         size: AppTypography.responsiveIconSize(context, 20),
                       ),
-                      SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
+                      SizedBox(
+                        width: AppSpacing.mediumSmall.responsive(context),
+                      ),
                       Expanded(
                         child: Text(
                           _signupError!,
                           style: TextStyle(
                             color: Colors.red,
                             fontSize: AppTypography.responsiveFontSize(
-                                context, AppTypography.small),
+                              context,
+                              AppTypography.small,
+                            ),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -499,7 +499,9 @@ class _SignupScreenState extends State<SignupScreen> {
                           'Create Account',
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
-                                context, AppTypography.smallHeading),
+                              context,
+                              AppTypography.smallHeading,
+                            ),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -520,7 +522,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       'Or continue with',
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
-                            context, AppTypography.extraSmall),
+                          context,
+                          AppTypography.extraSmall,
+                        ),
                         fontWeight: FontWeight.bold,
                         color: scheme.onBackground.withOpacity(0.6),
                         letterSpacing: 0.5,
@@ -566,7 +570,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     'Already have an account? ',
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
-                          context, AppTypography.base),
+                        context,
+                        AppTypography.base,
+                      ),
                       color: scheme.onBackground.withOpacity(0.7),
                       fontWeight: FontWeight.w500,
                     ),
@@ -577,7 +583,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       'Log In',
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
-                            context, AppTypography.base),
+                          context,
+                          AppTypography.base,
+                        ),
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,
                       ),
@@ -601,8 +609,10 @@ class _SignupScreenState extends State<SignupScreen> {
       padding: AppSpacing.responsiveAll(context, AppSpacing.standard),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius:
-            AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusSmall,
+        ),
         border: Border.all(color: scheme.outline.withOpacity(0.3)),
       ),
       child: Column(
@@ -612,7 +622,9 @@ class _SignupScreenState extends State<SignupScreen> {
             'Password Requirements',
             style: TextStyle(
               fontSize: AppTypography.responsiveFontSize(
-                  context, AppTypography.extraSmall),
+                context,
+                AppTypography.extraSmall,
+              ),
               fontWeight: FontWeight.w600,
               color: scheme.onSurface.withOpacity(0.8),
             ),
@@ -620,9 +632,15 @@ class _SignupScreenState extends State<SignupScreen> {
           SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
           _buildRequirementRow(context, 'At least 8 characters', _hasMinLength),
           _buildRequirementRow(
-              context, 'One uppercase letter (A-Z)', _hasUppercase),
+            context,
+            'One uppercase letter (A-Z)',
+            _hasUppercase,
+          ),
           _buildRequirementRow(
-              context, 'One lowercase letter (a-z)', _hasLowercase),
+            context,
+            'One lowercase letter (a-z)',
+            _hasLowercase,
+          ),
           _buildRequirementRow(context, 'One number (0-9)', _hasNumber),
           _buildRequirementRow(
             context,
@@ -651,7 +669,9 @@ class _SignupScreenState extends State<SignupScreen> {
             text,
             style: TextStyle(
               fontSize: AppTypography.responsiveFontSize(
-                  context, AppTypography.extraSmall),
+                context,
+                AppTypography.extraSmall,
+              ),
               color: isMet ? Colors.green : Colors.grey,
               fontWeight: isMet ? FontWeight.w500 : FontWeight.normal,
             ),
@@ -676,11 +696,14 @@ class _SignupScreenState extends State<SignupScreen> {
   }) {
     final scheme = Theme.of(context).colorScheme;
     final hasError = errorText != null;
-    final obscure = isConfirmPassword ? _obscureConfirmPassword : _obscurePassword;
+    final obscure = isConfirmPassword
+        ? _obscureConfirmPassword
+        : _obscurePassword;
 
     // Force uppercase for referral code as they are stored that way
-    final textCapitalization =
-        isReferral ? TextCapitalization.characters : TextCapitalization.none;
+    final textCapitalization = isReferral
+        ? TextCapitalization.characters
+        : TextCapitalization.none;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,8 +711,10 @@ class _SignupScreenState extends State<SignupScreen> {
         Text(
           label,
           style: TextStyle(
-            fontSize:
-                AppTypography.responsiveFontSize(context, AppTypography.base),
+            fontSize: AppTypography.responsiveFontSize(
+              context,
+              AppTypography.base,
+            ),
             fontWeight: FontWeight.w600,
             color: scheme.onBackground.withOpacity(0.9),
           ),
@@ -703,19 +728,21 @@ class _SignupScreenState extends State<SignupScreen> {
             height: 56.responsive(context, min: 48, max: 64),
             decoration: BoxDecoration(
               color: scheme.surface,
-              borderRadius:
-                  AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
+              borderRadius: AppSpacing.responsiveRadius(
+                context,
+                AppSpacing.radiusMedium,
+              ),
               border: Border.all(
                 color: hasError
                     ? Colors.red
                     : (focusNode?.hasFocus ?? false)
-                        ? AppColors.primary
-                        : scheme.outline.withOpacity(0.3),
+                    ? AppColors.primary
+                    : scheme.outline.withOpacity(0.3),
                 width: hasError
                     ? 2
                     : (focusNode?.hasFocus ?? false)
-                        ? 2
-                        : 1.5,
+                    ? 2
+                    : 1.5,
               ),
               boxShadow: [
                 if (focusNode?.hasFocus ?? false)
@@ -741,8 +768,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   color: hasError
                       ? Colors.red
                       : (focusNode?.hasFocus ?? false)
-                          ? AppColors.primary
-                          : scheme.onSurface.withOpacity(0.5),
+                      ? AppColors.primary
+                      : scheme.onSurface.withOpacity(0.5),
                 ),
                 SizedBox(width: AppSpacing.medium.responsive(context)),
                 Expanded(
@@ -754,7 +781,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     style: TextStyle(
                       color: scheme.onSurface,
                       fontSize: AppTypography.responsiveFontSize(
-                          context, AppTypography.base),
+                        context,
+                        AppTypography.base,
+                      ),
                       fontWeight: FontWeight.w500,
                     ),
                     decoration: InputDecoration(
@@ -800,19 +829,24 @@ class _SignupScreenState extends State<SignupScreen> {
           SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
           Padding(
             padding: EdgeInsets.only(
-                left: AppSpacing.extraSmall.responsive(context)),
+              left: AppSpacing.extraSmall.responsive(context),
+            ),
             child: Row(
               children: [
-                Icon(Icons.error_outline,
-                    size: AppTypography.responsiveIconSize(context, 14),
-                    color: Colors.red),
+                Icon(
+                  Icons.error_outline,
+                  size: AppTypography.responsiveIconSize(context, 14),
+                  color: Colors.red,
+                ),
                 SizedBox(width: AppSpacing.extraSmall.responsive(context)),
                 Text(
                   errorText,
                   style: TextStyle(
                     color: Colors.red,
                     fontSize: AppTypography.responsiveFontSize(
-                        context, AppTypography.small),
+                      context,
+                      AppTypography.small,
+                    ),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -836,14 +870,18 @@ class _SignupScreenState extends State<SignupScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
-        borderRadius:
-            AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusMedium,
+        ),
         child: Container(
           height: 54.responsive(context, min: 46, max: 62),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius:
-                AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
+            borderRadius: AppSpacing.responsiveRadius(
+              context,
+              AppSpacing.radiusMedium,
+            ),
             border: Border.all(
               color: scheme.outline.withOpacity(0.3),
               width: 1.5,
@@ -859,15 +897,19 @@ class _SignupScreenState extends State<SignupScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon,
-                  size: AppTypography.responsiveIconSize(context, 24),
-                  color: scheme.onSurface.withOpacity(0.8)),
+              Icon(
+                icon,
+                size: AppTypography.responsiveIconSize(context, 24),
+                color: scheme.onSurface.withOpacity(0.8),
+              ),
               SizedBox(width: AppSpacing.small.responsive(context)),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(
-                      context, AppTypography.base),
+                    context,
+                    AppTypography.base,
+                  ),
                   fontWeight: FontWeight.w600,
                   color: scheme.onSurface.withOpacity(0.9),
                 ),

@@ -5,6 +5,7 @@ import '../../config/app_spacing.dart';
 import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_extensions.dart';
+import '../../utils/validators.dart';
 
 class RecoveryScreen extends StatefulWidget {
   final VoidCallback onBack;
@@ -46,16 +47,10 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
   }
 
   void _handleSendEmail() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      setState(() => _error = 'Please enter an email');
-      return;
-    }
-
-    if (!RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    ).hasMatch(email)) {
-      setState(() => _error = 'Please enter a valid email address');
+    final normalizedEmail = Validators.normalizeEmail(_emailController.text);
+    final emailError = Validators.validateEmail(normalizedEmail);
+    if (emailError != null) {
+      setState(() => _error = emailError);
       return;
     }
 
@@ -65,7 +60,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
     });
 
     final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.resetPassword(email);
+    final success = await authProvider.resetPassword(normalizedEmail);
 
     if (mounted) {
       if (success) {
@@ -182,8 +177,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                     Text(
                       'RECOVERY',
                       style: TextStyle(
-                        fontSize:
-                            AppTypography.responsiveFontSize(context, 10),
+                        fontSize: AppTypography.responsiveFontSize(context, 10),
                         fontWeight: FontWeight.bold,
                         color: scheme.onBackground.withOpacity(0.6),
                         letterSpacing: 2,
@@ -274,7 +268,9 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           text: TextSpan(
             style: TextStyle(
               fontSize: AppTypography.responsiveFontSize(
-                  context, AppTypography.smallHeading),
+                context,
+                AppTypography.smallHeading,
+              ),
               color: scheme.onBackground.withOpacity(0.7),
               height: 1.5,
             ),
@@ -319,7 +315,9 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
               'Remember your password? Log In',
               style: TextStyle(
                 fontSize: AppTypography.responsiveFontSize(
-                    context, AppTypography.base),
+                  context,
+                  AppTypography.base,
+                ),
                 fontWeight: FontWeight.bold,
                 color: scheme.onBackground.withOpacity(0.7),
               ),
@@ -342,7 +340,9 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           'We\'ve sent a 6-digit verification code to ${authProvider.pendingEmail ?? 'your email'}. Please enter it below to proceed.',
           style: TextStyle(
             fontSize: AppTypography.responsiveFontSize(
-                context, AppTypography.smallHeading),
+              context,
+              AppTypography.smallHeading,
+            ),
             color: scheme.onBackground.withOpacity(0.7),
             height: 1.5,
           ),
@@ -374,7 +374,9 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                 color: AppColors.primary,
                 fontWeight: FontWeight.bold,
                 fontSize: AppTypography.responsiveFontSize(
-                    context, AppTypography.base),
+                  context,
+                  AppTypography.base,
+                ),
               ),
             ),
           ),
@@ -395,7 +397,9 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           'Verification successful! Create a strong new password for your account.',
           style: TextStyle(
             fontSize: AppTypography.responsiveFontSize(
-                context, AppTypography.smallHeading),
+              context,
+              AppTypography.smallHeading,
+            ),
             color: scheme.onBackground.withOpacity(0.7),
             height: 1.5,
           ),
@@ -445,8 +449,10 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
       decoration: BoxDecoration(
         color: AppColors.primary.withOpacity(0.05),
-        borderRadius:
-            AppSpacing.responsiveRadius(context, AppSpacing.radiusLarge),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusLarge,
+        ),
         border: Border.all(color: AppColors.primary.withOpacity(0.1)),
       ),
       child: Row(
@@ -458,9 +464,11 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
               color: AppColors.primary.withOpacity(0.1),
               borderRadius: AppSpacing.responsiveRadius(context, 16),
             ),
-            child: Icon(Icons.shield,
-                size: AppTypography.responsiveIconSize(context, 18),
-                color: AppColors.primary),
+            child: Icon(
+              Icons.shield,
+              size: AppTypography.responsiveIconSize(context, 18),
+              color: AppColors.primary,
+            ),
           ),
           SizedBox(width: AppSpacing.standard.responsive(context)),
           Expanded(
@@ -503,16 +511,20 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
             color: Colors.green.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(Icons.check_circle,
-              size: AppTypography.responsiveIconSize(context, 48),
-              color: Colors.green),
+          child: Icon(
+            Icons.check_circle,
+            size: AppTypography.responsiveIconSize(context, 48),
+            color: Colors.green,
+          ),
         ),
         SizedBox(height: AppSpacing.double_.responsive(context)),
         Text(
           'Password Reset!',
           style: TextStyle(
             fontSize: AppTypography.responsiveFontSize(
-                context, AppTypography.mediumHeading),
+              context,
+              AppTypography.mediumHeading,
+            ),
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -522,7 +534,9 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: AppTypography.responsiveFontSize(
-                context, AppTypography.smallHeading),
+              context,
+              AppTypography.smallHeading,
+            ),
             color: scheme.onBackground.withOpacity(0.7),
             height: 1.5,
           ),
@@ -546,9 +560,11 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       children: [
         Row(
           children: [
-            Icon(Icons.lock_reset,
-                size: AppTypography.responsiveIconSize(context, 20),
-                color: AppColors.primary),
+            Icon(
+              Icons.lock_reset,
+              size: AppTypography.responsiveIconSize(context, 20),
+              color: AppColors.primary,
+            ),
             SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
             Text(
               'SECURE RECOVERY',
@@ -566,7 +582,9 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           title,
           style: TextStyle(
             fontSize: AppTypography.responsiveFontSize(
-                context, AppTypography.extraLargeHeading),
+              context,
+              AppTypography.extraLargeHeading,
+            ),
             fontWeight: FontWeight.bold,
             height: 1.2,
             letterSpacing: -0.5,
@@ -594,8 +612,10 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         Text(
           label,
           style: TextStyle(
-            fontSize:
-                AppTypography.responsiveFontSize(context, AppTypography.base),
+            fontSize: AppTypography.responsiveFontSize(
+              context,
+              AppTypography.base,
+            ),
             fontWeight: FontWeight.w600,
             color: scheme.onBackground.withOpacity(0.9),
           ),
@@ -605,8 +625,10 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           height: 56.responsive(context, min: 48, max: 64),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius:
-                AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
+            borderRadius: AppSpacing.responsiveRadius(
+              context,
+              AppSpacing.radiusMedium,
+            ),
             border: Border.all(
               color: focusNode.hasFocus
                   ? AppColors.primary
@@ -634,7 +656,9 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                   style: TextStyle(
                     color: scheme.onSurface,
                     fontSize: AppTypography.responsiveFontSize(
-                        context, AppTypography.base),
+                      context,
+                      AppTypography.base,
+                    ),
                   ),
                   decoration: InputDecoration(
                     hintText: hint,
@@ -677,16 +701,20 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline,
-              size: AppTypography.responsiveIconSize(context, 14),
-              color: Colors.red),
+          Icon(
+            Icons.error_outline,
+            size: AppTypography.responsiveIconSize(context, 14),
+            color: Colors.red,
+          ),
           SizedBox(width: AppSpacing.extraSmall.responsive(context)),
           Text(
             _error!,
             style: TextStyle(
               color: Colors.red,
               fontSize: AppTypography.responsiveFontSize(
-                  context, AppTypography.small),
+                context,
+                AppTypography.small,
+              ),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -726,7 +754,9 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                 text,
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(
-                      context, AppTypography.smallHeading),
+                    context,
+                    AppTypography.smallHeading,
+                  ),
                   fontWeight: FontWeight.bold,
                 ),
               ),

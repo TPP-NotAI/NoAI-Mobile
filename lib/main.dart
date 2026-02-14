@@ -337,11 +337,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
       case AuthStatus.authenticated:
         final user = authProvider.currentUser;
         if (user != null) {
-          // Handle suspended or banned users
+          // Handle suspended users (banned now has its own state)
           if (user.status == 'suspended') {
             return const SuspendedScreen();
-          } else if (user.status == 'banned') {
-            return const BannedScreen();
           }
         }
         // User is logged in and verified, show main app
@@ -351,6 +349,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
           return const AppNavigator(initialView: ViewType.interests);
         }
         return const MainShell();
+      case AuthStatus.banned:
+        return const BannedScreen();
       case AuthStatus.unauthenticated:
         // User needs to login, show auth flow
         return const AppNavigator();

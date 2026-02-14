@@ -17,7 +17,8 @@ import 'notification_repository.dart';
 class StoryRepository {
   final SupabaseClient _client = SupabaseService().client;
   final AiDetectionService _aiDetectionService = AiDetectionService();
-  final NotificationRepository _notificationRepository = NotificationRepository();
+  final NotificationRepository _notificationRepository =
+      NotificationRepository();
 
   /// Fetch active stories for the current user and the accounts they follow.
   ///
@@ -146,7 +147,9 @@ class StoryRepository {
       if (mediaItems.isEmpty) {
         // Text-only story
         if (textOverlay == null || textOverlay.trim().isEmpty) {
-          debugPrint('StoryRepository: Cannot create empty story without media or text');
+          debugPrint(
+            'StoryRepository: Cannot create empty story without media or text',
+          );
           return [];
         }
         payload = [
@@ -340,9 +343,11 @@ class StoryRepository {
       final trimmedCaption = caption?.trim() ?? '';
       // Only run text detection if caption is long enough
       final hasText = trimmedCaption.length >= _minAiDetectionLength;
-      final hasMedia = (mediaType == 'image' || mediaType == 'video') && mediaUrl.isNotEmpty;
+      final hasMedia =
+          (mediaType == 'image' || mediaType == 'video') && mediaUrl.isNotEmpty;
 
-      if (trimmedCaption.isNotEmpty && trimmedCaption.length < _minAiDetectionLength) {
+      if (trimmedCaption.isNotEmpty &&
+          trimmedCaption.length < _minAiDetectionLength) {
         debugPrint(
           'StoryRepository: Skipping text detection for short caption on story $storyId '
           '(${trimmedCaption.length} chars < $_minAiDetectionLength)',
@@ -387,34 +392,50 @@ class StoryRepository {
         }
       }
 
-      // Combine results - if either text or media is flagged, flag the story
-      final double aiProbability;
-      final AiDetectionResult? primaryResult = textResult ?? mediaResult;
+      // Combine results - if either text or media is flagged, use the more "AI" result
+      double aiProbability = 0.0;
+      AiDetectionResult? primaryResult;
 
-      if (primaryResult != null) {
-        // Convert API confidence to AI probability
-        final bool isAiResult =
-            primaryResult.result == 'AI-GENERATED' ||
-            primaryResult.result == 'LIKELY AI-GENERATED';
-        aiProbability = isAiResult
-            ? primaryResult.confidence
-            : 100 - primaryResult.confidence;
+      // Helper to calculate probability from result.
+      // Confidence is label-specific, so we flip it for HUMAN labels.
+      double getProb(AiDetectionResult res) {
+        final bool isAi = res.result.contains('AI');
+        return isAi ? res.confidence : 100 - res.confidence;
+      }
+
+      if (textResult != null && mediaResult != null) {
+        final textProb = getProb(textResult);
+        final mediaProb = getProb(mediaResult);
+        if (textProb >= mediaProb) {
+          aiProbability = textProb;
+          primaryResult = textResult;
+        } else {
+          aiProbability = mediaProb;
+          primaryResult = mediaResult;
+        }
+      } else if (textResult != null) {
+        aiProbability = getProb(textResult);
+        primaryResult = textResult;
+      } else if (mediaResult != null) {
+        aiProbability = getProb(mediaResult);
+        primaryResult = mediaResult;
       } else {
         // No content to detect, consider it passed
         await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
         return {'score': 0.0, 'status': 'pass'};
       }
 
-      // Determine status based on AI probability (aligned with API docs)
+      // Determine status based on AI probability (aligned with API docs ✅)
       final String status;
-      if (aiProbability > 95) {
-        status = 'flagged'; // Auto-block high-confidence AI content
-      } else if (aiProbability > 75) {
+      // Best Practice Thresholds from docs: 95 BLOCK, 75 FLAG, 60 LABEL
+      if (aiProbability >= 95) {
+        status = 'flagged'; // Auto-block
+      } else if (aiProbability >= 75) {
         status = 'flagged'; // Flag for review
-      } else if (aiProbability > 60) {
-        status = 'review'; // Add transparency label but allow
+      } else if (aiProbability >= 60) {
+        status = 'review'; // Label for transparency
       } else {
-        status = 'pass'; // Auto-allow safe content
+        status = 'pass'; // Auto-publish
       }
 
       await _updateAiScore(
@@ -427,6 +448,8 @@ class StoryRepository {
           'rationale': primaryResult.rationale,
           'combined_evidence': primaryResult.combinedEvidence,
           'classification': primaryResult.result,
+          'moderation': primaryResult.moderation?.toJson(),
+          'safety_score': primaryResult.safetyScore,
         },
       );
 
@@ -562,11 +585,13 @@ class StoryRepository {
         case 'review':
           title = 'Story Under Review';
           body = 'Your story is being reviewed by our moderation team.';
-          type = 'mention'; // Using 'mention' as valid DB type for system notifications
+          type =
+              'mention'; // Using 'mention' as valid DB type for system notifications
           break;
         case 'flagged':
           title = 'Story Not Published';
-          body = 'Your story was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence).';
+          body =
+              'Your story was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence).';
           type = 'mention';
           break;
         default:
@@ -585,9 +610,7 @@ class StoryRepository {
         'StoryRepository: Sent AI result notification to $userId for story $storyId (status: $storyStatus)',
       );
     } catch (e) {
-      debugPrint(
-        'StoryRepository: Error sending AI result notification - $e',
-      );
+      debugPrint('StoryRepository: Error sending AI result notification - $e');
     }
   }
 }

@@ -1,4 +1,4 @@
-package com.example.rooverse
+package com.theprescientpachyderm.rooverse
 
 import io.flutter.embedding.android.FlutterActivity
 

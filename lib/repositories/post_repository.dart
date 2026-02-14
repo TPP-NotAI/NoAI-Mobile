@@ -34,9 +34,7 @@ class PostRepository {
     final fetchLimit = limit * 2;
 
     // Fetch original posts
-    final postsFuture = _client
-        .from(SupabaseConfig.postsTable)
-        .select('''
+    var postsFuture = _client.from(SupabaseConfig.postsTable).select('''
           *,
           profiles!posts_author_id_fkey (
             user_id,
@@ -71,8 +69,18 @@ class PostRepository {
           mentions (
             mentioned_user_id
           )
-        ''')
-        .eq('status', 'published')
+        ''');
+
+    // If viewing while logged in, show own under-review posts too
+    if (currentUserId != null) {
+      postsFuture = postsFuture.or(
+        'status.eq.published,and(status.eq.under_review,author_id.eq.$currentUserId)',
+      );
+    } else {
+      postsFuture = postsFuture.eq('status', 'published');
+    }
+
+    final postResultsFuture = postsFuture
         .order('created_at', ascending: false)
         .range(offset, offset + fetchLimit - 1);
 
@@ -128,7 +136,7 @@ class PostRepository {
         .order('created_at', ascending: false)
         .range(offset, offset + fetchLimit - 1);
 
-    final results = await Future.wait([postsFuture, repostsFuture]);
+    final results = await Future.wait([postResultsFuture, repostsFuture]);
     final postData = results[0] as List<dynamic>;
     final repostData = results[1] as List<dynamic>;
 
@@ -554,18 +562,6 @@ class PostRepository {
       // Fetch the complete post with all relations
       final post = await getPost(postId, currentUserId: authorId);
 
-      // Award 10 ROOK to the author for creating a post
-      try {
-        final walletRepo = WalletRepository();
-        await walletRepo.earnRoo(
-          userId: authorId,
-          activityType: RookenActivityType.postCreate,
-          referencePostId: postId,
-        );
-      } catch (e) {
-        debugPrint('PostRepository: Error awarding ROOK for post creation - $e');
-      }
-
       return post;
     } catch (e) {
       debugPrint('PostRepository: Error creating post - $e');
@@ -799,6 +795,7 @@ class PostRepository {
     String? analysisId,
     String? verificationMethod,
     String? authenticityNotes,
+    Map<String, dynamic>? aiMetadata,
   }) async {
     try {
       final updates = <String, dynamic>{
@@ -817,6 +814,9 @@ class PostRepository {
       }
       if (authenticityNotes != null) {
         updates['authenticity_notes'] = authenticityNotes;
+      }
+      if (aiMetadata != null) {
+        updates['ai_metadata'] = aiMetadata;
       }
 
       await _client
@@ -1079,16 +1079,20 @@ class PostRepository {
       }
 
       if (result != null) {
-        // The API's confidence represents certainty in its classification
-        // label, NOT AI probability. Convert to AI probability:
-        final bool isAiResult =
-            result.result == 'AI-GENERATED' ||
-            result.result == 'LIKELY AI-GENERATED';
+        // Result label is normalized to UPPER CASE in fromJson
+        // Confidence is now confirmed to be label-specific (e.g. 98% sure it is HUMAN).
+        // We flip it to get an absolute AI probability (0-100).
+        final bool isAiResult = result.result.contains('AI');
         final double aiProbability = isAiResult
             ? result.confidence
             : 100 - result.confidence;
 
-        // Map AI probability to score status & post status (aligned with API docs)
+        debugPrint(
+          'PostRepository: AI detection outcome: label=${result.result}, '
+          'apiConfidence=${result.confidence}% -> aiProbability=$aiProbability%',
+        );
+
+        // Map AI probability to score status & post status (aligned with API docs ✅)
         String scoreStatus;
         String postStatus;
         String? authenticityNotes = result.rationale;
@@ -1097,6 +1101,7 @@ class PostRepository {
         final mod = result.moderation;
         final bool isModerationFlagged = mod?.flagged ?? false;
 
+        // Best Practice Thresholds from docs: 95 BLOCK, 75 FLAG, 60 LABEL
         if (isModerationFlagged) {
           scoreStatus = 'flagged';
           // Follow recommended action
@@ -1108,20 +1113,20 @@ class PostRepository {
           }
           authenticityNotes =
               'CONTENT MODERATION: ${mod?.details ?? "Harmful content detected"}';
-        } else if (aiProbability > 95) {
+        } else if (aiProbability >= 95) {
           scoreStatus = 'flagged';
-          postStatus = 'deleted'; // Auto-block high-confidence AI content
-        } else if (aiProbability > 75) {
+          postStatus = 'deleted'; // Auto-block
+        } else if (aiProbability >= 75) {
           scoreStatus = 'flagged';
           postStatus = 'under_review'; // Flag for review
-        } else if (aiProbability > 60) {
+        } else if (aiProbability >= 60) {
           scoreStatus = 'review';
-          postStatus = 'published'; // Add transparency label but publish
+          postStatus = 'published'; // Label for transparency
           authenticityNotes =
               'HUMAN SCORE: ${(100 - aiProbability).toStringAsFixed(1)}% [REVIEW]';
         } else {
           scoreStatus = 'pass';
-          postStatus = 'published'; // Auto-publish safe content
+          postStatus = 'published'; // Auto-publish
         }
 
         if (postStatus == 'published') {
@@ -1164,6 +1169,18 @@ class PostRepository {
           analysisId: result.analysisId,
           verificationMethod: result.contentType,
           authenticityNotes: authenticityNotes,
+          aiMetadata: {
+            'consensus_strength': result.consensusStrength,
+            'rationale': result.rationale,
+            'combined_evidence': result.combinedEvidence,
+            'classification': result.result,
+            'safety_score': result.safetyScore,
+            'metadata_signals': result.metadataAnalysis?.signals,
+            'metadata_adjustment': result.metadataAnalysis?.adjustment,
+            'model_results': result.modelResults
+                ?.map((e) => e.toJson())
+                .toList(),
+          },
         );
 
         // Send notification to author about AI check result
@@ -1184,7 +1201,9 @@ class PostRepository {
             aiConfidence: aiProbability,
             aiModel: result.analysisId,
             aiMetadata: {
-              'model_analyses': result.modelAnalyses,
+              'model_results': result.modelResults
+                  ?.map((e) => e.toJson())
+                  .toList(),
               'consensus_strength': result.consensusStrength,
               'rationale': result.rationale,
               'combined_evidence': result.combinedEvidence,

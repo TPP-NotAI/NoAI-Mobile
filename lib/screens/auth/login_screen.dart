@@ -6,6 +6,7 @@ import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/storage_service.dart';
 import '../../services/secure_storage_service.dart';
+import '../../utils/validators.dart';
 import '../../utils/responsive_extensions.dart';
 import '../../utils/snackbar_utils.dart';
 import 'phone_login_screen.dart';
@@ -103,30 +104,13 @@ class _LoginScreenState extends State<LoginScreen> {
       _isRateLimited = false;
     });
 
-    final email = _emailController.text.trim();
+    final email = Validators.normalizeEmail(_emailController.text);
     final password = _passwordController.text.trim();
-
     bool hasError = false;
 
-    // Validate email
-    if (email.isEmpty) {
-      setState(() {
-        _emailError = 'Email is required';
-      });
-      hasError = true;
-    } else if (!RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    ).hasMatch(email)) {
-      // Standard email validation regex that matches most valid email formats
-      // This regex ensures:
-      // - Local part: letters, numbers, and common symbols
-      // - @ symbol
-      // - Domain: letters, numbers, dots, hyphens
-      // - TLD: at least 2 letters
-      // This catches invalid formats while allowing valid emails like user.name+tag@gmail.com
-      setState(() {
-        _emailError = 'Please enter a valid email address';
-      });
+    // Normalize and validate email
+    _emailError = Validators.validateEmail(email);
+    if (_emailError != null) {
       hasError = true;
     }
 
@@ -182,7 +166,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 height: 64.responsive(context, min: 56, max: 72),
                 decoration: BoxDecoration(
                   borderRadius: AppSpacing.responsiveRadius(
-                      context, AppSpacing.radiusExtraLarge),
+                    context,
+                    AppSpacing.radiusExtraLarge,
+                  ),
                   gradient: const LinearGradient(
                     colors: [AppColors.primary, Color(0xFF3B82F6)],
                     begin: Alignment.topLeft,
@@ -209,7 +195,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 'ROOVERSE',
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(
-                      context, AppTypography.largeHeading),
+                    context,
+                    AppTypography.largeHeading,
+                  ),
                   fontWeight: FontWeight.bold,
                   color: scheme.onBackground,
                 ),
@@ -222,7 +210,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: TextStyle(
                   color: scheme.onBackground.withOpacity(0.7),
                   fontSize: AppTypography.responsiveFontSize(
-                      context, AppTypography.small),
+                    context,
+                    AppTypography.small,
+                  ),
                 ),
               ),
 
@@ -303,12 +293,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         SizedBox(
-                            width: AppSpacing.mediumSmall.responsive(context)),
+                          width: AppSpacing.mediumSmall.responsive(context),
+                        ),
                         Text(
                           'Remember me',
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
-                                context, AppTypography.small),
+                              context,
+                              AppTypography.small,
+                            ),
                             color: scheme.onSurface.withOpacity(0.8),
                             fontWeight: FontWeight.w500,
                           ),
@@ -329,7 +322,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(
                         color: AppColors.primary,
                         fontSize: AppTypography.responsiveFontSize(
-                            context, AppTypography.small),
+                          context,
+                          AppTypography.small,
+                        ),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -369,7 +364,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Login',
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
-                                context, AppTypography.smallHeading),
+                              context,
+                              AppTypography.smallHeading,
+                            ),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -390,7 +387,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Or continue with',
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
-                            context, AppTypography.small),
+                          context,
+                          AppTypography.small,
+                        ),
                         color: scheme.onBackground.withOpacity(0.6),
                       ),
                     ),
@@ -431,15 +430,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 height: 56.responsive(context, min: 48, max: 64),
                 child: OutlinedButton.icon(
                   onPressed: _openPhoneLogin,
-                  icon: Icon(Icons.phone_android,
-                      color: scheme.onSurface,
-                      size: AppTypography.responsiveIconSize(context, 24)),
+                  icon: Icon(
+                    Icons.phone_android,
+                    color: scheme.onSurface,
+                    size: AppTypography.responsiveIconSize(context, 24),
+                  ),
                   label: Text(
                     'Login with phone number',
                     style: TextStyle(
                       color: scheme.onSurface,
                       fontSize: AppTypography.responsiveFontSize(
-                          context, AppTypography.base),
+                        context,
+                        AppTypography.base,
+                      ),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -459,7 +462,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 'Phone login also satisfies the human-verification step.',
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(
-                      context, AppTypography.tiny),
+                    context,
+                    AppTypography.tiny,
+                  ),
                   color: scheme.onSurface.withOpacity(0.6),
                 ),
                 textAlign: TextAlign.center,
@@ -475,7 +480,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     'New here? ',
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
-                          context, AppTypography.small),
+                        context,
+                        AppTypography.small,
+                      ),
                       color: scheme.onBackground.withOpacity(0.7),
                     ),
                   ),
@@ -490,7 +497,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Create an Account',
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
-                            context, AppTypography.small),
+                          context,
+                          AppTypography.small,
+                        ),
                         fontWeight: FontWeight.bold,
                         color: scheme.onBackground,
                         decoration: TextDecoration.underline,
@@ -519,14 +528,19 @@ class _LoginScreenState extends State<LoginScreen> {
       padding: AppSpacing.responsiveAll(context, AppSpacing.standard),
       decoration: BoxDecoration(
         color: errorColor.withOpacity(0.1),
-        borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.radiusSmall),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusSmall,
+        ),
         border: Border.all(color: errorColor.withOpacity(0.5)),
       ),
       child: Row(
         children: [
-          Icon(icon,
-              color: errorColor,
-              size: AppTypography.responsiveIconSize(context, 20)),
+          Icon(
+            icon,
+            color: errorColor,
+            size: AppTypography.responsiveIconSize(context, 20),
+          ),
           SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
           Expanded(
             child: Column(
@@ -537,7 +551,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(
                     color: errorColor,
                     fontSize: AppTypography.responsiveFontSize(
-                        context, AppTypography.small),
+                      context,
+                      AppTypography.small,
+                    ),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -548,7 +564,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       color: errorColor.withOpacity(0.8),
                       fontSize: AppTypography.responsiveFontSize(
-                          context, AppTypography.tiny),
+                        context,
+                        AppTypography.tiny,
+                      ),
                     ),
                   ),
                 ],
@@ -581,7 +599,9 @@ class _LoginScreenState extends State<LoginScreen> {
           label,
           style: TextStyle(
             fontSize: AppTypography.responsiveFontSize(
-                context, AppTypography.base),
+              context,
+              AppTypography.base,
+            ),
             fontWeight: FontWeight.w600,
             color: scheme.onBackground.withOpacity(0.9),
           ),
@@ -595,8 +615,10 @@ class _LoginScreenState extends State<LoginScreen> {
             height: 56.responsive(context, min: 48, max: 64),
             decoration: BoxDecoration(
               color: scheme.surface,
-              borderRadius:
-                  AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
+              borderRadius: AppSpacing.responsiveRadius(
+                context,
+                AppSpacing.radiusMedium,
+              ),
               border: Border.all(
                 color: hasError
                     ? Colors.red
@@ -646,7 +668,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       color: scheme.onSurface,
                       fontSize: AppTypography.responsiveFontSize(
-                          context, AppTypography.base),
+                        context,
+                        AppTypography.base,
+                      ),
                       fontWeight: FontWeight.w500,
                     ),
                     decoration: InputDecoration(
@@ -687,19 +711,24 @@ class _LoginScreenState extends State<LoginScreen> {
           SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
           Padding(
             padding: EdgeInsets.only(
-                left: AppSpacing.extraSmall.responsive(context)),
+              left: AppSpacing.extraSmall.responsive(context),
+            ),
             child: Row(
               children: [
-                Icon(Icons.error_outline,
-                    size: AppTypography.responsiveIconSize(context, 14),
-                    color: Colors.red),
+                Icon(
+                  Icons.error_outline,
+                  size: AppTypography.responsiveIconSize(context, 14),
+                  color: Colors.red,
+                ),
                 SizedBox(width: AppSpacing.extraSmall.responsive(context)),
                 Text(
                   errorText,
                   style: TextStyle(
                     color: Colors.red,
                     fontSize: AppTypography.responsiveFontSize(
-                        context, AppTypography.small),
+                      context,
+                      AppTypography.small,
+                    ),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -732,14 +761,18 @@ class _LoginScreenState extends State<LoginScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
-        borderRadius:
-            AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusMedium,
+        ),
         child: Container(
           height: 54.responsive(context, min: 46, max: 62),
           decoration: BoxDecoration(
             color: scheme.surface,
-            borderRadius:
-                AppSpacing.responsiveRadius(context, AppSpacing.radiusMedium),
+            borderRadius: AppSpacing.responsiveRadius(
+              context,
+              AppSpacing.radiusMedium,
+            ),
             border: Border.all(
               color: scheme.outline.withOpacity(0.3),
               width: 1.5,
@@ -755,15 +788,19 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon,
-                  size: AppTypography.responsiveIconSize(context, 24),
-                  color: scheme.onSurface.withOpacity(0.8)),
+              Icon(
+                icon,
+                size: AppTypography.responsiveIconSize(context, 24),
+                color: scheme.onSurface.withOpacity(0.8),
+              ),
               SizedBox(width: AppSpacing.small.responsive(context)),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(
-                      context, AppTypography.base),
+                    context,
+                    AppTypography.base,
+                  ),
                   fontWeight: FontWeight.w600,
                   color: scheme.onSurface.withOpacity(0.9),
                 ),

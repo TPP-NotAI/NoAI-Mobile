@@ -10,6 +10,7 @@ import '../models/moderation_result.dart';
 /// Singleton service for the NOAI AI Content Detection and Moderation API.
 class AiDetectionService {
   static const String _baseUrl = 'https://noai-lm-production.up.railway.app';
+  static const Duration _timeout = Duration(seconds: 60);
 
   static final AiDetectionService _instance = AiDetectionService._internal();
   factory AiDetectionService() => _instance;
@@ -18,7 +19,11 @@ class AiDetectionService {
   // --- AI Detection Endpoints ---
 
   /// Analyse text content for AI generation.
-  Future<AiDetectionResult?> detectText(String content) async {
+  Future<AiDetectionResult?> detectText(
+    String content, {
+    String models = 'gpt-5.2,o3',
+    bool includeRaw = false,
+  }) async {
     try {
       final request = http.MultipartRequest(
         'POST',
@@ -26,8 +31,10 @@ class AiDetectionService {
       );
       request.fields['content'] = content;
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      final streamedResponse = await request.send().timeout(_timeout);
+      final response = await http.Response.fromStream(
+        streamedResponse,
+      ).timeout(_timeout);
       return _parseResponse(response);
     } catch (e) {
       debugPrint('AiDetectionService: Error detecting text - $e');
@@ -36,19 +43,54 @@ class AiDetectionService {
   }
 
   /// Analyse an image or video file for AI generation.
-  Future<AiDetectionResult?> detectImage(File file) async {
+  Future<AiDetectionResult?> detectImage(
+    File file, {
+    String models = 'gpt-4.1',
+    bool includeRaw = false,
+  }) async {
     try {
+      debugPrint(
+        'AiDetectionService: Starting image detection for ${file.path}',
+      );
+
+      if (!await file.exists()) {
+        debugPrint('AiDetectionService: Error - File does not exist');
+        return null;
+      }
+
+      final fileSize = await file.length();
+      debugPrint('AiDetectionService: File size: $fileSize bytes');
+
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$_baseUrl/api/v1/detect/image'),
       );
-      request.files.add(
-        await http.MultipartFile.fromPath('file', file.path),
-      );
+      request.fields['models'] = models;
+      if (includeRaw) request.fields['include_raw'] = 'true';
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      return _parseResponse(response);
+      debugPrint('AiDetectionService: Sending request to /detect/image...');
+      final streamedResponse = await request.send().timeout(_timeout);
+      debugPrint('AiDetectionService: Request sent, waiting for response...');
+      final response = await http.Response.fromStream(
+        streamedResponse,
+      ).timeout(_timeout);
+
+      debugPrint(
+        'AiDetectionService: Received response ${response.statusCode}',
+      );
+      final result = _parseResponse(response);
+
+      if (result != null) {
+        debugPrint('AiDetectionService: Analysis ID: ${result.analysisId}');
+        if (result.metadataAnalysis?.signals.isNotEmpty ?? false) {
+          debugPrint(
+            'AiDetectionService: Metadata signals: ${result.metadataAnalysis?.signals}',
+          );
+        }
+      }
+
+      return result;
     } catch (e) {
       debugPrint('AiDetectionService: Error detecting image - $e');
       return null;
@@ -56,20 +98,51 @@ class AiDetectionService {
   }
 
   /// Analyse mixed content (text + media file) for AI generation.
-  Future<AiDetectionResult?> detectMixed(String content, File file) async {
+  Future<AiDetectionResult?> detectMixed(
+    String content,
+    File file, {
+    String models = 'gpt-4.1',
+    bool includeRaw = false,
+  }) async {
     try {
+      debugPrint('AiDetectionService: Starting mixed detection');
+
+      if (!await file.exists()) {
+        debugPrint('AiDetectionService: Error - File does not exist');
+        return null;
+      }
+
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$_baseUrl/api/v1/detect/mixed'),
       );
       request.fields['content'] = content;
-      request.files.add(
-        await http.MultipartFile.fromPath('file', file.path),
-      );
+      request.fields['models'] = models;
+      if (includeRaw) request.fields['include_raw'] = 'true';
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      return _parseResponse(response);
+      debugPrint('AiDetectionService: Sending request to /detect/mixed...');
+      final streamedResponse = await request.send().timeout(_timeout);
+      debugPrint('AiDetectionService: Request sent, waiting for response...');
+      final response = await http.Response.fromStream(
+        streamedResponse,
+      ).timeout(_timeout);
+
+      debugPrint(
+        'AiDetectionService: Received response ${response.statusCode}',
+      );
+      final result = _parseResponse(response);
+
+      if (result != null) {
+        debugPrint('AiDetectionService: Analysis ID: ${result.analysisId}');
+        if (result.metadataAnalysis?.signals.isNotEmpty ?? false) {
+          debugPrint(
+            'AiDetectionService: Metadata signals: ${result.metadataAnalysis?.signals}',
+          );
+        }
+      }
+
+      return result;
     } catch (e) {
       debugPrint('AiDetectionService: Error detecting mixed content - $e');
       return null;
@@ -107,9 +180,7 @@ class AiDetectionService {
         'POST',
         Uri.parse('$_baseUrl/api/v1/moderate/image'),
       );
-      request.files.add(
-        await http.MultipartFile.fromPath('file', file.path),
-      );
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
@@ -131,9 +202,7 @@ class AiDetectionService {
         'POST',
         Uri.parse('$_baseUrl/api/v1/moderate/video'),
       );
-      request.files.add(
-        await http.MultipartFile.fromPath('file', file.path),
-      );
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
@@ -191,6 +260,7 @@ class AiDetectionService {
   }
 
   AiDetectionResult? _parseResponse(http.Response response) {
+    debugPrint('AiDetectionService: Raw response body: ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body) as Map<String, dynamic>;
       return AiDetectionResult.fromJson(data);
