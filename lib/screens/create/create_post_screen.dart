@@ -816,7 +816,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'You will earn ${_postCostRoo.toStringAsFixed(_postCostRoo % 1 == 0 ? 0 : 2)} ROO',
+                              'You will earn ${_postCostRoo.toStringAsFixed(_postCostRoo % 1 == 0 ? 0 : 10)} ROO',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.w600,

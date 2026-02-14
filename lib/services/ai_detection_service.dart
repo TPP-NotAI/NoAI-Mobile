@@ -30,6 +30,8 @@ class AiDetectionService {
         Uri.parse('$_baseUrl/api/v1/detect/text'),
       );
       request.fields['content'] = content;
+      request.fields['models'] = models;
+      if (includeRaw) request.fields['include_raw'] = 'true';
 
       final streamedResponse = await request.send().timeout(_timeout);
       final response = await http.Response.fromStream(
