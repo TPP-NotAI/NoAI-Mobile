@@ -907,6 +907,25 @@ class PostRepository {
     String? notes,
   }) async {
     try {
+      // 1. Fetch post details first to get author_id for notification
+      final postData = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('author_id, title, body')
+          .eq('id', postId)
+          .maybeSingle();
+
+      if (postData == null) {
+        debugPrint('PostRepository: Post $postId not found for moderation');
+        return false;
+      }
+
+      final String authorId = postData['author_id'] as String;
+      final String? postTitle = postData['title'] as String?;
+      final String postBody = postData['body'] as String? ?? '';
+      final String displayTitle =
+          postTitle ??
+          (postBody.length > 30 ? '${postBody.substring(0, 30)}...' : postBody);
+
       final updates = <String, dynamic>{};
       if (action == 'approve') {
         updates['status'] = 'published';
@@ -924,16 +943,40 @@ class PostRepository {
           .update(updates)
           .eq('id', postId);
 
+      // 2. Send Notification to Author
+      try {
+        if (action == 'approve') {
+          await _notificationRepository.createNotification(
+            userId: authorId,
+            type: 'post_published',
+            title: 'Post Approved',
+            body:
+                'Your post "$displayTitle" has been approved and is now live!',
+            postId: postId,
+            actorId: moderatorId, // The moderator who approved it
+          );
+        } else if (action == 'reject') {
+          await _notificationRepository.createNotification(
+            userId: authorId,
+            type: 'post_flagged',
+            title: 'Post Rejected',
+            body: notes != null && notes.isNotEmpty
+                ? 'Your post "$displayTitle" was rejected. Reason: $notes'
+                : 'Your post "$displayTitle" was rejected by a moderator.',
+            postId: postId,
+            actorId: moderatorId,
+          );
+        }
+      } catch (e) {
+        debugPrint(
+          'PostRepository: Error sending moderation notification - $e',
+        );
+        // Continue execution, don't fail the moderation action
+      }
+
       // If approved, award ROOK to the author
       if (action == 'approve') {
         try {
-          final post = await _client
-              .from(SupabaseConfig.postsTable)
-              .select('author_id')
-              .eq('id', postId)
-              .single();
-
-          final authorId = post['author_id'] as String;
           final walletRepo = WalletRepository();
           await walletRepo.earnRoo(
             userId: authorId,
@@ -974,12 +1017,12 @@ class PostRepository {
       // Submit feedback to the AI learning system so it can improve.
       // Fetch the analysis_id stored on the post during detection.
       try {
-        final postData = await _client
+        final postDataIdx = await _client
             .from(SupabaseConfig.postsTable)
             .select('verification_session_id')
             .eq('id', postId)
             .maybeSingle();
-        final analysisId = postData?['verification_session_id'] as String?;
+        final analysisId = postDataIdx?['verification_session_id'] as String?;
         if (analysisId != null && analysisId.isNotEmpty) {
           // approve = the AI was wrong (content is human), reject = AI was right
           final correctResult = action == 'approve'

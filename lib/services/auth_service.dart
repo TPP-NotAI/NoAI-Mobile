@@ -33,6 +33,22 @@ class AuthService {
     }
   }
 
+  /// Check if a username is already taken.
+  Future<bool> isUsernameAvailable(String username) async {
+    try {
+      final response = await _supabase.client
+          .from('profiles')
+          .select('username')
+          .eq('username', username)
+          .maybeSingle();
+
+      return response == null;
+    } catch (e) {
+      // If error, assume unavailable to be safe
+      return false;
+    }
+  }
+
   /// Sign in with email and password.
   Future<AuthResponse> signIn({
     required String email,

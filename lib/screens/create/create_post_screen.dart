@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../main.dart';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -25,6 +26,7 @@ import '../../services/storage_service.dart';
 import '../../services/kyc_verification_service.dart';
 import '../../utils/verification_utils.dart';
 import '../../widgets/verification_required_widget.dart';
+import '../post_detail_screen.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final String? initialPostType;
@@ -1175,47 +1177,81 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         setState(() {
           _hasUnsavedChanges = false;
-          _isPosting = false; // Reset early as we are leaving
+          // Keep _isPosting = true until AI check completes for feedback
         });
       }
 
-      // 2. Navigate back immediately
+      // 2. Trigger post creation and WAIT for AI detection
+      final createdPost = await feedProvider.createPost(
+        contentText,
+        title: titleText.isNotEmpty ? titleText : null,
+        mediaFiles: mediaFiles,
+        mediaTypes: mediaTypes,
+        tags: tagsList,
+        location: loc,
+        mentionedUserIds: taggedIds,
+        optimisticAuthor: optimisticAuthor,
+        optimisticTags: optimisticTags,
+        waitForAi: true, // Wait for validation to show feedback
+      );
+
+      if (!mounted) return;
+      setState(() => _isPosting = false);
+
+      // 3. Navigate back and show appropriate feedback
       if (widget.onPostCreated != null) {
         widget.onPostCreated!();
       } else if (Navigator.canPop(context)) {
         Navigator.pop(context);
-        // Show success snackbar on the feed screen
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Publishing your post...'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
 
-      // 3. Trigger post creation in background (do not await)
-      feedProvider
-          .createPost(
-            contentText,
-            title: titleText.isNotEmpty ? titleText : null,
-            mediaFiles: mediaFiles,
-            mediaTypes: mediaTypes,
-            tags: tagsList,
-            location: loc,
-            mentionedUserIds: taggedIds,
-            optimisticAuthor: optimisticAuthor,
-            optimisticTags: optimisticTags,
-          )
-          .then((post) {
-            if (post != null) {
-              debugPrint('Post created successfully in background');
-            }
-          })
-          .catchError((e) {
-            debugPrint('Optimistic Post Error: $e');
-          });
+        if (createdPost != null) {
+          String message;
+          Color backgroundColor;
+
+          if (createdPost.status == 'published') {
+            message = 'Post published successfully!';
+            backgroundColor = Colors.green;
+          } else if (createdPost.status == 'deleted') {
+            final reason = createdPost.authenticityNotes != null
+                ? ': ${createdPost.authenticityNotes}'
+                : '';
+            message = 'Post rejected$reason';
+            backgroundColor = Colors.red;
+          } else if (createdPost.status == 'under_review') {
+            message = 'Post submitted for review.';
+            backgroundColor = Colors.orange;
+          } else {
+            message = 'Post created.';
+            backgroundColor = Colors.blue;
+          }
+
+          rootScaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: backgroundColor,
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: 'VIEW',
+                textColor: Colors.white,
+                onPressed: () {
+                  final context = rootScaffoldMessengerKey.currentContext;
+                  if (context != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PostDetailScreen(post: createdPost),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+          );
+        }
+      }
     } on KycNotVerifiedException catch (e) {
       if (!mounted) return;
+      setState(() => _isPosting = false);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1235,15 +1271,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         );
       }
     } catch (e) {
-      if (!mounted) return;
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to start posting: $e')));
-      }
-    } finally {
+      debugPrint('Error creating post: $e');
       if (mounted) {
         setState(() => _isPosting = false);
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to create post: $e')));
+        }
       }
     }
   }

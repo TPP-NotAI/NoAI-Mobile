@@ -362,6 +362,84 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
+                          // Moderation Alert for Author
+                          if (isAuthor &&
+                              (_post.status == 'deleted' ||
+                                  _post.status == 'under_review' ||
+                                  _post.status == 'flagged'))
+                            Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color:
+                                    (_post.status == 'deleted'
+                                            ? colors.error
+                                            : colors.tertiary)
+                                        .withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color:
+                                      (_post.status == 'deleted'
+                                              ? colors.error
+                                              : colors.tertiary)
+                                          .withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _post.status == 'deleted'
+                                        ? Icons.block
+                                        : Icons.warning_amber_rounded,
+                                    color: _post.status == 'deleted'
+                                        ? colors.error
+                                        : colors.tertiary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _post.status == 'deleted'
+                                              ? 'Post Rejected/Deleted'
+                                              : 'Post Under Review',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: _post.status == 'deleted'
+                                                ? colors.error
+                                                : colors.tertiary,
+                                          ),
+                                        ),
+                                        if (_post.authenticityNotes != null)
+                                          Text(
+                                            _post.authenticityNotes!,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: _post.status == 'deleted'
+                                                  ? colors.onErrorContainer
+                                                  : colors.onTertiaryContainer,
+                                            ),
+                                          ),
+                                        if (_post.aiScoreStatus != null)
+                                          Text(
+                                            'Status: ${_post.aiScoreStatus}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontStyle: FontStyle.italic,
+                                              color: _post.status == 'deleted'
+                                                  ? colors.onErrorContainer
+                                                  : colors.onTertiaryContainer,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           if (_post.isSensitive)
                             Container(
                               width: double.infinity,

@@ -561,9 +561,7 @@ class FeedProvider with ChangeNotifier {
                         aiScore,
                         status: 'published',
                       );
-                      _posts[idx] = post.copyWith(
-                        commentList: updatedComments,
-                      );
+                      _posts[idx] = post.copyWith(commentList: updatedComments);
                     }
                     notifyListeners();
                   }
@@ -705,8 +703,9 @@ class FeedProvider with ChangeNotifier {
                           aiScore,
                           status: 'published',
                         );
-                        _posts[idx] =
-                            post.copyWith(commentList: updatedComments);
+                        _posts[idx] = post.copyWith(
+                          commentList: updatedComments,
+                        );
                       }
                       notifyListeners();
                     }
@@ -837,8 +836,9 @@ class FeedProvider with ChangeNotifier {
                           aiScore,
                           status: 'published',
                         );
-                        _posts[idx] =
-                            post.copyWith(commentList: updatedComments);
+                        _posts[idx] = post.copyWith(
+                          commentList: updatedComments,
+                        );
                       }
                       notifyListeners();
                     }
@@ -1171,6 +1171,7 @@ class FeedProvider with ChangeNotifier {
     List<String>? mentionedUserIds,
     PostAuthor? optimisticAuthor,
     List<PostTag>? optimisticTags,
+    bool waitForAi = false,
   }) async {
     final userId = _currentUserId;
     if (userId == null) return null;
@@ -1222,51 +1223,76 @@ class FeedProvider with ChangeNotifier {
         }
         notifyListeners();
 
-        // Fire-and-forget: run AI detection in the background.
-        // The post is visible immediately with a PENDING badge.
-        // Once detection completes, update the local post so the
-        // badge switches to PASS/FAIL without needing a feed refresh.
-        _postRepository
-            .runAiDetection(
-              postId: newPost.id,
-              authorId: userId,
-              body: body,
-              mediaFiles: mediaFiles,
-            )
-            .then((confidence) {
-              if (confidence != null) {
-                // Check if AI score is 95%+ (auto-block threshold)
-                // Remove immediately from UI without waiting for backend
-                if (confidence >= 95) {
+        // Run AI detection
+        final detectionFuture = _postRepository.runAiDetection(
+          postId: newPost.id,
+          authorId: userId,
+          body: body,
+          mediaFiles: mediaFiles,
+        );
+
+        if (waitForAi) {
+          final confidence = await detectionFuture;
+          if (confidence != null) {
+            // Fetch updated post to get the AI score and final status
+            final updatedPost = await _postRepository.getPost(
+              newPost.id,
+              currentUserId: userId,
+            );
+
+            if (updatedPost != null) {
+              final idx = _posts.indexWhere((p) => p.id == newPost.id);
+              if (idx != -1) {
+                if (updatedPost.status == 'deleted' ||
+                    updatedPost.status == 'hidden') {
+                  // Post was flagged or auto-blocked — remove from feed
+                  _posts.removeAt(idx);
+                } else {
+                  _posts[idx] = updatedPost;
+                }
+                notifyListeners();
+              }
+              return updatedPost; // Return the final updated post
+            }
+          }
+          return newPost; // Return original if detection didn't change anything (or failed)
+        } else {
+          // Fire-and-forget: run AI detection in the background.
+          detectionFuture.then((confidence) {
+            if (confidence != null) {
+              // Check if AI score is 95%+ (auto-block threshold)
+              // Remove immediately from UI without waiting for backend
+              if (confidence >= 95) {
+                final idx = _posts.indexWhere((p) => p.id == newPost.id);
+                if (idx != -1) {
+                  _posts.removeAt(idx);
+                  notifyListeners();
+                }
+                return;
+              }
+
+              // Fetch updated post to get the AI score and status
+              _postRepository.getPost(newPost.id, currentUserId: userId).then((
+                updatedPost,
+              ) {
+                if (updatedPost != null) {
                   final idx = _posts.indexWhere((p) => p.id == newPost.id);
                   if (idx != -1) {
-                    _posts.removeAt(idx);
+                    if (updatedPost.status == 'under_review' ||
+                        updatedPost.status == 'deleted' ||
+                        updatedPost.status == 'hidden') {
+                      // Post was flagged or auto-blocked — remove from feed
+                      _posts.removeAt(idx);
+                    } else {
+                      _posts[idx] = updatedPost;
+                    }
                     notifyListeners();
                   }
-                  return;
                 }
-
-                // Fetch updated post to get the AI score and status
-                _postRepository.getPost(newPost.id, currentUserId: userId).then(
-                  (updatedPost) {
-                    if (updatedPost != null) {
-                      final idx = _posts.indexWhere((p) => p.id == newPost.id);
-                      if (idx != -1) {
-                        if (updatedPost.status == 'under_review' ||
-                            updatedPost.status == 'deleted' ||
-                            updatedPost.status == 'hidden') {
-                          // Post was flagged or auto-blocked — remove from feed
-                          _posts.removeAt(idx);
-                        } else {
-                          _posts[idx] = updatedPost;
-                        }
-                        notifyListeners();
-                      }
-                    }
-                  },
-                );
-              }
-            });
+              });
+            }
+          });
+        }
       }
 
       return newPost;

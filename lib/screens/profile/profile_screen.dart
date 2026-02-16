@@ -87,11 +87,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final userProvider = context.watch<UserProvider>();
     final feedProvider = context.watch<FeedProvider>();
 
-    // Check if viewing own profile - either no userId passed OR userId matches current user
-    final currentUserId = authProvider.currentUser?.id;
-    final isOwnProfile =
-        widget.userId == null || widget.userId == currentUserId;
+    // Load user data first
     final user = userProvider.getUser(widget.userId);
+
+    // Initial check for isOwnProfile (brittle, but used for initial UI states)
+    final currentUserId = authProvider.currentUser?.id;
+    bool isOwnProfileInitial =
+        widget.userId == null || widget.userId == currentUserId;
+
+    // Robust check for isOwnProfile once user data is loaded
+    // This handles username-based navigation correctly
+    final bool isActuallyOwnProfile = user != null
+        ? user.id == currentUserId
+        : isOwnProfileInitial;
+
+    // If viewing another profile and tab is 0 (Activity Log), default to 1 (Statistics)
+    if (!isActuallyOwnProfile && _tabIndex == 0) {
+      _tabIndex = 1;
+    }
 
     if (user == null) {
       return Scaffold(
@@ -104,10 +117,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    final isFollowing = !isOwnProfile && userProvider.isFollowing(user.id);
-    final isBlocked = !isOwnProfile && userProvider.isBlocked(user.id);
+    final isFollowing =
+        !isActuallyOwnProfile && userProvider.isFollowing(user.id);
+    final isBlocked = !isActuallyOwnProfile && userProvider.isBlocked(user.id);
     final isBlockedByUser =
-        !isOwnProfile && userProvider.isBlockedByUser(user.id);
+        !isActuallyOwnProfile && userProvider.isBlockedByUser(user.id);
 
     // Show blocked message if this user has blocked the current user
     if (isBlockedByUser) {
@@ -196,7 +210,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPressed: () => Navigator.pop(context),
               ),
               title: Text(
-                isOwnProfile ? 'My Profile' : 'Profile Details',
+                isActuallyOwnProfile ? 'My Profile' : 'Profile Details',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: colors.onSurface,
@@ -238,13 +252,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         _ProfileHeader(
                           user: user,
-                          isOwn: isOwnProfile,
+                          isOwn: isActuallyOwnProfile,
                           isFollowing: isFollowing,
                         ),
                         _RookenBalance(user: user, colors: colors),
                         const SizedBox(height: 16),
                         _ActionRow(
-                          isOwn: isOwnProfile,
+                          isOwn: isActuallyOwnProfile,
                           isFollowing: isFollowing,
                           isBlocked: isBlocked,
                           user: user,
@@ -282,13 +296,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _scrollToTabs();
                   },
                   colors: colors,
-                  isOwnProfile: isOwnProfile,
+                  isOwnProfile: isActuallyOwnProfile,
                 ),
               ),
             ),
 
             // ───────── TAB CONTENT
-            if (_tabIndex == 0)
+            if (_tabIndex == 0 && isActuallyOwnProfile)
               _ActivityLog(
                 activities: userProvider.userActivities,
                 colors: colors,
@@ -297,7 +311,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _Statistics(user: user, colors: colors)
             else if (_tabIndex == 2)
               _PostsGrid(posts: posts, colors: colors)
-            else if (_tabIndex == 3 && isOwnProfile)
+            else if (_tabIndex == 3 && isActuallyOwnProfile)
               _DraftsGrid(
                 posts: feedProvider.draftPosts,
                 colors: colors,
@@ -2066,13 +2080,14 @@ class _TabBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _TabButton(
-            label: 'Activity Log',
-            index: 0,
-            isSelected: currentIndex == 0,
-            onTap: () => onTabChanged(0),
-            colors: colors,
-          ),
+          if (isOwnProfile)
+            _TabButton(
+              label: 'Activity Log',
+              index: 0,
+              isSelected: currentIndex == 0,
+              onTap: () => onTabChanged(0),
+              colors: colors,
+            ),
           _TabButton(
             label: 'Statistics',
             index: 1,

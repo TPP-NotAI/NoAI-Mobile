@@ -51,7 +51,9 @@ import 'services/daily_login_service.dart';
 import 'services/push_notification_service.dart';
 import 'widgets/connectivity_overlay.dart';
 import 'widgets/welcome_dialog.dart';
-import 'utils/snackbar_utils.dart';
+
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   runZonedGuarded(
@@ -145,6 +147,7 @@ class MyApp extends StatelessWidget {
         builder: (_, themeProvider, __) {
           return MaterialApp(
             title: AppConstants.appName,
+            scaffoldMessengerKey: rootScaffoldMessengerKey,
             debugShowCheckedModeBanner: false,
             theme: themeProvider.theme,
             home: const AuthWrapper(),
@@ -332,6 +335,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
             initialView: ViewType.recover,
           );
         }
+        // If email verification is pending, stay on verify screen during loading
+        if (authProvider.pendingEmail != null) {
+          return const AppNavigator(
+            key: ValueKey('verify_navigator'),
+            initialView: ViewType.verify,
+          );
+        }
         // Show splash while checking auth state
         return SplashScreen(onComplete: () {});
       case AuthStatus.authenticated:
@@ -352,7 +362,20 @@ class _AuthWrapperState extends State<AuthWrapper> {
       case AuthStatus.banned:
         return const BannedScreen();
       case AuthStatus.unauthenticated:
-        // User needs to login, show auth flow
+        // User needs to login or verify email
+        if (authProvider.pendingEmail != null) {
+          return const AppNavigator(
+            key: ValueKey('verify_navigator'),
+            initialView: ViewType.verify,
+          );
+        }
+        if (authProvider.isPasswordResetPending) {
+          return const AppNavigator(
+            key: ValueKey('recovery_navigator'),
+            initialView: ViewType.recover,
+          );
+        }
+        // Default auth flow
         return const AppNavigator();
     }
   }
@@ -392,7 +415,7 @@ class _AppNavigatorState extends State<AppNavigator> {
   @override
   void initState() {
     super.initState();
-    _view = widget.initialView ?? ViewType.splash;
+    _view = widget.initialView ?? ViewType.onboarding;
   }
 
   void _go(ViewType v) => setState(() => _view = v);
