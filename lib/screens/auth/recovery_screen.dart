@@ -280,7 +280,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                     'Enter the email associated with your ROOVERSE account. We\'ll send you a ',
               ),
               TextSpan(
-                text: 'Rooken-secured',
+                text: 'Roobyte-secured',
                 style: TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,

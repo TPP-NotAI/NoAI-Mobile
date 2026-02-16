@@ -222,7 +222,7 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          _buildSectionHeader(context, 'ROOKEN WALLET'),
+          _buildSectionHeader(context, 'ROOBYTE WALLET'),
           _buildSettingsTile(
             context,
             icon: Icons.account_balance_wallet,
@@ -453,44 +453,44 @@ class SettingsScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: iconColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: iconColor),
                 ),
-                child: Icon(icon, color: iconColor),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(fontSize: 16, color: scheme.onSurface),
-                    ),
-                    if (subtitle != null)
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: scheme.onSurface.withOpacity(0.6),
-                        ),
+                        title,
+                        style: TextStyle(fontSize: 16, color: scheme.onSurface),
                       ),
-                  ],
+                      if (subtitle != null)
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: scheme.onSurface.withOpacity(0.4),
-              ),
-            ],
+                Icon(
+                  Icons.chevron_right,
+                  color: scheme.onSurface.withOpacity(0.4),
+                ),
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -556,7 +556,10 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: scheme.surface,
-        title: Text('About ROOVERSE', style: TextStyle(color: scheme.onSurface)),
+        title: Text(
+          'About ROOVERSE',
+          style: TextStyle(color: scheme.onSurface),
+        ),
         content: Text(
           'ROOVERSE – Human-First Social Platform\n\nVersion 1.0.2\n\n© 2026 ROOVERSE Inc.',
           style: TextStyle(color: scheme.onSurface.withOpacity(0.75)),

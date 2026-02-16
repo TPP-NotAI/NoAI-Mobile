@@ -319,7 +319,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    TextSpan(text: ' and start earning Rooken.'),
+                    TextSpan(text: ' and start earning Roobyte.'),
                   ],
                 ),
               ),

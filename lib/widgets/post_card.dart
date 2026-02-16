@@ -435,8 +435,9 @@ class _HeaderState extends State<_Header> {
                                 context,
                                 11,
                               ),
-                              color:
-                                  colors.onSurfaceVariant.withValues(alpha: 0.7),
+                              color: colors.onSurfaceVariant.withValues(
+                                alpha: 0.7,
+                              ),
                             ),
                           ),
                           SizedBox(width: AppSpacing.small.responsive(context)),
@@ -453,8 +454,10 @@ class _HeaderState extends State<_Header> {
                           children: [
                             Icon(
                               Icons.location_on,
-                              size:
-                                  AppTypography.responsiveIconSize(context, 12),
+                              size: AppTypography.responsiveIconSize(
+                                context,
+                                12,
+                              ),
                               color: colors.onSurfaceVariant.withValues(
                                 alpha: 0.7,
                               ),
@@ -476,9 +479,9 @@ class _HeaderState extends State<_Header> {
                                       style: TextStyle(
                                         fontSize:
                                             AppTypography.responsiveFontSize(
-                                          context,
-                                          11,
-                                        ),
+                                              context,
+                                              11,
+                                            ),
                                         color: colors.onSurfaceVariant
                                             .withValues(alpha: 0.7),
                                       ),

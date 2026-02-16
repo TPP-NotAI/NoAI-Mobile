@@ -40,7 +40,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'Earn Real',
       highlight: 'Value.',
       description:
-          'Your attention is valuable. Get rewarded in Rooken for authentic engagement and high-quality human content.',
+          'Your attention is valuable. Get rewarded in Roobyte for authentic engagement and high-quality human content.',
       image:
           'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?q=80&w=2070&auto=format&fit=crop',
       icon: Icons.account_balance_wallet_outlined,

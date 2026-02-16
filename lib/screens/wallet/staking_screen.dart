@@ -55,9 +55,9 @@ class _StakingScreenState extends State<StakingScreen> {
     setState(() => _isStaking = true);
 
     final success = await context.read<StakingProvider>().stake(
-          userId: userId,
-          amount: amount,
-        );
+      userId: userId,
+      amount: amount,
+    );
 
     setState(() => _isStaking = false);
 
@@ -140,7 +140,10 @@ class _StakingScreenState extends State<StakingScreen> {
                 const SizedBox(width: 8),
                 Text(
                   'Network: Operational',
-                  style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -165,7 +168,7 @@ class _StakingScreenState extends State<StakingScreen> {
                   children: [
                     // Header subtitle
                     Text(
-                      'Lock your Rooken to validate your humanity, earn yields, and gain visibility priority.',
+                      'Lock your Roobyte to validate your humanity, earn yields, and gain visibility priority.',
                       style: TextStyle(
                         color: colors.onSurfaceVariant,
                         fontSize: 14,
@@ -208,17 +211,30 @@ class _StakingScreenState extends State<StakingScreen> {
                     const SizedBox(height: 24),
 
                     // User Profile Card
-                    _buildUserProfileCard(user, wallet, stakingProvider, colors),
+                    _buildUserProfileCard(
+                      user,
+                      wallet,
+                      stakingProvider,
+                      colors,
+                    ),
                     const SizedBox(height: 16),
 
                     // Staking Tiers Section
-                    _buildSectionHeader(Icons.emoji_events, 'Staking Tiers', colors),
+                    _buildSectionHeader(
+                      Icons.emoji_events,
+                      'Staking Tiers',
+                      colors,
+                    ),
                     const SizedBox(height: 16),
                     _buildTierGrid(stakingProvider, colors),
                     const SizedBox(height: 24),
 
                     // Stake Form
-                    _buildStakeForm(stakingProvider, wallet?.balanceRc ?? 0, colors),
+                    _buildStakeForm(
+                      stakingProvider,
+                      wallet?.balanceRc ?? 0,
+                      colors,
+                    ),
                     const SizedBox(height: 24),
 
                     // Staking Benefits
@@ -238,7 +254,13 @@ class _StakingScreenState extends State<StakingScreen> {
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, String subtitle, Color valueColor, ColorScheme colors) {
+  Widget _buildSummaryCard(
+    String title,
+    String value,
+    String subtitle,
+    Color valueColor,
+    ColorScheme colors,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -304,12 +326,22 @@ class _StakingScreenState extends State<StakingScreen> {
       runSpacing: 12,
       children: provider.tiers.map((tier) {
         final isSelected = provider.selectedTier.id == tier.id;
-        return _buildTierCard(tier, isSelected, () => provider.selectTier(tier), colors);
+        return _buildTierCard(
+          tier,
+          isSelected,
+          () => provider.selectTier(tier),
+          colors,
+        );
       }).toList(),
     );
   }
 
-  Widget _buildTierCard(StakingTier tier, bool isSelected, VoidCallback onTap, ColorScheme colors) {
+  Widget _buildTierCard(
+    StakingTier tier,
+    bool isSelected,
+    VoidCallback onTap,
+    ColorScheme colors,
+  ) {
     final tierColors = {
       'flexible': colors.onSurface,
       'bronze': const Color(0xFFCD7F32),
@@ -348,7 +380,11 @@ class _StakingScreenState extends State<StakingScreen> {
                   ),
                 ),
                 if (isSelected)
-                  const Icon(Icons.check_circle, color: AppColors.success, size: 18),
+                  const Icon(
+                    Icons.check_circle,
+                    color: AppColors.success,
+                    size: 18,
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -363,17 +399,11 @@ class _StakingScreenState extends State<StakingScreen> {
             const SizedBox(height: 8),
             Text(
               'Min: ${_numberFormat.format(tier.minAmount)} ROO',
-              style: TextStyle(
-                color: colors.onSurfaceVariant,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
             ),
             Text(
               'Lock: ${tier.lockDays} days',
-              style: TextStyle(
-                color: colors.onSurfaceVariant,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
             ),
             const SizedBox(height: 8),
             Text(
@@ -389,7 +419,11 @@ class _StakingScreenState extends State<StakingScreen> {
     );
   }
 
-  Widget _buildStakeForm(StakingProvider provider, double availableBalance, ColorScheme colors) {
+  Widget _buildStakeForm(
+    StakingProvider provider,
+    double availableBalance,
+    ColorScheme colors,
+  ) {
     final projectedEarnings = provider.calculateProjectedEarnings(
       double.tryParse(_amountController.text) ?? 0,
     );
@@ -405,7 +439,7 @@ class _StakingScreenState extends State<StakingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(Icons.tune, 'Stake Rooken', colors),
+          _buildSectionHeader(Icons.tune, 'Stake Roobyte', colors),
           const SizedBox(height: 20),
 
           // Amount Input
@@ -422,7 +456,9 @@ class _StakingScreenState extends State<StakingScreen> {
             ),
             child: TextField(
               controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
               ],
@@ -431,10 +467,14 @@ class _StakingScreenState extends State<StakingScreen> {
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.all(16),
                 hintText: '0',
-                hintStyle: TextStyle(color: colors.onSurfaceVariant.withValues(alpha: 0.5)),
+                hintStyle: TextStyle(
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
                 suffixIcon: TextButton(
                   onPressed: () {
-                    _amountController.text = availableBalance.toStringAsFixed(2);
+                    _amountController.text = availableBalance.toStringAsFixed(
+                      2,
+                    );
                     setState(() {});
                   },
                   child: Row(
@@ -442,7 +482,10 @@ class _StakingScreenState extends State<StakingScreen> {
                     children: [
                       const Text('MAX', style: TextStyle(color: _rooOrange)),
                       const SizedBox(width: 4),
-                      Text('ROO', style: TextStyle(color: colors.onSurfaceVariant)),
+                      Text(
+                        'ROO',
+                        style: TextStyle(color: colors.onSurfaceVariant),
+                      ),
                     ],
                   ),
                 ),
@@ -475,7 +518,10 @@ class _StakingScreenState extends State<StakingScreen> {
               children: [
                 Text(
                   '${provider.selectedTier.name} Tier',
-                  style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 Text(
                   '${provider.selectedTier.lockDays} Days',
@@ -512,7 +558,10 @@ class _StakingScreenState extends State<StakingScreen> {
                   children: [
                     Text(
                       'Projected Earnings',
-                      style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14),
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 14,
+                      ),
                     ),
                     Text(
                       '+${projectedEarnings.toStringAsFixed(2)} ROO',
@@ -528,7 +577,10 @@ class _StakingScreenState extends State<StakingScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Based on ${provider.selectedTier.apyPercent.toStringAsFixed(0)}% APY for ${provider.selectedTier.lockDays > 0 ? provider.selectedTier.lockDays : 365} days',
-                  style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -552,8 +604,11 @@ class _StakingScreenState extends State<StakingScreen> {
                     )
                   : const Icon(Icons.lock_outline),
               label: Text(
-                _isStaking ? 'STAKING...' : 'STAKE ROOKEN',
-                style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+                _isStaking ? 'STAKING...' : 'STAKE ROOBYTE',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _rooGold,
@@ -601,17 +656,37 @@ class _StakingScreenState extends State<StakingScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          _buildBenefitItem(Icons.trending_up, 'Earn Yield', 'Up to 15% APY on staked tokens', colors),
+          _buildBenefitItem(
+            Icons.trending_up,
+            'Earn Yield',
+            'Up to 15% APY on staked tokens',
+            colors,
+          ),
           const SizedBox(height: 12),
-          _buildBenefitItem(Icons.visibility, 'Priority Visibility', 'Higher ranking in feeds', colors),
+          _buildBenefitItem(
+            Icons.visibility,
+            'Priority Visibility',
+            'Higher ranking in feeds',
+            colors,
+          ),
           const SizedBox(height: 12),
-          _buildBenefitItem(Icons.verified_user, 'Trust Boost', 'Increased reputation score', colors),
+          _buildBenefitItem(
+            Icons.verified_user,
+            'Trust Boost',
+            'Increased reputation score',
+            colors,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildBenefitItem(IconData icon, String title, String description, ColorScheme colors) {
+  Widget _buildBenefitItem(
+    IconData icon,
+    String title,
+    String description,
+    ColorScheme colors,
+  ) {
     return Row(
       children: [
         Container(
@@ -637,10 +712,7 @@ class _StakingScreenState extends State<StakingScreen> {
               ),
               Text(
                 description,
-                style: TextStyle(
-                  color: colors.onSurfaceVariant,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
               ),
             ],
           ),
@@ -649,7 +721,12 @@ class _StakingScreenState extends State<StakingScreen> {
     );
   }
 
-  Widget _buildUserProfileCard(dynamic user, dynamic wallet, StakingProvider provider, ColorScheme colors) {
+  Widget _buildUserProfileCard(
+    dynamic user,
+    dynamic wallet,
+    StakingProvider provider,
+    ColorScheme colors,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -665,9 +742,15 @@ class _StakingScreenState extends State<StakingScreen> {
               CircleAvatar(
                 radius: 40,
                 backgroundColor: colors.outline,
-                backgroundImage: user?.avatar != null ? NetworkImage(user!.avatar!) : null,
+                backgroundImage: user?.avatar != null
+                    ? NetworkImage(user!.avatar!)
+                    : null,
                 child: user?.avatar == null
-                    ? Icon(Icons.person, size: 40, color: colors.onSurfaceVariant)
+                    ? Icon(
+                        Icons.person,
+                        size: 40,
+                        color: colors.onSurfaceVariant,
+                      )
                     : null,
               ),
               Positioned(
@@ -709,11 +792,17 @@ class _StakingScreenState extends State<StakingScreen> {
                 children: [
                   Text(
                     '0 Trust Score',
-                    style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+                    style: TextStyle(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                   ),
                   Text(
                     'Max: 1000',
-                    style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+                    style: TextStyle(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -731,9 +820,17 @@ class _StakingScreenState extends State<StakingScreen> {
           const SizedBox(height: 16),
 
           // Stats
-          _buildProfileStatRow('Wallet Balance', '${wallet?.balanceRc.toStringAsFixed(2) ?? '0'} ROO', colors),
+          _buildProfileStatRow(
+            'Wallet Balance',
+            '${wallet?.balanceRc.toStringAsFixed(2) ?? '0'} ROO',
+            colors,
+          ),
           const SizedBox(height: 8),
-          _buildProfileStatRow('Total Staked', '${provider.userSummary.totalStaked.toStringAsFixed(0)} ROO', colors),
+          _buildProfileStatRow(
+            'Total Staked',
+            '${provider.userSummary.totalStaked.toStringAsFixed(0)} ROO',
+            colors,
+          ),
           const SizedBox(height: 8),
           _buildProfileStatRow(
             'Pending Rewards',
@@ -746,7 +843,12 @@ class _StakingScreenState extends State<StakingScreen> {
     );
   }
 
-  Widget _buildProfileStatRow(String label, String value, ColorScheme colors, {Color? valueColor}) {
+  Widget _buildProfileStatRow(
+    String label,
+    String value,
+    ColorScheme colors, {
+    Color? valueColor,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -882,7 +984,12 @@ class _StakingScreenState extends State<StakingScreen> {
     );
   }
 
-  Widget _buildQuickActionButton(IconData icon, String label, VoidCallback onTap, ColorScheme colors) {
+  Widget _buildQuickActionButton(
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+    ColorScheme colors,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),

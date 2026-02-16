@@ -66,9 +66,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
             children: [
               Text(
                 'We received your request and will respond within 24 hours.',
-                style: TextStyle(
-                  color: scheme.onSurface.withOpacity(0.7),
-                ),
+                style: TextStyle(color: scheme.onSurface.withOpacity(0.7)),
               ),
               const SizedBox(height: 12),
               Text(
@@ -83,10 +81,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text(
-                'Close',
-                style: TextStyle(color: scheme.primary),
-              ),
+              child: Text('Close', style: TextStyle(color: scheme.primary)),
             ),
           ],
         );
@@ -230,7 +225,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                 ),
                 DropdownMenuItem(
                   value: 'roocoin',
-                  child: Text('Rooken / Wallet'),
+                  child: Text('Roobyte / Wallet'),
                 ),
                 DropdownMenuItem(
                   value: 'technical',

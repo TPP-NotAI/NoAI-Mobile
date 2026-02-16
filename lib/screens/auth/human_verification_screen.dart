@@ -554,22 +554,12 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
       children: [
         _buildVerificationOption(
           context,
-          method: VerificationMethod.phone,
-          icon: Icons.phone_android,
-          title: 'Phone Verification',
-          subtitle: 'Instant verify via SMS code',
-          badge: 'FASTEST',
-          badgeColor: AppColors.primary,
-        ),
-        SizedBox(height: AppSpacing.largePlus.responsive(context)),
-        _buildVerificationOption(
-          context,
           method: VerificationMethod.veriff,
           icon: Icons.badge_outlined,
           title: 'ID Verification (Veriff)',
           subtitle: 'Passport, License, or National ID + Selfie',
-          badge: 'RECOMMENDED',
-          badgeColor: const Color(0xFF3B82F6),
+          badge: 'SECURE',
+          badgeColor: AppColors.primary,
         ),
       ],
     );

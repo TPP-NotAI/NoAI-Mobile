@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../utils/time_utils.dart';
+import 'package:intl/intl.dart';
 
 class TransactionHistoryScreen extends StatefulWidget {
   const TransactionHistoryScreen({super.key});
@@ -140,7 +140,6 @@ class _TransactionItem extends StatelessWidget {
     final toUserId = tx['to_user_id'] as String?;
     final amountRc = (tx['amount_rc'] as num?)?.toDouble() ?? 0.0;
     final memo = tx['memo'] as String?;
-    final createdAt = tx['created_at'] as String? ?? '';
 
     final isReceived = toUserId == currentUserId;
     final isFromSystem = fromUserId == null;
@@ -216,7 +215,11 @@ class _TransactionItem extends StatelessWidget {
       subtitle: subtitle,
       amount: amountStr,
       amountColor: amountColor,
-      date: humanReadableTime(createdAt),
+      date: tx['created_at'] != null
+          ? (DateFormat.yMMMd().add_jm().format(
+              DateTime.parse(tx['created_at'] as String).toLocal(),
+            ))
+          : 'Unknown date',
     );
   }
 

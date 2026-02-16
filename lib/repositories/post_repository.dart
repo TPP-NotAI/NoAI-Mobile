@@ -1045,15 +1045,11 @@ class PostRepository {
     }
   }
 
-  /// Minimum character count for text AI detection.
-  /// Short text posts (under 20 chars) bypass AI check.
-  static const int _minAiDetectionLength = 20;
-
   /// Run AI detection for a post in the background.
   /// Picks the right endpoint based on content type:
-  ///   - Text only → /detect/text (if text >= 50 chars)
+  ///   - Text only → /detect/text
   ///   - Media only → /detect/image (first file)
-  ///   - Both → /detect/mixed (text + first file) or /detect/image if text too short
+  ///   - Both → /detect/mixed (text + first file)
   /// Returns the confidence score on success, or null on failure.
   Future<double?> runAiDetection({
     required String postId,
@@ -1063,44 +1059,15 @@ class PostRepository {
   }) async {
     try {
       final trimmedBody = body.trim();
-      // Only run text detection if text is long enough
-      final hasText = trimmedBody.length >= _minAiDetectionLength;
+      final hasText = trimmedBody.isNotEmpty;
       final hasMedia = mediaFiles != null && mediaFiles.isNotEmpty;
 
-      // Log when short text is skipped
-      if (trimmedBody.isNotEmpty &&
-          trimmedBody.length < _minAiDetectionLength) {
-        debugPrint(
-          'PostRepository: Skipping text detection for short post $postId '
-          '(${trimmedBody.length} chars < $_minAiDetectionLength)',
-        );
-      }
-
-      // Short text-only posts: auto-publish without AI check
+      // All posts must have either text or media
       if (!hasText && !hasMedia) {
         debugPrint(
-          'PostRepository: Auto-publishing short text-only post $postId',
+          'PostRepository: Cannot run AI detection - no content for post $postId',
         );
-        await _updateAiScore(
-          postId: postId,
-          confidence: 0.0,
-          scoreStatus: 'pass',
-          postStatus: 'published',
-          verificationMethod: 'verified',
-          authenticityNotes: 'verified',
-        );
-        // Award ROOK for the post
-        try {
-          final walletRepo = WalletRepository();
-          await walletRepo.earnRoo(
-            userId: authorId,
-            activityType: RookenActivityType.postCreate,
-            referencePostId: postId,
-          );
-        } catch (e) {
-          debugPrint('PostRepository: Error awarding ROOK for short post - $e');
-        }
-        return 0.0;
+        return null;
       }
 
       AiDetectionResult? result;

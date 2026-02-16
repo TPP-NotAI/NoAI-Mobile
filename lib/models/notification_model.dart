@@ -142,11 +142,11 @@ class NotificationModel {
       case 'reply':
         return '$actorName replied to your comment';
       case 'roocoin_received':
-        return 'Received Rooken';
+        return 'Received Roobyte';
       case 'roocoin_sent':
-        return 'Sent Rooken';
+        return 'Sent Roobyte';
       case 'mention':
-        return '$actorName mentioned you';
+        return 'System Notification';
       case 'follow':
         return '$actorName started following you';
       // AI Check notification types
@@ -270,7 +270,8 @@ class NotificationModel {
         type.startsWith('comment_') ||
         type.startsWith('story_') ||
         type == 'roocoin_received' ||
-        type == 'roocoin_sent';
+        type == 'roocoin_sent' ||
+        type == 'mention';
   }
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) =>

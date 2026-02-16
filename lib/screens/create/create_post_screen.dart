@@ -1716,7 +1716,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     _optionCard(
                       context,
                       icon: Icons.token,
-                      title: 'Earn 5.00 Rooken',
+                      title: 'Earn 5.00 Roobyte',
                       subtitle: 'Reward for original content',
                     ),
                     const SizedBox(height: 16),

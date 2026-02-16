@@ -255,7 +255,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           isOwn: isActuallyOwnProfile,
                           isFollowing: isFollowing,
                         ),
-                        _RookenBalance(user: user, colors: colors),
+                        _RoobyteBalance(user: user, colors: colors),
                         const SizedBox(height: 16),
                         _ActionRow(
                           isOwn: isActuallyOwnProfile,
@@ -725,11 +725,11 @@ class _AchievementBadge extends StatelessWidget {
 
 /* ───────────────── ROOKEN BALANCE ───────────────── */
 
-class _RookenBalance extends StatelessWidget {
+class _RoobyteBalance extends StatelessWidget {
   final dynamic user;
   final ColorScheme colors;
 
-  const _RookenBalance({required this.user, required this.colors});
+  const _RoobyteBalance({required this.user, required this.colors});
 
   @override
   Widget build(BuildContext context) {
@@ -738,7 +738,7 @@ class _RookenBalance extends StatelessWidget {
       children: [
         const SizedBox(height: 16),
         Text(
-          'Rooken Balance',
+          'Roobyte Balance',
           style: TextStyle(
             fontSize: 13,
             color: colors.onSurfaceVariant,
@@ -1467,7 +1467,7 @@ class _Statistics extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _StatItem(
-            label: 'Rooken Balance',
+            label: 'Roobyte Balance',
             value: user.balance.toStringAsFixed(1),
             colors: colors,
           ),
