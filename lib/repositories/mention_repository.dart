@@ -15,54 +15,61 @@ class MentionRepository {
     required String postId,
     required List<String> mentionedUserIds,
   }) async {
-    try {
-      final uniqueUserIds = mentionedUserIds.toSet().toList();
-      for (final userId in uniqueUserIds) {
+    final uniqueUserIds = mentionedUserIds.toSet().toList();
+    if (uniqueUserIds.isEmpty) return true;
+
+    var hasInsertError = false;
+    for (final userId in uniqueUserIds) {
+      try {
         await _client.from(SupabaseConfig.mentionsTable).insert({
           'post_id': postId,
           'mentioned_user_id': userId,
         });
-      }
-
-      // Fetch post details for notification
-      try {
-        final post = await _client
-            .from(SupabaseConfig.postsTable)
-            .select('author_id, title, body')
-            .eq('id', postId)
-            .single();
-
-        final authorId = post['author_id'] as String;
-        final postTitle = post['title'] as String?;
-        final postBody = post['body'] as String?;
-        final notificationBody = postTitle != null && postTitle.isNotEmpty
-            ? 'Mentioned you in a post: "$postTitle"'
-            : 'Mentioned you in a post: "${postBody?.substring(0, (postBody.length > 50 ? 50 : postBody.length)) ?? ''}..."';
-
-        for (final userId in uniqueUserIds) {
-          // Don't notify if user mentions themselves (unlikely but possible)
-          if (userId == authorId) continue;
-
-          await _notificationRepository.createNotification(
-            userId: userId,
-            type: 'mention',
-            title: 'New Mention',
-            body: notificationBody,
-            actorId: authorId,
-            postId: postId,
-          );
-        }
       } catch (e) {
+        hasInsertError = true;
         debugPrint(
-          'MentionRepository: Error creating notifications for post mentions - $e',
+          'MentionRepository: Error inserting post mention row for user=$userId post=$postId - $e',
         );
       }
+    }
 
-      return true;
+    // Always attempt notifications even if mention row inserts fail.
+    try {
+      // Fetch post details for notification.
+      final post = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('author_id, title, body')
+          .eq('id', postId)
+          .single();
+
+      final authorId = post['author_id'] as String;
+      final postTitle = post['title'] as String?;
+      final postBody = post['body'] as String?;
+      final notificationBody = postTitle != null && postTitle.isNotEmpty
+          ? 'Mentioned you in a post: "$postTitle"'
+          : 'Mentioned you in a post: "${postBody?.substring(0, (postBody.length > 50 ? 50 : postBody.length)) ?? ''}..."';
+
+      for (final userId in uniqueUserIds) {
+        // Don't notify if user mentions themselves (unlikely but possible).
+        if (userId == authorId) continue;
+
+        await _notificationRepository.createNotification(
+          userId: userId,
+          type: 'mention',
+          title: 'New Mention',
+          body: notificationBody,
+          actorId: authorId,
+          postId: postId,
+        );
+      }
     } catch (e) {
-      debugPrint('MentionRepository: Error adding mentions to post - $e');
+      debugPrint(
+        'MentionRepository: Error creating notifications for post mentions - $e',
+      );
       return false;
     }
+
+    return !hasInsertError;
   }
 
   /// Add mentions for a comment.
@@ -70,54 +77,61 @@ class MentionRepository {
     required String commentId,
     required List<String> mentionedUserIds,
   }) async {
-    try {
-      final uniqueUserIds = mentionedUserIds.toSet().toList();
-      for (final userId in uniqueUserIds) {
+    final uniqueUserIds = mentionedUserIds.toSet().toList();
+    if (uniqueUserIds.isEmpty) return true;
+
+    var hasInsertError = false;
+    for (final userId in uniqueUserIds) {
+      try {
         await _client.from(SupabaseConfig.mentionsTable).insert({
           'comment_id': commentId,
           'mentioned_user_id': userId,
         });
-      }
-
-      // Fetch comment details for notification
-      try {
-        final comment = await _client
-            .from(SupabaseConfig.commentsTable)
-            .select('author_id, body, post_id')
-            .eq('id', commentId)
-            .single();
-
-        final authorId = comment['author_id'] as String;
-        final body = comment['body'] as String?;
-        final postId = comment['post_id'] as String;
-        final notificationBody =
-            'Mentioned you in a comment: "${body?.substring(0, (body.length > 50 ? 50 : body.length)) ?? ''}..."';
-
-        for (final userId in uniqueUserIds) {
-          // Don't notify if user mentions themselves
-          if (userId == authorId) continue;
-
-          await _notificationRepository.createNotification(
-            userId: userId,
-            type: 'mention',
-            title: 'New Mention',
-            body: notificationBody,
-            actorId: authorId,
-            postId: postId,
-            commentId: commentId,
-          );
-        }
       } catch (e) {
+        hasInsertError = true;
         debugPrint(
-          'MentionRepository: Error creating notifications for comment mentions - $e',
+          'MentionRepository: Error inserting comment mention row for user=$userId comment=$commentId - $e',
         );
       }
+    }
 
-      return true;
+    // Always attempt notifications even if mention row inserts fail.
+    try {
+      // Fetch comment details for notification.
+      final comment = await _client
+          .from(SupabaseConfig.commentsTable)
+          .select('author_id, body, post_id')
+          .eq('id', commentId)
+          .single();
+
+      final authorId = comment['author_id'] as String;
+      final body = comment['body'] as String?;
+      final postId = comment['post_id'] as String;
+      final notificationBody =
+          'Mentioned you in a comment: "${body?.substring(0, (body.length > 50 ? 50 : body.length)) ?? ''}..."';
+
+      for (final userId in uniqueUserIds) {
+        // Don't notify if user mentions themselves.
+        if (userId == authorId) continue;
+
+        await _notificationRepository.createNotification(
+          userId: userId,
+          type: 'mention',
+          title: 'New Mention',
+          body: notificationBody,
+          actorId: authorId,
+          postId: postId,
+          commentId: commentId,
+        );
+      }
     } catch (e) {
-      debugPrint('MentionRepository: Error adding mentions to comment - $e');
+      debugPrint(
+        'MentionRepository: Error creating notifications for comment mentions - $e',
+      );
       return false;
     }
+
+    return !hasInsertError;
   }
 
   /// Remove all mentions from a post.

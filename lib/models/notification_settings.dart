@@ -20,28 +20,47 @@ class NotificationSettings {
   });
 
   factory NotificationSettings.fromSupabase(Map<String, dynamic> json) {
+    final inappFollows =
+        (json['inapp_follows'] as bool?) ??
+        (json['notify_follows'] as bool?) ??
+        true;
+    final inappComments =
+        (json['inapp_comments'] as bool?) ??
+        (json['notify_comments'] as bool?) ??
+        true;
+    final inappReactions =
+        (json['inapp_reactions'] as bool?) ??
+        (json['notify_reactions'] as bool?) ??
+        true;
+    final inappMentions =
+        (json['inapp_mentions'] as bool?) ??
+        (json['notify_mentions'] as bool?) ??
+        true;
+
     return NotificationSettings(
       userId: json['user_id'] as String? ?? '',
-      notifyPush: json['notify_push'] as bool? ?? true,
-      notifyEmail: json['notify_email'] as bool? ?? true,
-      notifyInApp: json['notify_in_app'] as bool? ?? true,
-      notifyFollows: json['notify_follows'] as bool? ?? true,
-      notifyComments: json['notify_comments'] as bool? ?? true,
-      notifyLikes: json['notify_reactions'] as bool? ?? true,
-      notifyMentions: json['notify_mentions'] as bool? ?? true,
+      notifyPush:
+          (json['push_enabled'] as bool?) ?? (json['notify_push'] as bool?) ?? true,
+      notifyEmail:
+          (json['email_enabled'] as bool?) ?? (json['notify_email'] as bool?) ?? true,
+      notifyInApp: inappFollows || inappComments || inappReactions || inappMentions,
+      notifyFollows: inappFollows,
+      notifyComments: inappComments,
+      notifyLikes: inappReactions,
+      notifyMentions: inappMentions,
     );
   }
 
   Map<String, dynamic> toSupabase() {
+    final inAppEnabled = notifyInApp;
     return {
       'user_id': userId,
-      'notify_push': notifyPush,
-      'notify_email': notifyEmail,
-      'notify_in_app': notifyInApp,
-      'notify_follows': notifyFollows,
-      'notify_comments': notifyComments,
-      'notify_reactions': notifyLikes,
-      'notify_mentions': notifyMentions,
+      'push_enabled': notifyPush,
+      'email_enabled': notifyEmail,
+      'inapp_follows': inAppEnabled ? notifyFollows : false,
+      'inapp_comments': inAppEnabled ? notifyComments : false,
+      'inapp_reactions': inAppEnabled ? notifyLikes : false,
+      'inapp_mentions': inAppEnabled ? notifyMentions : false,
     };
   }
 

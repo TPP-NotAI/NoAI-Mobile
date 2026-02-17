@@ -19,6 +19,18 @@ class NotificationRepository {
     return type;
   }
 
+  bool _isPreferenceEnabled(
+    Map<String, dynamic> prefs,
+    List<String> keys, {
+    bool defaultValue = true,
+  }) {
+    for (final key in keys) {
+      final value = prefs[key];
+      if (value is bool) return value;
+    }
+    return defaultValue;
+  }
+
   /// Fetch notifications for a user.
   /// Returns notifications ordered by most recent first.
   Future<List<NotificationModel>> getNotifications({
@@ -159,18 +171,27 @@ class NotificationRepository {
           bool enabled = true;
           switch (normalizedType) {
             case 'follow':
-              enabled = prefs['notify_follows'] ?? true;
+              enabled = _isPreferenceEnabled(prefs, ['inapp_follows']);
               break;
             case 'comment':
             case 'reply':
-              enabled = prefs['notify_comments'] ?? true;
+              enabled = _isPreferenceEnabled(prefs, [
+                'inapp_comments',
+                'notify_comments',
+              ]);
               break;
             case 'like':
             case 'reaction':
-              enabled = prefs['notify_reactions'] ?? true;
+              enabled = _isPreferenceEnabled(prefs, [
+                'inapp_reactions',
+                'notify_reactions',
+              ]);
               break;
             case 'mention':
-              enabled = prefs['notify_mentions'] ?? true;
+              enabled = _isPreferenceEnabled(prefs, [
+                'inapp_mentions',
+                'notify_mentions',
+              ]);
               break;
             case 'roocoin_received':
             case 'roocoin_sent':
