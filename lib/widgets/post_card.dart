@@ -394,43 +394,52 @@ class _HeaderState extends State<_Header> {
     return matches
         .map((m) => m.group(1))
         .whereType<String>()
-        .map((u) => u.toLowerCase())
         .toSet()
         .toList();
   }
 
-  String? _buildMentionContext(Post post) {
+  String? _buildMentionSummary(Post post) {
     final inlineMentions = _extractInlineMentions(post.content);
-    final allMentionUsernames = {
-      ...inlineMentions,
-      ..._resolvedMentionUsernames,
-    }.toList();
+    final displayMentions = [..._resolvedMentionUsernames, ...inlineMentions]
+        .toSet()
+        .toList();
+
     final totalMentionedCount =
-        (post.mentionedUserIds?.toSet().length ?? 0) > allMentionUsernames.length
+        (post.mentionedUserIds?.toSet().length ?? 0) > displayMentions.length
         ? (post.mentionedUserIds?.toSet().length ?? 0)
-        : allMentionUsernames.length;
+        : displayMentions.length;
 
     if (totalMentionedCount <= 0) return null;
 
-    if (allMentionUsernames.isNotEmpty) {
-      final firstMention = '@${allMentionUsernames.first}';
-      if (totalMentionedCount == 1) {
-        return 'with $firstMention';
-      }
-      final others = totalMentionedCount - 1;
-      return 'with $firstMention and $others other${others == 1 ? '' : 's'}';
+    if (displayMentions.isEmpty) {
+      return totalMentionedCount == 1
+          ? 'with 1 person'
+          : 'with $totalMentionedCount people';
     }
 
-    return totalMentionedCount == 1
-        ? 'with 1 person'
-        : 'with $totalMentionedCount people';
+    if (displayMentions.length == 1 || totalMentionedCount == 1) {
+      return 'with @${displayMentions.first}';
+    }
+
+    if (displayMentions.length >= 2) {
+      final first = '@${displayMentions[0]}';
+      final second = '@${displayMentions[1]}';
+      final shownCount = 2;
+      final others = totalMentionedCount - shownCount;
+      if (others > 0) {
+        return 'with $first, $second and $others other${others == 1 ? '' : 's'}';
+      }
+      return 'with $first and $second';
+    }
+
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final post = widget.post;
-    final mentionContext = _buildMentionContext(post);
+    final mentionSummary = _buildMentionSummary(post);
 
     return Padding(
       padding: AppSpacing.responsiveLTRB(context, 16, 16, 8, 8),
@@ -509,12 +518,12 @@ class _HeaderState extends State<_Header> {
                       ],
                       ],
                     ),
-                    if (mentionContext != null) ...[
+                    if (mentionSummary != null) ...[
                       SizedBox(height: AppSpacing.extraSmall.responsive(context)),
-                      Text(
-                        _isResolvingMentionUsernames
-                            ? '$mentionContext...'
-                            : mentionContext,
+                      MentionRichText(
+                        text: _isResolvingMentionUsernames
+                            ? '$mentionSummary...'
+                            : mentionSummary,
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(
                             context,
@@ -523,6 +532,17 @@ class _HeaderState extends State<_Header> {
                           color: colors.onSurfaceVariant,
                           fontWeight: FontWeight.w500,
                         ),
+                        mentionStyle: TextStyle(
+                          fontSize: AppTypography.responsiveFontSize(
+                            context,
+                            AppTypography.badgeText,
+                          ),
+                          color: colors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        onMentionTap: (username) {
+                          navigateToMentionedUser(context, username);
+                        },
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],

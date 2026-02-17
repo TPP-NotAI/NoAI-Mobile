@@ -224,46 +224,56 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _pickMedia({required bool fromCamera}) async {
     try {
+      if (!fromCamera) {
+        final pickedMedia = await _imagePicker.pickMultipleMedia();
+        if (pickedMedia.isNotEmpty) {
+          final filesToAdd = <File>[];
+          final typesToAdd = <String>[];
+
+          for (final media in pickedMedia) {
+            final mediaType = _detectMediaType(media.path);
+            if (mediaType == null) continue;
+            filesToAdd.add(File(media.path));
+            typesToAdd.add(mediaType);
+          }
+
+          if (filesToAdd.isNotEmpty && mounted) {
+            setState(() {
+              _selectedMediaFiles.addAll(filesToAdd);
+              _selectedMediaTypes.addAll(typesToAdd);
+            });
+
+            for (var i = 0; i < filesToAdd.length; i++) {
+              unawaited(_moderateMedia(filesToAdd[i], typesToAdd[i]));
+            }
+          }
+        }
+        return;
+      }
+
       if (_postType == 'Photo') {
-        final XFile? image = fromCamera
-            ? await _imagePicker.pickImage(source: ImageSource.camera)
-            : await _imagePicker.pickImage(source: ImageSource.gallery);
+        final XFile? image = await _imagePicker.pickImage(
+          source: ImageSource.camera,
+        );
 
         if (image != null) {
           File finalImage = File(image.path);
 
           // If from camera, copy to a permanent location to ensure file accessibility
           // Camera images are often stored in temporary cache that may be cleared
-          if (fromCamera) {
-            try {
-              debugPrint(
-                'CreatePostScreen: Copying camera image to stable path...',
-              );
-              // Read the image bytes
-              final bytes = await finalImage.readAsBytes();
-
-              // Create a permanent file path in the app's temporary directory
-              final tempDir = Directory.systemTemp;
-              final timestamp = DateTime.now().millisecondsSinceEpoch;
-              final permanentPath =
-                  '${tempDir.path}/camera_image_$timestamp.jpg';
-
-              // Write to permanent location
-              final permanentFile = File(permanentPath);
-              await permanentFile.writeAsBytes(bytes);
-
-              finalImage = permanentFile;
-              debugPrint(
-                'CreatePostScreen: Saved camera image to: $permanentPath',
-              );
-            } catch (e) {
-              debugPrint('CreatePostScreen: Error copying camera image - $e');
-              // Continue with original file if copy fails
-            }
+          try {
+            debugPrint('CreatePostScreen: Copying camera image to stable path...');
+            final bytes = await finalImage.readAsBytes();
+            final tempDir = Directory.systemTemp;
+            final timestamp = DateTime.now().millisecondsSinceEpoch;
+            final permanentPath = '${tempDir.path}/camera_image_$timestamp.jpg';
+            final permanentFile = File(permanentPath);
+            await permanentFile.writeAsBytes(bytes);
+            finalImage = permanentFile;
+            debugPrint('CreatePostScreen: Saved camera image to: $permanentPath');
+          } catch (e) {
+            debugPrint('CreatePostScreen: Error copying camera image - $e');
           }
-
-          // Proactive moderation
-          _moderateMedia(finalImage, 'image');
 
           if (mounted) {
             setState(() {
@@ -271,6 +281,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               _selectedMediaTypes.add('image');
             });
           }
+
+          unawaited(_moderateMedia(finalImage, 'image'));
         }
       } else if (_postType == 'Video') {
         final XFile? video = fromCamera
@@ -309,13 +321,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             }
           }
 
-          // Proactive moderation
-          _moderateMedia(videoFile, 'video');
+          if (mounted) {
+            setState(() {
+              _selectedMediaFiles.add(videoFile);
+              _selectedMediaTypes.add('video');
+            });
+          }
 
-          setState(() {
-            _selectedMediaFiles.add(videoFile);
-            _selectedMediaTypes.add('video');
-          });
+          unawaited(_moderateMedia(videoFile, 'video'));
         }
       }
     } catch (e) {
@@ -324,6 +337,25 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e')));
     }
+  }
+
+  String? _detectMediaType(String path) {
+    final lowerPath = path.toLowerCase();
+    const videoExtensions = {
+      '.mp4',
+      '.mov',
+      '.avi',
+      '.mkv',
+      '.webm',
+      '.m4v',
+      '.3gp',
+    };
+
+    for (final ext in videoExtensions) {
+      if (lowerPath.endsWith(ext)) return 'video';
+    }
+
+    return 'image';
   }
 
   Future<void> _moderateMedia(File file, String type) async {
@@ -346,7 +378,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           builder: (context) => AlertDialog(
             title: const Row(
               children: [
-                Icon(Icons.warning, color: Colors.orange),
+                Icon(Icons.warning, color: Colors.red),
                 SizedBox(width: 8),
                 Text('Content Warning'),
               ],
@@ -363,7 +395,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               FilledButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  _removeMedia(_selectedMediaFiles.indexOf(file));
+                  final index = _selectedMediaFiles.indexOf(file);
+                  if (index >= 0) {
+                    _removeMedia(index);
+                  }
                 },
                 child: const Text('Remove Media'),
               ),
@@ -1225,8 +1260,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           Navigator.pop(context);
         }
 
-        String message;
-        Color backgroundColor;
+        String? message;
+        Color? backgroundColor;
 
         if (createdPost.status == 'published') {
           message = 'Post published successfully!';
@@ -1238,31 +1273,33 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           message = 'Post rejected$reason';
           backgroundColor = Colors.red;
         } else if (createdPost.status == 'under_review') {
-          message = 'Post submitted for review.';
-          backgroundColor = Colors.orange;
+          message = 'Post sent to review. It will show after review.';
+          backgroundColor = Colors.amber.shade700;
         } else {
-          message = 'Post created.';
-          backgroundColor = Colors.blue;
+          message = null;
+          backgroundColor = null;
         }
 
-        rootScaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: backgroundColor,
-            duration: const Duration(seconds: 7),
-            action: SnackBarAction(
-              label: 'VIEW',
-              textColor: Colors.white,
-              onPressed: () {
-                rootNavigatorKey.currentState?.push(
-                  MaterialPageRoute(
-                    builder: (_) => PostDetailScreen(post: createdPost),
-                  ),
-                );
-              },
+        if (message != null && backgroundColor != null) {
+          rootScaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: backgroundColor,
+              duration: const Duration(seconds: 7),
+              action: SnackBarAction(
+                label: 'VIEW',
+                textColor: Colors.white,
+                onPressed: () {
+                  rootNavigatorKey.currentState?.push(
+                    MaterialPageRoute(
+                      builder: (_) => PostDetailScreen(post: createdPost),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        );
+          );
+        }
       } else {
         // Keep user on create screen if creation failed.
         rootScaffoldMessengerKey.currentState?.showSnackBar(
@@ -1882,13 +1919,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           Row(
             children: [
               Icon(
-                isPhoto ? Icons.photo_library : Icons.video_library,
+                Icons.perm_media,
                 color: colors.primary,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
-                isPhoto ? 'Add Photo' : 'Add Video',
+                'Add Media',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -1901,9 +1938,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               Expanded(
                 child: _mediaOptionButton(
                   context,
-                  icon: isPhoto
-                      ? Icons.photo_library_outlined
-                      : Icons.video_library_outlined,
+                  icon: Icons.perm_media_outlined,
                   label: 'Gallery',
                   onTap: () => _pickMedia(fromCamera: false),
                 ),

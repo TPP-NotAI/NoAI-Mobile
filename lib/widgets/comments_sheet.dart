@@ -180,7 +180,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
   }
 
   Future<void> _addComment() async {
-    if (_commentController.text.trim().isEmpty && _selectedMediaFile == null) {
+    if (_commentController.text.trim().isEmpty) {
       return;
     }
 
@@ -380,7 +380,11 @@ class _CommentsSheetState extends State<CommentsSheet> {
   }
 
   void _showReplySheet(Comment parentComment) {
-    final replyController = TextEditingController();
+    final mentionPrefix = '@${parentComment.author.username} ';
+    final replyController = TextEditingController(text: mentionPrefix);
+    replyController.selection = TextSelection.fromPosition(
+      TextPosition(offset: mentionPrefix.length),
+    );
     File? replyMediaFile;
     String? replyMediaType;
     bool isReplyUploading = false;
@@ -434,8 +438,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
             }
 
             Future<void> submitReply() async {
-              if (replyController.text.trim().isEmpty &&
-                  replyMediaFile == null) {
+              if (replyController.text.trim().isEmpty) {
                 return;
               }
 
@@ -722,72 +725,6 @@ class _CommentsSheetState extends State<CommentsSheet> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: () {
-                              showModalBottomSheet(
-                                context: context,
-                                backgroundColor: colors.surface,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(20),
-                                  ),
-                                ),
-                                builder: (ctx) => SafeArea(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(20),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        ListTile(
-                                          leading: Icon(
-                                            Icons.photo_library,
-                                            color: colors.primary,
-                                          ),
-                                          title: const Text(
-                                            'Photo from Gallery',
-                                          ),
-                                          onTap: () {
-                                            Navigator.pop(ctx);
-                                            pickReplyMedia(ImageSource.gallery);
-                                          },
-                                        ),
-                                        ListTile(
-                                          leading: Icon(
-                                            Icons.camera_alt,
-                                            color: colors.secondary,
-                                          ),
-                                          title: const Text('Take a Photo'),
-                                          onTap: () {
-                                            Navigator.pop(ctx);
-                                            pickReplyMedia(ImageSource.camera);
-                                          },
-                                        ),
-                                        ListTile(
-                                          leading: Icon(
-                                            Icons.videocam,
-                                            color: colors.tertiary,
-                                          ),
-                                          title: const Text('Video'),
-                                          onTap: () {
-                                            Navigator.pop(ctx);
-                                            pickReplyMedia(
-                                              ImageSource.gallery,
-                                              isVideo: true,
-                                            );
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                            icon: Icon(
-                              Icons.image_outlined,
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -916,7 +853,8 @@ class _CommentsSheetState extends State<CommentsSheet> {
                     return CommentCard(
                       comment: comment,
                       postId: widget.post.id,
-                      onReplyTap: () => _showReplySheet(comment),
+                      onReplyTap: (targetComment) =>
+                          _showReplySheet(targetComment),
                     );
                   },
                 );
@@ -1080,14 +1018,6 @@ class _CommentsSheetState extends State<CommentsSheet> {
                               ),
                             ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: _isUploading ? null : _showMediaPickerOptions,
-                      icon: Icon(
-                        Icons.image_outlined,
-                        color: colors.onSurfaceVariant,
                       ),
                     ),
                     IconButton(

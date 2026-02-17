@@ -50,6 +50,7 @@ import 'widgets/adaptive/adaptive_navigation.dart';
 import 'screens/auth/banned_screen.dart';
 import 'services/daily_login_service.dart';
 import 'services/push_notification_service.dart';
+import 'services/app_update_service.dart';
 import 'widgets/connectivity_overlay.dart';
 import 'widgets/welcome_dialog.dart';
 
@@ -501,6 +502,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
   bool _dailyRewardChecked = false;
+  bool _updateCheckTriggered = false;
 
   @override
   void initState() {
@@ -509,7 +511,17 @@ class _MainShellState extends State<MainShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkDailyLoginReward();
       _checkWelcomeBonus();
+      _checkForAppUpdate();
     });
+  }
+
+  Future<void> _checkForAppUpdate() async {
+    if (_updateCheckTriggered || !mounted) return;
+    _updateCheckTriggered = true;
+
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    await AppUpdateService.instance.checkAndPromptForUpdate(context);
   }
 
   void _checkWelcomeBonus() {

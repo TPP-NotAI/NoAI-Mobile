@@ -1180,7 +1180,7 @@ class FeedProvider with ChangeNotifier {
     await _kycService.requireVerification();
 
     String? tempId;
-    if (optimisticAuthor != null) {
+    if (optimisticAuthor != null && waitForAi) {
       tempId = 'temp_${DateTime.now().microsecondsSinceEpoch}';
       final optimisticPost = Post(
         id: tempId,
@@ -1210,20 +1210,27 @@ class FeedProvider with ChangeNotifier {
       );
 
       if (newPost != null) {
+        final bool shouldShowInFeed =
+            newPost.status != 'under_review' &&
+            newPost.status != 'deleted' &&
+            newPost.status != 'hidden';
+
         // Replace optimistic post if present, otherwise add to the beginning
         if (tempId != null) {
           final idx = _posts.indexWhere((p) => p.id == tempId);
-          if (idx != -1) {
+          if (idx != -1 && shouldShowInFeed) {
             final optimisticMentions = _posts[idx].mentionedUserIds;
             _posts[idx] =
                 (newPost.mentionedUserIds == null ||
                     newPost.mentionedUserIds!.isEmpty)
                 ? newPost.copyWith(mentionedUserIds: optimisticMentions)
                 : newPost;
-          } else {
+          } else if (idx != -1 && !shouldShowInFeed) {
+            _posts.removeAt(idx);
+          } else if (shouldShowInFeed) {
             _posts.insert(0, newPost);
           }
-        } else {
+        } else if (shouldShowInFeed) {
           _posts.insert(0, newPost);
         }
         notifyListeners();
@@ -1254,7 +1261,8 @@ class FeedProvider with ChangeNotifier {
                         updatedPost.mentionedUserIds!.isEmpty)
                     ? updatedPost.copyWith(mentionedUserIds: previousMentions)
                     : updatedPost;
-                if (updatedPost.status == 'deleted' ||
+                if (updatedPost.status == 'under_review' ||
+                    updatedPost.status == 'deleted' ||
                     updatedPost.status == 'hidden') {
                   // Post was flagged or auto-blocked — remove from feed
                   _posts.removeAt(idx);
@@ -1279,6 +1287,7 @@ class FeedProvider with ChangeNotifier {
                   _posts.removeAt(idx);
                   notifyListeners();
                 }
+                _showPostAiReviewResultSnackBar(status: 'deleted');
                 return;
               }
 
@@ -1306,7 +1315,13 @@ class FeedProvider with ChangeNotifier {
                       _posts[idx] = mergedPost;
                     }
                     notifyListeners();
+                  } else if (updatedPost.status == 'published') {
+                    // The post was hidden while under review; surface it
+                    // immediately once AI clears it without requiring refresh.
+                    _posts.insert(0, updatedPost);
+                    notifyListeners();
                   }
+                  _showPostAiReviewResultSnackBar(status: updatedPost.status);
                 }
               });
             }
@@ -1323,6 +1338,13 @@ class FeedProvider with ChangeNotifier {
       debugPrint('Failed to create post: $e');
       return null;
     }
+  }
+
+  void _showPostAiReviewResultSnackBar({required String status}) {
+    if (status.isEmpty) return;
+    // AI status snackbars are handled centrally by NotificationProvider via
+    // real-time notifications. Suppress local duplicate snackbars here.
+    return;
   }
 
   // Load comments for a post (filters out blocked users)

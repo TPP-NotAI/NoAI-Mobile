@@ -16,7 +16,8 @@ class MentionRepository {
     required List<String> mentionedUserIds,
   }) async {
     try {
-      for (final userId in mentionedUserIds) {
+      final uniqueUserIds = mentionedUserIds.toSet().toList();
+      for (final userId in uniqueUserIds) {
         await _client.from(SupabaseConfig.mentionsTable).insert({
           'post_id': postId,
           'mentioned_user_id': userId,
@@ -38,7 +39,7 @@ class MentionRepository {
             ? 'Mentioned you in a post: "$postTitle"'
             : 'Mentioned you in a post: "${postBody?.substring(0, (postBody.length > 50 ? 50 : postBody.length)) ?? ''}..."';
 
-        for (final userId in mentionedUserIds) {
+        for (final userId in uniqueUserIds) {
           // Don't notify if user mentions themselves (unlikely but possible)
           if (userId == authorId) continue;
 
@@ -70,7 +71,8 @@ class MentionRepository {
     required List<String> mentionedUserIds,
   }) async {
     try {
-      for (final userId in mentionedUserIds) {
+      final uniqueUserIds = mentionedUserIds.toSet().toList();
+      for (final userId in uniqueUserIds) {
         await _client.from(SupabaseConfig.mentionsTable).insert({
           'comment_id': commentId,
           'mentioned_user_id': userId,
@@ -91,7 +93,7 @@ class MentionRepository {
         final notificationBody =
             'Mentioned you in a comment: "${body?.substring(0, (body.length > 50 ? 50 : body.length)) ?? ''}..."';
 
-        for (final userId in mentionedUserIds) {
+        for (final userId in uniqueUserIds) {
           // Don't notify if user mentions themselves
           if (userId == authorId) continue;
 
@@ -187,14 +189,39 @@ class MentionRepository {
     if (usernames.isEmpty) return [];
 
     try {
-      final response = await _client
+      final normalized = usernames
+          .map((u) => u.trim().replaceFirst('@', ''))
+          .where((u) => u.isNotEmpty)
+          .toSet()
+          .toList();
+      if (normalized.isEmpty) return [];
+
+      // Fast path: exact match.
+      final exactResponse = await _client
           .from(SupabaseConfig.profilesTable)
           .select('user_id')
-          .inFilter('username', usernames);
+          .inFilter('username', normalized);
 
-      return (response as List<dynamic>)
+      final resolvedIds = (exactResponse as List<dynamic>)
           .map((r) => r['user_id'] as String)
-          .toList();
+          .toSet();
+
+      // Fallback: case-insensitive match to ensure @UserName and @username both resolve.
+      if (resolvedIds.length < normalized.length) {
+        final filters = normalized.map((u) => 'username.ilike.$u').join(',');
+        final ciResponse = await _client
+            .from(SupabaseConfig.profilesTable)
+            .select('user_id')
+            .or(filters);
+        for (final row in (ciResponse as List<dynamic>)) {
+          final id = row['user_id'] as String?;
+          if (id != null && id.isNotEmpty) {
+            resolvedIds.add(id);
+          }
+        }
+      }
+
+      return resolvedIds.toList();
     } catch (e) {
       debugPrint('MentionRepository: Error resolving usernames - $e');
       return [];

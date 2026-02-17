@@ -16,6 +16,7 @@ import '../models/story_media_input.dart';
 import '../providers/auth_provider.dart';
 import '../providers/story_provider.dart';
 import '../utils/file_upload_utils.dart';
+import '../services/supabase_service.dart';
 import 'story_card.dart';
 import 'story_viewer.dart';
 
@@ -236,7 +237,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
           final colors = Theme.of(context).colorScheme;
           final textTheme = Theme.of(context).textTheme;
 
-          Future<void> pickMedia() async {
+          Future<void> pickMediaFromGallery() async {
             setState(() {
               isUploading = true;
             });
@@ -254,6 +255,42 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                 selectedMedia.addAll(result);
               }
             });
+          }
+
+          Future<void> capturePhotoFromCamera() async {
+            setState(() {
+              isUploading = true;
+            });
+
+            try {
+              final XFile? picked = await _imagePicker.pickImage(
+                source: ImageSource.camera,
+              );
+              if (picked == null) {
+                if (!mounted) return;
+                setState(() => isUploading = false);
+                return;
+              }
+
+              final cropped = await _cropImage(picked.path);
+              final filePath = cropped != null ? cropped.path : picked.path;
+              final file = File(filePath);
+              final uploaded = await _uploadStoryMediaFile(file);
+
+              if (!mounted) return;
+              setState(() {
+                isUploading = false;
+                if (uploaded != null) {
+                  selectedMedia.add(uploaded);
+                }
+              });
+            } catch (e) {
+              if (!mounted) return;
+              setState(() => isUploading = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to capture photo: $e')),
+              );
+            }
           }
 
           int wordCount = captionController.text
@@ -290,14 +327,21 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                 ),
               ],
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.88,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.62,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                 GestureDetector(
-                  onTap: isUploading ? null : pickMedia,
+                  onTap: isUploading ? null : pickMediaFromGallery,
                   child: Container(
-                    width: 400,
+                    width: double.infinity,
                     constraints: const BoxConstraints(minHeight: 200),
                     decoration: BoxDecoration(
                       color: colors.surfaceVariant.withValues(alpha: 0.25),
@@ -475,6 +519,26 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: isUploading ? null : pickMediaFromGallery,
+                        icon: const Icon(Icons.photo_library_outlined),
+                        label: const Text('Gallery'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: isUploading ? null : capturePhotoFromCamera,
+                        icon: const Icon(Icons.camera_alt_outlined),
+                        label: const Text('Camera'),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: captionController,
@@ -507,7 +571,10 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                     color: colors.onSurfaceVariant,
                   ),
                 ),
-              ],
+                    ],
+                  ),
+                ),
+              ),
             ),
             actions: [
               OutlinedButton(
@@ -551,7 +618,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                           SnackBar(
                             content: Text(
                               success.isNotEmpty
-                                  ? 'Story shared successfully'
+                                  ? 'Story submitted. It will appear after verification.'
                                   : 'Failed to share story',
                             ),
                           ),
@@ -573,6 +640,29 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
         },
       ),
     );
+  }
+
+  Future<MediaUploadResult?> _uploadStoryMediaFile(File file) async {
+    try {
+      final extension = file.path.split('.').last.toLowerCase();
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('\\').last}';
+      final bucket = SupabaseConfig.postMediaBucket;
+
+      final response = await SupabaseService().client.storage
+          .from(bucket)
+          .upload(fileName, file);
+
+      if (response.isEmpty) return null;
+
+      final publicUrl = SupabaseService().client.storage.from(bucket).getPublicUrl(fileName);
+      return FileUploadUtils.mediaResult(
+        url: publicUrl,
+        fileExtension: extension,
+      );
+    } catch (e) {
+      debugPrint('StoriesCarousel: Failed to upload camera media - $e');
+      return null;
+    }
   }
 
   Widget _mediaOptionButton(

@@ -616,6 +616,32 @@ CREATE TABLE public.platform_config (
   comments_per_hour_limit integer NOT NULL DEFAULT 100,
   messages_per_minute_limit integer NOT NULL DEFAULT 30,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  platform_name text DEFAULT 'Rooverse'::text,
+  platform_logo_url text,
+  admin_contact_email text,
+  platform_description text,
+  tos_url text,
+  privacy_policy_url text,
+  min_password_length integer NOT NULL DEFAULT 8,
+  username_min_length integer NOT NULL DEFAULT 3,
+  username_max_length integer NOT NULL DEFAULT 20,
+  max_login_attempts integer NOT NULL DEFAULT 5,
+  account_deletion_grace_period_days integer NOT NULL DEFAULT 30,
+  max_upload_size_mb numeric NOT NULL DEFAULT 10,
+  max_images_per_post integer NOT NULL DEFAULT 5,
+  max_video_duration_seconds integer NOT NULL DEFAULT 60,
+  nsfw_handling text NOT NULL DEFAULT 'blur'::text CHECK (nsfw_handling = ANY (ARRAY['block'::text, 'blur'::text, 'allow'::text])),
+  enable_stories boolean NOT NULL DEFAULT true,
+  enable_challenges boolean NOT NULL DEFAULT true,
+  enable_trust_circles boolean NOT NULL DEFAULT true,
+  enable_collectibles boolean NOT NULL DEFAULT true,
+  email_notifications_enabled boolean NOT NULL DEFAULT true,
+  push_notifications_enabled boolean NOT NULL DEFAULT true,
+  notification_batching_interval_minutes integer NOT NULL DEFAULT 5,
+  api_rate_limit_per_minute integer NOT NULL DEFAULT 60,
+  post_rate_limit_per_hour integer NOT NULL DEFAULT 10,
+  comment_rate_limit_per_hour integer NOT NULL DEFAULT 30,
+  dm_rate_limit_per_hour integer NOT NULL DEFAULT 20,
   CONSTRAINT platform_config_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.poll_options (
@@ -788,6 +814,38 @@ CREATE TABLE public.profiles (
   CONSTRAINT profiles_pkey PRIMARY KEY (user_id),
   CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.push_notification_logs (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  notification_id uuid,
+  user_id uuid NOT NULL,
+  token_id uuid,
+  status text NOT NULL CHECK (status = ANY (ARRAY['pending'::text, 'sent'::text, 'delivered'::text, 'failed'::text, 'clicked'::text, 'dismissed'::text])),
+  error_message text,
+  sent_at timestamp with time zone,
+  delivered_at timestamp with time zone,
+  clicked_at timestamp with time zone,
+  dismissed_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  metadata jsonb DEFAULT '{}'::jsonb,
+  CONSTRAINT push_notification_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT push_notification_logs_notification_id_fkey FOREIGN KEY (notification_id) REFERENCES public.notifications(id),
+  CONSTRAINT push_notification_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT push_notification_logs_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.push_tokens(id)
+);
+CREATE TABLE public.push_tokens (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL,
+  token text NOT NULL,
+  device_id text NOT NULL,
+  platform text NOT NULL DEFAULT 'web'::text CHECK (platform = ANY (ARRAY['web'::text, 'android'::text, 'ios'::text])),
+  browser_name text,
+  browser_version text,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  last_active_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT push_tokens_pkey PRIMARY KEY (id),
+  CONSTRAINT push_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
 CREATE TABLE public.reactions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -939,8 +997,8 @@ CREATE TABLE public.staking_tiers (
 CREATE TABLE public.stories (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
-  media_url text NOT NULL,
-  media_type text NOT NULL CHECK (media_type = ANY (ARRAY['image'::text, 'video'::text])),
+  media_url text,
+  media_type text NOT NULL CHECK (media_type = ANY (ARRAY['image'::text, 'video'::text, 'text'::text])),
   caption text,
   background_color text,
   text_overlay text,

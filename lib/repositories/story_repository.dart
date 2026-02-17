@@ -12,6 +12,7 @@ import '../services/supabase_service.dart';
 import '../services/ai_detection_service.dart';
 import '../models/ai_detection_result.dart';
 import 'notification_repository.dart';
+import 'mention_repository.dart';
 
 /// Repository for stories/statuses backed by Supabase.
 class StoryRepository {
@@ -19,6 +20,7 @@ class StoryRepository {
   final AiDetectionService _aiDetectionService = AiDetectionService();
   final NotificationRepository _notificationRepository =
       NotificationRepository();
+  final MentionRepository _mentionRepository = MentionRepository();
 
   /// Fetch active stories for the current user and the accounts they follow.
   ///
@@ -50,7 +52,6 @@ class StoryRepository {
 
     // Fetch active stories with author profile joined.
     final nowIso = DateTime.now().toUtc().toIso8601String();
-    final orCondition = userIds.map((id) => 'user_id.eq.$id').join(',');
     final storiesResponse = await _client
         .from(SupabaseConfig.storiesTable)
         .select('''
@@ -67,20 +68,27 @@ class StoryRepository {
             reaction_type
           )
         ''')
-        .or(orCondition)
+        .inFilter('user_id', userIds.toList())
         .gt('expires_at', nowIso)
-        // Only show passed stories, legacy stories (null status), or the user's own stories that aren't flagged
-        .or('status.eq.pass,status.is.null,user_id.eq.$currentUserId')
-        .neq(
-          'status',
-          'flagged',
-        ) // Never show explicitly flagged stories in the main feed
+        // Match post feed behavior: show only approved stories.
+        .eq('status', 'pass')
         .order('created_at', ascending: false);
 
-    return (storiesResponse as List)
+    final rawRows = (storiesResponse as List).cast<Map<String, dynamic>>();
+    final statusCounts = <String, int>{};
+    for (final row in rawRows) {
+      final status = (row['status'] as String?)?.trim().toLowerCase() ?? 'null';
+      statusCounts[status] = (statusCounts[status] ?? 0) + 1;
+    }
+    debugPrint(
+      'StoryRepository: fetchFeedStories raw=${rawRows.length} '
+      'for user=$currentUserId statuses=$statusCounts',
+    );
+
+    return rawRows
         .map(
           (row) => Story.fromSupabase(
-            row as Map<String, dynamic>,
+            row,
             isViewed: viewedIds.contains(row['id'] as String),
             currentUserId: currentUserId,
           ),
@@ -206,10 +214,53 @@ class StoryRepository {
           .map((row) => Story.fromSupabase(row as Map<String, dynamic>))
           .toList();
 
+      await _createStoryMentionNotifications(
+        stories: stories,
+        authorId: userId,
+      );
+
       return stories;
     } catch (e) {
       debugPrint('StoryRepository: failed to create stories - $e');
       return [];
+    }
+  }
+
+  Future<void> _createStoryMentionNotifications({
+    required List<Story> stories,
+    required String authorId,
+  }) async {
+    if (stories.isEmpty) return;
+
+    try {
+      for (final story in stories) {
+        final content = '${story.caption ?? ''} ${story.textOverlay ?? ''}'
+            .trim();
+        if (content.isEmpty) continue;
+
+        final mentionedUsernames = _mentionRepository.extractMentions(content);
+        if (mentionedUsernames.isEmpty) continue;
+
+        final mentionedUserIds = await _mentionRepository.resolveUsernamesToIds(
+          mentionedUsernames,
+        );
+
+        for (final userId in mentionedUserIds.toSet()) {
+          if (userId == authorId) continue;
+          await _notificationRepository.createNotification(
+            userId: userId,
+            type: 'mention',
+            title: 'New Mention',
+            body: 'Mentioned you in a story',
+            actorId: authorId,
+            storyId: story.id,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint(
+        'StoryRepository: Failed to create story mention notifications - $e',
+      );
     }
   }
 

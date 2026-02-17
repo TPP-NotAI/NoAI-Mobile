@@ -143,18 +143,35 @@ class NotificationProvider with ChangeNotifier {
     final messenger = rootScaffoldMessengerKey.currentState;
     if (messenger == null) return;
 
+    final lowerTitle = title.toLowerCase();
+    final lowerBody = body.toLowerCase();
+
     Color backgroundColor = Colors.blue;
-    if (type.endsWith('_published') ||
-        title.endsWith('Published') ||
-        title.toLowerCase().contains('success')) {
-      backgroundColor = Colors.green;
-    } else if (type.endsWith('_review') || title.endsWith('Under Review')) {
-      backgroundColor = Colors.orange;
-    } else if (type.endsWith('_flagged') ||
-        title.endsWith('Not Published') ||
-        title.toLowerCase().contains('flagged') ||
-        title.toLowerCase().contains('rejected')) {
+    // Important: evaluate flagged/rejected first so "Not Published" is never mistaken as success.
+    final isFlagged =
+        type.endsWith('_flagged') ||
+        lowerTitle.contains('not published') ||
+        lowerTitle.contains('flagged') ||
+        lowerTitle.contains('rejected') ||
+        lowerBody.contains('flagged') ||
+        lowerBody.contains('ai-generated') ||
+        lowerBody.contains('potentially ai');
+
+    final isPublished =
+        type.endsWith('_published') ||
+        (lowerTitle.endsWith('published') &&
+            !lowerTitle.contains('not published')) ||
+        lowerTitle.contains('success');
+
+    final isUnderReview =
+        type.endsWith('_review') || lowerTitle.endsWith('under review');
+
+    if (isFlagged) {
       backgroundColor = Colors.red;
+    } else if (isPublished) {
+      backgroundColor = Colors.green;
+    } else if (isUnderReview) {
+      backgroundColor = Colors.amber.shade700;
     }
 
     messenger

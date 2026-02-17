@@ -16,13 +16,15 @@ class CommentCard extends StatefulWidget {
   final Comment comment;
   final String postId;
   final bool isReply;
-  final VoidCallback? onReplyTap;
+  final int depth;
+  final ValueChanged<Comment>? onReplyTap;
 
   const CommentCard({
     super.key,
     required this.comment,
     required this.postId,
     this.isReply = false,
+    this.depth = 0,
     this.onReplyTap,
   });
 
@@ -33,6 +35,7 @@ class CommentCard extends StatefulWidget {
 class _CommentCardState extends State<CommentCard> {
   bool _showReplies = false;
   bool _isEditing = false;
+  int _visibleRepliesCount = 3;
   late TextEditingController _editController;
 
   @override
@@ -53,10 +56,9 @@ class _CommentCardState extends State<CommentCard> {
     String postId,
     String commentId,
   ) {
-    final post = provider.posts.firstWhere(
-      (p) => p.id == postId,
-      orElse: () => provider.posts.first,
-    );
+    final postIndex = provider.posts.indexWhere((p) => p.id == postId);
+    if (postIndex == -1) return null;
+    final post = provider.posts[postIndex];
 
     if (post.commentList == null) return null;
 
@@ -164,7 +166,14 @@ class _CommentCardState extends State<CommentCard> {
         widget.comment;
     final hasReplies =
         currentComment.replies != null && currentComment.replies!.isNotEmpty;
+    final canRenderNestedReplies = widget.depth < 1; // Instagram-style depth
     final replyCount = currentComment.replies?.length ?? 0;
+    final replies = currentComment.replies ?? const <Comment>[];
+    final showReplies = hasReplies && _showReplies && canRenderNestedReplies;
+    final displayedReplies = showReplies
+        ? replies.take(_visibleRepliesCount).toList()
+        : const <Comment>[];
+    final remainingReplies = replies.length - displayedReplies.length;
     final isAuthor = _isAuthor(currentComment);
 
     return Column(
@@ -368,6 +377,10 @@ class _CommentCardState extends State<CommentCard> {
                         ),
                         GestureDetector(
                           onTap: () {
+                            final postIndex = provider.posts.indexWhere(
+                              (post) => post.id == widget.postId,
+                            );
+                            if (postIndex == -1) return;
                             Navigator.push(
                               context,
                               PageRouteBuilder(
@@ -379,9 +392,7 @@ class _CommentCardState extends State<CommentCard> {
                                               currentComment.mediaType ==
                                               'video',
                                           heroTag: '',
-                                          post: provider.posts.firstWhere(
-                                            (post) => post.id == widget.postId,
-                                          ), // Pass the correct Post object
+                                          post: provider.posts[postIndex],
                                         ),
                                 transitionsBuilder:
                                     (
@@ -612,7 +623,9 @@ class _CommentCardState extends State<CommentCard> {
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: widget.onReplyTap,
+                            onTap: widget.onReplyTap == null
+                                ? null
+                                : () => widget.onReplyTap!(currentComment),
                             borderRadius: AppSpacing.responsiveRadius(
                               context,
                               AppSpacing.radiusLarge,
@@ -678,7 +691,14 @@ class _CommentCardState extends State<CommentCard> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => setState(() => _showReplies = !_showReplies),
+                onTap: () => setState(() {
+                  if (_showReplies) {
+                    _showReplies = false;
+                    _visibleRepliesCount = 3;
+                  } else {
+                    _showReplies = true;
+                  }
+                }),
                 borderRadius: AppSpacing.responsiveRadius(
                   context,
                   AppSpacing.radiusSmall,
@@ -719,13 +739,36 @@ class _CommentCardState extends State<CommentCard> {
             ),
           ),
 
-        // Nested replies (collapsible for top-level, always shown for nested)
-        if (hasReplies && (widget.isReply || _showReplies))
-          ...currentComment.replies!.map(
+        if (showReplies && remainingReplies > 0)
+          Padding(
+            padding: EdgeInsets.only(
+              left: 60.responsive(context, min: 52, max: 68),
+              bottom: AppSpacing.mediumSmall.responsive(context),
+            ),
+            child: TextButton(
+              onPressed: () {
+                setState(() {
+                  _visibleRepliesCount += 3;
+                });
+              },
+              child: Text(
+                'View previous replies ($remainingReplies)',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colors.primary,
+                ),
+              ),
+            ),
+          ),
+
+        // Nested replies (Instagram-style: top-level comment can expand one reply level)
+        if (showReplies)
+          ...displayedReplies.map(
             (reply) => CommentCard(
               comment: reply,
               postId: widget.postId,
               isReply: true,
+              depth: widget.depth + 1,
               onReplyTap: widget.onReplyTap,
             ),
           ),

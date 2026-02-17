@@ -25,12 +25,8 @@ class StoryProvider extends ChangeNotifier {
   String? get error => _error;
 
   bool _canViewStory(Story story) {
-    if (story.status == 'flagged') return false;
-    final currentUserId = _supabase.currentUser?.id;
-    if (story.status == 'review' && story.userId != currentUserId) {
-      return false;
-    }
-    return true;
+    final status = story.status?.trim().toLowerCase();
+    return status == 'pass';
   }
 
   /// Latest (newest) story per user, sorted by most recent.
@@ -73,6 +69,7 @@ class StoryProvider extends ChangeNotifier {
 
     try {
       _stories = await _storyRepository.fetchFeedStories(currentUserId: userId);
+      _logStoryVisibilityDiagnostics(source: 'loadStories');
       _error = null;
     } catch (e) {
       _error = 'Failed to load stories';
@@ -130,7 +127,7 @@ class StoryProvider extends ChangeNotifier {
       );
 
       if (newStory != null) {
-        _stories.insert(0, newStory); // Add to the beginning of the list
+        _stories.insert(0, newStory);
         notifyListeners();
 
         // Trigger AI detection
@@ -161,7 +158,8 @@ class StoryProvider extends ChangeNotifier {
     if (userId == null) return [];
 
     // Allow empty mediaItems for text-only stories (must have textOverlay)
-    if (mediaItems.isEmpty && (textOverlay == null || textOverlay.trim().isEmpty)) {
+    if (mediaItems.isEmpty &&
+        (textOverlay == null || textOverlay.trim().isEmpty)) {
       return [];
     }
 
@@ -186,8 +184,15 @@ class StoryProvider extends ChangeNotifier {
         for (int i = 0; i < newStories.length; i++) {
           final story = newStories[i];
           final mediaUrl = i < mediaItems.length ? mediaItems[i].url : '';
-          final mediaType = i < mediaItems.length ? mediaItems[i].mediaType : 'text';
-          _triggerAiDetection(story, mediaUrl, mediaType, caption ?? textOverlay);
+          final mediaType = i < mediaItems.length
+              ? mediaItems[i].mediaType
+              : 'text';
+          _triggerAiDetection(
+            story,
+            mediaUrl,
+            mediaType,
+            caption ?? textOverlay,
+          );
         }
       }
 
@@ -236,16 +241,64 @@ class StoryProvider extends ChangeNotifier {
         final score = result['score'] as double;
         final status = result['status'] as String;
 
-        // Update local state
+        bool exists = false;
         _stories = _stories.map((s) {
           if (s.id != story.id) return s;
+          exists = true;
           return s.copyWith(aiScore: score, status: status);
         }).toList();
 
+        // If story wasn't in local list yet but passed, surface it now.
+        final normalizedStatus = status.trim().toLowerCase();
+        if (!exists &&
+            (normalizedStatus == 'pass' ||
+                normalizedStatus == 'passed' ||
+                normalizedStatus == 'published' ||
+                normalizedStatus == 'approved' ||
+                normalizedStatus == 'human')) {
+          _stories.insert(0, story.copyWith(aiScore: score, status: status));
+        }
+
+        _logStoryVisibilityDiagnostics(source: 'aiDetection:${story.id}');
         notifyListeners();
+        _showStoryAiResultSnackBar(status);
       }
     } catch (e) {
       debugPrint('StoryProvider: AI detection trigger failed - $e');
+    }
+  }
+
+  void _showStoryAiResultSnackBar(String _status) {
+    // AI status snackbars are handled centrally by NotificationProvider via
+    // real-time notifications. Suppress local duplicate snackbars here.
+    return;
+  }
+
+  void _logStoryVisibilityDiagnostics({required String source}) {
+    final statusCounts = <String, int>{};
+    final hiddenStories = <String>[];
+    final visibleStories = <String>[];
+
+    for (final story in _stories) {
+      final status = story.status?.trim().toLowerCase() ?? 'null';
+      statusCounts[status] = (statusCounts[status] ?? 0) + 1;
+      if (_canViewStory(story)) {
+        visibleStories.add('${story.id}[$status]');
+      } else {
+        hiddenStories.add('${story.id}[$status]');
+      }
+    }
+
+    debugPrint(
+      'StoryProvider: diagnostics source=$source total=${_stories.length} '
+      'visible=${visibleStories.length} hidden=${hiddenStories.length} '
+      'statuses=$statusCounts',
+    );
+
+    if (hiddenStories.isNotEmpty) {
+      debugPrint(
+        'StoryProvider: hidden stories sample=${hiddenStories.take(10).toList()}',
+      );
     }
   }
 

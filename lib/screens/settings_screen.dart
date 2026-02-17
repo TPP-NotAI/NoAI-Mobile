@@ -11,8 +11,6 @@ import 'legal/privacy_policy_screen.dart';
 import 'support/faq_screen.dart';
 import 'support/support_chat_screen.dart';
 import 'wallet/transaction_history_screen.dart';
-import 'status/status_screen.dart';
-import 'moderation/mod_queue_screen.dart';
 import 'bookmarks/bookmarks_screen.dart';
 import 'security/password_security_screen.dart';
 import 'settings/blocked_muted_users_screen.dart';
@@ -22,6 +20,7 @@ import 'notifications/notification_settings_screen.dart';
 import 'auth/human_verification_screen.dart';
 import 'auth/phone_verification_screen.dart';
 import 'wallet/wallet_screen.dart';
+import '../services/app_update_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -194,32 +193,6 @@ class SettingsScreen extends StatelessWidget {
               );
             },
           ),
-          _buildSettingsTile(
-            context,
-            icon: Icons.assignment,
-            iconColor: Colors.blue,
-            title: 'Status & Appeals',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const StatusScreen()),
-              );
-            },
-          ),
-          _buildSettingsTile(
-            context,
-            icon: Icons.admin_panel_settings,
-            iconColor: Colors.purple,
-            title: 'Mod Queue',
-            subtitle: 'Moderation dashboard',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ModQueueScreen()),
-              );
-            },
-          ),
-
           const SizedBox(height: 24),
 
           _buildSectionHeader(context, 'ROOBYTE WALLET'),
@@ -361,6 +334,18 @@ class SettingsScreen extends StatelessWidget {
             iconColor: Colors.teal,
             title: 'About ROOVERSE',
             onTap: () => _showAboutDialog(context),
+          ),
+          _buildSettingsTile(
+            context,
+            icon: Icons.system_update,
+            iconColor: Colors.teal,
+            title: 'Check for Updates',
+            onTap: () async {
+              await AppUpdateService.instance.checkAndPromptForUpdate(
+                context,
+                manual: true,
+              );
+            },
           ),
 
           const SizedBox(height: 24),

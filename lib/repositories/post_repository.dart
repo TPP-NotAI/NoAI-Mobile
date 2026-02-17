@@ -71,14 +71,7 @@ class PostRepository {
           )
         ''');
 
-    // If viewing while logged in, show own under-review posts too
-    if (currentUserId != null) {
-      postsFuture = postsFuture.or(
-        'status.eq.published,and(status.eq.under_review,author_id.eq.$currentUserId)',
-      );
-    } else {
-      postsFuture = postsFuture.eq('status', 'published');
-    }
+    postsFuture = postsFuture.eq('status', 'published');
 
     final postResultsFuture = postsFuture
         .order('created_at', ascending: false)
@@ -133,6 +126,7 @@ class PostRepository {
             )
           )
         ''')
+        .eq('posts.status', 'published')
         .order('created_at', ascending: false)
         .range(offset, offset + fetchLimit - 1);
 
@@ -354,14 +348,7 @@ class PostRepository {
         ''')
         .eq('author_id', userId);
 
-    // If viewing own profile, show both published and under-review posts
-    if (currentUserId == userId) {
-      postsFuture = postsFuture.or(
-        'status.eq.published,status.eq.under_review',
-      );
-    } else {
-      postsFuture = postsFuture.eq('status', 'published');
-    }
+    postsFuture = postsFuture.eq('status', 'published');
 
     postsFuture = postsFuture
         .order('created_at', ascending: false)
@@ -546,10 +533,22 @@ class PostRepository {
       }
 
       // Add mentions
-      if (mentionedUserIds != null && mentionedUserIds.isNotEmpty) {
+      final extractedMentions = _mentionRepository.extractMentions(body);
+      List<String> extractedMentionUserIds = const [];
+      if (extractedMentions.isNotEmpty) {
+        extractedMentionUserIds = await _mentionRepository
+            .resolveUsernamesToIds(extractedMentions);
+      }
+
+      final mergedMentionUserIds = {
+        ...?mentionedUserIds,
+        ...extractedMentionUserIds,
+      }.toList();
+
+      if (mergedMentionUserIds.isNotEmpty) {
         await _mentionRepository.addMentionsToPost(
           postId: postId,
-          mentionedUserIds: mentionedUserIds,
+          mentionedUserIds: mergedMentionUserIds,
         );
       }
 
