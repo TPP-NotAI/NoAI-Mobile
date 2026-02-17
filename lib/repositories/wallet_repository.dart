@@ -157,7 +157,7 @@ class WalletRepository {
       // Handle both 'balance' and 'balanceRc' fields for robustness
       final rawBalance =
           balanceData['balanceRc'] ?? balanceData['balance'] ?? 0;
-      final double blockchainBalance = double.parse(rawBalance.toString());
+      final double blockchainBalance = _parseDouble(rawBalance);
 
       // 2. Update local DB if different
       if ((wallet.balanceRc - blockchainBalance).abs() > 0.001) {
@@ -193,6 +193,31 @@ class WalletRepository {
 
   bool _isPlaceholderAddress(String address) {
     return address.startsWith('PENDING_ACTIVATION_');
+  }
+
+  /// Safely parse dynamic numeric values from API/Supabase responses.
+  double _parseDouble(dynamic value, {double fallback = 0.0}) {
+    if (value == null) return fallback;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString()) ?? fallback;
+  }
+
+  /// Try common balance keys returned by wallet and reward endpoints.
+  double? _extractBalanceFromResponse(Map<String, dynamic> response) {
+    const candidateKeys = [
+      'balanceRc',
+      'balance',
+      'newBalance',
+      'remainingBalance',
+      'walletBalance',
+    ];
+
+    for (final key in candidateKeys) {
+      if (response[key] != null) {
+        return _parseDouble(response[key]);
+      }
+    }
+    return null;
   }
 
   Future<Wallet> _repairWallet(String userId) async {
@@ -366,7 +391,7 @@ class WalletRepository {
     });
 
     // 4. Update wallet balance
-    final newBalance = double.parse(result['remainingBalance'] as String);
+    final newBalance = _parseDouble(result['remainingBalance']);
     await _supabase
         .from('wallets')
         .update({
@@ -508,7 +533,23 @@ class WalletRepository {
           'Warning: No amount/reward field in distributeReward response: $result',
         );
       }
-      final rewardAmount = double.parse((rawAmount ?? 0).toString());
+      final rewardAmount = _parseDouble(rawAmount);
+
+      // Prefer API-reported post-reward balance.
+      // If the reward endpoint doesn't include balance, fetch it directly.
+      double? authoritativeBalance = _extractBalanceFromResponse(result);
+      if (authoritativeBalance == null) {
+        try {
+          final balanceData = await _rookenService.getBalance(
+            wallet.walletAddress,
+          );
+          authoritativeBalance = _extractBalanceFromResponse(balanceData);
+        } catch (e) {
+          debugPrint(
+            'WalletRepository: Could not fetch authoritative balance after reward: $e',
+          );
+        }
+      }
 
       // 3. Record transaction in database
       await _supabase.from('roocoin_transactions').insert({
@@ -555,8 +596,19 @@ class WalletRepository {
         await _supabase
             .from('wallets')
             .update({
-              'balance_rc': wallet.balanceRc + rewardAmount,
+              'balance_rc': authoritativeBalance ?? (wallet.balanceRc + rewardAmount),
               'lifetime_earned_rc': wallet.lifetimeEarnedRc + rewardAmount,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', userId);
+      }
+
+      // Final reconciliation so DB balance matches API wallet balance.
+      if (authoritativeBalance != null) {
+        await _supabase
+            .from('wallets')
+            .update({
+              'balance_rc': authoritativeBalance,
               'updated_at': DateTime.now().toIso8601String(),
             })
             .eq('user_id', userId);
@@ -632,7 +684,7 @@ class WalletRepository {
         amount: 100.0,
       );
 
-      final rewardAmount = double.parse(result['amount'].toString());
+      final rewardAmount = _parseDouble(result['amount']);
 
       // 4. Record transaction in database
       await _supabase.from('roocoin_transactions').insert({
@@ -811,7 +863,7 @@ class WalletRepository {
       // 2. Update sender's wallet balance
       double? newBalance;
       if (result['remainingBalance'] != null) {
-        newBalance = double.parse(result['remainingBalance'] as String);
+        newBalance = _parseDouble(result['remainingBalance']);
       }
 
       if (newBalance != null) {

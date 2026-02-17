@@ -15,6 +15,7 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../providers/feed_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../../repositories/tag_repository.dart';
 import '../../repositories/mention_repository.dart';
 import '../../widgets/mention_autocomplete_field.dart';
@@ -1128,6 +1129,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         ...inlineMentionUserIds,
       }.toList();
 
+      // Seed mention cache so tagged usernames can render immediately in post cards.
+      _mentionRepository.seedMentionUserCache(_taggedPeople);
+
       // Create the post
       if (!mounted) return;
       final feedProvider = context.read<FeedProvider>();
@@ -1192,13 +1196,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         mentionedUserIds: taggedIds,
         optimisticAuthor: optimisticAuthor,
         optimisticTags: optimisticTags,
-        waitForAi: true, // Wait for validation to show feedback
+        waitForAi: false, // Navigate to feed immediately; AI/review continues in background
       );
 
       if (!mounted) return;
       setState(() => _isPosting = false);
 
       if (createdPost != null) {
+        // Refresh wallet/user state so new ROO rewards reflect quickly in UI.
+        if (createdPost.status == 'published') {
+          unawaited(
+            context.read<WalletProvider>().refreshWallet(userId).catchError((
+              _,
+            ) {
+              return null;
+            }),
+          );
+          unawaited(context.read<UserProvider>().fetchUser(userId).catchError((_) {
+            return null;
+          }));
+        }
+
         // 3. Navigate to feed after successful creation
         if (widget.onPostCreated != null) {
           widget.onPostCreated!();
@@ -1236,15 +1254,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               label: 'VIEW',
               textColor: Colors.white,
               onPressed: () {
-                final context = rootScaffoldMessengerKey.currentContext;
-                if (context != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PostDetailScreen(post: createdPost),
-                    ),
-                  );
-                }
+                rootNavigatorKey.currentState?.push(
+                  MaterialPageRoute(
+                    builder: (_) => PostDetailScreen(post: createdPost),
+                  ),
+                );
               },
             ),
           ),

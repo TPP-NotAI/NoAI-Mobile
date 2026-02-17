@@ -36,6 +36,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
   List<User> _suggestions = [];
   bool _isSearchingSuggestions = false;
   Timer? _debounce;
+  Timer? _slowNetworkHintTimer;
 
   @override
   void initState() {
@@ -53,6 +54,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
     _amountController.dispose();
     _noteController.dispose();
     _debounce?.cancel();
+    _slowNetworkHintTimer?.cancel();
     super.dispose();
   }
 
@@ -165,6 +167,16 @@ class _SendRooScreenState extends State<SendRooScreen> {
     }
 
     setState(() => _isProcessing = true);
+    _slowNetworkHintTimer?.cancel();
+    _slowNetworkHintTimer = Timer(const Duration(seconds: 12), () {
+      if (!mounted || !_isProcessing) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Still confirming transfer...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    });
 
     final authProvider = context.read<AuthProvider>();
     final walletProvider = context.read<WalletProvider>();
@@ -178,9 +190,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
 
     try {
       // 1. Resolve address
-      final result = await _resolveUserAndAddress(
-        recipient,
-      ).timeout(const Duration(seconds: 12));
+      final result = await _resolveUserAndAddress(recipient);
       if (result == null) {
         throw Exception('User not found');
       }
@@ -208,15 +218,13 @@ class _SendRooScreenState extends State<SendRooScreen> {
             ? null
             : _noteController.text.trim(),
         metadata: {'activityType': 'transfer', 'inputRecipient': recipient},
-      )
-          .timeout(const Duration(seconds: 35));
+      );
 
       if (!success) {
         throw Exception(walletProvider.error ?? 'Failed to send ROO');
       }
 
       if (!mounted) return;
-      setState(() => _isProcessing = false);
 
       // Show success dialog
       showDialog(
@@ -294,18 +302,14 @@ class _SendRooScreenState extends State<SendRooScreen> {
           ],
         ),
       );
-    } on TimeoutException {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-      walletProvider.refreshWallet(user.id).catchError((_) => null);
-      _showError(
-        'Network is slow. Transfer confirmation timed out. '
-        'Please check transaction history before retrying.',
-      );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isProcessing = false);
       _showError(e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      _slowNetworkHintTimer?.cancel();
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 

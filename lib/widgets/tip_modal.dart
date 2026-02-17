@@ -23,6 +23,7 @@ class _TipModalState extends State<TipModal> {
   final List<double> _quickAmounts = [5, 10, 25, 50, 100];
   final TextEditingController _customAmountController = TextEditingController();
   bool _isProcessing = false;
+  Timer? _slowNetworkHintTimer;
 
   @override
   void initState() {
@@ -35,6 +36,7 @@ class _TipModalState extends State<TipModal> {
 
   @override
   void dispose() {
+    _slowNetworkHintTimer?.cancel();
     _customAmountController.dispose();
     super.dispose();
   }
@@ -64,6 +66,16 @@ class _TipModalState extends State<TipModal> {
     }
 
     setState(() => _isProcessing = true);
+    _slowNetworkHintTimer?.cancel();
+    _slowNetworkHintTimer = Timer(const Duration(seconds: 12), () {
+      if (!mounted || !_isProcessing) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Still confirming your tip...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    });
 
     try {
       // 1. Perform the transfer
@@ -75,8 +87,7 @@ class _TipModalState extends State<TipModal> {
             memo: 'Tip for post: ${widget.post.content.split('\n').first}',
             referencePostId: widget.post.id,
             metadata: {'activityType': 'tip'},
-          )
-          .timeout(const Duration(seconds: 35));
+          );
 
       if (success) {
         // 2. Update post tip total (also backgrounded for speed)
@@ -105,20 +116,12 @@ class _TipModalState extends State<TipModal> {
           _showError(userProvider.error ?? 'Failed to send tip');
         }
       }
-    } on TimeoutException {
-      if (mounted) {
-        walletProvider.refreshWallet(user.id).catchError((_) => null);
-        authProvider.reloadCurrentUser().catchError((_) => null);
-        _showError(
-          'Network is slow. Tip confirmation timed out. '
-          'Please check transaction history before retrying.',
-        );
-      }
     } catch (e) {
       if (mounted) {
         _showError('Failed to send tip: ${e.toString()}');
       }
     } finally {
+      _slowNetworkHintTimer?.cancel();
       if (mounted) {
         setState(() => _isProcessing = false);
       }

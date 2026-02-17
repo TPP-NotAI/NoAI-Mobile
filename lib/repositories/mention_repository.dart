@@ -6,6 +6,7 @@ import 'notification_repository.dart';
 /// Repository for handling user mentions in posts and comments.
 class MentionRepository {
   final _client = SupabaseService().client;
+  static final Map<String, String> _userIdToUsernameCache = {};
 
   final _notificationRepository = NotificationRepository();
 
@@ -206,25 +207,49 @@ class MentionRepository {
   ) async {
     if (userIds.isEmpty) return {};
 
+    final resolved = <String, String>{};
+    final unresolved = <String>[];
+    for (final id in userIds) {
+      final cached = _userIdToUsernameCache[id];
+      if (cached != null && cached.isNotEmpty) {
+        resolved[id] = cached;
+      } else {
+        unresolved.add(id);
+      }
+    }
+
+    if (unresolved.isEmpty) return resolved;
+
     try {
       final response = await _client
           .from(SupabaseConfig.profilesTable)
           .select('user_id, username')
-          .inFilter('user_id', userIds);
+          .inFilter('user_id', unresolved);
 
-      final result = <String, String>{};
       for (final row in (response as List<dynamic>)) {
         final data = row as Map<String, dynamic>;
         final id = data['user_id'] as String?;
         final username = data['username'] as String?;
         if (id != null && username != null && username.isNotEmpty) {
-          result[id] = username;
+          _userIdToUsernameCache[id] = username;
+          resolved[id] = username;
         }
       }
-      return result;
+      return resolved;
     } catch (e) {
       debugPrint('MentionRepository: Error resolving user IDs - $e');
-      return {};
+      return resolved;
+    }
+  }
+
+  /// Seed username cache with known tagged users.
+  void seedMentionUserCache(List<Map<String, dynamic>> users) {
+    for (final user in users) {
+      final id = (user['user_id'] ?? user['id'])?.toString();
+      final username = user['username']?.toString();
+      if (id != null && id.isNotEmpty && username != null && username.isNotEmpty) {
+        _userIdToUsernameCache[id] = username;
+      }
     }
   }
 }

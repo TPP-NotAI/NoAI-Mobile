@@ -146,6 +146,7 @@ class MyApp extends StatelessWidget {
           return MaterialApp(
             title: AppConstants.appName,
             scaffoldMessengerKey: rootScaffoldMessengerKey,
+            navigatorKey: rootNavigatorKey,
             debugShowCheckedModeBanner: false,
             theme: themeProvider.theme,
             routes: {

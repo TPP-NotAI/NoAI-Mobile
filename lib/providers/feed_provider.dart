@@ -1214,7 +1214,12 @@ class FeedProvider with ChangeNotifier {
         if (tempId != null) {
           final idx = _posts.indexWhere((p) => p.id == tempId);
           if (idx != -1) {
-            _posts[idx] = newPost;
+            final optimisticMentions = _posts[idx].mentionedUserIds;
+            _posts[idx] =
+                (newPost.mentionedUserIds == null ||
+                    newPost.mentionedUserIds!.isEmpty)
+                ? newPost.copyWith(mentionedUserIds: optimisticMentions)
+                : newPost;
           } else {
             _posts.insert(0, newPost);
           }
@@ -1243,12 +1248,18 @@ class FeedProvider with ChangeNotifier {
             if (updatedPost != null) {
               final idx = _posts.indexWhere((p) => p.id == newPost.id);
               if (idx != -1) {
+                final previousMentions = _posts[idx].mentionedUserIds;
+                final mergedPost =
+                    (updatedPost.mentionedUserIds == null ||
+                        updatedPost.mentionedUserIds!.isEmpty)
+                    ? updatedPost.copyWith(mentionedUserIds: previousMentions)
+                    : updatedPost;
                 if (updatedPost.status == 'deleted' ||
                     updatedPost.status == 'hidden') {
                   // Post was flagged or auto-blocked — remove from feed
                   _posts.removeAt(idx);
                 } else {
-                  _posts[idx] = updatedPost;
+                  _posts[idx] = mergedPost;
                 }
                 notifyListeners();
               }
@@ -1278,13 +1289,21 @@ class FeedProvider with ChangeNotifier {
                 if (updatedPost != null) {
                   final idx = _posts.indexWhere((p) => p.id == newPost.id);
                   if (idx != -1) {
+                    final previousMentions = _posts[idx].mentionedUserIds;
+                    final mergedPost =
+                        (updatedPost.mentionedUserIds == null ||
+                            updatedPost.mentionedUserIds!.isEmpty)
+                        ? updatedPost.copyWith(
+                            mentionedUserIds: previousMentions,
+                          )
+                        : updatedPost;
                     if (updatedPost.status == 'under_review' ||
                         updatedPost.status == 'deleted' ||
                         updatedPost.status == 'hidden') {
                       // Post was flagged or auto-blocked — remove from feed
                       _posts.removeAt(idx);
                     } else {
-                      _posts[idx] = updatedPost;
+                      _posts[idx] = mergedPost;
                     }
                     notifyListeners();
                   }
