@@ -37,9 +37,46 @@ class AiDetectionService {
       final response = await http.Response.fromStream(
         streamedResponse,
       ).timeout(_timeout);
-      return _parseResponse(response);
+      final parsed = _parseResponse(response);
+      if (parsed != null) return parsed;
+
+      // Fallback: some deployments parse text detection as JSON body.
+      return await _detectTextJsonFallback(
+        content,
+        models: models,
+        includeRaw: includeRaw,
+      );
     } catch (e) {
       debugPrint('AiDetectionService: Error detecting text - $e');
+      // Retry once using JSON payload before failing hard.
+      return await _detectTextJsonFallback(
+        content,
+        models: models,
+        includeRaw: includeRaw,
+      );
+    }
+  }
+
+  Future<AiDetectionResult?> _detectTextJsonFallback(
+    String content, {
+    required String models,
+    required bool includeRaw,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/api/v1/detect/text'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'content': content,
+              'models': models,
+              if (includeRaw) 'include_raw': true,
+            }),
+          )
+          .timeout(_timeout);
+      return _parseResponse(response);
+    } catch (e) {
+      debugPrint('AiDetectionService: Text JSON fallback failed - $e');
       return null;
     }
   }

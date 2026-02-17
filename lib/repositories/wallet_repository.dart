@@ -10,6 +10,10 @@ class WalletRepository {
   final SupabaseClient _supabase;
   final RookenService _rookenService;
   final SecureStorageService _secureStorage;
+  static const String _walletKeysTable = 'user_wallet_keys';
+  static const String _legacyWalletBackupsTable = 'wallet_backups';
+  static final Map<String, Future<Wallet>> _getOrCreateInFlight = {};
+  static final Map<String, Future<Wallet>> _repairInFlight = {};
 
   WalletRepository({
     SupabaseClient? supabase,
@@ -93,7 +97,18 @@ class WalletRepository {
   }
 
   /// Get or create wallet for a user
-  Future<Wallet> getOrCreateWallet(String userId) async {
+  Future<Wallet> getOrCreateWallet(String userId) {
+    final existing = _getOrCreateInFlight[userId];
+    if (existing != null) return existing;
+
+    final task = _getOrCreateWalletInternal(userId);
+    _getOrCreateInFlight[userId] = task;
+    return task.whenComplete(() {
+      _getOrCreateInFlight.remove(userId);
+    });
+  }
+
+  Future<Wallet> _getOrCreateWalletInternal(String userId) async {
     // 1. Ensure we have the private key locally
     final localKey = await _secureStorage.read('wallet_private_key_$userId');
 
@@ -109,7 +124,7 @@ class WalletRepository {
           debugPrint(
             'WalletRepository: Wallet exists but Key lost/not-backed-up. Triggering Reset/Repair.',
           );
-          return await _repairWallet(userId);
+          return await _repairWalletLocked(userId);
         }
         // If no wallet exists, we will create one below.
       }
@@ -122,11 +137,29 @@ class WalletRepository {
       debugPrint(
         'Repairing wallet for user $userId: Invalid address ${wallet.walletAddress}',
       );
-      return await _repairWallet(userId);
+      return await _repairWalletLocked(userId);
     }
 
-    if (wallet != null) return wallet;
+    if (wallet != null) {
+      // Self-heal: ensure key backup row exists in primary key table.
+      await _ensurePrimaryKeyBackup(
+        userId,
+        walletAddress: wallet.walletAddress,
+      );
+      return wallet;
+    }
     return await createWallet(userId);
+  }
+
+  Future<Wallet> _repairWalletLocked(String userId) {
+    final existing = _repairInFlight[userId];
+    if (existing != null) return existing;
+
+    final task = _repairWallet(userId);
+    _repairInFlight[userId] = task;
+    return task.whenComplete(() {
+      _repairInFlight.remove(userId);
+    });
   }
 
   /// Check if Roocoin API is healthy
@@ -321,7 +354,7 @@ class WalletRepository {
 
           try {
             // Force repair
-            await _repairWallet(userId);
+            await _repairWalletLocked(userId);
 
             // Retry spend once
             debugPrint('WalletRepository: Repair complete. Retrying spend...');
@@ -983,34 +1016,120 @@ class WalletRepository {
     String address,
     String privateKey,
   ) async {
+    final now = DateTime.now().toIso8601String();
+
+    // Primary schema (current): user_wallet_keys.encrypted_private_key
     try {
-      await _supabase.from('wallet_backups').upsert({
+      await _supabase.from(_walletKeysTable).upsert({
         'user_id': userId,
         'wallet_address': address,
-        'encrypted_key':
+        'encrypted_private_key':
             privateKey, // Ideally, you'd encrypt this client-side too
+        'updated_at': now,
+      });
+    } catch (e) {
+      debugPrint('Error backing up key to $_walletKeysTable: $e');
+    }
+
+    // Legacy compatibility: wallet_backups.encrypted_key
+    try {
+      await _supabase.from(_legacyWalletBackupsTable).upsert({
+        'user_id': userId,
+        'wallet_address': address,
+        'encrypted_key': privateKey,
+        'updated_at': now,
+      });
+    } catch (e) {
+      debugPrint(
+        'Error backing up key to $_legacyWalletBackupsTable (non-critical): $e',
+      );
+    }
+  }
+
+  /// Ensure user_wallet_keys has a row for this user when we already have
+  /// a local secure-storage key.
+  Future<void> _ensurePrimaryKeyBackup(
+    String userId, {
+    String? walletAddress,
+  }) async {
+    try {
+      final localKey = await _secureStorage.read('wallet_private_key_$userId');
+      if (localKey == null || localKey.isEmpty) return;
+
+      String? address = walletAddress;
+      if (address == null || address.isEmpty) {
+        final wallet = await getWallet(userId);
+        address = wallet?.walletAddress;
+      }
+      if (address == null || address.isEmpty) return;
+
+      await _supabase.from(_walletKeysTable).upsert({
+        'user_id': userId,
+        'wallet_address': address,
+        'encrypted_private_key': localKey,
         'updated_at': DateTime.now().toIso8601String(),
       });
     } catch (e) {
-      debugPrint('Error backing up key: $e');
-      // Non-critical, continue
+      debugPrint('WalletRepository: ensure key backup failed for $userId: $e');
     }
   }
 
   /// Restore key from DB
   Future<bool> _restoreKey(String userId) async {
     try {
-      final response = await _supabase
-          .from('wallet_backups')
-          .select('encrypted_key')
-          .eq('user_id', userId)
-          .maybeSingle();
+      // 1) Try current schema first
+      try {
+        final response = await _supabase
+            .from(_walletKeysTable)
+            .select('encrypted_private_key, wallet_address')
+            .eq('user_id', userId)
+            .maybeSingle();
 
-      if (response == null) return false;
+        final key = response?['encrypted_private_key'] as String?;
+        if (key != null && key.isNotEmpty) {
+          await _secureStorage.write('wallet_private_key_$userId', key);
+          return true;
+        }
+      } catch (e) {
+        debugPrint('Error restoring key from $_walletKeysTable: $e');
+      }
 
-      final key = response['encrypted_key'] as String;
-      await _secureStorage.write('wallet_private_key_$userId', key);
-      return true;
+      // 2) Fallback to legacy schema
+      try {
+        final response = await _supabase
+            .from(_legacyWalletBackupsTable)
+            .select('encrypted_key, wallet_address')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        final key = response?['encrypted_key'] as String?;
+        if (key != null && key.isNotEmpty) {
+          await _secureStorage.write('wallet_private_key_$userId', key);
+
+          // Promote legacy backup row to primary schema.
+          final legacyAddress = response?['wallet_address'] as String?;
+          String? address = legacyAddress;
+          if (address == null || address.isEmpty) {
+            final wallet = await getWallet(userId);
+            address = wallet?.walletAddress;
+          }
+          if (address != null && address.isNotEmpty) {
+            await _supabase.from(_walletKeysTable).upsert({
+              'user_id': userId,
+              'wallet_address': address,
+              'encrypted_private_key': key,
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+          }
+          return true;
+        }
+      } catch (e) {
+        debugPrint(
+          'Error restoring key from $_legacyWalletBackupsTable (fallback): $e',
+        );
+      }
+
+      return false;
     } catch (e) {
       debugPrint('Error restoring key: $e');
       return false;

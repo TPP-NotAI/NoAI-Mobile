@@ -1089,17 +1089,21 @@ class PostRepository {
       }
 
       if (result != null) {
-        // Result label is normalized to UPPER CASE in fromJson
-        // Confidence is now confirmed to be label-specific (e.g. 98% sure it is HUMAN).
-        // We flip it to get an absolute AI probability (0-100).
-        final bool isAiResult = result.result.contains('AI');
+        // Result label is normalized to UPPER CASE in fromJson.
+        // Confidence is label-specific per NOAI docs.
+        final String normalizedResult = result.result.trim().toUpperCase();
+        final bool isAiResult =
+            normalizedResult == 'AI-GENERATED' ||
+            normalizedResult == 'LIKELY AI-GENERATED';
+        final double labelConfidence = result.confidence.clamp(0, 100);
+        // Keep an AI-risk score for DB/notifications compatibility.
         final double aiProbability = isAiResult
-            ? result.confidence
-            : 100 - result.confidence;
+            ? labelConfidence
+            : 100 - labelConfidence;
 
         debugPrint(
           'PostRepository: AI detection outcome: label=${result.result}, '
-          'apiConfidence=${result.confidence}% -> aiProbability=$aiProbability%',
+          'labelConfidence=$labelConfidence% -> aiProbability=$aiProbability%',
         );
 
         // Map AI probability to score status & post status (aligned with API docs ✅)
@@ -1123,17 +1127,16 @@ class PostRepository {
           }
           authenticityNotes =
               'CONTENT MODERATION: ${mod?.details ?? "Harmful content detected"}';
-        } else if (aiProbability >= 95) {
+        } else if (isAiResult && labelConfidence >= 95) {
           scoreStatus = 'flagged';
           postStatus = 'deleted'; // Auto-block
-        } else if (aiProbability >= 75) {
+        } else if (isAiResult && labelConfidence >= 75) {
           scoreStatus = 'flagged';
           postStatus = 'under_review'; // Flag for review
-        } else if (aiProbability >= 60) {
+        } else if (isAiResult && labelConfidence >= 60) {
           scoreStatus = 'review';
           postStatus = 'published'; // Label for transparency
-          authenticityNotes =
-              'HUMAN SCORE: ${(100 - aiProbability).toStringAsFixed(1)}% [REVIEW]';
+          authenticityNotes = 'POTENTIAL AI CONTENT: ${labelConfidence.toStringAsFixed(1)}% [REVIEW]';
         } else {
           scoreStatus = 'pass';
           postStatus = 'published'; // Auto-publish
