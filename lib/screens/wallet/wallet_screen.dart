@@ -586,10 +586,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final tx = transactions[index];
-                      final isSent =
-                          tx.fromUserId == user.id ||
-                          tx.txType == 'fee' ||
-                          tx.txType == 'transfer';
+                      final isSent = tx.fromUserId == user.id;
                       final amount = tx.amountRc;
 
                       String label = 'Transaction';
@@ -605,9 +602,14 @@ class _WalletScreenState extends State<WalletScreen> {
                                   : '',
                             )
                             .join(' ');
-                      } else if (tx.txType == 'transfer' &&
-                          tx.fromUserId == user.id) {
-                        label = 'Transfer to External Wallet';
+                      } else if (tx.txType == 'transfer') {
+                        if (tx.fromUserId == user.id) {
+                          label = tx.toUserId == null
+                              ? 'Transfer Sent (External)'
+                              : 'Transfer Sent';
+                        } else {
+                          label = 'Transfer Received';
+                        }
                       } else if (tx.txType == 'fee') {
                         label = 'Platform Fee';
                       }

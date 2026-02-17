@@ -925,190 +925,187 @@ class _CommentsSheetState extends State<CommentsSheet> {
           ),
 
           // Comment input
-          SafeArea(
-            bottom: true,
-            child: Container(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 12,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 12,
-              ),
-              decoration: BoxDecoration(
-                color: colors.surface,
-                border: Border(top: BorderSide(color: colors.outlineVariant)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Media preview
-                  if (_selectedMediaFile != null) ...[
-                    Container(
-                      height: 120,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: colors.outlineVariant),
-                      ),
-                      child: Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: _selectedMediaType == 'video'
-                                ? Container(
-                                    width: double.infinity,
-                                    color: Colors.black,
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.videocam,
-                                        color: Colors.white,
-                                        size: 40,
-                                      ),
+          Container(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 12,
+              bottom: (MediaQuery.of(context).viewInsets.bottom > 0)
+                  ? MediaQuery.of(context).viewInsets.bottom + 12
+                  : MediaQuery.of(context).padding.bottom + 12,
+            ),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              border: Border(top: BorderSide(color: colors.outlineVariant)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Media preview
+                if (_selectedMediaFile != null) ...[
+                  Container(
+                    height: 120,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.outlineVariant),
+                    ),
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: _selectedMediaType == 'video'
+                              ? Container(
+                                  width: double.infinity,
+                                  color: Colors.black,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.videocam,
+                                      color: Colors.white,
+                                      size: 40,
                                     ),
-                                  )
-                                : Image.file(
-                                    _selectedMediaFile!,
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
                                   ),
-                          ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: GestureDetector(
-                              onTap: _clearSelectedMedia,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.black.withValues(alpha: 0.6),
+                                )
+                              : Image.file(
+                                  _selectedMediaFile!,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
                                 ),
-                                child: const Icon(
-                                  Icons.close,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: GestureDetector(
+                            onTap: _clearSelectedMedia,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black.withValues(alpha: 0.6),
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
                               ),
                             ),
                           ),
-                          if (_selectedMediaType == 'video')
-                            const Positioned(
-                              bottom: 8,
-                              left: 8,
+                        ),
+                        if (_selectedMediaType == 'video')
+                          const Positioned(
+                            bottom: 8,
+                            left: 8,
+                            child: Text(
+                              'Video selected',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+                Row(
+                  children: [
+                    Consumer<UserProvider>(
+                      builder: (context, userProvider, _) {
+                        final user = userProvider.currentUser;
+                        return CircleAvatar(
+                          radius: 16,
+                          backgroundImage: user?.avatar != null
+                              ? NetworkImage(user!.avatar!)
+                              : null,
+                          child: user?.avatar == null
+                              ? const Icon(Icons.person, size: 16)
+                              : null,
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          MentionAutocompleteField(
+                            controller: _commentController,
+                            focusNode: _commentFocus,
+                            style: TextStyle(color: colors.onSurface),
+                            decoration: InputDecoration(
+                              hintText: 'Add a comment...',
+                              hintStyle: TextStyle(
+                                color: colors.onSurfaceVariant,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                borderSide: BorderSide(color: colors.outline),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                borderSide: BorderSide(
+                                  color: colors.primary,
+                                  width: 2,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                            ),
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) => _addComment(),
+                          ),
+                          if (_textModerationResult != null &&
+                              _textModerationResult!.flagged)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 8),
                               child: Text(
-                                'Video selected',
-                                style: TextStyle(color: Colors.white),
+                                '⚠️ Potential policy violation: ${_textModerationResult!.details ?? "Check content"}',
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          if (_isModeratingText)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 4, left: 8),
+                              child: Text(
+                                'Checking safety...',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontStyle: FontStyle.italic,
+                                ),
                               ),
                             ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: _isUploading ? null : _showMediaPickerOptions,
+                      icon: Icon(
+                        Icons.image_outlined,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _isUploading ? null : _addComment,
+                      icon: _isUploading
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colors.primary,
+                              ),
+                            )
+                          : Icon(Icons.send, color: colors.primary),
+                    ),
                   ],
-                  Row(
-                    children: [
-                      Consumer<UserProvider>(
-                        builder: (context, userProvider, _) {
-                          final user = userProvider.currentUser;
-                          return CircleAvatar(
-                            radius: 16,
-                            backgroundImage: user?.avatar != null
-                                ? NetworkImage(user!.avatar!)
-                                : null,
-                            child: user?.avatar == null
-                                ? const Icon(Icons.person, size: 16)
-                                : null,
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            MentionAutocompleteField(
-                              controller: _commentController,
-                              focusNode: _commentFocus,
-                              style: TextStyle(color: colors.onSurface),
-                              decoration: InputDecoration(
-                                hintText: 'Add a comment...',
-                                hintStyle: TextStyle(
-                                  color: colors.onSurfaceVariant,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                  borderSide: BorderSide(color: colors.outline),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                  borderSide: BorderSide(
-                                    color: colors.primary,
-                                    width: 2,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
-                              ),
-                              textInputAction: TextInputAction.send,
-                              onSubmitted: (_) => _addComment(),
-                            ),
-                            if (_textModerationResult != null &&
-                                _textModerationResult!.flagged)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4, left: 8),
-                                child: Text(
-                                  '⚠️ Potential policy violation: ${_textModerationResult!.details ?? "Check content"}',
-                                  style: const TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            if (_isModeratingText)
-                              const Padding(
-                                padding: EdgeInsets.only(top: 4, left: 8),
-                                child: Text(
-                                  'Checking safety...',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: _isUploading
-                            ? null
-                            : _showMediaPickerOptions,
-                        icon: Icon(
-                          Icons.image_outlined,
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _isUploading ? null : _addComment,
-                        icon: _isUploading
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: colors.primary,
-                                ),
-                              )
-                            : Icon(Icons.send, color: colors.primary),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],

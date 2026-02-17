@@ -19,6 +19,8 @@ import '../chat/conversation_thread_page.dart';
 import '../post_detail_screen.dart';
 import 'edit_profile_screen.dart';
 import 'follow_list_screen.dart';
+import '../../providers/wallet_provider.dart';
+import '../wallet/send_roo_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;
@@ -255,7 +257,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           isOwn: isActuallyOwnProfile,
                           isFollowing: isFollowing,
                         ),
-                        _RoobyteBalance(user: user, colors: colors),
+                        _RoobyteBalance(
+                          user: user,
+                          colors: colors,
+                          isVisible: isActuallyOwnProfile,
+                        ),
                         const SizedBox(height: 16),
                         _ActionRow(
                           isOwn: isActuallyOwnProfile,
@@ -267,6 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onFollow: () => userProvider.toggleFollow(user.id),
                           onBlock: () => _handleBlock(context, user, isBlocked),
                           onReport: () => _handleReport(context, user),
+                          onSend: () => _handleSendRoo(context, user),
                         ),
                       ],
                     ),
@@ -308,7 +315,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 colors: colors,
               )
             else if (_tabIndex == 1)
-              _Statistics(user: user, colors: colors)
+              _Statistics(
+                user: user,
+                colors: colors,
+                isOwnProfile: isActuallyOwnProfile,
+              )
             else if (_tabIndex == 2)
               _PostsGrid(posts: posts, colors: colors)
             else if (_tabIndex == 3 && isActuallyOwnProfile)
@@ -432,6 +443,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
     }
+  }
+
+  void _handleSendRoo(BuildContext context, User targetUser) {
+    final walletProvider = context.read<WalletProvider>();
+    final balance = walletProvider.wallet?.balanceRc ?? 0.0;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SendRooScreen(
+          currentBalance: balance,
+          initialRecipient: targetUser,
+        ),
+      ),
+    );
   }
 }
 
@@ -728,11 +754,17 @@ class _AchievementBadge extends StatelessWidget {
 class _RoobyteBalance extends StatelessWidget {
   final dynamic user;
   final ColorScheme colors;
+  final bool isVisible;
 
-  const _RoobyteBalance({required this.user, required this.colors});
+  const _RoobyteBalance({
+    required this.user,
+    required this.colors,
+    required this.isVisible,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (!isVisible) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1020,6 +1052,7 @@ class _ActionRow extends StatelessWidget {
   final VoidCallback onFollow;
   final VoidCallback onBlock;
   final VoidCallback onReport;
+  final VoidCallback onSend;
 
   const _ActionRow({
     required this.isOwn,
@@ -1030,6 +1063,7 @@ class _ActionRow extends StatelessWidget {
     required this.onFollow,
     required this.onBlock,
     required this.onReport,
+    required this.onSend,
   });
 
   @override
@@ -1102,6 +1136,11 @@ class _ActionRow extends StatelessWidget {
                       }
                     },
               child: const Icon(Icons.mail_outline),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton(
+              onPressed: isBlocked ? null : onSend,
+              child: const Icon(Icons.toll_outlined),
             ),
             const SizedBox(width: 8),
             PopupMenuButton<String>(
@@ -1405,8 +1444,13 @@ class _ActivityItem extends StatelessWidget {
 class _Statistics extends StatelessWidget {
   final User user;
   final ColorScheme colors;
+  final bool isOwnProfile;
 
-  const _Statistics({required this.user, required this.colors});
+  const _Statistics({
+    required this.user,
+    required this.colors,
+    required this.isOwnProfile,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1466,12 +1510,14 @@ class _Statistics extends StatelessWidget {
             colors: colors,
           ),
           const SizedBox(height: 12),
-          _StatItem(
-            label: 'Roobyte Balance',
-            value: user.balance.toStringAsFixed(1),
-            colors: colors,
-          ),
-          const SizedBox(height: 12),
+          if (isOwnProfile) ...[
+            _StatItem(
+              label: 'Roobyte Balance',
+              value: user.balance.toStringAsFixed(1),
+              colors: colors,
+            ),
+            const SizedBox(height: 12),
+          ],
           _StatItem(
             label: 'Verification Status',
             value: user.verifiedHuman == 'verified'

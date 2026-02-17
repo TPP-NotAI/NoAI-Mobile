@@ -65,7 +65,8 @@ class SuspendedScreen extends StatelessWidget {
                 height: 48.responsive(context, min: 44, max: 52),
                 child: OutlinedButton(
                   onPressed: () async {
-                    await context.read<AuthProvider>().signOut();
+                    final auth = context.read<AuthProvider>();
+                    await auth.signOut();
                   },
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.orange),

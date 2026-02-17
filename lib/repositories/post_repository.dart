@@ -1310,20 +1310,19 @@ class PostRepository {
         case 'published':
           title = 'Post Published';
           body = 'Your post passed verification and is now live!';
-          type =
-              'mention'; // Using 'mention' as valid DB type for system notifications
+          type = 'post_published';
           break;
         case 'under_review':
           title = 'Post Under Review';
           body =
               'Your post is being reviewed by our moderation team. You\'ll be notified once a decision is made.';
-          type = 'mention';
+          type = 'post_review';
           break;
         case 'deleted':
           title = 'Post Not Published';
           body =
               'Your post was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence). If you believe this is an error, please contact support.';
-          type = 'mention';
+          type = 'post_flagged';
           break;
         default:
           return; // Don't send notification for unknown status

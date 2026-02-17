@@ -326,11 +326,7 @@ class StoryRepository {
     }
   }
 
-  /// Minimum character count for AI detection on captions.
-  /// Short captions are skipped for text detection (image detection still runs).
-  static const int _minAiDetectionLength = 50;
-
-  /// Run AI detection for a story in the background.
+  /// Run AI detection for a story.
   /// Returns the confidence score on success, or null on failure.
   Future<Map<String, dynamic>?> runAiDetection({
     required String storyId,
@@ -341,143 +337,137 @@ class StoryRepository {
   }) async {
     try {
       final trimmedCaption = caption?.trim() ?? '';
-      // Only run text detection if caption is long enough
-      final hasText = trimmedCaption.length >= _minAiDetectionLength;
+      final hasText = trimmedCaption.isNotEmpty;
       final hasMedia =
           (mediaType == 'image' || mediaType == 'video') && mediaUrl.isNotEmpty;
 
-      if (trimmedCaption.isNotEmpty &&
-          trimmedCaption.length < _minAiDetectionLength) {
-        debugPrint(
-          'StoryRepository: Skipping text detection for short caption on story $storyId '
-          '(${trimmedCaption.length} chars < $_minAiDetectionLength)',
-        );
+      if (!hasText && !hasMedia) {
+        // No content to detect, consider it passed
+        await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
+        return {'score': 0.0, 'status': 'pass'};
       }
 
-      AiDetectionResult? textResult;
-      AiDetectionResult? mediaResult;
+      AiDetectionResult? result;
 
-      // Detect text if present and long enough
-      if (hasText) {
-        textResult = await _aiDetectionService.detectText(trimmedCaption);
-      }
-
-      // Detect media if it's an image
-      if (hasMedia && mediaType == 'image') {
+      if (hasText && hasMedia && mediaType == 'image') {
+        // Mixed detection (caption + image)
         try {
-          // Download the image file from URL
           final tempDir = await getTemporaryDirectory();
-          final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final fileName = 'story_${DateTime.now().millisecondsSinceEpoch}.jpg';
           final filePath = '${tempDir.path}/$fileName';
 
           final response = await http.get(Uri.parse(_resolveUrl(mediaUrl)));
           if (response.statusCode == 200) {
             final file = File(filePath);
             await file.writeAsBytes(response.bodyBytes);
-            mediaResult = await _aiDetectionService.detectImage(file);
-
-            // Clean up temp file
+            result = await _aiDetectionService.detectMixed(
+              trimmedCaption,
+              file,
+            );
             try {
               await file.delete();
             } catch (e) {
               debugPrint('StoryRepository: Failed to clean up temp file - $e');
             }
           } else {
-            debugPrint(
-              'StoryRepository: Failed to download image from $mediaUrl - status ${response.statusCode}',
-            );
+            // Fallback to text if download fails
+            result = await _aiDetectionService.detectText(trimmedCaption);
           }
         } catch (e) {
-          debugPrint('StoryRepository: Error downloading/detecting image - $e');
+          debugPrint('StoryRepository: Error in mixed detection - $e');
+          result = await _aiDetectionService.detectText(trimmedCaption);
         }
+      } else if (hasText && !hasMedia) {
+        // Text only
+        result = await _aiDetectionService.detectText(trimmedCaption);
+      } else if (hasMedia && mediaType == 'image') {
+        // Image only
+        try {
+          final tempDir = await getTemporaryDirectory();
+          final fileName = 'story_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final filePath = '${tempDir.path}/$fileName';
+
+          final response = await http.get(Uri.parse(_resolveUrl(mediaUrl)));
+          if (response.statusCode == 200) {
+            final file = File(filePath);
+            await file.writeAsBytes(response.bodyBytes);
+            result = await _aiDetectionService.detectImage(file);
+            try {
+              await file.delete();
+            } catch (e) {
+              debugPrint('StoryRepository: Failed to clean up temp file - $e');
+            }
+          }
+        } catch (e) {
+          debugPrint('StoryRepository: Error in image detection - $e');
+        }
+      } else if (hasText) {
+        // Final fallback (e.g. video script)
+        result = await _aiDetectionService.detectText(trimmedCaption);
       }
 
-      // Combine results - if either text or media is flagged, use the more "AI" result
-      double aiProbability = 0.0;
-      AiDetectionResult? primaryResult;
+      if (result != null) {
+        final bool isAi = result.result.contains('AI');
+        final double aiProbability = isAi
+            ? result.confidence
+            : 100 - result.confidence;
 
-      // Helper to calculate probability from result.
-      // Confidence is label-specific, so we flip it for HUMAN labels.
-      double getProb(AiDetectionResult res) {
-        final bool isAi = res.result.contains('AI');
-        return isAi ? res.confidence : 100 - res.confidence;
-      }
-
-      if (textResult != null && mediaResult != null) {
-        final textProb = getProb(textResult);
-        final mediaProb = getProb(mediaResult);
-        if (textProb >= mediaProb) {
-          aiProbability = textProb;
-          primaryResult = textResult;
+        // Determine status based on AI probability
+        final String status;
+        if (aiProbability >= 95) {
+          status = 'flagged';
+        } else if (aiProbability >= 75) {
+          status = 'flagged';
+        } else if (aiProbability >= 60) {
+          status = 'review';
         } else {
-          aiProbability = mediaProb;
-          primaryResult = mediaResult;
+          status = 'pass';
         }
-      } else if (textResult != null) {
-        aiProbability = getProb(textResult);
-        primaryResult = textResult;
-      } else if (mediaResult != null) {
-        aiProbability = getProb(mediaResult);
-        primaryResult = mediaResult;
-      } else {
-        // No content to detect, consider it passed
-        await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
-        return {'score': 0.0, 'status': 'pass'};
-      }
 
-      // Determine status based on AI probability (aligned with API docs ✅)
-      final String status;
-      // Best Practice Thresholds from docs: 95 BLOCK, 75 FLAG, 60 LABEL
-      if (aiProbability >= 95) {
-        status = 'flagged'; // Auto-block
-      } else if (aiProbability >= 75) {
-        status = 'flagged'; // Flag for review
-      } else if (aiProbability >= 60) {
-        status = 'review'; // Label for transparency
-      } else {
-        status = 'pass'; // Auto-publish
-      }
-
-      await _updateAiScore(
-        storyId: storyId,
-        confidence: aiProbability,
-        status: status,
-        analysisId: primaryResult.analysisId,
-        aiMetadata: {
-          'consensus_strength': primaryResult.consensusStrength,
-          'rationale': primaryResult.rationale,
-          'combined_evidence': primaryResult.combinedEvidence,
-          'classification': primaryResult.result,
-          'moderation': primaryResult.moderation?.toJson(),
-          'safety_score': primaryResult.safetyScore,
-        },
-      );
-
-      // Send notification to author about AI check result
-      await _sendAiResultNotification(
-        userId: authorId,
-        storyId: storyId,
-        storyStatus: status,
-        aiProbability: aiProbability,
-      );
-
-      // Create moderation case if flagged or review required
-      if (status == 'flagged' || status == 'review') {
-        await _createModerationCase(
+        await _updateAiScore(
           storyId: storyId,
-          authorId: authorId,
-          aiConfidence: aiProbability,
-          aiModel: primaryResult.analysisId,
+          confidence: aiProbability,
+          status: status,
+          analysisId: result.analysisId,
           aiMetadata: {
-            'consensus_strength': primaryResult.consensusStrength,
-            'rationale': primaryResult.rationale,
-            'combined_evidence': primaryResult.combinedEvidence,
-            'classification': primaryResult.result,
+            'consensus_strength': result.consensusStrength,
+            'rationale': result.rationale,
+            'combined_evidence': result.combinedEvidence,
+            'classification': result.result,
+            'moderation': result.moderation?.toJson(),
+            'safety_score': result.safetyScore,
           },
         );
-      }
 
-      return {'score': aiProbability, 'status': status};
+        // Send notification to author about AI check result
+        await _sendAiResultNotification(
+          userId: authorId,
+          storyId: storyId,
+          storyStatus: status,
+          aiProbability: aiProbability,
+        );
+
+        // Create moderation case if flagged or review required
+        if (status == 'flagged' || status == 'review') {
+          await _createModerationCase(
+            storyId: storyId,
+            authorId: authorId,
+            aiConfidence: aiProbability,
+            aiModel: result.analysisId,
+            aiMetadata: {
+              'consensus_strength': result.consensusStrength,
+              'rationale': result.rationale,
+              'combined_evidence': result.combinedEvidence,
+              'classification': result.result,
+            },
+          );
+        }
+
+        return {'score': aiProbability, 'status': status};
+      } else {
+        // Failed but let's assume pass to not block content on API error
+        return null;
+      }
     } catch (e) {
       debugPrint(
         'StoryRepository: AI detection failed for story $storyId - $e',

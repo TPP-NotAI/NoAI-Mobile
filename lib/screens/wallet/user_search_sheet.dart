@@ -65,7 +65,12 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.of(context).padding.bottom + 20,
+      ),
       height: MediaQuery.of(context).size.height * 0.8, // 80% height
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,

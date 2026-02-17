@@ -146,7 +146,13 @@ class NotificationModel {
       case 'roocoin_sent':
         return 'Sent Roobyte';
       case 'mention':
-        return 'System Notification';
+        if (actor != null) {
+          final actorName = actor!.displayName.isNotEmpty
+              ? actor!.displayName
+              : actor!.username;
+          return '$actorName mentioned you';
+        }
+        return title ?? 'Mention';
       case 'follow':
         return '$actorName started following you';
       // AI Check notification types
@@ -271,7 +277,7 @@ class NotificationModel {
         type.startsWith('story_') ||
         type == 'roocoin_received' ||
         type == 'roocoin_sent' ||
-        type == 'mention';
+        (type == 'mention' && actorId == null);
   }
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) =>

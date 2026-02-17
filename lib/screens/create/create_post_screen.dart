@@ -1201,53 +1201,54 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       // 3. Navigate back and show appropriate feedback
       if (widget.onPostCreated != null) {
         widget.onPostCreated!();
-      } else if (Navigator.canPop(context)) {
+      }
+      if (Navigator.canPop(context)) {
         Navigator.pop(context);
+      }
 
-        if (createdPost != null) {
-          String message;
-          Color backgroundColor;
+      if (createdPost != null) {
+        String message;
+        Color backgroundColor;
 
-          if (createdPost.status == 'published') {
-            message = 'Post published successfully!';
-            backgroundColor = Colors.green;
-          } else if (createdPost.status == 'deleted') {
-            final reason = createdPost.authenticityNotes != null
-                ? ': ${createdPost.authenticityNotes}'
-                : '';
-            message = 'Post rejected$reason';
-            backgroundColor = Colors.red;
-          } else if (createdPost.status == 'under_review') {
-            message = 'Post submitted for review.';
-            backgroundColor = Colors.orange;
-          } else {
-            message = 'Post created.';
-            backgroundColor = Colors.blue;
-          }
-
-          rootScaffoldMessengerKey.currentState?.showSnackBar(
-            SnackBar(
-              content: Text(message),
-              backgroundColor: backgroundColor,
-              duration: const Duration(seconds: 4),
-              action: SnackBarAction(
-                label: 'VIEW',
-                textColor: Colors.white,
-                onPressed: () {
-                  final context = rootScaffoldMessengerKey.currentContext;
-                  if (context != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PostDetailScreen(post: createdPost),
-                      ),
-                    );
-                  }
-                },
-              ),
-            ),
-          );
+        if (createdPost.status == 'published') {
+          message = 'Post published successfully!';
+          backgroundColor = Colors.green;
+        } else if (createdPost.status == 'deleted') {
+          final reason = createdPost.authenticityNotes != null
+              ? ': ${createdPost.authenticityNotes}'
+              : '';
+          message = 'Post rejected$reason';
+          backgroundColor = Colors.red;
+        } else if (createdPost.status == 'under_review') {
+          message = 'Post submitted for review.';
+          backgroundColor = Colors.orange;
+        } else {
+          message = 'Post created.';
+          backgroundColor = Colors.blue;
         }
+
+        rootScaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: backgroundColor,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'VIEW',
+              textColor: Colors.white,
+              onPressed: () {
+                final context = rootScaffoldMessengerKey.currentContext;
+                if (context != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PostDetailScreen(post: createdPost),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+        );
       }
     } on KycNotVerifiedException catch (e) {
       if (!mounted) return;
@@ -2113,7 +2114,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       builder: (context) {
         final colors = Theme.of(context).colorScheme;
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2200,7 +2206,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       builder: (context) {
         final colors = Theme.of(context).colorScheme;
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2776,7 +2787,9 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+        bottom:
+            MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).padding.bottom,
       ),
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -2943,7 +2956,12 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
       expand: false,
       builder: (context, scrollController) {
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3159,7 +3177,12 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
       expand: false,
       builder: (context, scrollController) {
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

@@ -310,7 +310,12 @@ class ReceiveRooScreen extends StatelessWidget {
                       ),
                     ),
                     builder: (context) => Container(
-                      padding: const EdgeInsets.all(24),
+                      padding: EdgeInsets.fromLTRB(
+                        24,
+                        24,
+                        24,
+                        MediaQuery.of(context).padding.bottom + 24,
+                      ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [

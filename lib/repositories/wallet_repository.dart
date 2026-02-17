@@ -129,6 +129,63 @@ class WalletRepository {
     return await createWallet(userId);
   }
 
+  /// Check if Roocoin API is healthy
+  Future<bool> checkApiHealth() async {
+    try {
+      final health = await _rookenService.checkHealth();
+      return health['status'] == 'healthy' || health['status'] == 'ok';
+    } catch (e) {
+      debugPrint('WalletRepository: API Health check failed: $e');
+      return false;
+    }
+  }
+
+  /// Sync balance with blockchain
+  Future<Wallet> syncBalance(String userId) async {
+    try {
+      final wallet = await getWallet(userId);
+      if (wallet == null) throw Exception('Wallet not found');
+
+      if (!_isValidAddress(wallet.walletAddress) ||
+          _isPlaceholderAddress(wallet.walletAddress)) {
+        return wallet;
+      }
+
+      // 1. Get balance from blockchain
+      final balanceData = await _rookenService.getBalance(wallet.walletAddress);
+
+      // Handle both 'balance' and 'balanceRc' fields for robustness
+      final rawBalance =
+          balanceData['balanceRc'] ?? balanceData['balance'] ?? 0;
+      final double blockchainBalance = double.parse(rawBalance.toString());
+
+      // 2. Update local DB if different
+      if ((wallet.balanceRc - blockchainBalance).abs() > 0.001) {
+        debugPrint(
+          'WalletRepository: Syncing balance for $userId: ${wallet.balanceRc} -> $blockchainBalance',
+        );
+        await _supabase
+            .from('wallets')
+            .update({
+              'balance_rc': blockchainBalance,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', userId);
+
+        // Return fresh wallet
+        final updatedWallet = await getWallet(userId);
+        return updatedWallet ?? wallet.copyWith(balanceRc: blockchainBalance);
+      }
+
+      return wallet;
+    } catch (e) {
+      debugPrint('WalletRepository: Error syncing wallet balance: $e');
+      // On error, return existing wallet data rather than crashing
+      final wallet = await getWallet(userId);
+      return wallet ?? (throw e);
+    }
+  }
+
   bool _isValidAddress(String address) {
     final evmAddressRegex = RegExp(r'^0x[a-fA-F0-9]{40}$');
     return evmAddressRegex.hasMatch(address);
@@ -227,7 +284,7 @@ class WalletRepository {
         metadata: metadata,
       );
     } catch (e) {
-      // Catch "Insufficient balance" specifically
+      // Catch \"Insufficient balance\" specifically
       if (e.toString().contains('Insufficient balance') ||
           e.toString().contains('400')) {
         // Check if we suspect a syncing issue (Local balance says YES, Server says NO)
@@ -693,7 +750,45 @@ class WalletRepository {
 
       final txHash = result['transactionHash'] as String?;
 
-      // 4. Record outgoing transaction for sender
+      // 4, 5, 6. Perform database updates and notifications in the background.
+      // This allows the UI to show 'Success' immediately after the blockchain confirms.
+      _performBackgroundPostTransferUpdates(
+        userId: userId,
+        recipientUserId: recipientUserId,
+        toAddress: toAddress,
+        amount: amount,
+        txHash: txHash,
+        memo: memo,
+        referencePostId: referencePostId,
+        referenceCommentId: referenceCommentId,
+        metadata: metadata,
+        result: result,
+        wallet: wallet,
+      );
+
+      return result;
+    } catch (e) {
+      debugPrint('Error transferring ROOK: $e');
+      rethrow;
+    }
+  }
+
+  /// Performs post-transfer database updates and notifications in the background.
+  void _performBackgroundPostTransferUpdates({
+    required String userId,
+    required String? recipientUserId,
+    required String toAddress,
+    required double amount,
+    required String? txHash,
+    required String? memo,
+    required String? referencePostId,
+    required String? referenceCommentId,
+    required Map<String, dynamic>? metadata,
+    required Map<String, dynamic> result,
+    required Wallet wallet,
+  }) async {
+    try {
+      // 1. Record the transaction in the database
       await _supabase.from('roocoin_transactions').insert({
         'tx_type': 'transfer',
         'status': 'completed',
@@ -706,27 +801,20 @@ class WalletRepository {
         'tx_hash': txHash,
         'metadata': {
           'toAddress': toAddress,
-          'direction': 'outgoing',
+          'fromAddress': wallet.walletAddress,
+          'direction': recipientUserId != null ? 'internal' : 'outgoing',
           ...?metadata,
         },
         'completed_at': DateTime.now().toIso8601String(),
       });
 
-      // 5. Update sender's wallet balance and daily limit.
-      // CRITICAL: Deduct the sent amount from sender's balance
-      debugPrint(
-        'WalletRepository: SENDER BEFORE - Balance: ${wallet.balanceRc} ROO',
-      );
-
-      // 5. Update sender's wallet balance and daily limit atomically
-      // Prefers remainingBalance from API if available; otherwise fall back to chain balance.
+      // 2. Update sender's wallet balance
       double? newBalance;
       if (result['remainingBalance'] != null) {
         newBalance = double.parse(result['remainingBalance'] as String);
       }
 
       if (newBalance != null) {
-        // If we have an absolute new balance from API, we use it directly
         await _supabase
             .from('wallets')
             .update({
@@ -737,10 +825,6 @@ class WalletRepository {
             })
             .eq('user_id', userId);
       } else {
-        // Fallback to atomic delta update
-        debugPrint(
-          'WalletRepository: sender balance update using atomic delta',
-        );
         await _supabase.rpc(
           'update_wallet_balance_atomic',
           params: {
@@ -750,117 +834,53 @@ class WalletRepository {
           },
         );
 
-        // Also update daily limit record
         await _supabase
             .from('wallets')
             .update({'daily_sent_today_rc': wallet.dailySentTodayRc + amount})
             .eq('user_id', userId);
       }
 
-      // 6. If recipient is a platform user, update their balance and record incoming transaction
+      // 3. Update recipient balance and notify
       if (recipientUserId != null) {
         try {
-          // Record incoming transaction for recipient
-          await _supabase.from('roocoin_transactions').insert({
-            'tx_type': 'transfer',
-            'status': 'completed',
-            'from_user_id': userId,
-            'to_user_id': recipientUserId,
-            'amount_rc': amount,
-            'reference_post_id': referencePostId,
-            'reference_comment_id': referenceCommentId,
-            'memo': memo,
-            'tx_hash': txHash,
-            'metadata': {
-              'fromAddress': wallet.walletAddress,
-              'direction': 'incoming',
-              ...?metadata,
+          await _supabase.rpc(
+            'update_wallet_balance_atomic',
+            params: {
+              'p_user_id': recipientUserId,
+              'p_delta': amount,
+              'p_earned_delta': amount,
             },
-            'completed_at': DateTime.now().toIso8601String(),
-          });
-
-          // 6b. Update recipient's wallet balance atomically
-          try {
-            await _supabase.rpc(
-              'update_wallet_balance_atomic',
-              params: {
-                'p_user_id': recipientUserId,
-                'p_delta': amount,
-                'p_earned_delta': amount,
-              },
-            );
-            debugPrint(
-              'WalletRepository: Recipient balance updated atomically',
-            );
-          } catch (e) {
-            debugPrint(
-              'WalletRepository: Atomic recipient update failed, using fallback: $e',
-            );
-            // Recipient fallback
-            final recipientWallet = await _supabase
-                .from('wallets')
-                .select('balance_rc, lifetime_earned_rc')
-                .eq('user_id', recipientUserId)
-                .single();
-
-            await _supabase
-                .from('wallets')
-                .update({
-                  'balance_rc':
-                      (recipientWallet['balance_rc'] as num).toDouble() +
-                      amount,
-                  'lifetime_earned_rc':
-                      (recipientWallet['lifetime_earned_rc'] as num)
-                          .toDouble() +
-                      amount,
-                  'updated_at': DateTime.now().toIso8601String(),
-                })
-                .eq('user_id', recipientUserId);
-          }
-
-          // Send notification to recipient
-          try {
-            // Get sender's username for notification
-            final senderProfile = await _supabase
-                .from('profiles')
-                .select('username, display_name')
-                .eq('user_id', userId)
-                .maybeSingle();
-
-            final senderName =
-                senderProfile?['display_name'] ??
-                senderProfile?['username'] ??
-                'Someone';
-
-            await _supabase.from('notifications').insert({
-              'user_id': recipientUserId,
-              'type': 'roocoin_received',
-              'title': 'ROO Received!',
-              'body': '$senderName sent you ${amount.toStringAsFixed(2)} ROOK',
-              'actor_id': userId,
-              'metadata': {
-                'amount': amount,
-                'from_user_id': userId,
-                'tx_hash': txHash,
-              },
-            });
-          } catch (e) {
-            debugPrint('Error sending transfer notification: $e');
-          }
-
-          debugPrint(
-            'In-app transfer: Updated recipient $recipientUserId balance (+$amount ROOK)',
           );
+
+          final senderProfile = await _supabase
+              .from('profiles')
+              .select('username, display_name')
+              .eq('user_id', userId)
+              .maybeSingle();
+
+          final senderName =
+              senderProfile?['display_name'] ??
+              senderProfile?['username'] ??
+              'Someone';
+
+          await _supabase.from('notifications').insert({
+            'user_id': recipientUserId,
+            'type': 'roocoin_received',
+            'title': 'ROO Received!',
+            'body': '$senderName sent you ${amount.toStringAsFixed(2)} ROO',
+            'actor_id': userId,
+            'metadata': {
+              'amount': amount,
+              'from_user_id': userId,
+              'tx_hash': txHash,
+            },
+          });
         } catch (e) {
-          debugPrint('Error updating recipient wallet: $e');
-          // Don't fail the transfer if recipient update fails - blockchain transfer succeeded
+          debugPrint('Error in recipient background update: $e');
         }
       }
-
-      return result;
     } catch (e) {
-      debugPrint('Error transferring ROOK: $e');
-      rethrow;
+      debugPrint('Error in background transfer updates: $e');
     }
   }
 
@@ -878,92 +898,50 @@ class WalletRepository {
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
-      return (response as List)
+      final List<RookenTransaction> txs = (response as List)
           .map((json) => RookenTransaction.fromSupabase(json))
           .toList();
+
+      // Deduplicate by txHash if present (prevents double-showing of legacy logic records)
+      final Set<String> seenHashes = {};
+      final List<RookenTransaction> uniqueTxs = [];
+
+      for (final tx in txs) {
+        if (tx.txHash != null && tx.txHash!.isNotEmpty) {
+          if (!seenHashes.contains(tx.txHash)) {
+            seenHashes.add(tx.txHash!);
+            uniqueTxs.add(tx);
+          }
+        } else {
+          uniqueTxs.add(tx);
+        }
+      }
+
+      return uniqueTxs;
     } catch (e) {
       debugPrint('Error getting transactions: $e');
       rethrow;
     }
   }
 
-  /// Sync wallet balance from blockchain
-  Future<Wallet> syncBalance(String userId) async {
-    try {
-      final wallet = await getWallet(userId);
-      if (wallet == null) {
-        throw Exception('Wallet not found');
-      }
-
-      // Validate address before calling blockchain
-      if (!_isValidAddress(wallet.walletAddress)) {
-        debugPrint(
-          'WalletRepository: Skipping balance sync: Invalid address ${wallet.walletAddress}',
-        );
-        return wallet;
-      }
-
-      debugPrint(
-        'WalletRepository: Fetching blockchain balance for ${wallet.walletAddress}...',
-      );
-
-      // Get balance from blockchain
-      final balanceData = await _rookenService.getBalance(wallet.walletAddress);
-
-      debugPrint('WalletRepository: Raw balance response: $balanceData');
-
-      final blockchainBalance = double.parse(balanceData['balance'] as String);
-
-      debugPrint(
-        'WalletRepository: Blockchain balance: $blockchainBalance, DB balance: ${wallet.balanceRc}',
-      );
-
-      // Update database
-      await _supabase
-          .from('wallets')
-          .update({
-            'balance_rc': blockchainBalance,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('user_id', userId);
-
-      debugPrint(
-        'WalletRepository: Updated DB with blockchain balance: $blockchainBalance',
-      );
-
-      return wallet.copyWith(balanceRc: blockchainBalance);
-    } catch (e) {
-      debugPrint('WalletRepository: Error syncing balance: $e');
-      rethrow;
-    }
-  }
-
-  /// Check if Rooken API is healthy
-  Future<bool> checkApiHealth() async {
-    try {
-      final health = await _rookenService.checkHealth();
-      return health['status'] == 'ok';
-    } catch (e) {
-      debugPrint('Rooken API health check failed: $e');
-      return false;
-    }
-  }
-
-  /// Backup key to DB for recovery
+  /// Backup key to DB (encrypted by server-side key or just stored for recovery)
+  /// In this custodial model, we store it so the user can log in on another device.
   Future<void> _backupKey(
     String userId,
     String address,
     String privateKey,
   ) async {
     try {
-      await _supabase.from('user_wallet_keys').upsert({
+      await _supabase.from('wallet_backups').upsert({
         'user_id': userId,
         'wallet_address': address,
-        'encrypted_private_key': privateKey,
+        'encrypted_key':
+            privateKey, // Ideally, you'd encrypt this client-side too
         'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id');
+      });
     } catch (e) {
-      debugPrint('WalletRepository: Failed to backup key to DB: $e');
+      debugPrint('Error backing up key: $e');
+      // Non-critical, continue
     }
   }
 
@@ -971,20 +949,19 @@ class WalletRepository {
   Future<bool> _restoreKey(String userId) async {
     try {
       final response = await _supabase
-          .from('user_wallet_keys')
-          .select()
+          .from('wallet_backups')
+          .select('encrypted_key')
           .eq('user_id', userId)
           .maybeSingle();
 
-      if (response != null) {
-        final privateKey = response['encrypted_private_key'] as String;
-        await _secureStorage.write('wallet_private_key_$userId', privateKey);
-        debugPrint('WalletRepository: Key restored from DB backup');
-        return true;
-      }
+      if (response == null) return false;
+
+      final key = response['encrypted_key'] as String;
+      await _secureStorage.write('wallet_private_key_$userId', key);
+      return true;
     } catch (e) {
-      debugPrint('WalletRepository: Failed to restore key from DB: $e');
+      debugPrint('Error restoring key: $e');
+      return false;
     }
-    return false;
   }
 }

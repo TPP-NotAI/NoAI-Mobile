@@ -75,15 +75,14 @@ class _TipModalState extends State<TipModal> {
       );
 
       if (success) {
-        // 2. Update post tip total
-        await feedProvider.tipPost(widget.post.id, _selectedAmount);
+        // 2. Update post tip total (also backgrounded for speed)
+        feedProvider.tipPost(widget.post.id, _selectedAmount).catchError((e) {
+          debugPrint('TipModal: Error updating post tips - $e');
+        });
 
-        // 3. Refresh wallet balance across the app (use refreshWallet to sync from blockchain)
-        if (mounted) {
-          await walletProvider.refreshWallet(user.id);
-          // Also refresh AuthProvider to ensure balance updates in this modal
-          await authProvider.reloadCurrentUser();
-        }
+        // 3. Refresh wallet balance and user data in the background
+        walletProvider.refreshWallet(user.id).catchError((e) => null);
+        authProvider.reloadCurrentUser().catchError((e) => null);
 
         if (mounted) {
           Navigator.pop(context);
@@ -141,7 +140,10 @@ class _TipModalState extends State<TipModal> {
         ),
         child: SingleChildScrollView(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            bottom:
+                MediaQuery.of(context).viewInsets.bottom +
+                MediaQuery.of(context).padding.bottom +
+                16,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

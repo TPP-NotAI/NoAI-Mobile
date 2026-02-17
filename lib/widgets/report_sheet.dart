@@ -140,7 +140,10 @@ class _ReportSheetState extends State<ReportSheet> {
           left: 24,
           right: 24,
           top: 24,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          bottom:
+              MediaQuery.of(context).viewInsets.bottom +
+              MediaQuery.of(context).padding.bottom +
+              24,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -185,56 +188,59 @@ class _ReportSheetState extends State<ReportSheet> {
               return Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => setState(() => _selectedReason = reason['value']),
+                  onTap: () =>
+                      setState(() => _selectedReason = reason['value']),
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? colors.primary.withValues(alpha: 0.1)
-                        : colors.surfaceContainerHighest.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
                       color: isSelected
-                          ? colors.primary
-                          : colors.outlineVariant,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        reason['icon'] as IconData,
+                          ? colors.primary.withValues(alpha: 0.1)
+                          : colors.surfaceContainerHighest.withValues(
+                              alpha: 0.5,
+                            ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
                         color: isSelected
                             ? colors.primary
-                            : colors.onSurfaceVariant,
-                        size: 20,
+                            : colors.outlineVariant,
+                        width: isSelected ? 2 : 1,
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          reason['label'] as String,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                            color: isSelected
-                                ? colors.onSurface
-                                : colors.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                      if (isSelected)
+                    ),
+                    child: Row(
+                      children: [
                         Icon(
-                          Icons.check_circle,
-                          color: colors.primary,
+                          reason['icon'] as IconData,
+                          color: isSelected
+                              ? colors.primary
+                              : colors.onSurfaceVariant,
                           size: 20,
                         ),
-                    ],
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            reason['label'] as String,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                              color: isSelected
+                                  ? colors.onSurface
+                                  : colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          Icon(
+                            Icons.check_circle,
+                            color: colors.primary,
+                            size: 20,
+                          ),
+                      ],
+                    ),
                   ),
-                ),
                 ),
               );
             }),

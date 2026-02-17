@@ -254,7 +254,8 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
     );
 
     if (confirm == true && mounted) {
-      await context.read<AuthProvider>().signOut();
+      final auth = context.read<AuthProvider>();
+      await auth.signOut();
     }
   }
 

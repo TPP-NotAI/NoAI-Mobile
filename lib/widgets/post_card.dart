@@ -339,10 +339,44 @@ class _HeaderState extends State<_Header> {
     }
   }
 
+  List<String> _extractInlineMentions(String text) {
+    final matches = RegExp(r'@(\w+)').allMatches(text);
+    return matches
+        .map((m) => m.group(1))
+        .whereType<String>()
+        .map((u) => u.toLowerCase())
+        .toSet()
+        .toList();
+  }
+
+  String? _buildMentionContext(Post post) {
+    final inlineMentions = _extractInlineMentions(post.content);
+    final totalMentionedCount =
+        (post.mentionedUserIds?.toSet().length ?? 0) > inlineMentions.length
+        ? (post.mentionedUserIds?.toSet().length ?? 0)
+        : inlineMentions.length;
+
+    if (totalMentionedCount <= 0) return null;
+
+    if (inlineMentions.isNotEmpty) {
+      final firstMention = '@${inlineMentions.first}';
+      if (totalMentionedCount == 1) {
+        return 'with $firstMention';
+      }
+      final others = totalMentionedCount - 1;
+      return 'with $firstMention and $others other${others == 1 ? '' : 's'}';
+    }
+
+    return totalMentionedCount == 1
+        ? 'with 1 person'
+        : 'with $totalMentionedCount people';
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final post = widget.post;
+    final mentionContext = _buildMentionContext(post);
 
     return Padding(
       padding: AppSpacing.responsiveLTRB(context, 16, 16, 8, 8),
@@ -373,8 +407,8 @@ class _HeaderState extends State<_Header> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
+                   Row(
+                     children: [
                       Flexible(
                         child: Text(
                           post.author.displayName.isNotEmpty
@@ -419,10 +453,25 @@ class _HeaderState extends State<_Header> {
                           ),
                         ),
                       ],
+                      ],
+                    ),
+                    if (mentionContext != null) ...[
+                      SizedBox(height: AppSpacing.extraSmall.responsive(context)),
+                      Text(
+                        mentionContext,
+                        style: TextStyle(
+                          fontSize: AppTypography.responsiveFontSize(
+                            context,
+                            AppTypography.badgeText,
+                          ),
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
-                  ),
 
-                  SizedBox(height: AppSpacing.extraSmall.responsive(context)),
+                    SizedBox(height: AppSpacing.extraSmall.responsive(context)),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1496,7 +1545,12 @@ class _PostMenu extends StatelessWidget {
     return Material(
       color: colors.surface,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          MediaQuery.of(context).padding.bottom + 16,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

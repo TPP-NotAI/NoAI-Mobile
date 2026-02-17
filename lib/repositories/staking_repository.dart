@@ -14,9 +14,9 @@ class StakingRepository {
     SupabaseClient? supabase,
     RookenService? roocoinService,
     SecureStorageService? secureStorage,
-  })  : _supabase = supabase ?? Supabase.instance.client,
-        _rookenService = roocoinService ?? RookenService(),
-        _secureStorage = secureStorage ?? SecureStorageService();
+  }) : _supabase = supabase ?? Supabase.instance.client,
+       _rookenService = roocoinService ?? RookenService(),
+       _secureStorage = secureStorage ?? SecureStorageService();
 
   /// Get user's staking positions
   Future<List<StakePosition>> getPositions(String userId) async {
@@ -70,7 +70,9 @@ class StakingRepository {
       return StakingStats(
         totalValueLocked: totalLocked,
         activeStakers: uniqueUsers.length,
-        avgLockPeriod: positions.isNotEmpty ? totalLockDays / positions.length : 0,
+        avgLockPeriod: positions.isNotEmpty
+            ? totalLockDays / positions.length
+            : 0,
         rewardPool: 2100000, // Could be fetched from contract
       );
     } catch (e) {
@@ -96,7 +98,9 @@ class StakingRepository {
     }
 
     if (amount < tier.minAmount) {
-      throw Exception('Minimum stake for ${tier.name} is ${tier.minAmount} ROOK');
+      throw Exception(
+        'Minimum stake for ${tier.name} is ${tier.minAmount} ROOK',
+      );
     }
 
     // Get user's wallet
@@ -117,19 +121,15 @@ class StakingRepository {
       throw Exception('Wallet key not found');
     }
 
-    // Transfer to staking contract
-    try {
-      // Use the spend API to move funds to staking
-      await _rookenService.spend(
-        userPrivateKey: privateKey,
-        amount: amount,
-        activityType: 'STAKE',
-        metadata: {'tier': tierId, 'lock_days': tier.lockDays},
-      );
-    } catch (e) {
-      debugPrint('StakingRepository: Blockchain stake failed - $e');
-      // Continue with local tracking even if blockchain fails
-    }
+    // 3. Execute transfer to staking contract on blockchain
+    // We don't catch errors here because we want the operation to fail
+    // if the blockchain transfer doesn't succeed.
+    await _rookenService.spend(
+      userPrivateKey: privateKey,
+      amount: amount,
+      activityType: 'STAKE',
+      metadata: {'tier': tierId, 'lock_days': tier.lockDays},
+    );
 
     // Calculate unlock date
     final now = DateTime.now();
@@ -185,7 +185,8 @@ class StakingRepository {
       );
     }
 
-    final totalAmount = stakePosition.amountStaked + stakePosition.pendingRewards;
+    final totalAmount =
+        stakePosition.amountStaked + stakePosition.pendingRewards;
 
     // Get wallet
     final wallet = await _supabase

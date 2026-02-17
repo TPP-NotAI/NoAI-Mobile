@@ -150,6 +150,22 @@ class MyApp extends StatelessWidget {
             scaffoldMessengerKey: rootScaffoldMessengerKey,
             debugShowCheckedModeBanner: false,
             theme: themeProvider.theme,
+            routes: {
+              '/verify': (context) => HumanVerificationScreen(
+                onVerify: () => Navigator.pop(context),
+                onPhoneVerify: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PhoneVerificationScreen(
+                        onVerify: () => Navigator.pop(context),
+                        onBack: () => Navigator.pop(context),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            },
             home: const AuthWrapper(),
             builder: (context, child) {
               // Add connectivity overlay and error boundary
@@ -796,18 +812,23 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
 /* PROFILE MENU (WEB DROPDOWN → MOBILE SHEET)     */
 /* ───────────────────────────────────────────── */
 
-void _showProfileSheet(BuildContext context) {
-  final colors = Theme.of(context).colorScheme;
-  final user = context.read<UserProvider>().currentUser;
+void _showProfileSheet(BuildContext parentContext) {
+  final colors = Theme.of(parentContext).colorScheme;
+  final user = parentContext.read<UserProvider>().currentUser;
 
   showModalBottomSheet(
-    context: context,
+    context: parentContext,
     backgroundColor: colors.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (_) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+    builder: (sheetContext) => Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        MediaQuery.of(sheetContext).padding.bottom + 16,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -837,7 +858,7 @@ void _showProfileSheet(BuildContext context) {
                               height: 48,
                               fit: BoxFit.cover,
                               loadingBuilder:
-                                  (context, child, loadingProgress) {
+                                  (imageContext, child, loadingProgress) {
                                     if (loadingProgress == null) {
                                       return child;
                                     }
@@ -889,9 +910,9 @@ void _showProfileSheet(BuildContext context) {
             icon: Icons.person_outline,
             label: 'My Profile',
             onTap: () {
-              Navigator.pop(context);
+              Navigator.pop(sheetContext);
               Navigator.push(
-                context,
+                parentContext,
                 MaterialPageRoute(
                   builder: (_) => const ProfileScreen(showAppBar: true),
                 ),
@@ -902,9 +923,9 @@ void _showProfileSheet(BuildContext context) {
             icon: Icons.settings_outlined,
             label: 'Settings',
             onTap: () {
-              Navigator.pop(context);
+              Navigator.pop(sheetContext);
               Navigator.push(
-                context,
+                parentContext,
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
               );
             },
@@ -913,9 +934,9 @@ void _showProfileSheet(BuildContext context) {
             icon: Icons.help_outline,
             label: 'Help & Support',
             onTap: () {
-              Navigator.pop(context);
+              Navigator.pop(sheetContext);
               Navigator.push(
-                context,
+                parentContext,
                 MaterialPageRoute(builder: (_) => const ContactSupportScreen()),
               );
             },
@@ -927,11 +948,11 @@ void _showProfileSheet(BuildContext context) {
             destructive: true,
             onTap: () {
               // Close bottom sheet first
-              Navigator.pop(context);
+              Navigator.pop(sheetContext);
 
               // Show confirmation dialog
               showDialog(
-                context: context,
+                context: parentContext,
                 builder: (dialogContext) => AlertDialog(
                   backgroundColor: colors.surface,
                   title: Text(
@@ -949,8 +970,18 @@ void _showProfileSheet(BuildContext context) {
                     ),
                     TextButton(
                       onPressed: () async {
-                        Navigator.pop(dialogContext);
-                        await context.read<AuthProvider>().signOut();
+                        // Read from a stable ancestor context (not the sheet context).
+                        final auth = parentContext.read<AuthProvider>();
+
+                        // Pop the dialog first
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+
+                        // Then perform signout
+                        // The auth state change will trigger a rebuild,
+                        // but we've already captured the reference safely
+                        await auth.signOut();
                       },
                       child: const Text(
                         'Sign Out',

@@ -208,7 +208,11 @@ class _FeedScreenState extends State<FeedScreen> {
                       ),
                     ),
                   // Added bottom safe padding to ensure last post action buttons are fully accessible
-                  const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
+                  SliverPadding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom + 100,
+                    ),
+                  ),
                 ],
               );
             },

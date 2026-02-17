@@ -1,13 +1,17 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'supabase_service.dart';
 import '../models/message.dart';
 import '../models/conversation.dart';
 import '../models/user.dart';
+import '../models/ai_detection_result.dart';
 import '../config/supabase_config.dart';
 import 'ai_detection_service.dart';
-import 'dart:async';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
@@ -350,13 +354,44 @@ class ChatService {
   /// Run AI detection on a message.
   Future<void> runAiDetection(Message message) async {
     try {
-      final result = await _aiService.detectText(message.content);
+      final hasText =
+          message.content.isNotEmpty && message.content != '[Media]';
+      final hasMedia =
+          message.mediaUrl != null &&
+          message.mediaUrl!.isNotEmpty &&
+          (message.mediaType == 'image' || message.mediaType == 'video');
+
+      if (!hasText && !hasMedia) return;
+
+      AiDetectionResult? result;
+
+      if (hasText && hasMedia && message.mediaType == 'image') {
+        // Mixed detection (text + image)
+        File? mediaFile = await _downloadMedia(message.mediaUrl!);
+        if (mediaFile != null) {
+          result = await _aiService.detectMixed(message.content, mediaFile);
+          _cleanupFile(mediaFile);
+        } else {
+          result = await _aiService.detectText(message.content);
+        }
+      } else if (hasText && !hasMedia) {
+        // Text only
+        result = await _aiService.detectText(message.content);
+      } else if (hasMedia && message.mediaType == 'image') {
+        // Image only
+        File? mediaFile = await _downloadMedia(message.mediaUrl!);
+        if (mediaFile != null) {
+          result = await _aiService.detectImage(mediaFile);
+          _cleanupFile(mediaFile);
+        }
+      } else if (hasText) {
+        // Text fallback (messages with video captions)
+        result = await _aiService.detectText(message.content);
+      }
+
       if (result == null) return;
 
-      final bool isAiResult =
-          result.result == 'AI-GENERATED' ||
-          result.result == 'LIKELY AI-GENERATED';
-
+      final bool isAiResult = result.result.contains('AI');
       final double aiProbability = isAiResult
           ? result.confidence
           : 100 - result.confidence;
@@ -513,5 +548,32 @@ class ChatService {
         })
         .eq('thread_id', threadId)
         .eq('user_id', userId);
+  }
+
+  /// Helper to download media from URL to a temporary file.
+  Future<File?> _downloadMedia(String url) async {
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final tempDir = await getTemporaryDirectory();
+        final fileName = 'msg_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final file = File('${tempDir.path}/$fileName');
+        await file.writeAsBytes(response.bodyBytes);
+        return file;
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error downloading media - $e');
+    }
+    return null;
+  }
+
+  void _cleanupFile(File file) {
+    try {
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error cleaning up file - $e');
+    }
   }
 }

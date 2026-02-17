@@ -13,8 +13,13 @@ import 'user_search_sheet.dart';
 
 class SendRooScreen extends StatefulWidget {
   final double currentBalance;
+  final User? initialRecipient;
 
-  const SendRooScreen({super.key, required this.currentBalance});
+  const SendRooScreen({
+    super.key,
+    required this.currentBalance,
+    this.initialRecipient,
+  });
 
   @override
   State<SendRooScreen> createState() => _SendRooScreenState();
@@ -35,6 +40,9 @@ class _SendRooScreenState extends State<SendRooScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialRecipient != null) {
+      _recipientController.text = '@${widget.initialRecipient!.username}';
+    }
     _recipientController.addListener(_onRecipientChanged);
   }
 
@@ -189,18 +197,19 @@ class _SendRooScreenState extends State<SendRooScreen> {
       }
 
       // 2. Perform transfer
-      await walletProvider.transferToExternal(
+      final success = await walletProvider.transferToExternal(
         userId: user.id,
         toAddress: toAddress,
         amount: amount,
         memo: _noteController.text.trim().isEmpty
             ? null
             : _noteController.text.trim(),
-        metadata: {
-          'activityType': 'transfer',
-          'inputRecipient': recipient,
-        },
+        metadata: {'activityType': 'transfer', 'inputRecipient': recipient},
       );
+
+      if (!success) {
+        throw Exception(walletProvider.error ?? 'Failed to send ROO');
+      }
 
       if (!mounted) return;
       setState(() => _isProcessing = false);
@@ -341,7 +350,12 @@ class _SendRooScreenState extends State<SendRooScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(context).padding.bottom + 20,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

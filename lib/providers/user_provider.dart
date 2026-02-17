@@ -369,7 +369,27 @@ class UserProvider with ChangeNotifier {
           .or('from_user_id.eq.$userId,to_user_id.eq.$userId')
           .order('created_at', ascending: false);
 
-      _transactions = List<Map<String, dynamic>>.from(response);
+      final List<Map<String, dynamic>> rawTxs = List<Map<String, dynamic>>.from(
+        response,
+      );
+
+      // Deduplicate by tx_hash if present
+      final Set<String> seenHashes = {};
+      final List<Map<String, dynamic>> uniqueTxs = [];
+
+      for (final tx in rawTxs) {
+        final hash = tx['tx_hash'] as String?;
+        if (hash != null && hash.isNotEmpty) {
+          if (!seenHashes.contains(hash)) {
+            seenHashes.add(hash);
+            uniqueTxs.add(tx);
+          }
+        } else {
+          uniqueTxs.add(tx);
+        }
+      }
+
+      _transactions = uniqueTxs;
     } catch (e) {
       debugPrint('UserProvider: Error fetching transactions - $e');
       _error = e.userMessage;
@@ -515,16 +535,27 @@ class UserProvider with ChangeNotifier {
       }
 
       // Fetch Rooken transactions
-      final transactionsResponse = await _supabase.client
+      final txResponse = await _supabase.client
           .from(SupabaseConfig.roocoinTransactionsTable)
           .select(
-            'id, created_at, amount_rc, tx_type, from_user_id, to_user_id',
+            'id, created_at, amount_rc, tx_type, from_user_id, to_user_id, tx_hash',
           )
           .or('from_user_id.eq.$userId,to_user_id.eq.$userId')
           .order('created_at', ascending: false)
           .limit(limit);
 
-      for (final tx in transactionsResponse) {
+      final List<Map<String, dynamic>> rawTxs = List<Map<String, dynamic>>.from(
+        txResponse,
+      );
+      final Set<String> seenHashes = {};
+
+      for (final tx in rawTxs) {
+        final hash = tx['tx_hash'] as String?;
+        if (hash != null && hash.isNotEmpty) {
+          if (seenHashes.contains(hash)) continue;
+          seenHashes.add(hash);
+        }
+
         final amount = (tx['amount_rc'] as num?)?.toDouble() ?? 0.0;
         final isReceived = tx['to_user_id'] == userId;
         final txType = tx['tx_type'] as String?;
@@ -586,7 +617,6 @@ class UserProvider with ChangeNotifier {
       );
 
       final resolved = await resolveUsernameToAddress(toUsername);
-      final recipientUserId = resolved['userId']!;
       final recipientAddress = resolved['address']!;
 
       await _walletRepository.transferToExternal(
@@ -599,9 +629,17 @@ class UserProvider with ChangeNotifier {
         metadata: metadata,
       );
 
-      // Refresh local user data to show updated balance
-      await fetchUser(fromUserId);
-      await fetchTransactions(fromUserId);
+      // Refresh local user data in background to show updated balance
+      // We don't await this to keep the UI snappy
+      Future.wait([
+        fetchUser(fromUserId),
+        fetchTransactions(fromUserId),
+      ]).catchError((e) {
+        debugPrint(
+          'UserProvider: Error refreshing profile after transfer - $e',
+        );
+        return [];
+      });
 
       return true;
     } catch (e) {

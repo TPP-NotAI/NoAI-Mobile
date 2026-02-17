@@ -593,8 +593,9 @@ class SettingsScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () async {
+              final authProvider = context.read<AuthProvider>();
               Navigator.pop(dialogContext);
-              await context.read<AuthProvider>().signOut();
+              await authProvider.signOut();
             },
             child: const Text('Log Out', style: TextStyle(color: Colors.red)),
           ),
@@ -646,8 +647,8 @@ class SettingsScreen extends StatelessWidget {
             onPressed: () async {
               if (controller.text.trim().toUpperCase() == 'DELETE') {
                 Navigator.pop(dialogContext);
-                // Sign out the user (actual account deletion requires server-side implementation)
-                await context.read<AuthProvider>().signOut();
+                final auth = context.read<AuthProvider>();
+                await auth.signOut();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

@@ -74,7 +74,9 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                 width: 64.responsive(context, min: 56, max: 72),
                 height: 64.responsive(context, min: 56, max: 72),
                 margin: EdgeInsets.only(
-                  right: index == 4 ? 0 : AppSpacing.standard.responsive(context),
+                  right: index == 4
+                      ? 0
+                      : AppSpacing.standard.responsive(context),
                 ),
                 decoration: BoxDecoration(
                   color: colors.surfaceVariant.withValues(alpha: 0.6),
@@ -141,7 +143,8 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
         backgroundColor: userStories.isNotEmpty
             ? userStories.first.backgroundColor
             : null,
-        isTextStory: userStories.isNotEmpty && userStories.first.mediaType == 'text',
+        isTextStory:
+            userStories.isNotEmpty && userStories.first.mediaType == 'text',
         isCurrentUser: true,
         isViewed: true,
         onTap: () {
@@ -253,8 +256,14 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
             });
           }
 
-          int wordCount = captionController.text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
-          bool canShare = selectedMedia.isNotEmpty || (captionController.text.trim().isNotEmpty && wordCount <= 250);
+          int wordCount = captionController.text
+              .trim()
+              .split(RegExp(r'\s+'))
+              .where((w) => w.isNotEmpty)
+              .length;
+          bool canShare =
+              selectedMedia.isNotEmpty ||
+              (captionController.text.trim().isNotEmpty && wordCount <= 250);
           String? textError;
           if (captionController.text.trim().isNotEmpty && wordCount > 250) {
             textError = 'Text stories are limited to 250 words.';
@@ -470,7 +479,8 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                 TextField(
                   controller: captionController,
                   decoration: InputDecoration(
-                    hintText: 'Add a caption or share a text story (max 250 words)',
+                    hintText:
+                        'Add a caption or share a text story (max 250 words)',
                     filled: true,
                     fillColor: colors.surfaceVariant.withValues(alpha: 0.25),
                     border: OutlineInputBorder(
@@ -515,9 +525,15 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                         });
                         final storyProvider = context.read<StoryProvider>();
                         final List<StoryMediaInput> mediaInputs = selectedMedia
-                            .map((m) => StoryMediaInput(url: m.url, mediaType: m.mediaType))
+                            .map(
+                              (m) => StoryMediaInput(
+                                url: m.url,
+                                mediaType: m.mediaType,
+                              ),
+                            )
                             .toList();
-                        final String? caption = captionController.text.trim().isEmpty
+                        final String? caption =
+                            captionController.text.trim().isEmpty
                             ? null
                             : captionController.text.trim();
                         // If no media, treat as text-only story (pass empty list with textOverlay)
@@ -525,7 +541,9 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                           mediaItems: mediaInputs,
                           caption: mediaInputs.isNotEmpty ? caption : null,
                           textOverlay: mediaInputs.isEmpty ? caption : null,
-                          backgroundColor: mediaInputs.isEmpty ? '#000000' : null,
+                          backgroundColor: mediaInputs.isEmpty
+                              ? '#000000'
+                              : null,
                         );
                         if (!mounted) return;
                         Navigator.of(dialogContext).pop();
@@ -615,7 +633,12 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
       builder: (context) {
         final colors = Theme.of(context).colorScheme;
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -779,7 +802,12 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
       builder: (context) {
         final colors = Theme.of(context).colorScheme;
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -42,15 +42,15 @@ class NotificationTile extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor: _isSystemNotification(notification.type)
+                    backgroundColor: _isSystemNotification(notification)
                         ? _getBadgeColor(notification.type).withOpacity(0.15)
                         : colors.surfaceVariant,
                     backgroundImage:
-                        !_isSystemNotification(notification.type) &&
+                        !_isSystemNotification(notification) &&
                             notification.actor?.avatarUrl != null
                         ? NetworkImage(notification.actor!.avatarUrl!)
                         : null,
-                    child: _isSystemNotification(notification.type)
+                    child: _isSystemNotification(notification)
                         ? Icon(
                             Icons.shield,
                             color: _getBadgeColor(notification.type),
@@ -88,7 +88,7 @@ class NotificationTile extends StatelessWidget {
                   children: [
                     // System notifications (AI check, etc.) show title directly
                     // User notifications show "[actor] [verb]" format
-                    if (_isSystemNotification(notification.type))
+                    if (_isSystemNotification(notification))
                       Text(
                         notification.getDisplayTitle(),
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -261,10 +261,11 @@ class NotificationTile extends StatelessWidget {
   }
 
   /// Check if this is a system notification (no actor needed)
-  bool _isSystemNotification(String type) {
+  bool _isSystemNotification(NotificationModel notification) {
+    final type = notification.type;
     return type.startsWith('post_') ||
         type.startsWith('comment_') ||
         type.startsWith('story_') ||
-        type == 'mention';
+        (type == 'mention' && notification.actorId == null);
   }
 }
