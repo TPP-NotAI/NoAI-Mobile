@@ -968,8 +968,10 @@ class CommentRepository {
 
       switch (commentStatus) {
         case 'published':
-          // Don't notify for published comments - too noisy
-          return;
+          title = 'Comment Published';
+          body = 'Your comment passed verification and is now visible.';
+          type = 'comment_published';
+          break;
         case 'under_review':
           title = 'Comment Under Review';
           body = 'Your comment is being reviewed by our moderation team.';
@@ -985,7 +987,7 @@ class CommentRepository {
           return; // Don't send notification for unknown status
       }
 
-      await _notificationRepository.createNotification(
+      final created = await _notificationRepository.createNotification(
         userId: userId,
         type: type,
         title: title,
@@ -993,9 +995,15 @@ class CommentRepository {
         commentId: commentId,
       );
 
-      debugPrint(
-        'CommentRepository: Sent AI result notification to $userId for comment $commentId (status: $commentStatus)',
-      );
+      if (created) {
+        debugPrint(
+          'CommentRepository: Sent AI result notification to $userId for comment $commentId (status: $commentStatus)',
+        );
+      } else {
+        debugPrint(
+          'CommentRepository: AI result notification skipped/failed for comment $commentId (status: $commentStatus)',
+        );
+      }
     } catch (e) {
       debugPrint(
         'CommentRepository: Error sending AI result notification - $e',

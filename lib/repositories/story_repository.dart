@@ -570,25 +570,26 @@ class StoryRepository {
 
       switch (storyStatus) {
         case 'pass':
-          // Don't notify for passed stories - too noisy
-          return;
+          title = 'Story Published';
+          body = 'Your story passed verification and is now live!';
+          type = 'story_published';
+          break;
         case 'review':
           title = 'Story Under Review';
           body = 'Your story is being reviewed by our moderation team.';
-          type =
-              'mention'; // Using 'mention' as valid DB type for system notifications
+          type = 'story_review';
           break;
         case 'flagged':
           title = 'Story Not Published';
           body =
               'Your story was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence).';
-          type = 'mention';
+          type = 'story_flagged';
           break;
         default:
           return; // Don't send notification for unknown status
       }
 
-      await _notificationRepository.createNotification(
+      final created = await _notificationRepository.createNotification(
         userId: userId,
         type: type,
         title: title,
@@ -596,9 +597,15 @@ class StoryRepository {
         storyId: storyId,
       );
 
-      debugPrint(
-        'StoryRepository: Sent AI result notification to $userId for story $storyId (status: $storyStatus)',
-      );
+      if (created) {
+        debugPrint(
+          'StoryRepository: Sent AI result notification to $userId for story $storyId (status: $storyStatus)',
+        );
+      } else {
+        debugPrint(
+          'StoryRepository: AI result notification skipped/failed for story $storyId (status: $storyStatus)',
+        );
+      }
     } catch (e) {
       debugPrint('StoryRepository: Error sending AI result notification - $e');
     }

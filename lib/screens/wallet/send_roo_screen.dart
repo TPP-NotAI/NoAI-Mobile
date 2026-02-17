@@ -178,7 +178,9 @@ class _SendRooScreenState extends State<SendRooScreen> {
 
     try {
       // 1. Resolve address
-      final result = await _resolveUserAndAddress(recipient);
+      final result = await _resolveUserAndAddress(
+        recipient,
+      ).timeout(const Duration(seconds: 12));
       if (result == null) {
         throw Exception('User not found');
       }
@@ -197,7 +199,8 @@ class _SendRooScreenState extends State<SendRooScreen> {
       }
 
       // 2. Perform transfer
-      final success = await walletProvider.transferToExternal(
+      final success = await walletProvider
+          .transferToExternal(
         userId: user.id,
         toAddress: toAddress,
         amount: amount,
@@ -205,7 +208,8 @@ class _SendRooScreenState extends State<SendRooScreen> {
             ? null
             : _noteController.text.trim(),
         metadata: {'activityType': 'transfer', 'inputRecipient': recipient},
-      );
+      )
+          .timeout(const Duration(seconds: 35));
 
       if (!success) {
         throw Exception(walletProvider.error ?? 'Failed to send ROO');
@@ -289,6 +293,14 @@ class _SendRooScreenState extends State<SendRooScreen> {
             ),
           ],
         ),
+      );
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      walletProvider.refreshWallet(user.id).catchError((_) => null);
+      _showError(
+        'Network is slow. Transfer confirmation timed out. '
+        'Please check transaction history before retrying.',
       );
     } catch (e) {
       if (!mounted) return;

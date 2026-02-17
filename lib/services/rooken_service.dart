@@ -252,7 +252,7 @@ class RookenService {
               Uri.parse('$baseUrl/api/wallet/send'),
               headers: {'Content-Type': 'application/json'},
               body: json.encode(body),
-            );
+            ).timeout(const Duration(seconds: 25));
 
             if (response.statusCode == 200) {
               final data = json.decode(response.body) as Map<String, dynamic>;

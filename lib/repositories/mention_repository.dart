@@ -199,4 +199,32 @@ class MentionRepository {
       return [];
     }
   }
+
+  /// Resolve user IDs to usernames.
+  Future<Map<String, String>> resolveUserIdsToUsernames(
+    List<String> userIds,
+  ) async {
+    if (userIds.isEmpty) return {};
+
+    try {
+      final response = await _client
+          .from(SupabaseConfig.profilesTable)
+          .select('user_id, username')
+          .inFilter('user_id', userIds);
+
+      final result = <String, String>{};
+      for (final row in (response as List<dynamic>)) {
+        final data = row as Map<String, dynamic>;
+        final id = data['user_id'] as String?;
+        final username = data['username'] as String?;
+        if (id != null && username != null && username.isNotEmpty) {
+          result[id] = username;
+        }
+      }
+      return result;
+    } catch (e) {
+      debugPrint('MentionRepository: Error resolving user IDs - $e');
+      return {};
+    }
+  }
 }

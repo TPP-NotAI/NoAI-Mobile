@@ -1,5 +1,4 @@
 import 'dart:io';
-import '../../main.dart';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -26,6 +25,7 @@ import '../../services/storage_service.dart';
 import '../../services/kyc_verification_service.dart';
 import '../../utils/verification_utils.dart';
 import '../../widgets/verification_required_widget.dart';
+import '../../config/global_keys.dart';
 import '../post_detail_screen.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -1198,22 +1198,22 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (!mounted) return;
       setState(() => _isPosting = false);
 
-      // 3. Navigate back and show appropriate feedback
-      if (widget.onPostCreated != null) {
-        widget.onPostCreated!();
-      }
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-
       if (createdPost != null) {
+        // 3. Navigate to feed after successful creation
+        if (widget.onPostCreated != null) {
+          widget.onPostCreated!();
+        }
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+
         String message;
         Color backgroundColor;
 
         if (createdPost.status == 'published') {
           message = 'Post published successfully!';
           backgroundColor = Colors.green;
-        } else if (createdPost.status == 'deleted') {
+        } else if (createdPost.status == 'deleted' || createdPost.status == 'hidden') {
           final reason = createdPost.authenticityNotes != null
               ? ': ${createdPost.authenticityNotes}'
               : '';
@@ -1231,7 +1231,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           SnackBar(
             content: Text(message),
             backgroundColor: backgroundColor,
-            duration: const Duration(seconds: 4),
+            duration: const Duration(seconds: 7),
             action: SnackBarAction(
               label: 'VIEW',
               textColor: Colors.white,
@@ -1247,6 +1247,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 }
               },
             ),
+          ),
+        );
+      } else {
+        // Keep user on create screen if creation failed.
+        rootScaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('Failed to create post. Please try again.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 7),
           ),
         );
       }

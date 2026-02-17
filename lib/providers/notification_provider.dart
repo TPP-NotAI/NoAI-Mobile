@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/notification_model.dart';
 import '../models/notification_settings.dart';
@@ -7,6 +8,7 @@ import '../repositories/notification_repository.dart';
 import '../services/supabase_service.dart';
 import '../services/push_notification_service.dart';
 import '../config/supabase_config.dart';
+import '../config/global_keys.dart';
 
 class NotificationProvider with ChangeNotifier {
   final NotificationRepository _repository = NotificationRepository();
@@ -72,6 +74,12 @@ class NotificationProvider with ChangeNotifier {
                 'actor_id': newRecord['actor_id'],
               },
             );
+
+            _showInAppAiStatusSnackBar(
+              type: type,
+              title: title,
+              body: body,
+            );
           },
         )
         .onPostgresChanges(
@@ -113,6 +121,52 @@ class NotificationProvider with ChangeNotifier {
     debugPrint(
       'NotificationProvider: Listening for notifications for user=$userId',
     );
+  }
+
+  bool _isAiStatusType(String type, String title) {
+    return type.startsWith('post_') ||
+        type.startsWith('comment_') ||
+        type.startsWith('story_') ||
+        (type == 'mention' &&
+            (title.startsWith('Post ') ||
+                title.startsWith('Comment ') ||
+                title.startsWith('Story ')));
+  }
+
+  void _showInAppAiStatusSnackBar({
+    required String type,
+    required String title,
+    required String body,
+  }) {
+    if (!_isAiStatusType(type, title)) return;
+
+    final messenger = rootScaffoldMessengerKey.currentState;
+    if (messenger == null) return;
+
+    Color backgroundColor = Colors.blue;
+    if (type.endsWith('_published') ||
+        title.endsWith('Published') ||
+        title.toLowerCase().contains('success')) {
+      backgroundColor = Colors.green;
+    } else if (type.endsWith('_review') || title.endsWith('Under Review')) {
+      backgroundColor = Colors.orange;
+    } else if (type.endsWith('_flagged') ||
+        title.endsWith('Not Published') ||
+        title.toLowerCase().contains('flagged') ||
+        title.toLowerCase().contains('rejected')) {
+      backgroundColor = Colors.red;
+    }
+
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(body.isNotEmpty ? body : title),
+          backgroundColor: backgroundColor,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 7),
+        ),
+      );
   }
 
   /// Stop listening for real-time notifications

@@ -45,15 +45,13 @@ import 'screens/chat/chat_list_screen.dart';
 import 'screens/support/contact_support_screen.dart';
 import 'screens/support/faq_screen.dart';
 import 'config/app_constants.dart';
+import 'config/global_keys.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
 import 'screens/auth/banned_screen.dart';
 import 'services/daily_login_service.dart';
 import 'services/push_notification_service.dart';
 import 'widgets/connectivity_overlay.dart';
 import 'widgets/welcome_dialog.dart';
-
-final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
-    GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   runZonedGuarded(

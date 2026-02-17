@@ -21,6 +21,7 @@ import 'shimmer_loading.dart';
 import 'mention_rich_text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
+import '../repositories/mention_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../services/rooken_service.dart';
 import '../services/kyc_verification_service.dart';
@@ -239,14 +240,30 @@ class _Header extends StatefulWidget {
 class _HeaderState extends State<_Header> {
   String? _displayLocation;
   bool _isLoadingLocation = false;
+  bool _isResolvingMentionUsernames = false;
+  final List<String> _resolvedMentionUsernames = [];
+  final MentionRepository _mentionRepository = MentionRepository();
 
   // Cache for geocoded locations to avoid repeated API calls
   static final Map<String, String> _locationCache = {};
+  static final Map<String, String> _mentionUsernameCache = {};
 
   @override
   void initState() {
     super.initState();
     _initLocation();
+    _resolveMentionUsernames();
+  }
+
+  @override
+  void didUpdateWidget(covariant _Header oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.id != widget.post.id ||
+        oldWidget.post.mentionedUserIds != widget.post.mentionedUserIds ||
+        oldWidget.post.content != widget.post.content) {
+      _resolvedMentionUsernames.clear();
+      _resolveMentionUsernames();
+    }
   }
 
   void _initLocation() {
@@ -339,6 +356,39 @@ class _HeaderState extends State<_Header> {
     }
   }
 
+  Future<void> _resolveMentionUsernames() async {
+    final ids = widget.post.mentionedUserIds ?? const <String>[];
+    if (ids.isEmpty) return;
+
+    final unresolvedIds = ids
+        .where((id) => !_mentionUsernameCache.containsKey(id))
+        .toList();
+
+    if (unresolvedIds.isNotEmpty) {
+      setState(() => _isResolvingMentionUsernames = true);
+      final resolved = await _mentionRepository.resolveUserIdsToUsernames(
+        unresolvedIds,
+      );
+      for (final entry in resolved.entries) {
+        _mentionUsernameCache[entry.key] = entry.value;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _resolvedMentionUsernames
+        ..clear()
+        ..addAll(
+          ids
+              .map((id) => _mentionUsernameCache[id])
+              .whereType<String>()
+              .map((u) => u.toLowerCase())
+              .toSet(),
+        );
+      _isResolvingMentionUsernames = false;
+    });
+  }
+
   List<String> _extractInlineMentions(String text) {
     final matches = RegExp(r'@(\w+)').allMatches(text);
     return matches
@@ -351,15 +401,19 @@ class _HeaderState extends State<_Header> {
 
   String? _buildMentionContext(Post post) {
     final inlineMentions = _extractInlineMentions(post.content);
+    final allMentionUsernames = {
+      ...inlineMentions,
+      ..._resolvedMentionUsernames,
+    }.toList();
     final totalMentionedCount =
-        (post.mentionedUserIds?.toSet().length ?? 0) > inlineMentions.length
+        (post.mentionedUserIds?.toSet().length ?? 0) > allMentionUsernames.length
         ? (post.mentionedUserIds?.toSet().length ?? 0)
-        : inlineMentions.length;
+        : allMentionUsernames.length;
 
     if (totalMentionedCount <= 0) return null;
 
-    if (inlineMentions.isNotEmpty) {
-      final firstMention = '@${inlineMentions.first}';
+    if (allMentionUsernames.isNotEmpty) {
+      final firstMention = '@${allMentionUsernames.first}';
       if (totalMentionedCount == 1) {
         return 'with $firstMention';
       }
@@ -458,7 +512,9 @@ class _HeaderState extends State<_Header> {
                     if (mentionContext != null) ...[
                       SizedBox(height: AppSpacing.extraSmall.responsive(context)),
                       Text(
-                        mentionContext,
+                        _isResolvingMentionUsernames
+                            ? '$mentionContext...'
+                            : mentionContext,
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(
                             context,

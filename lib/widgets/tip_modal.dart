@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/post.dart';
@@ -65,14 +67,16 @@ class _TipModalState extends State<TipModal> {
 
     try {
       // 1. Perform the transfer
-      final success = await userProvider.transferRoo(
-        fromUserId: user.id,
-        toUsername: widget.post.author.username,
-        amount: _selectedAmount,
-        memo: 'Tip for post: ${widget.post.content.split('\n').first}',
-        referencePostId: widget.post.id,
-        metadata: {'activityType': 'tip'},
-      );
+      final success = await userProvider
+          .transferRoo(
+            fromUserId: user.id,
+            toUsername: widget.post.author.username,
+            amount: _selectedAmount,
+            memo: 'Tip for post: ${widget.post.content.split('\n').first}',
+            referencePostId: widget.post.id,
+            metadata: {'activityType': 'tip'},
+          )
+          .timeout(const Duration(seconds: 35));
 
       if (success) {
         // 2. Update post tip total (also backgrounded for speed)
@@ -100,6 +104,15 @@ class _TipModalState extends State<TipModal> {
         if (mounted) {
           _showError(userProvider.error ?? 'Failed to send tip');
         }
+      }
+    } on TimeoutException {
+      if (mounted) {
+        walletProvider.refreshWallet(user.id).catchError((_) => null);
+        authProvider.reloadCurrentUser().catchError((_) => null);
+        _showError(
+          'Network is slow. Tip confirmation timed out. '
+          'Please check transaction history before retrying.',
+        );
       }
     } catch (e) {
       if (mounted) {

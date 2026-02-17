@@ -1328,7 +1328,7 @@ class PostRepository {
           return; // Don't send notification for unknown status
       }
 
-      await _notificationRepository.createNotification(
+      final created = await _notificationRepository.createNotification(
         userId: userId,
         type: type,
         title: title,
@@ -1336,9 +1336,15 @@ class PostRepository {
         postId: postId,
       );
 
-      debugPrint(
-        'PostRepository: Sent AI result notification to $userId for post $postId (status: $postStatus)',
-      );
+      if (created) {
+        debugPrint(
+          'PostRepository: Sent AI result notification to $userId for post $postId (status: $postStatus)',
+        );
+      } else {
+        debugPrint(
+          'PostRepository: AI result notification skipped/failed for post $postId (status: $postStatus)',
+        );
+      }
     } catch (e) {
       debugPrint('PostRepository: Error sending AI result notification - $e');
     }
