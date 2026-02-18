@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -12,6 +13,7 @@ import '../services/supabase_service.dart';
 import '../services/ai_detection_service.dart';
 import '../models/ai_detection_result.dart';
 import 'notification_repository.dart';
+import 'mention_repository.dart';
 
 /// Repository for stories/statuses backed by Supabase.
 class StoryRepository {
@@ -19,6 +21,7 @@ class StoryRepository {
   final AiDetectionService _aiDetectionService = AiDetectionService();
   final NotificationRepository _notificationRepository =
       NotificationRepository();
+  final MentionRepository _mentionRepository = MentionRepository();
 
   /// Fetch active stories for the current user and the accounts they follow.
   ///
@@ -50,7 +53,6 @@ class StoryRepository {
 
     // Fetch active stories with author profile joined.
     final nowIso = DateTime.now().toUtc().toIso8601String();
-    final orCondition = userIds.map((id) => 'user_id.eq.$id').join(',');
     final storiesResponse = await _client
         .from(SupabaseConfig.storiesTable)
         .select('''
@@ -67,20 +69,27 @@ class StoryRepository {
             reaction_type
           )
         ''')
-        .or(orCondition)
+        .inFilter('user_id', userIds.toList())
         .gt('expires_at', nowIso)
-        // Only show passed stories, legacy stories (null status), or the user's own stories that aren't flagged
-        .or('status.eq.pass,status.is.null,user_id.eq.$currentUserId')
-        .neq(
-          'status',
-          'flagged',
-        ) // Never show explicitly flagged stories in the main feed
+        // Match post feed behavior: show only approved stories.
+        .eq('status', 'pass')
         .order('created_at', ascending: false);
 
-    return (storiesResponse as List)
+    final rawRows = (storiesResponse as List).cast<Map<String, dynamic>>();
+    final statusCounts = <String, int>{};
+    for (final row in rawRows) {
+      final status = (row['status'] as String?)?.trim().toLowerCase() ?? 'null';
+      statusCounts[status] = (statusCounts[status] ?? 0) + 1;
+    }
+    debugPrint(
+      'StoryRepository: fetchFeedStories raw=${rawRows.length} '
+      'for user=$currentUserId statuses=$statusCounts',
+    );
+
+    return rawRows
         .map(
           (row) => Story.fromSupabase(
-            row as Map<String, dynamic>,
+            row,
             isViewed: viewedIds.contains(row['id'] as String),
             currentUserId: currentUserId,
           ),
@@ -206,6 +215,11 @@ class StoryRepository {
           .map((row) => Story.fromSupabase(row as Map<String, dynamic>))
           .toList();
 
+      await _createStoryMentionNotifications(
+        stories: stories,
+        authorId: userId,
+      );
+
       return stories;
     } catch (e) {
       debugPrint('StoryRepository: failed to create stories - $e');
@@ -213,9 +227,70 @@ class StoryRepository {
     }
   }
 
+  Future<void> _createStoryMentionNotifications({
+    required List<Story> stories,
+    required String authorId,
+  }) async {
+    if (stories.isEmpty) return;
+
+    try {
+      for (final story in stories) {
+        final content = '${story.caption ?? ''} ${story.textOverlay ?? ''}'
+            .trim();
+        if (content.isEmpty) continue;
+
+        final mentionedUsernames = _mentionRepository.extractMentions(content);
+        if (mentionedUsernames.isEmpty) continue;
+
+        final mentionedUserIds = await _mentionRepository.resolveUsernamesToIds(
+          mentionedUsernames,
+        );
+
+        for (final userId in mentionedUserIds.toSet()) {
+          if (userId == authorId) continue;
+          await _notificationRepository.createNotification(
+            userId: userId,
+            type: 'mention',
+            title: 'New Mention',
+            body: 'Mentioned you in a story',
+            actorId: authorId,
+            storyId: story.id,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint(
+        'StoryRepository: Failed to create story mention notifications - $e',
+      );
+    }
+  }
+
   String _resolveUrl(String url) {
     if (url.startsWith('http')) return url;
     return '${SupabaseConfig.supabaseUrl}/storage/v1/object/public/${SupabaseConfig.postMediaBucket}/$url';
+  }
+
+  Future<File?> _downloadStoryMediaToTempFile({
+    required String mediaUrl,
+    required String mediaType,
+  }) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final extension = mediaType == 'video' ? 'mp4' : 'jpg';
+      final fileName =
+          'story_${DateTime.now().millisecondsSinceEpoch}.$extension';
+      final filePath = '${tempDir.path}/$fileName';
+
+      final response = await http.get(Uri.parse(_resolveUrl(mediaUrl)));
+      if (response.statusCode != 200) return null;
+
+      final file = File(filePath);
+      await file.writeAsBytes(response.bodyBytes);
+      return file;
+    } catch (e) {
+      debugPrint('StoryRepository: Error downloading story media - $e');
+      return null;
+    }
   }
 
   /// Backwards compatible single-story creator.
@@ -326,11 +401,7 @@ class StoryRepository {
     }
   }
 
-  /// Minimum character count for AI detection on captions.
-  /// Short captions are skipped for text detection (image detection still runs).
-  static const int _minAiDetectionLength = 50;
-
-  /// Run AI detection for a story in the background.
+  /// Run AI detection for a story.
   /// Returns the confidence score on success, or null on failure.
   Future<Map<String, dynamic>?> runAiDetection({
     required String storyId,
@@ -338,151 +409,233 @@ class StoryRepository {
     required String mediaUrl,
     required String mediaType,
     String? caption,
+    int retryAttempt = 0,
+    bool allowDeferredRetry = true,
   }) async {
     try {
       final trimmedCaption = caption?.trim() ?? '';
-      // Only run text detection if caption is long enough
-      final hasText = trimmedCaption.length >= _minAiDetectionLength;
+      final hasText = trimmedCaption.isNotEmpty;
       final hasMedia =
           (mediaType == 'image' || mediaType == 'video') && mediaUrl.isNotEmpty;
 
-      if (trimmedCaption.isNotEmpty &&
-          trimmedCaption.length < _minAiDetectionLength) {
-        debugPrint(
-          'StoryRepository: Skipping text detection for short caption on story $storyId '
-          '(${trimmedCaption.length} chars < $_minAiDetectionLength)',
-        );
+      if (!hasText && !hasMedia) {
+        // No content to detect, consider it passed
+        await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
+        return {'score': 0.0, 'status': 'pass'};
       }
 
-      AiDetectionResult? textResult;
-      AiDetectionResult? mediaResult;
+      AiDetectionResult? result;
 
-      // Detect text if present and long enough
-      if (hasText) {
-        textResult = await _aiDetectionService.detectText(trimmedCaption);
-      }
-
-      // Detect media if it's an image
-      if (hasMedia && mediaType == 'image') {
+      if (hasText && hasMedia && mediaType == 'image') {
+        // Mixed detection (caption + image)
         try {
-          // Download the image file from URL
           final tempDir = await getTemporaryDirectory();
-          final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final fileName = 'story_${DateTime.now().millisecondsSinceEpoch}.jpg';
           final filePath = '${tempDir.path}/$fileName';
 
           final response = await http.get(Uri.parse(_resolveUrl(mediaUrl)));
           if (response.statusCode == 200) {
             final file = File(filePath);
             await file.writeAsBytes(response.bodyBytes);
-            mediaResult = await _aiDetectionService.detectImage(file);
-
-            // Clean up temp file
+            result = await _aiDetectionService.detectMixed(
+              trimmedCaption,
+              file,
+            );
             try {
               await file.delete();
             } catch (e) {
               debugPrint('StoryRepository: Failed to clean up temp file - $e');
             }
           } else {
-            debugPrint(
-              'StoryRepository: Failed to download image from $mediaUrl - status ${response.statusCode}',
-            );
+            // Fallback to text if download fails
+            result = await _aiDetectionService.detectText(trimmedCaption);
           }
         } catch (e) {
-          debugPrint('StoryRepository: Error downloading/detecting image - $e');
+          debugPrint('StoryRepository: Error in mixed detection - $e');
+          result = await _aiDetectionService.detectText(trimmedCaption);
         }
+      } else if (hasText && !hasMedia) {
+        // Text only
+        result = await _aiDetectionService.detectText(trimmedCaption);
+      } else if (hasMedia && (mediaType == 'image' || mediaType == 'video')) {
+        // Media-only story (image or video)
+        final file = await _downloadStoryMediaToTempFile(
+          mediaUrl: mediaUrl,
+          mediaType: mediaType,
+        );
+        if (file != null) {
+          result = await _aiDetectionService.detectImage(file);
+          try {
+            await file.delete();
+          } catch (e) {
+            debugPrint('StoryRepository: Failed to clean up temp file - $e');
+          }
+        }
+      } else if (hasText) {
+        // Final fallback (e.g. video script)
+        result = await _aiDetectionService.detectText(trimmedCaption);
       }
 
-      // Combine results - if either text or media is flagged, use the more "AI" result
-      double aiProbability = 0.0;
-      AiDetectionResult? primaryResult;
+      if (result != null) {
+        final bool isAi = result.result.contains('AI');
+        final double aiProbability = isAi
+            ? result.confidence
+            : 100 - result.confidence;
 
-      // Helper to calculate probability from result.
-      // Confidence is label-specific, so we flip it for HUMAN labels.
-      double getProb(AiDetectionResult res) {
-        final bool isAi = res.result.contains('AI');
-        return isAi ? res.confidence : 100 - res.confidence;
-      }
-
-      if (textResult != null && mediaResult != null) {
-        final textProb = getProb(textResult);
-        final mediaProb = getProb(mediaResult);
-        if (textProb >= mediaProb) {
-          aiProbability = textProb;
-          primaryResult = textResult;
+        // Determine status based on AI probability
+        final String status;
+        if (aiProbability >= 95) {
+          status = 'flagged';
+        } else if (aiProbability >= 75) {
+          status = 'flagged';
+        } else if (aiProbability >= 60) {
+          status = 'review';
         } else {
-          aiProbability = mediaProb;
-          primaryResult = mediaResult;
+          status = 'pass';
         }
-      } else if (textResult != null) {
-        aiProbability = getProb(textResult);
-        primaryResult = textResult;
-      } else if (mediaResult != null) {
-        aiProbability = getProb(mediaResult);
-        primaryResult = mediaResult;
-      } else {
-        // No content to detect, consider it passed
-        await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
-        return {'score': 0.0, 'status': 'pass'};
-      }
 
-      // Determine status based on AI probability (aligned with API docs ✅)
-      final String status;
-      // Best Practice Thresholds from docs: 95 BLOCK, 75 FLAG, 60 LABEL
-      if (aiProbability >= 95) {
-        status = 'flagged'; // Auto-block
-      } else if (aiProbability >= 75) {
-        status = 'flagged'; // Flag for review
-      } else if (aiProbability >= 60) {
-        status = 'review'; // Label for transparency
-      } else {
-        status = 'pass'; // Auto-publish
-      }
-
-      await _updateAiScore(
-        storyId: storyId,
-        confidence: aiProbability,
-        status: status,
-        analysisId: primaryResult.analysisId,
-        aiMetadata: {
-          'consensus_strength': primaryResult.consensusStrength,
-          'rationale': primaryResult.rationale,
-          'combined_evidence': primaryResult.combinedEvidence,
-          'classification': primaryResult.result,
-          'moderation': primaryResult.moderation?.toJson(),
-          'safety_score': primaryResult.safetyScore,
-        },
-      );
-
-      // Send notification to author about AI check result
-      await _sendAiResultNotification(
-        userId: authorId,
-        storyId: storyId,
-        storyStatus: status,
-        aiProbability: aiProbability,
-      );
-
-      // Create moderation case if flagged or review required
-      if (status == 'flagged' || status == 'review') {
-        await _createModerationCase(
+        await _updateAiScore(
           storyId: storyId,
-          authorId: authorId,
-          aiConfidence: aiProbability,
-          aiModel: primaryResult.analysisId,
+          confidence: aiProbability,
+          status: status,
+          analysisId: result.analysisId,
           aiMetadata: {
-            'consensus_strength': primaryResult.consensusStrength,
-            'rationale': primaryResult.rationale,
-            'combined_evidence': primaryResult.combinedEvidence,
-            'classification': primaryResult.result,
+            'consensus_strength': result.consensusStrength,
+            'rationale': result.rationale,
+            'combined_evidence': result.combinedEvidence,
+            'classification': result.result,
+            'moderation': result.moderation?.toJson(),
+            'safety_score': result.safetyScore,
           },
         );
+
+        // Send notification to author about AI check result
+        await _sendAiResultNotification(
+          userId: authorId,
+          storyId: storyId,
+          storyStatus: status,
+          aiProbability: aiProbability,
+        );
+
+        // Create moderation case if flagged or review required
+        if (status == 'flagged' || status == 'review') {
+          await _createModerationCase(
+            storyId: storyId,
+            authorId: authorId,
+            aiConfidence: aiProbability,
+            aiModel: result.analysisId,
+            aiMetadata: {
+              'consensus_strength': result.consensusStrength,
+              'rationale': result.rationale,
+              'combined_evidence': result.combinedEvidence,
+              'classification': result.result,
+            },
+          );
+        }
+
+        return {'score': aiProbability, 'status': status};
+      } else {
+        // Failed detection: don't leave stories stuck under review.
+        await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
+        await _sendAiResultNotification(
+          userId: authorId,
+          storyId: storyId,
+          storyStatus: 'pass',
+          aiProbability: 0.0,
+        );
+        return {'score': 0.0, 'status': 'pass'};
+      }
+    } catch (e) {
+      if (e is TimeoutException) {
+        if (retryAttempt < 1) {
+          debugPrint(
+            'StoryRepository: AI detection timed out for story $storyId, retrying once...',
+          );
+          await Future.delayed(const Duration(seconds: 2));
+          return runAiDetection(
+            storyId: storyId,
+            authorId: authorId,
+            mediaUrl: mediaUrl,
+            mediaType: mediaType,
+            caption: caption,
+            retryAttempt: retryAttempt + 1,
+            allowDeferredRetry: allowDeferredRetry,
+          );
+        }
+
+        debugPrint(
+          'StoryRepository: AI detection still timing out for story $storyId; keeping status under review',
+        );
+
+        await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'review');
+        await _notificationRepository.createNotification(
+          userId: authorId,
+          type: 'story_review',
+          title: 'Story Under Review',
+          body:
+              'Story analysis is taking longer than expected. It is still under AI review.',
+          storyId: storyId,
+        );
+        if (allowDeferredRetry) {
+          unawaited(
+            _scheduleDeferredAiRetry(
+              storyId: storyId,
+              authorId: authorId,
+              mediaUrl: mediaUrl,
+              mediaType: mediaType,
+              caption: caption,
+            ),
+          );
+        }
+
+        return {'score': 0.0, 'status': 'review'};
       }
 
-      return {'score': aiProbability, 'status': status};
-    } catch (e) {
       debugPrint(
         'StoryRepository: AI detection failed for story $storyId - $e',
       );
-      return null;
+      try {
+        await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
+        await _sendAiResultNotification(
+          userId: authorId,
+          storyId: storyId,
+          storyStatus: 'pass',
+          aiProbability: 0.0,
+        );
+      } catch (inner) {
+        debugPrint(
+          'StoryRepository: Failed to apply fallback pass status for story $storyId - $inner',
+        );
+      }
+      return {'score': 0.0, 'status': 'pass'};
+    }
+  }
+
+  Future<void> _scheduleDeferredAiRetry({
+    required String storyId,
+    required String authorId,
+    required String mediaUrl,
+    required String mediaType,
+    String? caption,
+  }) async {
+    try {
+      debugPrint(
+        'StoryRepository: Scheduling deferred AI retry for story $storyId in 45s',
+      );
+      await Future.delayed(const Duration(seconds: 45));
+      await runAiDetection(
+        storyId: storyId,
+        authorId: authorId,
+        mediaUrl: mediaUrl,
+        mediaType: mediaType,
+        caption: caption,
+        retryAttempt: 0,
+        allowDeferredRetry: false,
+      );
+    } catch (e) {
+      debugPrint(
+        'StoryRepository: Deferred AI retry failed for story $storyId - $e',
+      );
     }
   }
 
@@ -580,25 +733,27 @@ class StoryRepository {
 
       switch (storyStatus) {
         case 'pass':
-          // Don't notify for passed stories - too noisy
-          return;
+          title = 'Story Published';
+          body = 'Your story passed verification and is now live!';
+          type = 'story_published';
+          break;
         case 'review':
           title = 'Story Under Review';
-          body = 'Your story is being reviewed by our moderation team.';
-          type =
-              'mention'; // Using 'mention' as valid DB type for system notifications
+          body =
+              'Your story is being checked for AI. You\'ll be notified soon.';
+          type = 'story_review';
           break;
         case 'flagged':
           title = 'Story Not Published';
           body =
               'Your story was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence).';
-          type = 'mention';
+          type = 'story_flagged';
           break;
         default:
           return; // Don't send notification for unknown status
       }
 
-      await _notificationRepository.createNotification(
+      final created = await _notificationRepository.createNotification(
         userId: userId,
         type: type,
         title: title,
@@ -606,9 +761,15 @@ class StoryRepository {
         storyId: storyId,
       );
 
-      debugPrint(
-        'StoryRepository: Sent AI result notification to $userId for story $storyId (status: $storyStatus)',
-      );
+      if (created) {
+        debugPrint(
+          'StoryRepository: Sent AI result notification to $userId for story $storyId (status: $storyStatus)',
+        );
+      } else {
+        debugPrint(
+          'StoryRepository: AI result notification skipped/failed for story $storyId (status: $storyStatus)',
+        );
+      }
     } catch (e) {
       debugPrint('StoryRepository: Error sending AI result notification - $e');
     }

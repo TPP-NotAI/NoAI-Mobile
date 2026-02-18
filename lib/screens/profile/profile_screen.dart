@@ -19,6 +19,8 @@ import '../chat/conversation_thread_page.dart';
 import '../post_detail_screen.dart';
 import 'edit_profile_screen.dart';
 import 'follow_list_screen.dart';
+import '../../providers/wallet_provider.dart';
+import '../wallet/send_roo_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;
@@ -87,11 +89,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final userProvider = context.watch<UserProvider>();
     final feedProvider = context.watch<FeedProvider>();
 
-    // Check if viewing own profile - either no userId passed OR userId matches current user
-    final currentUserId = authProvider.currentUser?.id;
-    final isOwnProfile =
-        widget.userId == null || widget.userId == currentUserId;
+    // Load user data first
     final user = userProvider.getUser(widget.userId);
+
+    // Initial check for isOwnProfile (brittle, but used for initial UI states)
+    final currentUserId = authProvider.currentUser?.id;
+    bool isOwnProfileInitial =
+        widget.userId == null || widget.userId == currentUserId;
+
+    // Robust check for isOwnProfile once user data is loaded
+    // This handles username-based navigation correctly
+    final bool isActuallyOwnProfile = user != null
+        ? user.id == currentUserId
+        : isOwnProfileInitial;
+
+    // If viewing another profile and tab is 0 (Activity Log), default to 1 (Statistics)
+    if (!isActuallyOwnProfile && _tabIndex == 0) {
+      _tabIndex = 1;
+    }
 
     if (user == null) {
       return Scaffold(
@@ -104,10 +119,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    final isFollowing = !isOwnProfile && userProvider.isFollowing(user.id);
-    final isBlocked = !isOwnProfile && userProvider.isBlocked(user.id);
+    final isFollowing =
+        !isActuallyOwnProfile && userProvider.isFollowing(user.id);
+    final isBlocked = !isActuallyOwnProfile && userProvider.isBlocked(user.id);
     final isBlockedByUser =
-        !isOwnProfile && userProvider.isBlockedByUser(user.id);
+        !isActuallyOwnProfile && userProvider.isBlockedByUser(user.id);
 
     // Show blocked message if this user has blocked the current user
     if (isBlockedByUser) {
@@ -196,7 +212,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPressed: () => Navigator.pop(context),
               ),
               title: Text(
-                isOwnProfile ? 'My Profile' : 'Profile Details',
+                isActuallyOwnProfile ? 'My Profile' : 'Profile Details',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: colors.onSurface,
@@ -238,13 +254,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         _ProfileHeader(
                           user: user,
-                          isOwn: isOwnProfile,
+                          isOwn: isActuallyOwnProfile,
                           isFollowing: isFollowing,
                         ),
-                        _RookenBalance(user: user, colors: colors),
+                        _RoobyteBalance(
+                          user: user,
+                          colors: colors,
+                          isVisible: isActuallyOwnProfile,
+                        ),
                         const SizedBox(height: 16),
                         _ActionRow(
-                          isOwn: isOwnProfile,
+                          isOwn: isActuallyOwnProfile,
                           isFollowing: isFollowing,
                           isBlocked: isBlocked,
                           user: user,
@@ -253,6 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onFollow: () => userProvider.toggleFollow(user.id),
                           onBlock: () => _handleBlock(context, user, isBlocked),
                           onReport: () => _handleReport(context, user),
+                          onSend: () => _handleSendRoo(context, user),
                         ),
                       ],
                     ),
@@ -282,22 +303,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _scrollToTabs();
                   },
                   colors: colors,
-                  isOwnProfile: isOwnProfile,
+                  isOwnProfile: isActuallyOwnProfile,
                 ),
               ),
             ),
 
             // ───────── TAB CONTENT
-            if (_tabIndex == 0)
+            if (_tabIndex == 0 && isActuallyOwnProfile)
               _ActivityLog(
                 activities: userProvider.userActivities,
                 colors: colors,
               )
             else if (_tabIndex == 1)
-              _Statistics(user: user, colors: colors)
+              _Statistics(
+                user: user,
+                colors: colors,
+                isOwnProfile: isActuallyOwnProfile,
+              )
             else if (_tabIndex == 2)
               _PostsGrid(posts: posts, colors: colors)
-            else if (_tabIndex == 3 && isOwnProfile)
+            else if (_tabIndex == 3 && isActuallyOwnProfile)
               _DraftsGrid(
                 posts: feedProvider.draftPosts,
                 colors: colors,
@@ -418,6 +443,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
     }
+  }
+
+  void _handleSendRoo(BuildContext context, User targetUser) {
+    final walletProvider = context.read<WalletProvider>();
+    final balance = walletProvider.wallet?.balanceRc ?? 0.0;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SendRooScreen(
+          currentBalance: balance,
+          initialRecipient: targetUser,
+        ),
+      ),
+    );
   }
 }
 
@@ -711,20 +751,26 @@ class _AchievementBadge extends StatelessWidget {
 
 /* ───────────────── ROOKEN BALANCE ───────────────── */
 
-class _RookenBalance extends StatelessWidget {
+class _RoobyteBalance extends StatelessWidget {
   final dynamic user;
   final ColorScheme colors;
+  final bool isVisible;
 
-  const _RookenBalance({required this.user, required this.colors});
+  const _RoobyteBalance({
+    required this.user,
+    required this.colors,
+    required this.isVisible,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (!isVisible) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
         Text(
-          'Rooken Balance',
+          'Roobyte Balance',
           style: TextStyle(
             fontSize: 13,
             color: colors.onSurfaceVariant,
@@ -1006,6 +1052,7 @@ class _ActionRow extends StatelessWidget {
   final VoidCallback onFollow;
   final VoidCallback onBlock;
   final VoidCallback onReport;
+  final VoidCallback onSend;
 
   const _ActionRow({
     required this.isOwn,
@@ -1016,6 +1063,7 @@ class _ActionRow extends StatelessWidget {
     required this.onFollow,
     required this.onBlock,
     required this.onReport,
+    required this.onSend,
   });
 
   @override
@@ -1088,6 +1136,11 @@ class _ActionRow extends StatelessWidget {
                       }
                     },
               child: const Icon(Icons.mail_outline),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton(
+              onPressed: isBlocked ? null : onSend,
+              child: const Icon(Icons.toll_outlined),
             ),
             const SizedBox(width: 8),
             PopupMenuButton<String>(
@@ -1391,8 +1444,13 @@ class _ActivityItem extends StatelessWidget {
 class _Statistics extends StatelessWidget {
   final User user;
   final ColorScheme colors;
+  final bool isOwnProfile;
 
-  const _Statistics({required this.user, required this.colors});
+  const _Statistics({
+    required this.user,
+    required this.colors,
+    required this.isOwnProfile,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1452,12 +1510,14 @@ class _Statistics extends StatelessWidget {
             colors: colors,
           ),
           const SizedBox(height: 12),
-          _StatItem(
-            label: 'Rooken Balance',
-            value: user.balance.toStringAsFixed(1),
-            colors: colors,
-          ),
-          const SizedBox(height: 12),
+          if (isOwnProfile) ...[
+            _StatItem(
+              label: 'Roobyte Balance',
+              value: user.balance.toStringAsFixed(1),
+              colors: colors,
+            ),
+            const SizedBox(height: 12),
+          ],
           _StatItem(
             label: 'Verification Status',
             value: user.verifiedHuman == 'verified'
@@ -2066,13 +2126,14 @@ class _TabBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _TabButton(
-            label: 'Activity Log',
-            index: 0,
-            isSelected: currentIndex == 0,
-            onTap: () => onTabChanged(0),
-            colors: colors,
-          ),
+          if (isOwnProfile)
+            _TabButton(
+              label: 'Activity Log',
+              index: 0,
+              isSelected: currentIndex == 0,
+              onTap: () => onTabChanged(0),
+              colors: colors,
+            ),
           _TabButton(
             label: 'Statistics',
             index: 1,

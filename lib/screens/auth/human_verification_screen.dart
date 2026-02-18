@@ -111,25 +111,21 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
       // Mark session as active to triggering polling on return
       _isSessionActive = true;
 
-      setState(() => _statusMessage = 'Opening verification in browser...');
+      setState(() => _statusMessage = 'Opening secure verification window...');
 
-      // Launch in external browser
+      // Launch in-app so user stays inside the app context.
       final url = Uri.parse(session.sessionUrl);
-      final launched = await launchUrl(
-        url,
-        mode: LaunchMode.externalApplication,
-      );
+      final launched = await launchUrl(url, mode: LaunchMode.inAppWebView);
 
       if (!launched) {
         throw Exception(
-          'Could not open verification URL. Please check your browser.',
+          'Could not open verification window. Please try again.',
         );
       }
 
       if (mounted) {
         setState(() {
-          _statusMessage =
-              'Complete verification in browser, then return here.';
+          _statusMessage = 'Complete verification, then return to continue.';
           _isLoading = false;
         });
       }
@@ -254,7 +250,8 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
     );
 
     if (confirm == true && mounted) {
-      await context.read<AuthProvider>().signOut();
+      final auth = context.read<AuthProvider>();
+      await auth.signOut();
     }
   }
 
@@ -554,22 +551,12 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
       children: [
         _buildVerificationOption(
           context,
-          method: VerificationMethod.phone,
-          icon: Icons.phone_android,
-          title: 'Phone Verification',
-          subtitle: 'Instant verify via SMS code',
-          badge: 'FASTEST',
-          badgeColor: AppColors.primary,
-        ),
-        SizedBox(height: AppSpacing.largePlus.responsive(context)),
-        _buildVerificationOption(
-          context,
           method: VerificationMethod.veriff,
           icon: Icons.badge_outlined,
           title: 'ID Verification (Veriff)',
           subtitle: 'Passport, License, or National ID + Selfie',
-          badge: 'RECOMMENDED',
-          badgeColor: const Color(0xFF3B82F6),
+          badge: 'SECURE',
+          badgeColor: AppColors.primary,
         ),
       ],
     );

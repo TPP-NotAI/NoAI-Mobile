@@ -1,6 +1,9 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../config/supabase_config.dart';
 import '../models/comment.dart';
 import '../models/ai_detection_result.dart';
@@ -229,6 +232,7 @@ class CommentRepository {
       'author_id': authorId,
       'body': body,
       'parent_comment_id': parentCommentId,
+      'status': 'under_review', // Start under review for AI moderation
     };
 
     // Add media fields if provided
@@ -551,65 +555,73 @@ class CommentRepository {
   // AI DETECTION FOR COMMENTS
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Minimum character count for AI detection.
-  /// Short comments (greetings, reactions) are auto-published without AI check.
-  static const int _minAiDetectionLength = 50;
-
-  /// Run AI detection on a comment's text.
+  /// Run AI detection on a comment.
   /// Updates the comment's ai_score and status based on the result.
   /// Returns the AI probability score on success, or null on failure.
-  /// Comments shorter than [_minAiDetectionLength] are auto-published.
   Future<double?> runAiDetection({
     required String commentId,
     required String authorId,
     required String body,
+    String? mediaUrl,
+    String? mediaType,
   }) async {
-    final trimmedBody = body.trim();
-    if (trimmedBody.isEmpty) return null;
-
-    // Short comments are auto-published without AI detection.
-    // AI detection APIs don't work well with very short text.
-    if (trimmedBody.length < _minAiDetectionLength) {
-      debugPrint(
-        'CommentRepository: Skipping AI detection for short comment $commentId '
-        '(${trimmedBody.length} chars < $_minAiDetectionLength)',
-      );
-
-      // Auto-publish the comment
-      await _client
-          .from(SupabaseConfig.commentsTable)
-          .update({
-            'status': 'published',
-            'ai_score': 0.0,
-            'ai_score_status': 'pass',
-          })
-          .eq('id', commentId);
-
-      // Award ROOK for the comment (skip if commenting on own post)
+    // If media fields are not provided, try to fetch them from the database
+    if (mediaUrl == null && mediaType == null) {
       try {
-        final isSelf = await _isCommentOnOwnPost(
-          commentId: commentId,
-          authorId: authorId,
-        );
-        if (!isSelf) {
-          final walletRepo = WalletRepository();
-          await walletRepo.earnRoo(
-            userId: authorId,
-            activityType: RookenActivityType.postComment,
-            referenceCommentId: commentId,
-          );
+        final comment = await _client
+            .from(SupabaseConfig.commentsTable)
+            .select('media_url, media_type')
+            .eq('id', commentId)
+            .maybeSingle();
+
+        if (comment != null) {
+          mediaUrl = comment['media_url'] as String?;
+          mediaType = comment['media_type'] as String?;
         }
       } catch (e) {
-        debugPrint(
-          'CommentRepository: Error awarding ROOK for short comment - $e',
-        );
+        debugPrint('CommentRepository: Error fetching media for AI check - $e');
       }
-
-      return 0.0; // Return 0 AI probability (human)
     }
 
+    final trimmedBody = body.trim();
+    final hasText = trimmedBody.isNotEmpty;
+    final hasMedia =
+        mediaUrl != null &&
+        mediaUrl.isNotEmpty &&
+        (mediaType == 'image' || mediaType == 'video');
+
+    if (!hasText && !hasMedia) return null;
+
     try {
-      final result = await _aiDetectionService.detectText(trimmedBody);
+      AiDetectionResult? result;
+
+      if (hasText && hasMedia && mediaType == 'image') {
+        // Mixed detection (text + image)
+        File? mediaFile = await _downloadMedia(mediaUrl!);
+        if (mediaFile != null) {
+          result = await _aiDetectionService.detectMixed(
+            trimmedBody,
+            mediaFile,
+          );
+          _cleanupFile(mediaFile);
+        } else {
+          // Fallback to text detection if download fails
+          result = await _aiDetectionService.detectText(trimmedBody);
+        }
+      } else if (hasText && !hasMedia) {
+        // Text only (handles any length now)
+        result = await _aiDetectionService.detectText(trimmedBody);
+      } else if (hasMedia && mediaType == 'image') {
+        // Image only
+        File? mediaFile = await _downloadMedia(mediaUrl!);
+        if (mediaFile != null) {
+          result = await _aiDetectionService.detectImage(mediaFile);
+          _cleanupFile(mediaFile);
+        }
+      } else if (hasText) {
+        // Final fallback (e.g. video with caption -> check text)
+        result = await _aiDetectionService.detectText(trimmedBody);
+      }
 
       if (result != null) {
         // Result label is normalized to UPPER CASE in fromJson
@@ -956,25 +968,27 @@ class CommentRepository {
 
       switch (commentStatus) {
         case 'published':
-          // Don't notify for published comments - too noisy
-          return;
+          title = 'Comment Published';
+          body = 'Your comment passed verification and is now visible.';
+          type = 'comment_published';
+          break;
         case 'under_review':
           title = 'Comment Under Review';
-          body = 'Your comment is being reviewed by our moderation team.';
-          type =
-              'mention'; // Using 'mention' as valid DB type for system notifications
+          body =
+              'Your comment is being checked for AI. You\'ll be notified soon.';
+          type = 'comment_review';
           break;
         case 'deleted':
           title = 'Comment Not Published';
           body =
               'Your comment was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence).';
-          type = 'mention';
+          type = 'comment_flagged';
           break;
         default:
           return; // Don't send notification for unknown status
       }
 
-      await _notificationRepository.createNotification(
+      final created = await _notificationRepository.createNotification(
         userId: userId,
         type: type,
         title: title,
@@ -982,13 +996,52 @@ class CommentRepository {
         commentId: commentId,
       );
 
-      debugPrint(
-        'CommentRepository: Sent AI result notification to $userId for comment $commentId (status: $commentStatus)',
-      );
+      if (created) {
+        debugPrint(
+          'CommentRepository: Sent AI result notification to $userId for comment $commentId (status: $commentStatus)',
+        );
+      } else {
+        debugPrint(
+          'CommentRepository: AI result notification skipped/failed for comment $commentId (status: $commentStatus)',
+        );
+      }
     } catch (e) {
       debugPrint(
         'CommentRepository: Error sending AI result notification - $e',
       );
+    }
+  }
+
+  /// Helper to download media from URL to a temporary file.
+  Future<File?> _downloadMedia(String url) async {
+    try {
+      final fullUrl = _resolveUrl(url);
+      final response = await http.get(Uri.parse(fullUrl));
+      if (response.statusCode == 200) {
+        final tempDir = await getTemporaryDirectory();
+        final fileName = 'comment_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final file = File('${tempDir.path}/$fileName');
+        await file.writeAsBytes(response.bodyBytes);
+        return file;
+      }
+    } catch (e) {
+      debugPrint('CommentRepository: Error downloading media - $e');
+    }
+    return null;
+  }
+
+  String _resolveUrl(String url) {
+    if (url.startsWith('http')) return url;
+    return '${SupabaseConfig.supabaseUrl}/storage/v1/object/public/${SupabaseConfig.postMediaBucket}/$url';
+  }
+
+  void _cleanupFile(File file) {
+    try {
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+    } catch (e) {
+      debugPrint('CommentRepository: Error cleaning up file - $e');
     }
   }
 }

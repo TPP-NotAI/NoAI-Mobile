@@ -45,13 +45,15 @@ import 'screens/chat/chat_list_screen.dart';
 import 'screens/support/contact_support_screen.dart';
 import 'screens/support/faq_screen.dart';
 import 'config/app_constants.dart';
+import 'config/global_keys.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
 import 'screens/auth/banned_screen.dart';
 import 'services/daily_login_service.dart';
 import 'services/push_notification_service.dart';
+import 'services/app_update_service.dart';
 import 'widgets/connectivity_overlay.dart';
 import 'widgets/welcome_dialog.dart';
-import 'utils/snackbar_utils.dart';
+import 'utils/responsive_utils.dart';
 
 void main() async {
   runZonedGuarded(
@@ -145,8 +147,26 @@ class MyApp extends StatelessWidget {
         builder: (_, themeProvider, __) {
           return MaterialApp(
             title: AppConstants.appName,
+            scaffoldMessengerKey: rootScaffoldMessengerKey,
+            navigatorKey: rootNavigatorKey,
             debugShowCheckedModeBanner: false,
             theme: themeProvider.theme,
+            routes: {
+              '/verify': (context) => HumanVerificationScreen(
+                onVerify: () => Navigator.pop(context),
+                onPhoneVerify: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PhoneVerificationScreen(
+                        onVerify: () => Navigator.pop(context),
+                        onBack: () => Navigator.pop(context),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            },
             home: const AuthWrapper(),
             builder: (context, child) {
               // Add connectivity overlay and error boundary
@@ -332,6 +352,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
             initialView: ViewType.recover,
           );
         }
+        // If email verification is pending, stay on verify screen during loading
+        if (authProvider.pendingEmail != null) {
+          return const AppNavigator(
+            key: ValueKey('verify_navigator'),
+            initialView: ViewType.verify,
+          );
+        }
         // Show splash while checking auth state
         return SplashScreen(onComplete: () {});
       case AuthStatus.authenticated:
@@ -352,7 +379,20 @@ class _AuthWrapperState extends State<AuthWrapper> {
       case AuthStatus.banned:
         return const BannedScreen();
       case AuthStatus.unauthenticated:
-        // User needs to login, show auth flow
+        // User needs to login or verify email
+        if (authProvider.pendingEmail != null) {
+          return const AppNavigator(
+            key: ValueKey('verify_navigator'),
+            initialView: ViewType.verify,
+          );
+        }
+        if (authProvider.isPasswordResetPending) {
+          return const AppNavigator(
+            key: ValueKey('recovery_navigator'),
+            initialView: ViewType.recover,
+          );
+        }
+        // Default auth flow
         return const AppNavigator();
     }
   }
@@ -392,7 +432,7 @@ class _AppNavigatorState extends State<AppNavigator> {
   @override
   void initState() {
     super.initState();
-    _view = widget.initialView ?? ViewType.splash;
+    _view = widget.initialView ?? ViewType.onboarding;
   }
 
   void _go(ViewType v) => setState(() => _view = v);
@@ -463,6 +503,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
   bool _dailyRewardChecked = false;
+  bool _updateCheckTriggered = false;
 
   @override
   void initState() {
@@ -471,7 +512,20 @@ class _MainShellState extends State<MainShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkDailyLoginReward();
       _checkWelcomeBonus();
+      _checkForAppUpdate();
     });
+  }
+
+  Future<void> _checkForAppUpdate() async {
+    if (_updateCheckTriggered || !mounted) return;
+    _updateCheckTriggered = true;
+
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    await AppUpdateService.instance.checkAndPromptForUpdate(
+      context,
+      force: true,
+    );
   }
 
   void _checkWelcomeBonus() {
@@ -600,85 +654,96 @@ class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
     final colors = Theme.of(context).colorScheme;
     final themeProvider = context.watch<ThemeProvider>();
     final user = context.watch<UserProvider>().currentUser;
+    final isCompact = ResponsiveUtils.isCompact(context);
 
     return AppBar(
       elevation: 0,
       backgroundColor: colors.surface,
       surfaceTintColor: colors.surface,
-      titleSpacing: 16,
+      titleSpacing: isCompact ? 8 : 16,
       title: Row(
         children: [
           const Text('🛡️', style: TextStyle(fontSize: 22)),
-          const SizedBox(width: 8),
+          SizedBox(width: isCompact ? 4 : 8),
           Text(
-            'ROOVERSE',
+            isCompact ? 'ROO' : 'ROOVERSE',
             style: TextStyle(
               fontWeight: FontWeight.w700,
-              fontSize: 18,
+              fontSize: isCompact ? 15 : 18,
               color: colors.onSurface,
             ),
           ),
         ],
       ),
       actions: [
-        Consumer<ChatProvider>(
-          builder: (context, chatProvider, child) {
-            final unreadCount = chatProvider.totalUnreadCount;
-            return Badge(
-              label: Text('$unreadCount'),
-              isLabelVisible: unreadCount > 0,
-              child: IconButton(
-                icon: Icon(Icons.chat_bubble_outline, color: colors.onSurface),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ChatListScreen()),
+        IconTheme(
+          data: IconThemeData(size: isCompact ? 20 : 24),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Consumer<ChatProvider>(
+                builder: (context, chatProvider, child) {
+                  final unreadCount = chatProvider.totalUnreadCount;
+                  return Badge(
+                    label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+                    isLabelVisible: unreadCount > 0,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.chat_bubble_outline,
+                        color: colors.onSurface,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ChatListScreen(),
+                          ),
+                        );
+                      },
+                    ),
                   );
                 },
               ),
-            );
-          },
-        ),
-        // IconButton(
-        //   icon: Icon(Icons.mail_outline, color: colors.onSurface),
-        //   tooltip: 'Direct Messages',
-        //   onPressed: () {
-        //     Navigator.push(
-        //       context,
-        //       MaterialPageRoute(builder: (_) => const DmListScreen()),
-        //     );
-        //   },
-        // ),
-        Consumer<NotificationProvider>(
-          builder: (context, notificationProvider, child) {
-            final unreadCount = notificationProvider.unreadCount;
-            return IconButton(
-              icon: Icon(Icons.notifications_outlined, color: colors.onSurface),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
+              Consumer<NotificationProvider>(
+                builder: (context, notificationProvider, child) {
+                  return IconButton(
+                    icon: Icon(
+                      Icons.notifications_outlined,
+                      color: colors.onSurface,
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen(),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+              if (!isCompact)
+                IconButton(
+                  icon: Icon(
+                    themeProvider.isDarkMode
+                        ? Icons.light_mode_outlined
+                        : Icons.dark_mode_outlined,
+                    color: colors.onSurface,
                   ),
-                );
-              },
-            );
-          },
-        ),
-        IconButton(
-          icon: Icon(
-            themeProvider.isDarkMode
-                ? Icons.light_mode_outlined
-                : Icons.dark_mode_outlined,
-            color: colors.onSurface,
-          ),
-          onPressed: () => themeProvider.toggleTheme(),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: GestureDetector(
-            onTap: () => _showProfileSheet(context),
-            child: _ProfileAvatar(user: user, colors: colors),
+                  onPressed: () => themeProvider.toggleTheme(),
+                ),
+              Padding(
+                padding: EdgeInsets.only(right: isCompact ? 8 : 12),
+                child: GestureDetector(
+                  onTap: () => _showProfileSheet(context),
+                  child: _ProfileAvatar(
+                    user: user,
+                    colors: colors,
+                    radius: isCompact ? 14 : 16,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -696,8 +761,13 @@ class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
 class _ProfileAvatar extends StatefulWidget {
   final dynamic user;
   final ColorScheme colors;
+  final double radius;
 
-  const _ProfileAvatar({required this.user, required this.colors});
+  const _ProfileAvatar({
+    required this.user,
+    required this.colors,
+    this.radius = 16,
+  });
 
   @override
   State<_ProfileAvatar> createState() => _ProfileAvatarState();
@@ -712,14 +782,18 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
     // If no avatar URL, show icon only
     if (widget.user?.avatar == null) {
       return CircleAvatar(
-        radius: 16,
+        radius: widget.radius,
         backgroundColor: widget.colors.surfaceContainerHighest,
-        child: Icon(Icons.person, size: 18, color: widget.colors.onSurface),
+        child: Icon(
+          Icons.person,
+          size: widget.radius + 2,
+          color: widget.colors.onSurface,
+        ),
       );
     }
 
     return CircleAvatar(
-      radius: 16,
+      radius: widget.radius,
       backgroundColor: widget.colors.surfaceContainerHighest,
       child: Stack(
         children: [
@@ -728,7 +802,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
             Center(
               child: Icon(
                 Icons.person,
-                size: 18,
+                size: widget.radius + 2,
                 color: widget.colors.onSurface.withOpacity(0.5),
               ),
             ),
@@ -736,8 +810,8 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
           ClipOval(
             child: Image.network(
               widget.user!.avatar,
-              width: 32,
-              height: 32,
+              width: widget.radius * 2,
+              height: widget.radius * 2,
               fit: BoxFit.cover,
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) {
@@ -773,173 +847,210 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
 /* PROFILE MENU (WEB DROPDOWN → MOBILE SHEET)     */
 /* ───────────────────────────────────────────── */
 
-void _showProfileSheet(BuildContext context) {
-  final colors = Theme.of(context).colorScheme;
-  final user = context.read<UserProvider>().currentUser;
+void _showProfileSheet(BuildContext parentContext) {
+  final colors = Theme.of(parentContext).colorScheme;
+  final user = parentContext.read<UserProvider>().currentUser;
+  final themeProvider = parentContext.read<ThemeProvider>();
 
   showModalBottomSheet(
-    context: context,
+    context: parentContext,
+    isScrollControlled: true,
     backgroundColor: colors.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (_) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(
-              color: colors.outlineVariant,
-              borderRadius: BorderRadius.circular(2),
-            ),
+    builder: (sheetContext) => SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            16,
+            20,
+            MediaQuery.of(sheetContext).padding.bottom + 16,
           ),
-          // Profile header with avatar
-          if (user != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: colors.surfaceContainerHighest,
-                    child: user.avatar != null
-                        ? ClipOval(
-                            child: Image.network(
-                              user.avatar!,
-                              width: 48,
-                              height: 48,
-                              fit: BoxFit.cover,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                    if (loadingProgress == null) {
-                                      return child;
-                                    }
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: colors.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Profile header with avatar
+              if (user != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: colors.surfaceContainerHighest,
+                        child: user.avatar != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  user.avatar!,
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder:
+                                      (imageContext, child, loadingProgress) {
+                                        if (loadingProgress == null) {
+                                          return child;
+                                        }
+                                        return Icon(
+                                          Icons.person,
+                                          size: 24,
+                                          color: colors.onSurface,
+                                        );
+                                      },
+                                  errorBuilder: (context, error, stackTrace) {
                                     return Icon(
                                       Icons.person,
                                       size: 24,
                                       color: colors.onSurface,
                                     );
                                   },
-                              errorBuilder: (context, error, stackTrace) {
-                                return Icon(
-                                  Icons.person,
-                                  size: 24,
-                                  color: colors.onSurface,
-                                );
-                              },
+                                ),
+                              )
+                            : Icon(
+                                Icons.person,
+                                size: 24,
+                                color: colors.onSurface,
+                              ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user.displayName,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: colors.onSurface,
+                              ),
                             ),
-                          )
-                        : Icon(Icons.person, size: 24, color: colors.onSurface),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user.displayName,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: colors.onSurface,
-                          ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '@${user.username}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '@${user.username}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: colors.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              _ProfileItem(
+                icon: Icons.person_outline,
+                label: 'My Profile',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.push(
+                    parentContext,
+                    MaterialPageRoute(
+                      builder: (_) => const ProfileScreen(showAppBar: true),
+                    ),
+                  );
+                },
+              ),
+              _ProfileItem(
+                icon: Icons.settings_outlined,
+                label: 'Settings',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.push(
+                    parentContext,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  );
+                },
+              ),
+              _ProfileItem(
+                icon: themeProvider.isDarkMode
+                    ? Icons.light_mode_outlined
+                    : Icons.dark_mode_outlined,
+                label: themeProvider.isDarkMode ? 'Light Mode' : 'Dark Mode',
+                onTap: () => themeProvider.toggleTheme(),
+              ),
+              _ProfileItem(
+                icon: Icons.help_outline,
+                label: 'Help & Support',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.push(
+                    parentContext,
+                    MaterialPageRoute(
+                      builder: (_) => const ContactSupportScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 28),
+              _ProfileItem(
+                icon: Icons.logout,
+                label: 'Sign Out',
+                destructive: true,
+                onTap: () {
+                  // Close bottom sheet first
+                  Navigator.pop(sheetContext);
+
+                  // Show confirmation dialog
+                  showDialog(
+                    context: parentContext,
+                    builder: (dialogContext) => AlertDialog(
+                      backgroundColor: colors.surface,
+                      title: Text(
+                        'Sign Out',
+                        style: TextStyle(color: colors.onSurface),
+                      ),
+                      content: Text(
+                        'Are you sure you want to sign out?',
+                        style: TextStyle(
+                          color: colors.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            // Read from a stable ancestor context (not the sheet context).
+                            final auth = parentContext.read<AuthProvider>();
+
+                            // Pop the dialog first
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+
+                            // Then perform signout
+                            // The auth state change will trigger a rebuild,
+                            // but we've already captured the reference safely
+                            await auth.signOut();
+                          },
+                          child: const Text(
+                            'Sign Out',
+                            style: TextStyle(color: Colors.red),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
-            ),
-          _ProfileItem(
-            icon: Icons.person_outline,
-            label: 'My Profile',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const ProfileScreen(showAppBar: true),
-                ),
-              );
-            },
+            ],
           ),
-          _ProfileItem(
-            icon: Icons.settings_outlined,
-            label: 'Settings',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
-            },
-          ),
-          _ProfileItem(
-            icon: Icons.help_outline,
-            label: 'Help & Support',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ContactSupportScreen()),
-              );
-            },
-          ),
-          const Divider(height: 28),
-          _ProfileItem(
-            icon: Icons.logout,
-            label: 'Sign Out',
-            destructive: true,
-            onTap: () {
-              // Close bottom sheet first
-              Navigator.pop(context);
-
-              // Show confirmation dialog
-              showDialog(
-                context: context,
-                builder: (dialogContext) => AlertDialog(
-                  backgroundColor: colors.surface,
-                  title: Text(
-                    'Sign Out',
-                    style: TextStyle(color: colors.onSurface),
-                  ),
-                  content: Text(
-                    'Are you sure you want to sign out?',
-                    style: TextStyle(color: colors.onSurface.withOpacity(0.7)),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        Navigator.pop(dialogContext);
-                        await context.read<AuthProvider>().signOut();
-                      },
-                      child: const Text(
-                        'Sign Out',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
+        ),
       ),
     ),
   );

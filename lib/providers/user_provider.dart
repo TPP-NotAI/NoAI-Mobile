@@ -283,7 +283,7 @@ class UserProvider with ChangeNotifier {
           .select('*, ${SupabaseConfig.walletsTable}(*)')
           .inFilter('user_id', userIds.toList());
 
-      return (response as List)
+      final fetched = (response as List)
           .map(
             (json) => app_models.User.fromSupabase(
               json,
@@ -291,6 +291,18 @@ class UserProvider with ChangeNotifier {
             ),
           )
           .toList();
+
+      // Merge into local cache so `getUser` can resolve sender/receiver labels.
+      for (final user in fetched) {
+        final existingIndex = _users.indexWhere((u) => u.id == user.id);
+        if (existingIndex == -1) {
+          _users.add(user);
+        } else {
+          _users[existingIndex] = user;
+        }
+      }
+
+      return fetched;
     } catch (e) {
       debugPrint('UserProvider: Error fetching users by IDs - $e');
       return [];
@@ -369,7 +381,42 @@ class UserProvider with ChangeNotifier {
           .or('from_user_id.eq.$userId,to_user_id.eq.$userId')
           .order('created_at', ascending: false);
 
-      _transactions = List<Map<String, dynamic>>.from(response);
+      final rawTxs = List<Map<String, dynamic>>.from(response);
+
+      // Enrich with sender/receiver profile data for transaction details UI.
+      final userIds = <String>{};
+      for (final tx in rawTxs) {
+        final fromId = tx['from_user_id'] as String?;
+        final toId = tx['to_user_id'] as String?;
+        if (fromId != null && fromId.isNotEmpty) userIds.add(fromId);
+        if (toId != null && toId.isNotEmpty) userIds.add(toId);
+      }
+
+      final profileById = <String, Map<String, dynamic>>{};
+      if (userIds.isNotEmpty) {
+        final profiles = await _supabase.client
+            .from(SupabaseConfig.profilesTable)
+            .select('user_id, username, display_name, avatar_url')
+            .inFilter('user_id', userIds.toList());
+
+        for (final row in (profiles as List)) {
+          final profile = Map<String, dynamic>.from(row as Map);
+          final id = profile['user_id'] as String?;
+          if (id != null && id.isNotEmpty) {
+            profileById[id] = profile;
+          }
+        }
+      }
+
+      _transactions = rawTxs.map((tx) {
+        final enriched = Map<String, dynamic>.from(tx);
+        final fromId = tx['from_user_id'] as String?;
+        final toId = tx['to_user_id'] as String?;
+        enriched['from_profile'] =
+            fromId != null ? profileById[fromId] : null;
+        enriched['to_profile'] = toId != null ? profileById[toId] : null;
+        return enriched;
+      }).toList();
     } catch (e) {
       debugPrint('UserProvider: Error fetching transactions - $e');
       _error = e.userMessage;
@@ -515,16 +562,27 @@ class UserProvider with ChangeNotifier {
       }
 
       // Fetch Rooken transactions
-      final transactionsResponse = await _supabase.client
+      final txResponse = await _supabase.client
           .from(SupabaseConfig.roocoinTransactionsTable)
           .select(
-            'id, created_at, amount_rc, tx_type, from_user_id, to_user_id',
+            'id, created_at, amount_rc, tx_type, from_user_id, to_user_id, tx_hash',
           )
           .or('from_user_id.eq.$userId,to_user_id.eq.$userId')
           .order('created_at', ascending: false)
           .limit(limit);
 
-      for (final tx in transactionsResponse) {
+      final List<Map<String, dynamic>> rawTxs = List<Map<String, dynamic>>.from(
+        txResponse,
+      );
+      final Set<String> seenHashes = {};
+
+      for (final tx in rawTxs) {
+        final hash = tx['tx_hash'] as String?;
+        if (hash != null && hash.isNotEmpty) {
+          if (seenHashes.contains(hash)) continue;
+          seenHashes.add(hash);
+        }
+
         final amount = (tx['amount_rc'] as num?)?.toDouble() ?? 0.0;
         final isReceived = tx['to_user_id'] == userId;
         final txType = tx['tx_type'] as String?;
@@ -586,7 +644,6 @@ class UserProvider with ChangeNotifier {
       );
 
       final resolved = await resolveUsernameToAddress(toUsername);
-      final recipientUserId = resolved['userId']!;
       final recipientAddress = resolved['address']!;
 
       await _walletRepository.transferToExternal(
@@ -599,9 +656,17 @@ class UserProvider with ChangeNotifier {
         metadata: metadata,
       );
 
-      // Refresh local user data to show updated balance
-      await fetchUser(fromUserId);
-      await fetchTransactions(fromUserId);
+      // Refresh local user data in background to show updated balance
+      // We don't await this to keep the UI snappy
+      Future.wait([
+        fetchUser(fromUserId),
+        fetchTransactions(fromUserId),
+      ]).catchError((e) {
+        debugPrint(
+          'UserProvider: Error refreshing profile after transfer - $e',
+        );
+        return [];
+      });
 
       return true;
     } catch (e) {

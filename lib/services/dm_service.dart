@@ -1,11 +1,13 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+
 import 'supabase_service.dart';
 import '../config/supabase_config.dart';
 import '../models/dm_thread.dart';
 import '../models/dm_message.dart';
 import '../models/user.dart';
+import '../models/ai_detection_result.dart';
 import 'ai_detection_service.dart';
-import 'dart:async';
-import 'package:flutter/foundation.dart';
 
 class DmService {
   static final DmService _instance = DmService._internal();
@@ -216,9 +218,7 @@ class DmService {
       final result = await _aiService.detectText(message.body);
       if (result == null) return;
 
-      final bool isAiResult =
-          result.result == 'AI-GENERATED' ||
-          result.result == 'LIKELY AI-GENERATED';
+      final bool isAiResult = result.result.contains('AI');
 
       final double aiProbability = isAiResult
           ? result.confidence

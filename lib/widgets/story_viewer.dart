@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../config/supabase_config.dart';
 import '../models/story.dart';
+import '../models/message.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/story_provider.dart';
@@ -326,11 +327,15 @@ class _StoryViewerState extends State<StoryViewer>
       final conversation = await _chatService.getOrCreateConversation(
         story.userId,
       );
+      final payload = Message.withStoryReference(
+        content: content,
+        storyId: story.id,
+        storyUserId: story.userId,
+      );
       await _chatService.sendMessage(
         conversation.id,
-        content,
-        replyToId:
-            null, // Could optionally reference story here if DB supports it
+        payload,
+        replyToId: null,
       );
 
       if (mounted) {
@@ -523,28 +528,28 @@ class _StoryViewerState extends State<StoryViewer>
                 ),
               )
             : story.mediaType == 'video'
-                ? VideoPlayerWidget(videoUrl: _resolveUrl(story.mediaUrl))
-                : story.mediaUrl.isNotEmpty
-                    ? Image.network(
-                        _resolveUrl(story.mediaUrl),
-                        fit: BoxFit.contain,
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(color: Colors.white24),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              color: Colors.white54,
-                              size: 64,
-                            ),
-                          );
-                        },
-                      )
-                    : const SizedBox.shrink(),
+            ? VideoPlayerWidget(videoUrl: _resolveUrl(story.mediaUrl))
+            : story.mediaUrl.isNotEmpty
+            ? Image.network(
+                _resolveUrl(story.mediaUrl),
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.white24),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return const Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: Colors.white54,
+                      size: 64,
+                    ),
+                  );
+                },
+              )
+            : const SizedBox.shrink(),
       ),
     );
   }
@@ -665,7 +670,12 @@ class _StoryViewerState extends State<StoryViewer>
     final bool isLiked = story.isLiked ?? false;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        MediaQuery.of(context).padding.bottom + 16,
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,

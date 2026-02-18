@@ -1,14 +1,15 @@
+import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../config/app_colors.dart';
-import '../../config/app_spacing.dart';
-import '../../config/app_typography.dart';
-import '../../providers/auth_provider.dart';
-import '../../utils/responsive_extensions.dart';
-import '../legal/terms_of_service_screen.dart';
-import '../legal/privacy_policy_screen.dart';
-import '../../utils/validators.dart';
+import 'package:rooverse/config/app_colors.dart';
+import 'package:rooverse/config/app_spacing.dart';
+import 'package:rooverse/config/app_typography.dart';
+import 'package:rooverse/providers/auth_provider.dart';
+import 'package:rooverse/utils/responsive_extensions.dart';
+import 'package:rooverse/screens/legal/terms_of_service_screen.dart';
+import 'package:rooverse/screens/legal/privacy_policy_screen.dart';
+import 'package:rooverse/utils/validators.dart';
 import 'package:rooverse/services/referral_service.dart';
 import 'package:rooverse/services/supabase_service.dart';
 
@@ -47,6 +48,8 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _passwordError;
   String? _confirmPasswordError;
   String? _signupError;
+  bool _isCheckingUsername = false;
+  Timer? _debounceTimer;
 
   // Password strength checks
   bool get _hasMinLength => _passwordController.text.length >= 8;
@@ -66,6 +69,52 @@ class _SignupScreenState extends State<SignupScreen> {
   void initState() {
     super.initState();
     _passwordController.addListener(() => setState(() {}));
+    _usernameController.addListener(_onUsernameChanged);
+  }
+
+  void _onUsernameChanged() {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+
+    final username = _usernameController.text.trim();
+
+    // Clear error immediately if empty or too short to be valid
+    if (username.isEmpty || username.length < 3) {
+      if (_usernameError != null) {
+        setState(() => _usernameError = null);
+      }
+      return;
+    }
+
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _checkUsernameAvailability(username);
+    });
+  }
+
+  Future<void> _checkUsernameAvailability(String username) async {
+    if (!mounted) return;
+
+    setState(() {
+      _isCheckingUsername = true;
+      _usernameError = null;
+    });
+
+    try {
+      final isAvailable = await context
+          .read<AuthProvider>()
+          .isUsernameAvailable(username);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isCheckingUsername = false;
+        if (!isAvailable) {
+          _usernameError = 'This username is already taken';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCheckingUsername = false);
+    }
   }
 
   @override
@@ -73,6 +122,10 @@ class _SignupScreenState extends State<SignupScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _referralController.dispose();
+    _usernameController.removeListener(_onUsernameChanged);
+    _usernameController.dispose();
+    _emailController.dispose();
+    _debounceTimer?.cancel();
     _usernameFocusNode.dispose();
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
@@ -266,7 +319,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    TextSpan(text: ' and start earning Rooken.'),
+                    TextSpan(text: ' and start earning Roobyte.'),
                   ],
                 ),
               ),
@@ -282,6 +335,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 controller: _usernameController,
                 focusNode: _usernameFocusNode,
                 errorText: _usernameError,
+                suffix: _buildUsernameSuffix(),
               ),
               SizedBox(height: AppSpacing.extraLarge.responsive(context)),
               _buildInputField(
@@ -693,6 +747,7 @@ class _SignupScreenState extends State<SignupScreen> {
     TextEditingController? controller,
     FocusNode? focusNode,
     String? errorText,
+    Widget? suffix,
   }) {
     final scheme = Theme.of(context).colorScheme;
     final hasError = errorText != null;
@@ -801,6 +856,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     textCapitalization: textCapitalization,
                   ),
                 ),
+                if (suffix != null) suffix,
                 if (isPassword)
                   IconButton(
                     icon: Icon(
@@ -918,6 +974,39 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget? _buildUsernameSuffix() {
+    final username = _usernameController.text.trim();
+    if (username.isEmpty || username.length < 3) return null;
+
+    if (_isCheckingUsername) {
+      return Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              AppColors.primary.withOpacity(0.5),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_usernameError == null) {
+      return const Padding(
+        padding: EdgeInsets.only(right: 12),
+        child: Icon(Icons.check_circle, color: Colors.green, size: 20),
+      );
+    }
+
+    return const Padding(
+      padding: EdgeInsets.only(right: 12),
+      child: Icon(Icons.error, color: Colors.red, size: 20),
     );
   }
 }

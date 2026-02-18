@@ -87,7 +87,7 @@ class WelcomeDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your human-only social platform powered by Rooken',
+                    'Your human-only social platform powered by Roobyte',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 14,
@@ -154,7 +154,9 @@ class WelcomeDialog extends StatelessWidget {
                                     TextSpan(text: "You've received "),
                                     TextSpan(
                                       text: '100 ROO',
-                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                     TextSpan(text: ' to get started'),
                                   ],
@@ -172,10 +174,7 @@ class WelcomeDialog extends StatelessWidget {
                   // How to Earn ROO
                   Row(
                     children: [
-                      const Text(
-                        '💡',
-                        style: TextStyle(fontSize: 18),
-                      ),
+                      const Text('💡', style: TextStyle(fontSize: 18)),
                       const SizedBox(width: 8),
                       const Text(
                         'How to Earn ROO',
@@ -252,7 +251,8 @@ class WelcomeDialog extends StatelessWidget {
                                   style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 TextSpan(
-                                  text: 'Creating a post costs 1 ROO but you earn 10 ROO as a reward - that\'s a net gain of ',
+                                  text:
+                                      'Creating a post costs 1 ROO but you earn 10 ROO as a reward - that\'s a net gain of ',
                                 ),
                                 TextSpan(
                                   text: '9 ROO',
@@ -347,10 +347,7 @@ class WelcomeDialog extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 15),
           ),
         ),
         Text(

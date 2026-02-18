@@ -57,7 +57,8 @@ class AiDetectionResult {
       confidence: normalizedConf,
       contentType: json['content_type'] as String? ?? '',
       consensusStrength: json['consensus_strength'] as String?,
-      rationale: json['rationale'] as String?,
+      rationale:
+          json['rationale'] as String? ?? json['final_rationale'] as String?,
       combinedEvidence: (json['combined_evidence'] as List<dynamic>?)
           ?.map((e) => e.toString())
           .toList(),
@@ -66,9 +67,11 @@ class AiDetectionResult {
               json['metadata_analysis'] as Map<String, dynamic>,
             )
           : null,
-      modelResults: (json['model_results'] as List<dynamic>?)
-          ?.map((e) => ModelResult.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      modelResults:
+          ((json['model_results'] as List<dynamic>?) ??
+                  (json['model_analyses'] as List<dynamic>?))
+              ?.map((e) => ModelResult.fromJson(e as Map<String, dynamic>))
+              .toList(),
       moderation: json['moderation'] != null
           ? ModerationResult.fromJson(
               json['moderation'] as Map<String, dynamic>,
@@ -132,10 +135,11 @@ class ModelResult {
 
   factory ModelResult.fromJson(Map<String, dynamic> json) {
     return ModelResult(
-      model: json['model'] as String? ?? '',
+      model:
+          json['model'] as String? ?? json['model_name'] as String? ?? '',
       result: json['result'] as String? ?? '',
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
-      reasoning: json['reasoning'] as String?,
+      reasoning: json['reasoning'] as String? ?? json['rationale'] as String?,
     );
   }
 

@@ -71,14 +71,7 @@ class PostRepository {
           )
         ''');
 
-    // If viewing while logged in, show own under-review posts too
-    if (currentUserId != null) {
-      postsFuture = postsFuture.or(
-        'status.eq.published,and(status.eq.under_review,author_id.eq.$currentUserId)',
-      );
-    } else {
-      postsFuture = postsFuture.eq('status', 'published');
-    }
+    postsFuture = postsFuture.eq('status', 'published');
 
     final postResultsFuture = postsFuture
         .order('created_at', ascending: false)
@@ -133,6 +126,7 @@ class PostRepository {
             )
           )
         ''')
+        .eq('posts.status', 'published')
         .order('created_at', ascending: false)
         .range(offset, offset + fetchLimit - 1);
 
@@ -354,14 +348,7 @@ class PostRepository {
         ''')
         .eq('author_id', userId);
 
-    // If viewing own profile, show both published and under-review posts
-    if (currentUserId == userId) {
-      postsFuture = postsFuture.or(
-        'status.eq.published,status.eq.under_review',
-      );
-    } else {
-      postsFuture = postsFuture.eq('status', 'published');
-    }
+    postsFuture = postsFuture.eq('status', 'published');
 
     postsFuture = postsFuture
         .order('created_at', ascending: false)
@@ -546,10 +533,22 @@ class PostRepository {
       }
 
       // Add mentions
-      if (mentionedUserIds != null && mentionedUserIds.isNotEmpty) {
+      final extractedMentions = _mentionRepository.extractMentions(body);
+      List<String> extractedMentionUserIds = const [];
+      if (extractedMentions.isNotEmpty) {
+        extractedMentionUserIds = await _mentionRepository
+            .resolveUsernamesToIds(extractedMentions);
+      }
+
+      final mergedMentionUserIds = {
+        ...?mentionedUserIds,
+        ...extractedMentionUserIds,
+      }.toList();
+
+      if (mergedMentionUserIds.isNotEmpty) {
         await _mentionRepository.addMentionsToPost(
           postId: postId,
-          mentionedUserIds: mentionedUserIds,
+          mentionedUserIds: mergedMentionUserIds,
         );
       }
 
@@ -907,6 +906,25 @@ class PostRepository {
     String? notes,
   }) async {
     try {
+      // 1. Fetch post details first to get author_id for notification
+      final postData = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('author_id, title, body')
+          .eq('id', postId)
+          .maybeSingle();
+
+      if (postData == null) {
+        debugPrint('PostRepository: Post $postId not found for moderation');
+        return false;
+      }
+
+      final String authorId = postData['author_id'] as String;
+      final String? postTitle = postData['title'] as String?;
+      final String postBody = postData['body'] as String? ?? '';
+      final String displayTitle =
+          postTitle ??
+          (postBody.length > 30 ? '${postBody.substring(0, 30)}...' : postBody);
+
       final updates = <String, dynamic>{};
       if (action == 'approve') {
         updates['status'] = 'published';
@@ -924,16 +942,40 @@ class PostRepository {
           .update(updates)
           .eq('id', postId);
 
+      // 2. Send Notification to Author
+      try {
+        if (action == 'approve') {
+          await _notificationRepository.createNotification(
+            userId: authorId,
+            type: 'post_published',
+            title: 'Post Approved',
+            body:
+                'Your post "$displayTitle" has been approved and is now live!',
+            postId: postId,
+            actorId: moderatorId, // The moderator who approved it
+          );
+        } else if (action == 'reject') {
+          await _notificationRepository.createNotification(
+            userId: authorId,
+            type: 'post_flagged',
+            title: 'Post Rejected',
+            body: notes != null && notes.isNotEmpty
+                ? 'Your post "$displayTitle" was rejected. Reason: $notes'
+                : 'Your post "$displayTitle" was rejected.',
+            postId: postId,
+            actorId: moderatorId,
+          );
+        }
+      } catch (e) {
+        debugPrint(
+          'PostRepository: Error sending moderation notification - $e',
+        );
+        // Continue execution, don't fail the moderation action
+      }
+
       // If approved, award ROOK to the author
       if (action == 'approve') {
         try {
-          final post = await _client
-              .from(SupabaseConfig.postsTable)
-              .select('author_id')
-              .eq('id', postId)
-              .single();
-
-          final authorId = post['author_id'] as String;
           final walletRepo = WalletRepository();
           await walletRepo.earnRoo(
             userId: authorId,
@@ -974,12 +1016,12 @@ class PostRepository {
       // Submit feedback to the AI learning system so it can improve.
       // Fetch the analysis_id stored on the post during detection.
       try {
-        final postData = await _client
+        final postDataIdx = await _client
             .from(SupabaseConfig.postsTable)
             .select('verification_session_id')
             .eq('id', postId)
             .maybeSingle();
-        final analysisId = postData?['verification_session_id'] as String?;
+        final analysisId = postDataIdx?['verification_session_id'] as String?;
         if (analysisId != null && analysisId.isNotEmpty) {
           // approve = the AI was wrong (content is human), reject = AI was right
           final correctResult = action == 'approve'
@@ -1002,15 +1044,11 @@ class PostRepository {
     }
   }
 
-  /// Minimum character count for text AI detection.
-  /// Short text posts (under 20 chars) bypass AI check.
-  static const int _minAiDetectionLength = 20;
-
   /// Run AI detection for a post in the background.
   /// Picks the right endpoint based on content type:
-  ///   - Text only → /detect/text (if text >= 50 chars)
+  ///   - Text only → /detect/text
   ///   - Media only → /detect/image (first file)
-  ///   - Both → /detect/mixed (text + first file) or /detect/image if text too short
+  ///   - Both → /detect/mixed (text + first file)
   /// Returns the confidence score on success, or null on failure.
   Future<double?> runAiDetection({
     required String postId,
@@ -1020,44 +1058,15 @@ class PostRepository {
   }) async {
     try {
       final trimmedBody = body.trim();
-      // Only run text detection if text is long enough
-      final hasText = trimmedBody.length >= _minAiDetectionLength;
+      final hasText = trimmedBody.isNotEmpty;
       final hasMedia = mediaFiles != null && mediaFiles.isNotEmpty;
 
-      // Log when short text is skipped
-      if (trimmedBody.isNotEmpty &&
-          trimmedBody.length < _minAiDetectionLength) {
-        debugPrint(
-          'PostRepository: Skipping text detection for short post $postId '
-          '(${trimmedBody.length} chars < $_minAiDetectionLength)',
-        );
-      }
-
-      // Short text-only posts: auto-publish without AI check
+      // All posts must have either text or media
       if (!hasText && !hasMedia) {
         debugPrint(
-          'PostRepository: Auto-publishing short text-only post $postId',
+          'PostRepository: Cannot run AI detection - no content for post $postId',
         );
-        await _updateAiScore(
-          postId: postId,
-          confidence: 0.0,
-          scoreStatus: 'pass',
-          postStatus: 'published',
-          verificationMethod: 'verified',
-          authenticityNotes: 'verified',
-        );
-        // Award ROOK for the post
-        try {
-          final walletRepo = WalletRepository();
-          await walletRepo.earnRoo(
-            userId: authorId,
-            activityType: RookenActivityType.postCreate,
-            referencePostId: postId,
-          );
-        } catch (e) {
-          debugPrint('PostRepository: Error awarding ROOK for short post - $e');
-        }
-        return 0.0;
+        return null;
       }
 
       AiDetectionResult? result;
@@ -1079,17 +1088,21 @@ class PostRepository {
       }
 
       if (result != null) {
-        // Result label is normalized to UPPER CASE in fromJson
-        // Confidence is now confirmed to be label-specific (e.g. 98% sure it is HUMAN).
-        // We flip it to get an absolute AI probability (0-100).
-        final bool isAiResult = result.result.contains('AI');
+        // Result label is normalized to UPPER CASE in fromJson.
+        // Confidence is label-specific per NOAI docs.
+        final String normalizedResult = result.result.trim().toUpperCase();
+        final bool isAiResult =
+            normalizedResult == 'AI-GENERATED' ||
+            normalizedResult == 'LIKELY AI-GENERATED';
+        final double labelConfidence = result.confidence.clamp(0, 100);
+        // Keep an AI-risk score for DB/notifications compatibility.
         final double aiProbability = isAiResult
-            ? result.confidence
-            : 100 - result.confidence;
+            ? labelConfidence
+            : 100 - labelConfidence;
 
         debugPrint(
           'PostRepository: AI detection outcome: label=${result.result}, '
-          'apiConfidence=${result.confidence}% -> aiProbability=$aiProbability%',
+          'labelConfidence=$labelConfidence% -> aiProbability=$aiProbability%',
         );
 
         // Map AI probability to score status & post status (aligned with API docs ✅)
@@ -1113,17 +1126,17 @@ class PostRepository {
           }
           authenticityNotes =
               'CONTENT MODERATION: ${mod?.details ?? "Harmful content detected"}';
-        } else if (aiProbability >= 95) {
+        } else if (isAiResult && labelConfidence >= 95) {
           scoreStatus = 'flagged';
           postStatus = 'deleted'; // Auto-block
-        } else if (aiProbability >= 75) {
+        } else if (isAiResult && labelConfidence >= 75) {
           scoreStatus = 'flagged';
           postStatus = 'under_review'; // Flag for review
-        } else if (aiProbability >= 60) {
+        } else if (isAiResult && labelConfidence >= 60) {
           scoreStatus = 'review';
           postStatus = 'published'; // Label for transparency
           authenticityNotes =
-              'HUMAN SCORE: ${(100 - aiProbability).toStringAsFixed(1)}% [REVIEW]';
+              'POTENTIAL AI CONTENT: ${labelConfidence.toStringAsFixed(1)}% [REVIEW]';
         } else {
           scoreStatus = 'pass';
           postStatus = 'published'; // Auto-publish
@@ -1300,26 +1313,24 @@ class PostRepository {
         case 'published':
           title = 'Post Published';
           body = 'Your post passed verification and is now live!';
-          type =
-              'mention'; // Using 'mention' as valid DB type for system notifications
+          type = 'post_published';
           break;
         case 'under_review':
           title = 'Post Under Review';
-          body =
-              'Your post is being reviewed by our moderation team. You\'ll be notified once a decision is made.';
-          type = 'mention';
+          body = 'Your post is being checked for AI. You\'ll be notified soon.';
+          type = 'post_review';
           break;
         case 'deleted':
           title = 'Post Not Published';
           body =
-              'Your post was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence). If you believe this is an error, please contact support.';
-          type = 'mention';
+              'Your post was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence), and was not published.';
+          type = 'post_flagged';
           break;
         default:
           return; // Don't send notification for unknown status
       }
 
-      await _notificationRepository.createNotification(
+      final created = await _notificationRepository.createNotification(
         userId: userId,
         type: type,
         title: title,
@@ -1327,9 +1338,15 @@ class PostRepository {
         postId: postId,
       );
 
-      debugPrint(
-        'PostRepository: Sent AI result notification to $userId for post $postId (status: $postStatus)',
-      );
+      if (created) {
+        debugPrint(
+          'PostRepository: Sent AI result notification to $userId for post $postId (status: $postStatus)',
+        );
+      } else {
+        debugPrint(
+          'PostRepository: AI result notification skipped/failed for post $postId (status: $postStatus)',
+        );
+      }
     } catch (e) {
       debugPrint('PostRepository: Error sending AI result notification - $e');
     }

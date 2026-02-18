@@ -76,7 +76,7 @@ class Story {
       author: User.fromSupabase(profile),
       isViewed: isViewed,
       aiScore: (json['ai_score'] as num?)?.toDouble(),
-      status: json['status'] as String?,
+      status: (json['status'] as String?)?.trim().toLowerCase(),
       likes: reactions.length,
       isLiked: isLiked,
     );

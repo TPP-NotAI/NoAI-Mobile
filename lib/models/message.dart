@@ -4,6 +4,10 @@ part 'message.g.dart';
 
 @JsonSerializable()
 class Message {
+  static final RegExp _storyReferencePattern = RegExp(
+    r'\[story_ref:([^:\]]+):([^\]]+)\]\s*$',
+  );
+
   final String id;
   @JsonKey(name: 'thread_id')
   final String conversationId;
@@ -70,8 +74,37 @@ class Message {
   /// Convenience getter: treat 'read' status as isRead for UI compatibility.
   bool get isRead => status == 'read';
 
+  /// Message text without hidden metadata markers.
+  String get displayContent => stripStoryReferenceFromContent(content);
+
+  String? get storyReferenceId {
+    final match = _storyReferencePattern.firstMatch(content);
+    return match?.group(1);
+  }
+
+  String? get storyReferenceUserId {
+    final match = _storyReferencePattern.firstMatch(content);
+    return match?.group(2);
+  }
+
+  bool get hasStoryReference => storyReferenceId != null;
+
   /// Convenience getter: reply content not stored separately in schema.
   String? get replyContent => null;
+
+  static String withStoryReference({
+    required String content,
+    required String storyId,
+    required String storyUserId,
+  }) {
+    final trimmed = content.trimRight();
+    return '$trimmed\n[story_ref:$storyId:$storyUserId]';
+  }
+
+  static String stripStoryReferenceFromContent(String rawContent) {
+    final stripped = rawContent.replaceFirst(_storyReferencePattern, '');
+    return stripped.trimRight();
+  }
 
   Message copyWith({
     String? id,

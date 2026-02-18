@@ -6,8 +6,10 @@ import 'package:intl/intl.dart';
 import '../../config/app_spacing.dart';
 import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/staking_provider.dart';
+import '../../models/wallet.dart';
 import '../../config/app_colors.dart';
 import '../../utils/responsive_extensions.dart';
 import 'send_roo_screen.dart';
@@ -29,6 +31,8 @@ class _WalletScreenState extends State<WalletScreen> {
   final ReferralService _referralService = ReferralService();
   String? _referralCode;
   bool _isLoadingCode = false;
+  bool _isResolvingTxUsers = false;
+  final Set<String> _resolvedTxUserIds = <String>{};
 
   // ROO brand colors (consistent across light/dark)
   static const Color _rooOrange = Color(0xFFFF8C00);
@@ -42,6 +46,7 @@ class _WalletScreenState extends State<WalletScreen> {
       if (user != null) {
         context.read<WalletProvider>().refreshWallet(user.id);
         context.read<StakingProvider>().init(user.id);
+        context.read<UserProvider>().fetchTransactions(user.id);
         _fetchReferralCode(user.id);
       }
     });
@@ -210,9 +215,21 @@ class _WalletScreenState extends State<WalletScreen> {
     final user = context.watch<AuthProvider>().currentUser;
     final walletProvider = context.watch<WalletProvider>();
     final stakingProvider = context.watch<StakingProvider>();
+    final userProvider = context.watch<UserProvider>();
     final wallet = walletProvider.wallet;
     final transactions = walletProvider.transactions;
     final colors = Theme.of(context).colorScheme;
+
+    if (user != null && transactions.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _ensureTransactionUsersLoaded(
+          userProvider: userProvider,
+          currentUserId: user.id,
+          transactions: transactions,
+        );
+      });
+    }
 
     if (user == null) {
       return Scaffold(
@@ -261,7 +278,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               height: AppSpacing.extraSmall.responsive(context),
                             ),
                             Text(
-                              'Manage your Rooken assets and track yield performance.',
+                              'Manage your Roobyte assets and track yield performance.',
                               style: TextStyle(
                                 color: colors.onSurfaceVariant,
                                 fontSize: AppTypography.responsiveFontSize(
@@ -460,7 +477,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Invite your friends to ROOVERSE and earn extra Rooken for every verified human you refer!',
+                          'Invite your friends to ROOVERSE and earn extra Roobyte for every verified human you refer!',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 13,
@@ -586,138 +603,330 @@ class _WalletScreenState extends State<WalletScreen> {
                   SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final tx = transactions[index];
-                      final isSent =
-                          tx.fromUserId == user.id ||
-                          tx.txType == 'fee' ||
-                          tx.txType == 'transfer';
+                      final isSent = tx.fromUserId == user.id;
+                      final isReceived = tx.toUserId == user.id;
                       final amount = tx.amountRc;
+                      final metadata = tx.metadata ?? const <String, dynamic>{};
+                      final activityType = (metadata['activityType'] as String?)
+                          ?.trim()
+                          .toLowerCase();
+                      final effectiveType = activityType == 'tip'
+                          ? 'tip'
+                          : tx.txType;
+                      final sender = _resolveUserLabel(
+                        userProvider,
+                        tx.fromUserId,
+                        fallback: 'System',
+                      );
+                      final receiver = _resolveReceiverLabel(
+                        userProvider: userProvider,
+                        userId: tx.toUserId,
+                        metadata: metadata,
+                      );
+                      final balanceBefore = _parseBalanceValue(
+                        metadata['balanceBeforeRc'],
+                      );
+                      final balanceAfter = _parseBalanceValue(
+                        metadata['balanceAfterRc'],
+                      );
 
-                      String label = 'Transaction';
-                      if (tx.metadata != null &&
-                          tx.metadata!['activityType'] != null) {
-                        final type = tx.metadata!['activityType'] as String;
-                        label = type.replaceAll('_', ' ').toLowerCase();
-                        label = label
-                            .split(' ')
-                            .map(
-                              (word) => word.isNotEmpty
-                                  ? '${word[0].toUpperCase()}${word.substring(1)}'
-                                  : '',
-                            )
-                            .join(' ');
-                      } else if (tx.txType == 'transfer' &&
-                          tx.fromUserId == user.id) {
-                        label = 'Transfer to External Wallet';
+                      String label;
+                      String subtitle;
+                      if (effectiveType == 'tip') {
+                        label = isReceived ? 'Tip Received' : 'Tip Sent';
+                        subtitle = isReceived ? 'From $sender' : 'To $receiver';
+                      } else if (tx.txType == 'transfer') {
+                        label = isReceived ? 'Received ROO' : 'Sent ROO';
+                        subtitle = isReceived ? 'From $sender' : 'To $receiver';
                       } else if (tx.txType == 'fee') {
                         label = 'Platform Fee';
+                        subtitle = tx.memo ?? 'Fee charged';
+                      } else if (tx.txType == 'engagement_reward' ||
+                          tx.txType == 'post_reward' ||
+                          tx.txType == 'staking_reward' ||
+                          tx.txType == 'daily_bonus' ||
+                          tx.txType == 'signup_bonus') {
+                        label = _rewardLabel(activityType, tx.txType);
+                        subtitle = tx.memo ?? 'From $sender';
+                      } else {
+                        label = _titleCaseWords(tx.txType);
+                        subtitle = tx.memo ?? 'Transaction';
                       }
 
-                      final date = DateFormat.yMMMd().format(tx.createdAt);
+                      final date = DateFormat.yMMMd().add_jm().format(
+                        tx.createdAt,
+                      );
                       final statusColor = tx.status == 'completed'
                           ? AppColors.success
+                          : tx.status == 'failed'
+                          ? AppColors.error
                           : _rooOrange;
+                      final statusLabel = tx.status == 'completed'
+                          ? 'Completed'
+                          : tx.status == 'failed'
+                          ? 'Failed'
+                          : 'Pending';
 
-                      return Container(
-                        margin: EdgeInsets.symmetric(
-                          horizontal: AppSpacing.largePlus.responsive(context),
-                          vertical: AppSpacing.small.responsive(context),
-                        ),
-                        padding: AppSpacing.responsiveAll(
+                      return InkWell(
+                        borderRadius: AppSpacing.responsiveRadius(
                           context,
-                          AppSpacing.largePlus,
+                          AppSpacing.radiusLarge,
                         ),
-                        decoration: BoxDecoration(
-                          color: colors.surfaceContainerHighest,
-                          borderRadius: AppSpacing.responsiveRadius(
-                            context,
-                            AppSpacing.radiusLarge,
+                        onTap: () {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            builder: (context) {
+                              return SafeArea(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    16,
+                                    16,
+                                    24,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              label,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleMedium
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: statusColor.withValues(
+                                                alpha: 0.12,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              statusLabel,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .labelSmall
+                                                  ?.copyWith(
+                                                    color: statusColor,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      _detailsRow(
+                                        context,
+                                        'Amount',
+                                        '${isSent ? '-' : '+'}${amount.toStringAsFixed(2)} ROO',
+                                      ),
+                                      if (balanceBefore != null)
+                                        _detailsRow(
+                                          context,
+                                          'Balance Before',
+                                          '${balanceBefore.toStringAsFixed(2)} ROO',
+                                        ),
+                                      if (balanceAfter != null)
+                                        _detailsRow(
+                                          context,
+                                          'Balance After',
+                                          '${balanceAfter.toStringAsFixed(2)} ROO',
+                                        ),
+                                      _detailsRow(
+                                        context,
+                                        'Type',
+                                        tx.txType == 'engagement_reward' ||
+                                                tx.txType == 'post_reward' ||
+                                                tx.txType == 'staking_reward' ||
+                                                tx.txType == 'daily_bonus' ||
+                                                tx.txType == 'signup_bonus'
+                                            ? _rewardLabel(
+                                                activityType,
+                                                tx.txType,
+                                              )
+                                            : _titleCaseWords(effectiveType),
+                                      ),
+                                      _detailsRow(context, 'Date', date),
+                                      _detailsRow(
+                                        context,
+                                        'Sender',
+                                        sender ?? 'Unknown Sender',
+                                      ),
+                                      _detailsRow(
+                                        context,
+                                        'Receiver',
+                                        receiver,
+                                      ),
+                                      if (tx.memo != null &&
+                                          tx.memo!.trim().isNotEmpty)
+                                        _detailsRow(
+                                          context,
+                                          'Memo',
+                                          tx.memo!.trim(),
+                                        ),
+                                      if (tx.txHash != null &&
+                                          tx.txHash!.trim().isNotEmpty)
+                                        _detailsRow(
+                                          context,
+                                          'Tx Hash',
+                                          tx.txHash!.trim(),
+                                        ),
+                                      if (tx.referencePostId != null)
+                                        _detailsRow(
+                                          context,
+                                          'Post Ref',
+                                          tx.referencePostId!,
+                                        ),
+                                      if (tx.referenceCommentId != null)
+                                        _detailsRow(
+                                          context,
+                                          'Comment Ref',
+                                          tx.referenceCommentId!,
+                                        ),
+                                      const SizedBox(height: 8),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ElevatedButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context),
+                                          child: const Text('Close'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                        child: Container(
+                          margin: EdgeInsets.symmetric(
+                            horizontal: AppSpacing.largePlus.responsive(
+                              context,
+                            ),
+                            vertical: AppSpacing.small.responsive(context),
                           ),
-                          border: Border.all(color: colors.outline),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40.responsive(context, min: 36, max: 46),
-                              height: 40.responsive(context, min: 36, max: 46),
-                              decoration: BoxDecoration(
-                                color:
-                                    (isSent
-                                            ? AppColors.error
-                                            : AppColors.success)
-                                        .withValues(alpha: 0.15),
-                                borderRadius: AppSpacing.responsiveRadius(
+                          padding: AppSpacing.responsiveAll(
+                            context,
+                            AppSpacing.largePlus,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceContainerHighest,
+                            borderRadius: AppSpacing.responsiveRadius(
+                              context,
+                              AppSpacing.radiusLarge,
+                            ),
+                            border: Border.all(color: colors.outline),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40.responsive(context, min: 36, max: 46),
+                                height: 40.responsive(
                                   context,
-                                  AppSpacing.radiusLarge,
+                                  min: 36,
+                                  max: 46,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      (isSent
+                                              ? AppColors.error
+                                              : AppColors.success)
+                                          .withValues(alpha: 0.15),
+                                  borderRadius: AppSpacing.responsiveRadius(
+                                    context,
+                                    AppSpacing.radiusLarge,
+                                  ),
+                                ),
+                                child: Icon(
+                                  isSent ? Icons.north_east : Icons.south_west,
+                                  color: isSent
+                                      ? AppColors.error
+                                      : AppColors.success,
                                 ),
                               ),
-                              child: Icon(
-                                isSent ? Icons.north_east : Icons.south_west,
-                                color: isSent
-                                    ? AppColors.error
-                                    : AppColors.success,
+                              SizedBox(
+                                width: AppSpacing.standard.responsive(context),
                               ),
-                            ),
-                            SizedBox(
-                              width: AppSpacing.standard.responsive(context),
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      label,
+                                      style: TextStyle(
+                                        color: colors.onSurface,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      subtitle,
+                                      style: TextStyle(
+                                        color: colors.onSurfaceVariant,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      date,
+                                      style: TextStyle(
+                                        color: colors.onSurfaceVariant,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
-                                    label,
+                                    '${isSent ? '-' : '+'}${_currencyFormat.format(amount)} ROO',
                                     style: TextStyle(
-                                      color: colors.onSurface,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSent
+                                          ? AppColors.error
+                                          : AppColors.success,
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    date,
-                                    style: TextStyle(
-                                      color: colors.onSurfaceVariant,
-                                      fontSize: 12,
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      statusLabel,
+                                      style: TextStyle(
+                                        color: statusColor,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '${isSent ? '-' : '+'}${_currencyFormat.format(amount)} ROO',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: isSent
-                                        ? AppColors.error
-                                        : AppColors.success,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: statusColor.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    tx.status == 'completed'
-                                        ? 'Completed'
-                                        : 'Pending',
-                                    style: TextStyle(
-                                      color: statusColor,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     }, childCount: transactions.length),
@@ -1075,6 +1284,162 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _titleCaseWords(String value) {
+    return value
+        .replaceAll('_', ' ')
+        .trim()
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .map((w) => '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+        .join(' ');
+  }
+
+  String _rewardLabel(String? activityType, String txType) {
+    if (activityType != null && activityType.trim().isNotEmpty) {
+      return _titleCaseWords(activityType);
+    }
+
+    switch (txType) {
+      case 'post_reward':
+        return 'Post Reward';
+      case 'staking_reward':
+        return 'Staking Reward';
+      case 'daily_bonus':
+        return 'Daily Login';
+      case 'signup_bonus':
+        return 'Signup Bonus';
+      case 'engagement_reward':
+        return 'Engagement Reward';
+      default:
+        return _titleCaseWords(txType);
+    }
+  }
+
+  String? _resolveUserLabel(
+    UserProvider userProvider,
+    String? userId, {
+    String? fallback,
+  }) {
+    if (userId == null || userId.isEmpty) return fallback;
+    final matched = userProvider.getUser(userId);
+    if (matched != null) {
+      if (matched.displayName.trim().isNotEmpty) return matched.displayName;
+      if (matched.username.trim().isNotEmpty) return '@${matched.username}';
+    }
+    return fallback ?? 'Unknown user';
+  }
+
+  String _resolveReceiverLabel({
+    required UserProvider userProvider,
+    required String? userId,
+    required Map<String, dynamic> metadata,
+  }) {
+    final resolved = _resolveUserLabel(userProvider, userId);
+    if (resolved != null && resolved.trim().isNotEmpty) return resolved;
+
+    final recipientDisplayName = (metadata['recipientDisplayName'] as String?)
+        ?.trim();
+    if (recipientDisplayName != null && recipientDisplayName.isNotEmpty) {
+      return recipientDisplayName;
+    }
+
+    final recipientUsername = (metadata['recipientUsername'] as String?)
+        ?.trim();
+    if (recipientUsername != null && recipientUsername.isNotEmpty) {
+      return '@$recipientUsername';
+    }
+
+    final inputRecipient = (metadata['inputRecipient'] as String?)?.trim();
+    if (inputRecipient != null && inputRecipient.isNotEmpty) {
+      return inputRecipient;
+    }
+
+    final toAddress = (metadata['toAddress'] as String?)?.trim();
+    if (toAddress != null && toAddress.isNotEmpty) {
+      return toAddress;
+    }
+
+    return 'External wallet';
+  }
+
+  double? _parseBalanceValue(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  void _ensureTransactionUsersLoaded({
+    required UserProvider userProvider,
+    required String currentUserId,
+    required List<RookenTransaction> transactions,
+  }) {
+    if (_isResolvingTxUsers) return;
+
+    final idsToFetch = <String>{};
+    for (final tx in transactions) {
+      final fromId = tx.fromUserId;
+      final toId = tx.toUserId;
+      if (fromId != null &&
+          fromId.isNotEmpty &&
+          fromId != currentUserId &&
+          !_resolvedTxUserIds.contains(fromId) &&
+          userProvider.getUser(fromId) == null) {
+        idsToFetch.add(fromId);
+      }
+      if (toId != null &&
+          toId.isNotEmpty &&
+          toId != currentUserId &&
+          !_resolvedTxUserIds.contains(toId) &&
+          userProvider.getUser(toId) == null) {
+        idsToFetch.add(toId);
+      }
+    }
+
+    if (idsToFetch.isEmpty) return;
+
+    _isResolvingTxUsers = true;
+    userProvider.fetchUsersByIds(idsToFetch).whenComplete(() {
+      if (!mounted) return;
+      setState(() {
+        _resolvedTxUserIds.addAll(idsToFetch);
+        _isResolvingTxUsers = false;
+      });
+    });
+  }
+
+  Widget _detailsRow(BuildContext context, String label, String value) {
+    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.onSurface,
+              ),
             ),
           ),
         ],

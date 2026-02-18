@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -8,6 +10,7 @@ import 'supabase_service.dart';
 /// Service for interacting with the Rooken API
 class RookenService {
   static const String baseUrl = 'https://roocoin-production.up.railway.app';
+  static const Duration _sendTimeout = Duration(seconds: 90);
 
   // Read API key from environment
   static String getApiKey() {
@@ -17,7 +20,7 @@ class RookenService {
     }
     // Don't log full key for security
     debugPrint(
-      'RookenService: Using API key: ${key.substring(0, min(10, key.length))}...',
+      'RookenService: Using API key: ${key.substring(0, math.min(10, key.length))}...',
     );
     return key;
   }
@@ -40,7 +43,8 @@ class RookenService {
 
     final maskedHeaders = Map<String, String>.from(headers);
     if (maskedHeaders.containsKey('x-api-key')) {
-      maskedHeaders['x-api-key'] = '***${key.substring(min(key.length, 5))}';
+      maskedHeaders['x-api-key'] =
+          '***${key.substring(math.min(key.length, 5))}';
     }
     if (maskedHeaders.containsKey('Authorization')) {
       maskedHeaders['Authorization'] = 'Bearer ***';
@@ -49,8 +53,6 @@ class RookenService {
     debugPrint('RookenService: Computed headers: $maskedHeaders');
     return headers;
   }
-
-  static int min(int a, int b) => a < b ? a : b;
 
   /// Create a new custodial wallet for a user
   /// Returns address, privateKey, and mnemonic
@@ -85,7 +87,14 @@ class RookenService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body) as Map<String, dynamic>;
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        if (data['error'] != null) {
+          throw Exception('Failed to get balance: ${data['error']}');
+        }
+        if (data['success'] == false) {
+          throw Exception('Failed to get balance: Operation unsuccessful');
+        }
+        return data;
       } else {
         throw Exception(
           'Failed to get balance: ${response.statusCode} - ${response.body}',
@@ -145,7 +154,16 @@ class RookenService {
             );
 
             if (response.statusCode == 200) {
-              return json.decode(response.body) as Map<String, dynamic>;
+              final data = json.decode(response.body) as Map<String, dynamic>;
+              if (data['error'] != null) {
+                throw Exception('Faucet request failed: ${data['error']}');
+              }
+              if (data['success'] == false) {
+                throw Exception(
+                  'Faucet request failed: Operation unsuccessful',
+                );
+              }
+              return data;
             } else {
               throw Exception(
                 'Failed to request faucet: ${response.statusCode} - ${response.body}',
@@ -182,7 +200,16 @@ class RookenService {
             );
 
             if (response.statusCode == 200) {
-              return json.decode(response.body) as Map<String, dynamic>;
+              final data = json.decode(response.body) as Map<String, dynamic>;
+              if (data['error'] != null) {
+                throw Exception('Spend operation failed: ${data['error']}');
+              }
+              if (data['success'] == false) {
+                throw Exception(
+                  'Spend operation failed: Operation unsuccessful',
+                );
+              }
+              return data;
             } else {
               throw Exception(
                 'Failed to spend ROOK: ${response.statusCode} - ${response.body}',
@@ -220,22 +247,37 @@ class RookenService {
 
             debugPrint('RookenService: Sending ROOK via /api/wallet/send');
             debugPrint(
-              'RookenService: Request Body: ${json.encode({...body, 'fromPrivateKey': '0x***${fromPrivateKey.substring(min(fromPrivateKey.length, 5))}'})}',
+              'RookenService: Request Body: ${json.encode({...body, 'fromPrivateKey': '0x***${fromPrivateKey.substring(math.min(fromPrivateKey.length, 5))}'})}',
             );
 
             final response = await http.post(
               Uri.parse('$baseUrl/api/wallet/send'),
               headers: {'Content-Type': 'application/json'},
               body: json.encode(body),
-            );
+            ).timeout(_sendTimeout);
 
             if (response.statusCode == 200) {
-              return json.decode(response.body) as Map<String, dynamic>;
+              final data = json.decode(response.body) as Map<String, dynamic>;
+              if (data['error'] != null) {
+                throw Exception('Send operation failed: ${data['error']}');
+              }
+              if (data['success'] == false) {
+                throw Exception(
+                  'Send operation failed: Operation unsuccessful',
+                );
+              }
+              return data;
             } else {
               throw Exception(
                 'Failed to send ROOK: ${response.statusCode} - ${response.body}',
               );
             }
+          } on TimeoutException catch (e) {
+            debugPrint('Error sending ROOK (timeout): $e');
+            throw Exception(
+              'Transfer confirmation is taking longer than expected. '
+              'Please check your transaction history shortly.',
+            );
           } catch (e) {
             debugPrint('Error sending ROOK: $e');
             rethrow;
@@ -276,7 +318,16 @@ class RookenService {
             debugPrint('RookenService: Response body: ${response.body}');
 
             if (response.statusCode == 200) {
-              return json.decode(response.body) as Map<String, dynamic>;
+              final data = json.decode(response.body) as Map<String, dynamic>;
+              if (data['error'] != null) {
+                throw Exception('Reward distribution failed: ${data['error']}');
+              }
+              if (data['success'] == false) {
+                throw Exception(
+                  'Reward distribution failed: Operation unsuccessful',
+                );
+              }
+              return data;
             } else if (response.statusCode == 403) {
               debugPrint(
                 'RookenService: API authentication failed. Please check ROOCOIN_API_KEY configuration.',
@@ -318,7 +369,14 @@ class RookenService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body) as Map<String, dynamic>;
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        if (data['error'] != null) {
+          throw Exception('Batch distribution failed: ${data['error']}');
+        }
+        if (data['success'] == false) {
+          throw Exception('Batch distribution failed: Operation unsuccessful');
+        }
+        return data;
       } else {
         throw Exception(
           'Failed to batch distribute rewards: ${response.statusCode} - ${response.body}',

@@ -6,6 +6,7 @@ import 'notification_repository.dart';
 /// Repository for handling user mentions in posts and comments.
 class MentionRepository {
   final _client = SupabaseService().client;
+  static final Map<String, String> _userIdToUsernameCache = {};
 
   final _notificationRepository = NotificationRepository();
 
@@ -14,53 +15,61 @@ class MentionRepository {
     required String postId,
     required List<String> mentionedUserIds,
   }) async {
-    try {
-      for (final userId in mentionedUserIds) {
+    final uniqueUserIds = mentionedUserIds.toSet().toList();
+    if (uniqueUserIds.isEmpty) return true;
+
+    var hasInsertError = false;
+    for (final userId in uniqueUserIds) {
+      try {
         await _client.from(SupabaseConfig.mentionsTable).insert({
           'post_id': postId,
           'mentioned_user_id': userId,
         });
-      }
-
-      // Fetch post details for notification
-      try {
-        final post = await _client
-            .from(SupabaseConfig.postsTable)
-            .select('author_id, title, body')
-            .eq('id', postId)
-            .single();
-
-        final authorId = post['author_id'] as String;
-        final postTitle = post['title'] as String?;
-        final postBody = post['body'] as String?;
-        final notificationBody = postTitle != null && postTitle.isNotEmpty
-            ? 'Mentioned you in a post: "$postTitle"'
-            : 'Mentioned you in a post: "${postBody?.substring(0, (postBody.length > 50 ? 50 : postBody.length)) ?? ''}..."';
-
-        for (final userId in mentionedUserIds) {
-          // Don't notify if user mentions themselves (unlikely but possible)
-          if (userId == authorId) continue;
-
-          await _notificationRepository.createNotification(
-            userId: userId,
-            type: 'mention',
-            title: 'New Mention',
-            body: notificationBody,
-            actorId: authorId,
-            postId: postId,
-          );
-        }
       } catch (e) {
+        hasInsertError = true;
         debugPrint(
-          'MentionRepository: Error creating notifications for post mentions - $e',
+          'MentionRepository: Error inserting post mention row for user=$userId post=$postId - $e',
         );
       }
+    }
 
-      return true;
+    // Always attempt notifications even if mention row inserts fail.
+    try {
+      // Fetch post details for notification.
+      final post = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('author_id, title, body')
+          .eq('id', postId)
+          .single();
+
+      final authorId = post['author_id'] as String;
+      final postTitle = post['title'] as String?;
+      final postBody = post['body'] as String?;
+      final notificationBody = postTitle != null && postTitle.isNotEmpty
+          ? 'Mentioned you in a post: "$postTitle"'
+          : 'Mentioned you in a post: "${postBody?.substring(0, (postBody.length > 50 ? 50 : postBody.length)) ?? ''}..."';
+
+      for (final userId in uniqueUserIds) {
+        // Don't notify if user mentions themselves (unlikely but possible).
+        if (userId == authorId) continue;
+
+        await _notificationRepository.createNotification(
+          userId: userId,
+          type: 'mention',
+          title: 'New Mention',
+          body: notificationBody,
+          actorId: authorId,
+          postId: postId,
+        );
+      }
     } catch (e) {
-      debugPrint('MentionRepository: Error adding mentions to post - $e');
+      debugPrint(
+        'MentionRepository: Error creating notifications for post mentions - $e',
+      );
       return false;
     }
+
+    return !hasInsertError;
   }
 
   /// Add mentions for a comment.
@@ -68,53 +77,61 @@ class MentionRepository {
     required String commentId,
     required List<String> mentionedUserIds,
   }) async {
-    try {
-      for (final userId in mentionedUserIds) {
+    final uniqueUserIds = mentionedUserIds.toSet().toList();
+    if (uniqueUserIds.isEmpty) return true;
+
+    var hasInsertError = false;
+    for (final userId in uniqueUserIds) {
+      try {
         await _client.from(SupabaseConfig.mentionsTable).insert({
           'comment_id': commentId,
           'mentioned_user_id': userId,
         });
-      }
-
-      // Fetch comment details for notification
-      try {
-        final comment = await _client
-            .from(SupabaseConfig.commentsTable)
-            .select('author_id, body, post_id')
-            .eq('id', commentId)
-            .single();
-
-        final authorId = comment['author_id'] as String;
-        final body = comment['body'] as String?;
-        final postId = comment['post_id'] as String;
-        final notificationBody =
-            'Mentioned you in a comment: "${body?.substring(0, (body.length > 50 ? 50 : body.length)) ?? ''}..."';
-
-        for (final userId in mentionedUserIds) {
-          // Don't notify if user mentions themselves
-          if (userId == authorId) continue;
-
-          await _notificationRepository.createNotification(
-            userId: userId,
-            type: 'mention',
-            title: 'New Mention',
-            body: notificationBody,
-            actorId: authorId,
-            postId: postId,
-            commentId: commentId,
-          );
-        }
       } catch (e) {
+        hasInsertError = true;
         debugPrint(
-          'MentionRepository: Error creating notifications for comment mentions - $e',
+          'MentionRepository: Error inserting comment mention row for user=$userId comment=$commentId - $e',
         );
       }
+    }
 
-      return true;
+    // Always attempt notifications even if mention row inserts fail.
+    try {
+      // Fetch comment details for notification.
+      final comment = await _client
+          .from(SupabaseConfig.commentsTable)
+          .select('author_id, body, post_id')
+          .eq('id', commentId)
+          .single();
+
+      final authorId = comment['author_id'] as String;
+      final body = comment['body'] as String?;
+      final postId = comment['post_id'] as String;
+      final notificationBody =
+          'Mentioned you in a comment: "${body?.substring(0, (body.length > 50 ? 50 : body.length)) ?? ''}..."';
+
+      for (final userId in uniqueUserIds) {
+        // Don't notify if user mentions themselves.
+        if (userId == authorId) continue;
+
+        await _notificationRepository.createNotification(
+          userId: userId,
+          type: 'mention',
+          title: 'New Mention',
+          body: notificationBody,
+          actorId: authorId,
+          postId: postId,
+          commentId: commentId,
+        );
+      }
     } catch (e) {
-      debugPrint('MentionRepository: Error adding mentions to comment - $e');
+      debugPrint(
+        'MentionRepository: Error creating notifications for comment mentions - $e',
+      );
       return false;
     }
+
+    return !hasInsertError;
   }
 
   /// Remove all mentions from a post.
@@ -186,17 +203,94 @@ class MentionRepository {
     if (usernames.isEmpty) return [];
 
     try {
-      final response = await _client
+      final normalized = usernames
+          .map((u) => u.trim().replaceFirst('@', ''))
+          .where((u) => u.isNotEmpty)
+          .toSet()
+          .toList();
+      if (normalized.isEmpty) return [];
+
+      // Fast path: exact match.
+      final exactResponse = await _client
           .from(SupabaseConfig.profilesTable)
           .select('user_id')
-          .inFilter('username', usernames);
+          .inFilter('username', normalized);
 
-      return (response as List<dynamic>)
+      final resolvedIds = (exactResponse as List<dynamic>)
           .map((r) => r['user_id'] as String)
-          .toList();
+          .toSet();
+
+      // Fallback: case-insensitive match to ensure @UserName and @username both resolve.
+      if (resolvedIds.length < normalized.length) {
+        final filters = normalized.map((u) => 'username.ilike.$u').join(',');
+        final ciResponse = await _client
+            .from(SupabaseConfig.profilesTable)
+            .select('user_id')
+            .or(filters);
+        for (final row in (ciResponse as List<dynamic>)) {
+          final id = row['user_id'] as String?;
+          if (id != null && id.isNotEmpty) {
+            resolvedIds.add(id);
+          }
+        }
+      }
+
+      return resolvedIds.toList();
     } catch (e) {
       debugPrint('MentionRepository: Error resolving usernames - $e');
       return [];
+    }
+  }
+
+  /// Resolve user IDs to usernames.
+  Future<Map<String, String>> resolveUserIdsToUsernames(
+    List<String> userIds,
+  ) async {
+    if (userIds.isEmpty) return {};
+
+    final resolved = <String, String>{};
+    final unresolved = <String>[];
+    for (final id in userIds) {
+      final cached = _userIdToUsernameCache[id];
+      if (cached != null && cached.isNotEmpty) {
+        resolved[id] = cached;
+      } else {
+        unresolved.add(id);
+      }
+    }
+
+    if (unresolved.isEmpty) return resolved;
+
+    try {
+      final response = await _client
+          .from(SupabaseConfig.profilesTable)
+          .select('user_id, username')
+          .inFilter('user_id', unresolved);
+
+      for (final row in (response as List<dynamic>)) {
+        final data = row as Map<String, dynamic>;
+        final id = data['user_id'] as String?;
+        final username = data['username'] as String?;
+        if (id != null && username != null && username.isNotEmpty) {
+          _userIdToUsernameCache[id] = username;
+          resolved[id] = username;
+        }
+      }
+      return resolved;
+    } catch (e) {
+      debugPrint('MentionRepository: Error resolving user IDs - $e');
+      return resolved;
+    }
+  }
+
+  /// Seed username cache with known tagged users.
+  void seedMentionUserCache(List<Map<String, dynamic>> users) {
+    for (final user in users) {
+      final id = (user['user_id'] ?? user['id'])?.toString();
+      final username = user['username']?.toString();
+      if (id != null && id.isNotEmpty && username != null && username.isNotEmpty) {
+        _userIdToUsernameCache[id] = username;
+      }
     }
   }
 }

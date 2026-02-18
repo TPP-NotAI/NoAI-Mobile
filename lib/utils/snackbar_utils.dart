@@ -93,7 +93,7 @@ class SnackBarUtils {
     _show(
       context,
       message: message,
-      backgroundColor: Colors.orange.shade700,
+      backgroundColor: Colors.amber.shade800,
       icon: Icons.warning_amber_outlined,
       duration: duration,
       action: action,
@@ -176,7 +176,7 @@ class SnackBarUtils {
     _show(
       context,
       message: 'Please complete human verification to perform this action',
-      backgroundColor: Colors.orange.shade700,
+      backgroundColor: Colors.amber.shade800,
       icon: Icons.verified_user_outlined,
       duration: const Duration(seconds: 5),
       action: onVerify != null

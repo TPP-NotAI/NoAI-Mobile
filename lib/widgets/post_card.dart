@@ -21,6 +21,7 @@ import 'shimmer_loading.dart';
 import 'mention_rich_text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
+import '../repositories/mention_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../services/rooken_service.dart';
 import '../services/kyc_verification_service.dart';
@@ -92,7 +93,7 @@ class PostCard extends StatelessWidget {
                     SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
                     Expanded(
                       child: Text(
-                        'This post is under review by moderators.',
+                        'This post is under review.',
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(
                             context,
@@ -239,14 +240,30 @@ class _Header extends StatefulWidget {
 class _HeaderState extends State<_Header> {
   String? _displayLocation;
   bool _isLoadingLocation = false;
+  bool _isResolvingMentionUsernames = false;
+  final List<String> _resolvedMentionUsernames = [];
+  final MentionRepository _mentionRepository = MentionRepository();
 
   // Cache for geocoded locations to avoid repeated API calls
   static final Map<String, String> _locationCache = {};
+  static final Map<String, String> _mentionUsernameCache = {};
 
   @override
   void initState() {
     super.initState();
     _initLocation();
+    _resolveMentionUsernames();
+  }
+
+  @override
+  void didUpdateWidget(covariant _Header oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.id != widget.post.id ||
+        oldWidget.post.mentionedUserIds != widget.post.mentionedUserIds ||
+        oldWidget.post.content != widget.post.content) {
+      _resolvedMentionUsernames.clear();
+      _resolveMentionUsernames();
+    }
   }
 
   void _initLocation() {
@@ -339,10 +356,87 @@ class _HeaderState extends State<_Header> {
     }
   }
 
+  Future<void> _resolveMentionUsernames() async {
+    final ids = widget.post.mentionedUserIds ?? const <String>[];
+    if (ids.isEmpty) return;
+
+    final unresolvedIds = ids
+        .where((id) => !_mentionUsernameCache.containsKey(id))
+        .toList();
+
+    if (unresolvedIds.isNotEmpty) {
+      setState(() => _isResolvingMentionUsernames = true);
+      final resolved = await _mentionRepository.resolveUserIdsToUsernames(
+        unresolvedIds,
+      );
+      for (final entry in resolved.entries) {
+        _mentionUsernameCache[entry.key] = entry.value;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _resolvedMentionUsernames
+        ..clear()
+        ..addAll(
+          ids
+              .map((id) => _mentionUsernameCache[id])
+              .whereType<String>()
+              .map((u) => u.toLowerCase())
+              .toSet(),
+        );
+      _isResolvingMentionUsernames = false;
+    });
+  }
+
+  List<String> _extractInlineMentions(String text) {
+    final matches = RegExp(r'@(\w+)').allMatches(text);
+    return matches.map((m) => m.group(1)).whereType<String>().toSet().toList();
+  }
+
+  String? _buildMentionSummary(Post post) {
+    final inlineMentions = _extractInlineMentions(post.content);
+    final displayMentions = [
+      ..._resolvedMentionUsernames,
+      ...inlineMentions,
+    ].toSet().toList();
+
+    final totalMentionedCount =
+        (post.mentionedUserIds?.toSet().length ?? 0) > displayMentions.length
+        ? (post.mentionedUserIds?.toSet().length ?? 0)
+        : displayMentions.length;
+
+    if (totalMentionedCount <= 0) return null;
+
+    if (displayMentions.isEmpty) {
+      return totalMentionedCount == 1
+          ? 'with 1 person'
+          : 'with $totalMentionedCount people';
+    }
+
+    if (displayMentions.length == 1 || totalMentionedCount == 1) {
+      return 'with @${displayMentions.first}';
+    }
+
+    if (displayMentions.length >= 2) {
+      final first = '@${displayMentions[0]}';
+      final second = '@${displayMentions[1]}';
+      final shownCount = 2;
+      final others = totalMentionedCount - shownCount;
+      if (others > 0) {
+        return 'with $first, $second and $others other${others == 1 ? '' : 's'}';
+      }
+      return 'with $first and $second';
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final post = widget.post;
+    final mentionSummary = _buildMentionSummary(post);
 
     return Padding(
       padding: AppSpacing.responsiveLTRB(context, 16, 16, 8, 8),
@@ -421,6 +515,34 @@ class _HeaderState extends State<_Header> {
                       ],
                     ],
                   ),
+                  if (mentionSummary != null) ...[
+                    SizedBox(height: AppSpacing.extraSmall.responsive(context)),
+                    MentionRichText(
+                      text: _isResolvingMentionUsernames
+                          ? '$mentionSummary...'
+                          : mentionSummary,
+                      style: TextStyle(
+                        fontSize: AppTypography.responsiveFontSize(
+                          context,
+                          AppTypography.badgeText,
+                        ),
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      mentionStyle: TextStyle(
+                        fontSize: AppTypography.responsiveFontSize(
+                          context,
+                          AppTypography.badgeText,
+                        ),
+                        color: colors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      onMentionTap: (username) {
+                        navigateToMentionedUser(context, username);
+                      },
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
 
                   SizedBox(height: AppSpacing.extraSmall.responsive(context)),
                   Column(
@@ -435,8 +557,9 @@ class _HeaderState extends State<_Header> {
                                 context,
                                 11,
                               ),
-                              color:
-                                  colors.onSurfaceVariant.withValues(alpha: 0.7),
+                              color: colors.onSurfaceVariant.withValues(
+                                alpha: 0.7,
+                              ),
                             ),
                           ),
                           SizedBox(width: AppSpacing.small.responsive(context)),
@@ -453,8 +576,10 @@ class _HeaderState extends State<_Header> {
                           children: [
                             Icon(
                               Icons.location_on,
-                              size:
-                                  AppTypography.responsiveIconSize(context, 12),
+                              size: AppTypography.responsiveIconSize(
+                                context,
+                                12,
+                              ),
                               color: colors.onSurfaceVariant.withValues(
                                 alpha: 0.7,
                               ),
@@ -476,9 +601,9 @@ class _HeaderState extends State<_Header> {
                                       style: TextStyle(
                                         fontSize:
                                             AppTypography.responsiveFontSize(
-                                          context,
-                                          11,
-                                        ),
+                                              context,
+                                              11,
+                                            ),
                                         color: colors.onSurfaceVariant
                                             .withValues(alpha: 0.7),
                                       ),
@@ -1493,7 +1618,12 @@ class _PostMenu extends StatelessWidget {
     return Material(
       color: colors.surface,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          MediaQuery.of(context).padding.bottom + 16,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -15,6 +15,7 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../providers/feed_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../../repositories/tag_repository.dart';
 import '../../repositories/mention_repository.dart';
 import '../../widgets/mention_autocomplete_field.dart';
@@ -25,6 +26,8 @@ import '../../services/storage_service.dart';
 import '../../services/kyc_verification_service.dart';
 import '../../utils/verification_utils.dart';
 import '../../widgets/verification_required_widget.dart';
+import '../../config/global_keys.dart';
+import '../post_detail_screen.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final String? initialPostType;
@@ -56,7 +59,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   // Character limit constant
   static const int _maxCharacterLimit = 280;
-  double _postCostRoo = 10.0; // Default posting cost in ROO
+  double _postCostRoo = 10.0; // Default posting reward in ROO
   bool _isLoadingPostCost = false;
   static const Duration _postCostCacheTtl = Duration(hours: 6);
 
@@ -119,7 +122,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             DateTime.fromMillisecondsSinceEpoch(ts),
           );
           if (age <= _postCostCacheTtl) {
-            _postCostRoo = value;
+            _postCostRoo = value >= 10 ? value : 10.0;
           }
         }
       }
@@ -141,8 +144,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (response != null) {
         final fee =
             (response['default_publish_fee_rc'] as num?)?.toDouble() ?? 10.0;
-        // Only update if fee is valid (> 0), otherwise keep default
-        final effectiveFee = fee > 0 ? fee : 10.0;
+        // Post creation reward is at least 10 ROO.
+        final effectiveFee = fee >= 10 ? fee : 10.0;
         if (mounted) {
           setState(() {
             _postCostRoo = effectiveFee;
@@ -221,46 +224,60 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _pickMedia({required bool fromCamera}) async {
     try {
+      if (!fromCamera) {
+        final pickedMedia = await _imagePicker.pickMultipleMedia();
+        if (pickedMedia.isNotEmpty) {
+          final filesToAdd = <File>[];
+          final typesToAdd = <String>[];
+
+          for (final media in pickedMedia) {
+            final mediaType = _detectMediaType(media.path);
+            if (mediaType == null) continue;
+            filesToAdd.add(File(media.path));
+            typesToAdd.add(mediaType);
+          }
+
+          if (filesToAdd.isNotEmpty && mounted) {
+            setState(() {
+              _selectedMediaFiles.addAll(filesToAdd);
+              _selectedMediaTypes.addAll(typesToAdd);
+            });
+
+            for (var i = 0; i < filesToAdd.length; i++) {
+              unawaited(_moderateMedia(filesToAdd[i], typesToAdd[i]));
+            }
+          }
+        }
+        return;
+      }
+
       if (_postType == 'Photo') {
-        final XFile? image = fromCamera
-            ? await _imagePicker.pickImage(source: ImageSource.camera)
-            : await _imagePicker.pickImage(source: ImageSource.gallery);
+        final XFile? image = await _imagePicker.pickImage(
+          source: ImageSource.camera,
+        );
 
         if (image != null) {
           File finalImage = File(image.path);
 
           // If from camera, copy to a permanent location to ensure file accessibility
           // Camera images are often stored in temporary cache that may be cleared
-          if (fromCamera) {
-            try {
-              debugPrint(
-                'CreatePostScreen: Copying camera image to stable path...',
-              );
-              // Read the image bytes
-              final bytes = await finalImage.readAsBytes();
-
-              // Create a permanent file path in the app's temporary directory
-              final tempDir = Directory.systemTemp;
-              final timestamp = DateTime.now().millisecondsSinceEpoch;
-              final permanentPath =
-                  '${tempDir.path}/camera_image_$timestamp.jpg';
-
-              // Write to permanent location
-              final permanentFile = File(permanentPath);
-              await permanentFile.writeAsBytes(bytes);
-
-              finalImage = permanentFile;
-              debugPrint(
-                'CreatePostScreen: Saved camera image to: $permanentPath',
-              );
-            } catch (e) {
-              debugPrint('CreatePostScreen: Error copying camera image - $e');
-              // Continue with original file if copy fails
-            }
+          try {
+            debugPrint(
+              'CreatePostScreen: Copying camera image to stable path...',
+            );
+            final bytes = await finalImage.readAsBytes();
+            final tempDir = Directory.systemTemp;
+            final timestamp = DateTime.now().millisecondsSinceEpoch;
+            final permanentPath = '${tempDir.path}/camera_image_$timestamp.jpg';
+            final permanentFile = File(permanentPath);
+            await permanentFile.writeAsBytes(bytes);
+            finalImage = permanentFile;
+            debugPrint(
+              'CreatePostScreen: Saved camera image to: $permanentPath',
+            );
+          } catch (e) {
+            debugPrint('CreatePostScreen: Error copying camera image - $e');
           }
-
-          // Proactive moderation
-          _moderateMedia(finalImage, 'image');
 
           if (mounted) {
             setState(() {
@@ -268,6 +285,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               _selectedMediaTypes.add('image');
             });
           }
+
+          unawaited(_moderateMedia(finalImage, 'image'));
         }
       } else if (_postType == 'Video') {
         final XFile? video = fromCamera
@@ -306,13 +325,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             }
           }
 
-          // Proactive moderation
-          _moderateMedia(videoFile, 'video');
+          if (mounted) {
+            setState(() {
+              _selectedMediaFiles.add(videoFile);
+              _selectedMediaTypes.add('video');
+            });
+          }
 
-          setState(() {
-            _selectedMediaFiles.add(videoFile);
-            _selectedMediaTypes.add('video');
-          });
+          unawaited(_moderateMedia(videoFile, 'video'));
         }
       }
     } catch (e) {
@@ -321,6 +341,25 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e')));
     }
+  }
+
+  String? _detectMediaType(String path) {
+    final lowerPath = path.toLowerCase();
+    const videoExtensions = {
+      '.mp4',
+      '.mov',
+      '.avi',
+      '.mkv',
+      '.webm',
+      '.m4v',
+      '.3gp',
+    };
+
+    for (final ext in videoExtensions) {
+      if (lowerPath.endsWith(ext)) return 'video';
+    }
+
+    return 'image';
   }
 
   Future<void> _moderateMedia(File file, String type) async {
@@ -343,7 +382,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           builder: (context) => AlertDialog(
             title: const Row(
               children: [
-                Icon(Icons.warning, color: Colors.orange),
+                Icon(Icons.warning, color: Colors.red),
                 SizedBox(width: 8),
                 Text('Content Warning'),
               ],
@@ -360,7 +399,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               FilledButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  _removeMedia(_selectedMediaFiles.indexOf(file));
+                  final index = _selectedMediaFiles.indexOf(file);
+                  if (index >= 0) {
+                    _removeMedia(index);
+                  }
                 },
                 child: const Text('Remove Media'),
               ),
@@ -375,6 +417,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<CroppedFile?> _cropImage(String imagePath) async {
     final colors = Theme.of(context).colorScheme;
+    final isCompactHeight = MediaQuery.of(context).size.height < 700;
 
     return await ImageCropper().cropImage(
       sourcePath: imagePath,
@@ -393,6 +436,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             CropAspectRatioPreset.ratio4x3,
             CropAspectRatioPreset.ratio16x9,
           ],
+          hideBottomControls: isCompactHeight,
+          statusBarColor: colors.surface,
         ),
         IOSUiSettings(
           title: 'Crop Image',
@@ -402,6 +447,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             CropAspectRatioPreset.ratio4x3,
             CropAspectRatioPreset.ratio16x9,
           ],
+          aspectRatioPickerButtonHidden: isCompactHeight,
+          rotateButtonsHidden: isCompactHeight,
+          rotateClockwiseButtonHidden: isCompactHeight,
+          resetAspectRatioEnabled: !isCompactHeight,
         ),
       ],
     );
@@ -1036,7 +1085,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         height: 200,
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
         child: _selectedMediaTypes[0] == 'video'
-            ? _VideoPreviewWidget(videoFile: _selectedMediaFiles[0])
+            ? _VideoPreviewWidget(
+                videoFile: _selectedMediaFiles[0],
+                showControls: false,
+              )
             : Image.file(_selectedMediaFiles[0], fit: BoxFit.cover),
       );
     }
@@ -1055,7 +1107,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         return Container(
           decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
           child: _selectedMediaTypes[index] == 'video'
-              ? _VideoPreviewWidget(videoFile: _selectedMediaFiles[index])
+              ? _VideoPreviewWidget(
+                  videoFile: _selectedMediaFiles[index],
+                  showControls: false,
+                )
               : Image.file(_selectedMediaFiles[index], fit: BoxFit.cover),
         );
       },
@@ -1126,6 +1181,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         ...inlineMentionUserIds,
       }.toList();
 
+      // Seed mention cache so tagged usernames can render immediately in post cards.
+      _mentionRepository.seedMentionUserCache(_taggedPeople);
+
       // Create the post
       if (!mounted) return;
       final feedProvider = context.read<FeedProvider>();
@@ -1175,47 +1233,107 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         setState(() {
           _hasUnsavedChanges = false;
-          _isPosting = false; // Reset early as we are leaving
+          // Keep _isPosting = true until AI check completes for feedback
         });
       }
 
-      // 2. Navigate back immediately
-      if (widget.onPostCreated != null) {
-        widget.onPostCreated!();
-      } else if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-        // Show success snackbar on the feed screen
-        ScaffoldMessenger.of(context).showSnackBar(
+      // 2. Trigger post creation and WAIT for AI detection
+      final createdPost = await feedProvider.createPost(
+        contentText,
+        title: titleText.isNotEmpty ? titleText : null,
+        mediaFiles: mediaFiles,
+        mediaTypes: mediaTypes,
+        tags: tagsList,
+        location: loc,
+        mentionedUserIds: taggedIds,
+        optimisticAuthor: optimisticAuthor,
+        optimisticTags: optimisticTags,
+        waitForAi:
+            false, // Navigate to feed immediately; AI/review continues in background
+      );
+
+      if (!mounted) return;
+      setState(() => _isPosting = false);
+
+      if (createdPost != null) {
+        // Refresh wallet/user state so new ROO rewards reflect quickly in UI.
+        if (createdPost.status == 'published') {
+          unawaited(
+            context.read<WalletProvider>().refreshWallet(userId).catchError((
+              _,
+            ) {
+              return null;
+            }),
+          );
+          unawaited(
+            context.read<UserProvider>().fetchUser(userId).catchError((_) {
+              return null;
+            }),
+          );
+        }
+
+        // 3. Navigate to feed after successful creation
+        if (widget.onPostCreated != null) {
+          widget.onPostCreated!();
+        }
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+
+        String? message;
+        Color? backgroundColor;
+
+        if (createdPost.status == 'published') {
+          message = 'Post published successfully!';
+          backgroundColor = Colors.green;
+        } else if (createdPost.status == 'deleted' ||
+            createdPost.status == 'hidden') {
+          final reason = createdPost.authenticityNotes != null
+              ? ': ${createdPost.authenticityNotes}'
+              : '';
+          message = 'Post rejected$reason';
+          backgroundColor = Colors.red;
+        } else if (createdPost.status == 'under_review') {
+          message = 'Post sent to review. It will show after review.';
+          backgroundColor = Colors.amber.shade700;
+        } else {
+          message = null;
+          backgroundColor = null;
+        }
+
+        if (message != null && backgroundColor != null) {
+          rootScaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: backgroundColor,
+              duration: const Duration(seconds: 7),
+              action: SnackBarAction(
+                label: 'VIEW',
+                textColor: Colors.white,
+                onPressed: () {
+                  rootNavigatorKey.currentState?.push(
+                    MaterialPageRoute(
+                      builder: (_) => PostDetailScreen(post: createdPost),
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        }
+      } else {
+        // Keep user on create screen if creation failed.
+        rootScaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(
-            content: Text('Publishing your post...'),
-            duration: Duration(seconds: 2),
+            content: Text('Failed to create post. Please try again.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 7),
           ),
         );
       }
-
-      // 3. Trigger post creation in background (do not await)
-      feedProvider
-          .createPost(
-            contentText,
-            title: titleText.isNotEmpty ? titleText : null,
-            mediaFiles: mediaFiles,
-            mediaTypes: mediaTypes,
-            tags: tagsList,
-            location: loc,
-            mentionedUserIds: taggedIds,
-            optimisticAuthor: optimisticAuthor,
-            optimisticTags: optimisticTags,
-          )
-          .then((post) {
-            if (post != null) {
-              debugPrint('Post created successfully in background');
-            }
-          })
-          .catchError((e) {
-            debugPrint('Optimistic Post Error: $e');
-          });
     } on KycNotVerifiedException catch (e) {
       if (!mounted) return;
+      setState(() => _isPosting = false);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1235,15 +1353,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         );
       }
     } catch (e) {
-      if (!mounted) return;
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to start posting: $e')));
-      }
-    } finally {
+      debugPrint('Error creating post: $e');
       if (mounted) {
         setState(() => _isPosting = false);
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to create post: $e')));
+        }
       }
     }
   }
@@ -1353,7 +1470,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       if (_postCostRoo > 0) {
                         return Tooltip(
                           message:
-                              'You’ll earn ${_postCostRoo.toStringAsFixed(2)} ROO',
+                              'You’ll earn ${_postCostRoo.toStringAsFixed(_postCostRoo % 1 == 0 ? 0 : 10)} ROO',
                           child: postButton,
                         );
                       }
@@ -1681,7 +1798,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     _optionCard(
                       context,
                       icon: Icons.token,
-                      title: 'Earn 5.00 Rooken',
+                      title: 'Earn 5.00 Roobyte',
                       subtitle: 'Reward for original content',
                     ),
                     const SizedBox(height: 16),
@@ -1822,14 +1939,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         children: [
           Row(
             children: [
-              Icon(
-                isPhoto ? Icons.photo_library : Icons.video_library,
-                color: colors.primary,
-                size: 20,
-              ),
+              Icon(Icons.perm_media, color: colors.primary, size: 20),
               const SizedBox(width: 8),
               Text(
-                isPhoto ? 'Add Photo' : 'Add Video',
+                'Add Media',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -1842,9 +1955,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               Expanded(
                 child: _mediaOptionButton(
                   context,
-                  icon: isPhoto
-                      ? Icons.photo_library_outlined
-                      : Icons.video_library_outlined,
+                  icon: Icons.perm_media_outlined,
                   label: 'Gallery',
                   onTap: () => _pickMedia(fromCamera: false),
                 ),
@@ -2078,7 +2189,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       builder: (context) {
         final colors = Theme.of(context).colorScheme;
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2165,7 +2281,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       builder: (context) {
         final colors = Theme.of(context).colorScheme;
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2609,8 +2730,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 // Video Preview Widget
 class _VideoPreviewWidget extends StatefulWidget {
   final File videoFile;
+  final bool showControls;
 
-  const _VideoPreviewWidget({required this.videoFile});
+  const _VideoPreviewWidget({
+    required this.videoFile,
+    this.showControls = true,
+  });
 
   @override
   State<_VideoPreviewWidget> createState() => _VideoPreviewWidgetState();
@@ -2641,7 +2766,10 @@ class _VideoPreviewWidgetState extends State<_VideoPreviewWidget> {
       videoPlayerController: _controller!,
       autoPlay: false,
       looping: false,
-      showControls: true,
+      showControls: widget.showControls,
+      allowFullScreen: false,
+      allowMuting: false,
+      allowPlaybackSpeedChanging: false,
       aspectRatio: aspectRatio,
       materialProgressColors: ChewieProgressColors(
         playedColor: Theme.of(context).colorScheme.primary,
@@ -2741,7 +2869,9 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+        bottom:
+            MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).padding.bottom,
       ),
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -2908,7 +3038,12 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
       expand: false,
       builder: (context, scrollController) {
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3124,7 +3259,12 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
       expand: false,
       builder: (context, scrollController) {
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

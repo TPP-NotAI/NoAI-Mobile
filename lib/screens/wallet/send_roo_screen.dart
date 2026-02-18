@@ -7,14 +7,20 @@ import '../../models/user.dart';
 import '../../providers/user_provider.dart';
 
 import '../../config/app_colors.dart';
+import '../../config/global_keys.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/wallet_provider.dart';
 import 'user_search_sheet.dart';
 
 class SendRooScreen extends StatefulWidget {
   final double currentBalance;
+  final User? initialRecipient;
 
-  const SendRooScreen({super.key, required this.currentBalance});
+  const SendRooScreen({
+    super.key,
+    required this.currentBalance,
+    this.initialRecipient,
+  });
 
   @override
   State<SendRooScreen> createState() => _SendRooScreenState();
@@ -35,6 +41,9 @@ class _SendRooScreenState extends State<SendRooScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialRecipient != null) {
+      _recipientController.text = '@${widget.initialRecipient!.username}';
+    }
     _recipientController.addListener(_onRecipientChanged);
   }
 
@@ -188,103 +197,100 @@ class _SendRooScreenState extends State<SendRooScreen> {
         throw Exception('You cannot send ROO to your own account');
       }
 
-      // 2. Perform transfer
-      await walletProvider.transferToExternal(
+      final memo = _noteController.text.trim().isEmpty
+          ? null
+          : _noteController.text.trim();
+
+      // 2. Optimistic local update (immediate)
+      final localTxId = walletProvider.addOptimisticOutgoingTransaction(
         userId: user.id,
-        toAddress: toAddress,
         amount: amount,
-        memo: _noteController.text.trim().isEmpty
-            ? null
-            : _noteController.text.trim(),
-        metadata: {
-          'activityType': 'transfer',
-          'inputRecipient': recipient,
-        },
+        txType: 'transfer',
+        memo: memo,
+        metadata: {'activityType': 'transfer', 'inputRecipient': recipient},
       );
 
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-
-      // Show success dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+      // 3. Close quickly and show "pending confirmation"
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      rootScaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Sent ${amount.toStringAsFixed(2)} ROO to $recipient. Confirming on-chain...',
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle,
-                  color: Colors.green,
-                  size: 50,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Transaction Successful!',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Sent ${amount.toStringAsFixed(2)} ROO to',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              Text(
-                recipient,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-          actions: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context); // Return to wallet screen
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Done',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ],
+          backgroundColor: Colors.green.shade600,
+          behavior: SnackBarBehavior.floating,
         ),
+      );
+
+      // 4. Confirm in background and reconcile UI
+      unawaited(
+        walletProvider
+            .transferToExternal(
+              userId: user.id,
+              toAddress: toAddress,
+              amount: amount,
+              memo: memo,
+              metadata: {
+                'activityType': 'transfer',
+                'inputRecipient': recipient,
+              },
+            )
+            .then((success) async {
+              if (success) {
+                walletProvider.confirmOptimisticTransaction(localTxId);
+                await walletProvider.refreshWallet(user.id).catchError(
+                  (_) => null,
+                );
+                rootScaffoldMessengerKey.currentState?.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Transfer confirmed: ${amount.toStringAsFixed(2)} ROO',
+                    ),
+                    backgroundColor: Colors.green.shade700,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                return;
+              }
+
+              final error =
+                  walletProvider.error ?? 'Transfer failed. Balance restored.';
+              walletProvider.rollbackOptimisticTransaction(
+                localTxId,
+                errorMessage: error,
+              );
+              rootScaffoldMessengerKey.currentState?.showSnackBar(
+                SnackBar(
+                  content: Text(error),
+                  backgroundColor: AppColors.error,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            })
+            .catchError((e) {
+              final error = e.toString().replaceAll('Exception: ', '');
+              walletProvider.rollbackOptimisticTransaction(
+                localTxId,
+                errorMessage: error,
+              );
+              rootScaffoldMessengerKey.currentState?.showSnackBar(
+                SnackBar(
+                  content: Text(error),
+                  backgroundColor: AppColors.error,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }),
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isProcessing = false);
       _showError(e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 
@@ -341,7 +347,12 @@ class _SendRooScreenState extends State<SendRooScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(context).padding.bottom + 20,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

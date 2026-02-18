@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 class VerificationRequiredWidget extends StatelessWidget {
   final String message;
-  final VoidCallback onVerifyTap;
+  final VoidCallback? onVerifyTap;
 
   const VerificationRequiredWidget({
     super.key,
     required this.message,
-    required this.onVerifyTap,
+    this.onVerifyTap,
   });
 
   @override
@@ -42,7 +42,13 @@ class VerificationRequiredWidget extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: onVerifyTap,
+              onPressed: () {
+                if (onVerifyTap != null) {
+                  onVerifyTap!();
+                } else {
+                  Navigator.pushNamed(context, '/verify');
+                }
+              },
               icon: const Icon(Icons.verified, size: 18),
               label: const Text('Verify Now'),
             ),

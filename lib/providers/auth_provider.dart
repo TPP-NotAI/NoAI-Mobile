@@ -1,15 +1,14 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
-import '../utils/validators.dart';
-import '../services/auth_service.dart';
-import '../services/supabase_service.dart';
-import '../config/supabase_config.dart';
+import 'package:rooverse/utils/validators.dart';
+import 'package:rooverse/services/auth_service.dart';
+import 'package:rooverse/services/supabase_service.dart';
+import 'package:rooverse/config/supabase_config.dart';
 import 'package:rooverse/models/user.dart';
 import 'package:rooverse/services/referral_service.dart';
-import '../core/errors/error_mapper.dart';
-import '../core/errors/app_exception.dart';
-import '../utils/snackbar_utils.dart';
+import 'package:rooverse/core/errors/error_mapper.dart';
+import 'package:rooverse/core/errors/app_exception.dart';
 
 /// Authentication status states.
 enum AuthStatus { initial, loading, authenticated, unauthenticated, banned }
@@ -254,6 +253,12 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       throw appException; // Re-throw for UI to handle with SnackBarUtils
     }
+  }
+
+  /// Check if a username is available.
+  Future<bool> isUsernameAvailable(String username) async {
+    if (username.isEmpty || username.length < 3) return false;
+    return await _authService.isUsernameAvailable(username);
   }
 
   /// Verify email with OTP code.

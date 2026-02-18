@@ -11,8 +11,6 @@ import 'legal/privacy_policy_screen.dart';
 import 'support/faq_screen.dart';
 import 'support/support_chat_screen.dart';
 import 'wallet/transaction_history_screen.dart';
-import 'status/status_screen.dart';
-import 'moderation/mod_queue_screen.dart';
 import 'bookmarks/bookmarks_screen.dart';
 import 'security/password_security_screen.dart';
 import 'settings/blocked_muted_users_screen.dart';
@@ -22,6 +20,7 @@ import 'notifications/notification_settings_screen.dart';
 import 'auth/human_verification_screen.dart';
 import 'auth/phone_verification_screen.dart';
 import 'wallet/wallet_screen.dart';
+import '../services/app_update_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -194,35 +193,9 @@ class SettingsScreen extends StatelessWidget {
               );
             },
           ),
-          _buildSettingsTile(
-            context,
-            icon: Icons.assignment,
-            iconColor: Colors.blue,
-            title: 'Status & Appeals',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const StatusScreen()),
-              );
-            },
-          ),
-          _buildSettingsTile(
-            context,
-            icon: Icons.admin_panel_settings,
-            iconColor: Colors.purple,
-            title: 'Mod Queue',
-            subtitle: 'Moderation dashboard',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ModQueueScreen()),
-              );
-            },
-          ),
-
           const SizedBox(height: 24),
 
-          _buildSectionHeader(context, 'ROOKEN WALLET'),
+          _buildSectionHeader(context, 'ROOBYTE WALLET'),
           _buildSettingsTile(
             context,
             icon: Icons.account_balance_wallet,
@@ -362,6 +335,18 @@ class SettingsScreen extends StatelessWidget {
             title: 'About ROOVERSE',
             onTap: () => _showAboutDialog(context),
           ),
+          _buildSettingsTile(
+            context,
+            icon: Icons.system_update,
+            iconColor: Colors.teal,
+            title: 'Check for Updates',
+            onTap: () async {
+              await AppUpdateService.instance.checkAndPromptForUpdate(
+                context,
+                manual: true,
+              );
+            },
+          ),
 
           const SizedBox(height: 24),
 
@@ -453,44 +438,44 @@ class SettingsScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: iconColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: iconColor),
                 ),
-                child: Icon(icon, color: iconColor),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(fontSize: 16, color: scheme.onSurface),
-                    ),
-                    if (subtitle != null)
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: scheme.onSurface.withOpacity(0.6),
-                        ),
+                        title,
+                        style: TextStyle(fontSize: 16, color: scheme.onSurface),
                       ),
-                  ],
+                      if (subtitle != null)
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: scheme.onSurface.withOpacity(0.4),
-              ),
-            ],
+                Icon(
+                  Icons.chevron_right,
+                  color: scheme.onSurface.withOpacity(0.4),
+                ),
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -556,7 +541,10 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: scheme.surface,
-        title: Text('About ROOVERSE', style: TextStyle(color: scheme.onSurface)),
+        title: Text(
+          'About ROOVERSE',
+          style: TextStyle(color: scheme.onSurface),
+        ),
         content: Text(
           'ROOVERSE – Human-First Social Platform\n\nVersion 1.0.2\n\n© 2026 ROOVERSE Inc.',
           style: TextStyle(color: scheme.onSurface.withOpacity(0.75)),
@@ -590,8 +578,9 @@ class SettingsScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () async {
+              final authProvider = context.read<AuthProvider>();
               Navigator.pop(dialogContext);
-              await context.read<AuthProvider>().signOut();
+              await authProvider.signOut();
             },
             child: const Text('Log Out', style: TextStyle(color: Colors.red)),
           ),
@@ -643,8 +632,8 @@ class SettingsScreen extends StatelessWidget {
             onPressed: () async {
               if (controller.text.trim().toUpperCase() == 'DELETE') {
                 Navigator.pop(dialogContext);
-                // Sign out the user (actual account deletion requires server-side implementation)
-                await context.read<AuthProvider>().signOut();
+                final auth = context.read<AuthProvider>();
+                await auth.signOut();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

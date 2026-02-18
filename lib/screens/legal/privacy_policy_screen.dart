@@ -68,7 +68,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             ),
             _buildBulletPoint(
               context,
-              'Wallet address for Rooken transactions',
+              'Wallet address for Roobyte transactions',
             ),
 
             const SizedBox(height: 12),
@@ -90,7 +90,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             ),
             _buildBulletPoint(
               context,
-              'Process Rooken rewards and transactions',
+              'Process Roobyte rewards and transactions',
             ),
             _buildBulletPoint(
               context,
@@ -132,10 +132,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            _buildSectionTitle(context, '4. Blockchain & Rooken'),
+            _buildSectionTitle(context, '4. Blockchain & Roobyte'),
             _buildParagraph(
               context,
-              'Rooken transactions are recorded on the Ethereum blockchain. Please note:',
+              'Roobyte transactions are recorded on the Ethereum blockchain. Please note:',
             ),
             _buildBulletPoint(
               context,

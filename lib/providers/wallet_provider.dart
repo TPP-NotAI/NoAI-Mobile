@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../core/extensions/exception_extensions.dart';
 import '../models/wallet.dart';
@@ -227,7 +229,9 @@ class WalletProvider with ChangeNotifier {
         metadata: metadata,
       );
 
-      await loadWallet(userId);
+      // Post-transfer DB updates are backgrounded in the repository.
+      // Refresh asynchronously so we don't block UI waiting on indexers.
+      unawaited(refreshWallet(userId).catchError((_) => null));
       return true;
     } catch (e) {
       debugPrint('Error transferring: $e');
@@ -237,6 +241,122 @@ class WalletProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Add a local pending outgoing transaction and deduct balance immediately.
+  String addOptimisticOutgoingTransaction({
+    required String userId,
+    required double amount,
+    required String txType,
+    String? toUserId,
+    String? memo,
+    Map<String, dynamic>? metadata,
+  }) {
+    final localId = 'optimistic_${DateTime.now().microsecondsSinceEpoch}';
+    final now = DateTime.now();
+
+    if (_wallet != null) {
+      _wallet = _wallet!.copyWith(
+        balanceRc: (_wallet!.balanceRc - amount)
+            .clamp(0.0, double.infinity)
+            .toDouble(),
+        pendingBalanceRc: _wallet!.pendingBalanceRc + amount,
+        dailySentTodayRc: _wallet!.dailySentTodayRc + amount,
+        lifetimeSpentRc: _wallet!.lifetimeSpentRc + amount,
+        updatedAt: now,
+      );
+    }
+
+    _transactions = [
+      RookenTransaction(
+        id: localId,
+        txType: txType,
+        status: 'pending',
+        fromUserId: userId,
+        toUserId: toUserId,
+        amountRc: amount,
+        memo: memo,
+        metadata: metadata,
+        createdAt: now,
+      ),
+      ..._transactions,
+    ];
+
+    notifyListeners();
+    return localId;
+  }
+
+  /// Mark a previously optimistic transaction as confirmed.
+  void confirmOptimisticTransaction(String localId, {String? txHash}) {
+    final index = _transactions.indexWhere((tx) => tx.id == localId);
+    if (index == -1) return;
+
+    final original = _transactions[index];
+    _transactions[index] = RookenTransaction(
+      id: original.id,
+      txType: original.txType,
+      status: 'completed',
+      fromUserId: original.fromUserId,
+      toUserId: original.toUserId,
+      amountRc: original.amountRc,
+      feeRc: original.feeRc,
+      referencePostId: original.referencePostId,
+      referenceCommentId: original.referenceCommentId,
+      memo: original.memo,
+      txHash: txHash ?? original.txHash,
+      metadata: original.metadata,
+      createdAt: original.createdAt,
+      completedAt: DateTime.now(),
+    );
+
+    if (_wallet != null) {
+      _wallet = _wallet!.copyWith(
+        pendingBalanceRc: (_wallet!.pendingBalanceRc - original.amountRc).clamp(
+          0.0,
+          double.infinity,
+        ).toDouble(),
+        updatedAt: DateTime.now(),
+      );
+    }
+
+    notifyListeners();
+  }
+
+  /// Remove an optimistic transaction and restore balance if transfer fails.
+  void rollbackOptimisticTransaction(String localId, {String? errorMessage}) {
+    final index = _transactions.indexWhere((tx) => tx.id == localId);
+    if (index == -1) {
+      if (errorMessage != null) {
+        _error = errorMessage;
+        notifyListeners();
+      }
+      return;
+    }
+
+    final tx = _transactions[index];
+    _transactions.removeAt(index);
+
+    if (_wallet != null) {
+      _wallet = _wallet!.copyWith(
+        balanceRc: _wallet!.balanceRc + tx.amountRc,
+        pendingBalanceRc: (_wallet!.pendingBalanceRc - tx.amountRc).clamp(
+          0.0,
+          double.infinity,
+        ).toDouble(),
+        dailySentTodayRc: (_wallet!.dailySentTodayRc - tx.amountRc).clamp(
+          0.0,
+          double.infinity,
+        ).toDouble(),
+        lifetimeSpentRc: (_wallet!.lifetimeSpentRc - tx.amountRc).clamp(
+          0.0,
+          double.infinity,
+        ).toDouble(),
+        updatedAt: DateTime.now(),
+      );
+    }
+
+    _error = errorMessage ?? _error;
+    notifyListeners();
   }
 
   /// Earn ROOK (e.g. from content creation)

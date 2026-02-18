@@ -561,9 +561,7 @@ class FeedProvider with ChangeNotifier {
                         aiScore,
                         status: 'published',
                       );
-                      _posts[idx] = post.copyWith(
-                        commentList: updatedComments,
-                      );
+                      _posts[idx] = post.copyWith(commentList: updatedComments);
                     }
                     notifyListeners();
                   }
@@ -705,8 +703,9 @@ class FeedProvider with ChangeNotifier {
                           aiScore,
                           status: 'published',
                         );
-                        _posts[idx] =
-                            post.copyWith(commentList: updatedComments);
+                        _posts[idx] = post.copyWith(
+                          commentList: updatedComments,
+                        );
                       }
                       notifyListeners();
                     }
@@ -837,8 +836,9 @@ class FeedProvider with ChangeNotifier {
                           aiScore,
                           status: 'published',
                         );
-                        _posts[idx] =
-                            post.copyWith(commentList: updatedComments);
+                        _posts[idx] = post.copyWith(
+                          commentList: updatedComments,
+                        );
                       }
                       notifyListeners();
                     }
@@ -1171,6 +1171,7 @@ class FeedProvider with ChangeNotifier {
     List<String>? mentionedUserIds,
     PostAuthor? optimisticAuthor,
     List<PostTag>? optimisticTags,
+    bool waitForAi = false,
   }) async {
     final userId = _currentUserId;
     if (userId == null) return null;
@@ -1179,7 +1180,7 @@ class FeedProvider with ChangeNotifier {
     await _kycService.requireVerification();
 
     String? tempId;
-    if (optimisticAuthor != null) {
+    if (optimisticAuthor != null && waitForAi) {
       tempId = 'temp_${DateTime.now().microsecondsSinceEpoch}';
       final optimisticPost = Post(
         id: tempId,
@@ -1209,64 +1210,123 @@ class FeedProvider with ChangeNotifier {
       );
 
       if (newPost != null) {
+        final bool shouldShowInFeed =
+            newPost.status != 'under_review' &&
+            newPost.status != 'deleted' &&
+            newPost.status != 'hidden';
+
         // Replace optimistic post if present, otherwise add to the beginning
         if (tempId != null) {
           final idx = _posts.indexWhere((p) => p.id == tempId);
-          if (idx != -1) {
-            _posts[idx] = newPost;
-          } else {
+          if (idx != -1 && shouldShowInFeed) {
+            final optimisticMentions = _posts[idx].mentionedUserIds;
+            _posts[idx] =
+                (newPost.mentionedUserIds == null ||
+                    newPost.mentionedUserIds!.isEmpty)
+                ? newPost.copyWith(mentionedUserIds: optimisticMentions)
+                : newPost;
+          } else if (idx != -1 && !shouldShowInFeed) {
+            _posts.removeAt(idx);
+          } else if (shouldShowInFeed) {
             _posts.insert(0, newPost);
           }
-        } else {
+        } else if (shouldShowInFeed) {
           _posts.insert(0, newPost);
         }
         notifyListeners();
 
-        // Fire-and-forget: run AI detection in the background.
-        // The post is visible immediately with a PENDING badge.
-        // Once detection completes, update the local post so the
-        // badge switches to PASS/FAIL without needing a feed refresh.
-        _postRepository
-            .runAiDetection(
-              postId: newPost.id,
-              authorId: userId,
-              body: body,
-              mediaFiles: mediaFiles,
-            )
-            .then((confidence) {
-              if (confidence != null) {
-                // Check if AI score is 95%+ (auto-block threshold)
-                // Remove immediately from UI without waiting for backend
-                if (confidence >= 95) {
+        // Run AI detection
+        final detectionFuture = _postRepository.runAiDetection(
+          postId: newPost.id,
+          authorId: userId,
+          body: body,
+          mediaFiles: mediaFiles,
+        );
+
+        if (waitForAi) {
+          final confidence = await detectionFuture;
+          if (confidence != null) {
+            // Fetch updated post to get the AI score and final status
+            final updatedPost = await _postRepository.getPost(
+              newPost.id,
+              currentUserId: userId,
+            );
+
+            if (updatedPost != null) {
+              final idx = _posts.indexWhere((p) => p.id == newPost.id);
+              if (idx != -1) {
+                final previousMentions = _posts[idx].mentionedUserIds;
+                final mergedPost =
+                    (updatedPost.mentionedUserIds == null ||
+                        updatedPost.mentionedUserIds!.isEmpty)
+                    ? updatedPost.copyWith(mentionedUserIds: previousMentions)
+                    : updatedPost;
+                if (updatedPost.status == 'under_review' ||
+                    updatedPost.status == 'deleted' ||
+                    updatedPost.status == 'hidden') {
+                  // Post was flagged or auto-blocked — remove from feed
+                  _posts.removeAt(idx);
+                } else {
+                  _posts[idx] = mergedPost;
+                }
+                notifyListeners();
+              }
+              return updatedPost; // Return the final updated post
+            }
+          }
+          return newPost; // Return original if detection didn't change anything (or failed)
+        } else {
+          // Fire-and-forget: run AI detection in the background.
+          detectionFuture.then((confidence) {
+            if (confidence != null) {
+              // Check if AI score is 95%+ (auto-block threshold)
+              // Remove immediately from UI without waiting for backend
+              if (confidence >= 95) {
+                final idx = _posts.indexWhere((p) => p.id == newPost.id);
+                if (idx != -1) {
+                  _posts.removeAt(idx);
+                  notifyListeners();
+                }
+                _showPostAiReviewResultSnackBar(status: 'deleted');
+                return;
+              }
+
+              // Fetch updated post to get the AI score and status
+              _postRepository.getPost(newPost.id, currentUserId: userId).then((
+                updatedPost,
+              ) {
+                if (updatedPost != null) {
                   final idx = _posts.indexWhere((p) => p.id == newPost.id);
                   if (idx != -1) {
-                    _posts.removeAt(idx);
+                    final previousMentions = _posts[idx].mentionedUserIds;
+                    final mergedPost =
+                        (updatedPost.mentionedUserIds == null ||
+                            updatedPost.mentionedUserIds!.isEmpty)
+                        ? updatedPost.copyWith(
+                            mentionedUserIds: previousMentions,
+                          )
+                        : updatedPost;
+                    if (updatedPost.status == 'under_review' ||
+                        updatedPost.status == 'deleted' ||
+                        updatedPost.status == 'hidden') {
+                      // Post was flagged or auto-blocked — remove from feed
+                      _posts.removeAt(idx);
+                    } else {
+                      _posts[idx] = mergedPost;
+                    }
+                    notifyListeners();
+                  } else if (updatedPost.status == 'published') {
+                    // The post was hidden while under review; surface it
+                    // immediately once AI clears it without requiring refresh.
+                    _posts.insert(0, updatedPost);
                     notifyListeners();
                   }
-                  return;
+                  _showPostAiReviewResultSnackBar(status: updatedPost.status);
                 }
-
-                // Fetch updated post to get the AI score and status
-                _postRepository.getPost(newPost.id, currentUserId: userId).then(
-                  (updatedPost) {
-                    if (updatedPost != null) {
-                      final idx = _posts.indexWhere((p) => p.id == newPost.id);
-                      if (idx != -1) {
-                        if (updatedPost.status == 'under_review' ||
-                            updatedPost.status == 'deleted' ||
-                            updatedPost.status == 'hidden') {
-                          // Post was flagged or auto-blocked — remove from feed
-                          _posts.removeAt(idx);
-                        } else {
-                          _posts[idx] = updatedPost;
-                        }
-                        notifyListeners();
-                      }
-                    }
-                  },
-                );
-              }
-            });
+              });
+            }
+          });
+        }
       }
 
       return newPost;
@@ -1278,6 +1338,13 @@ class FeedProvider with ChangeNotifier {
       debugPrint('Failed to create post: $e');
       return null;
     }
+  }
+
+  void _showPostAiReviewResultSnackBar({required String status}) {
+    if (status.isEmpty) return;
+    // AI status snackbars are handled centrally by NotificationProvider via
+    // real-time notifications. Suppress local duplicate snackbars here.
+    return;
   }
 
   // Load comments for a post (filters out blocked users)

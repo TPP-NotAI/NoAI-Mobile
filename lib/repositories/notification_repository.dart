@@ -8,6 +8,29 @@ import '../models/notification_settings.dart';
 class NotificationRepository {
   final _client = SupabaseService().client;
 
+  String _normalizeType(String type) {
+    // DB enum currently supports legacy social/system types.
+    // Map newer AI status variants to `mention` so inserts don't fail.
+    if (type.startsWith('post_') ||
+        type.startsWith('comment_') ||
+        type.startsWith('story_')) {
+      return 'mention';
+    }
+    return type;
+  }
+
+  bool _isPreferenceEnabled(
+    Map<String, dynamic> prefs,
+    List<String> keys, {
+    bool defaultValue = true,
+  }) {
+    for (final key in keys) {
+      final value = prefs[key];
+      if (value is bool) return value;
+    }
+    return defaultValue;
+  }
+
   /// Fetch notifications for a user.
   /// Returns notifications ordered by most recent first.
   Future<List<NotificationModel>> getNotifications({
@@ -125,8 +148,9 @@ class NotificationRepository {
     String? storyId,
   }) async {
     try {
+      final normalizedType = _normalizeType(type);
       debugPrint(
-        'NotificationRepository: Creating notification type=$type for user=$userId from actor=$actorId',
+        'NotificationRepository: Creating notification type=$type (normalized=$normalizedType) for user=$userId from actor=$actorId',
       );
 
       // Don't create notification if user is notifying themselves
@@ -145,20 +169,29 @@ class NotificationRepository {
 
         if (prefs != null) {
           bool enabled = true;
-          switch (type) {
+          switch (normalizedType) {
             case 'follow':
-              enabled = prefs['notify_follows'] ?? true;
+              enabled = _isPreferenceEnabled(prefs, ['inapp_follows']);
               break;
             case 'comment':
             case 'reply':
-              enabled = prefs['notify_comments'] ?? true;
+              enabled = _isPreferenceEnabled(prefs, [
+                'inapp_comments',
+                'notify_comments',
+              ]);
               break;
             case 'like':
             case 'reaction':
-              enabled = prefs['notify_reactions'] ?? true;
+              enabled = _isPreferenceEnabled(prefs, [
+                'inapp_reactions',
+                'notify_reactions',
+              ]);
               break;
             case 'mention':
-              enabled = prefs['notify_mentions'] ?? true;
+              enabled = _isPreferenceEnabled(prefs, [
+                'inapp_mentions',
+                'notify_mentions',
+              ]);
               break;
             case 'roocoin_received':
             case 'roocoin_sent':
@@ -182,7 +215,7 @@ class NotificationRepository {
 
       final data = {
         'user_id': userId,
-        'type': type,
+        'type': normalizedType,
         'title': title,
         'body': body,
         'actor_id': actorId,
