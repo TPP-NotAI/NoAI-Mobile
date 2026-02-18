@@ -332,14 +332,16 @@ class ChatService {
         .select()
         .single();
 
+    final previewContent = Message.stripStoryReferenceFromContent(content);
+
     // Update thread's last_message_at and preview
     await _supabase
         .from('dm_threads')
         .update({
           'last_message_at': DateTime.now().toIso8601String(),
-          'last_message_preview': content.length > 100
-              ? '${content.substring(0, 100)}...'
-              : content,
+          'last_message_preview': previewContent.length > 100
+              ? '${previewContent.substring(0, 100)}...'
+              : previewContent,
         })
         .eq('id', threadId);
 
@@ -354,8 +356,8 @@ class ChatService {
   /// Run AI detection on a message.
   Future<void> runAiDetection(Message message) async {
     try {
-      final hasText =
-          message.content.isNotEmpty && message.content != '[Media]';
+      final textContent = message.displayContent;
+      final hasText = textContent.isNotEmpty && textContent != '[Media]';
       final hasMedia =
           message.mediaUrl != null &&
           message.mediaUrl!.isNotEmpty &&
@@ -369,14 +371,14 @@ class ChatService {
         // Mixed detection (text + image)
         File? mediaFile = await _downloadMedia(message.mediaUrl!);
         if (mediaFile != null) {
-          result = await _aiService.detectMixed(message.content, mediaFile);
+          result = await _aiService.detectMixed(textContent, mediaFile);
           _cleanupFile(mediaFile);
         } else {
-          result = await _aiService.detectText(message.content);
+          result = await _aiService.detectText(textContent);
         }
       } else if (hasText && !hasMedia) {
         // Text only
-        result = await _aiService.detectText(message.content);
+        result = await _aiService.detectText(textContent);
       } else if (hasMedia && message.mediaType == 'image') {
         // Image only
         File? mediaFile = await _downloadMedia(message.mediaUrl!);
@@ -386,7 +388,7 @@ class ChatService {
         }
       } else if (hasText) {
         // Text fallback (messages with video captions)
-        result = await _aiService.detectText(message.content);
+        result = await _aiService.detectText(textContent);
       }
 
       if (result == null) return;

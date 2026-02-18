@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
@@ -9,6 +10,7 @@ import 'supabase_service.dart';
 /// Service for interacting with the Rooken API
 class RookenService {
   static const String baseUrl = 'https://roocoin-production.up.railway.app';
+  static const Duration _sendTimeout = Duration(seconds: 90);
 
   // Read API key from environment
   static String getApiKey() {
@@ -252,7 +254,7 @@ class RookenService {
               Uri.parse('$baseUrl/api/wallet/send'),
               headers: {'Content-Type': 'application/json'},
               body: json.encode(body),
-            ).timeout(const Duration(seconds: 25));
+            ).timeout(_sendTimeout);
 
             if (response.statusCode == 200) {
               final data = json.decode(response.body) as Map<String, dynamic>;
@@ -270,6 +272,12 @@ class RookenService {
                 'Failed to send ROOK: ${response.statusCode} - ${response.body}',
               );
             }
+          } on TimeoutException catch (e) {
+            debugPrint('Error sending ROOK (timeout): $e');
+            throw Exception(
+              'Transfer confirmation is taking longer than expected. '
+              'Please check your transaction history shortly.',
+            );
           } catch (e) {
             debugPrint('Error sending ROOK: $e');
             rethrow;

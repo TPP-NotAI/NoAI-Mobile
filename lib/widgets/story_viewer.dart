@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../config/supabase_config.dart';
 import '../models/story.dart';
+import '../models/message.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/story_provider.dart';
@@ -326,11 +327,15 @@ class _StoryViewerState extends State<StoryViewer>
       final conversation = await _chatService.getOrCreateConversation(
         story.userId,
       );
+      final payload = Message.withStoryReference(
+        content: content,
+        storyId: story.id,
+        storyUserId: story.userId,
+      );
       await _chatService.sendMessage(
         conversation.id,
-        content,
-        replyToId:
-            null, // Could optionally reference story here if DB supports it
+        payload,
+        replyToId: null,
       );
 
       if (mounted) {

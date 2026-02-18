@@ -187,7 +187,7 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
           // Counter badge
           if (mediaCount > 1)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 16,
+              top: MediaQuery.of(context).padding.top + 72,
               right: 16,
               child: Container(
                 padding:
@@ -269,15 +269,6 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
                             maxLines: 1,
                           ),
                         ),
-                        if (author.isVerified)
-                          const Padding(
-                            padding: EdgeInsets.only(left: 6),
-                            child: Icon(
-                              Icons.verified,
-                              color: Color(0xFF38BDF8),
-                              size: 16,
-                            ),
-                          ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -443,18 +434,21 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
 
   Widget _buildCloseButton() {
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.5),
-              shape: BoxShape.circle,
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, color: Colors.white, size: 24),
             ),
-            child: const Icon(Icons.close, color: Colors.white, size: 24),
+            onPressed: () => Navigator.pop(context),
           ),
-          onPressed: () => Navigator.pop(context),
         ),
       ),
     );

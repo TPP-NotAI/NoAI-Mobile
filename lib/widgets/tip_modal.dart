@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../config/global_keys.dart';
 import '../models/post.dart';
 import '../providers/feed_provider.dart';
 import '../providers/auth_provider.dart';
@@ -23,7 +24,6 @@ class _TipModalState extends State<TipModal> {
   final List<double> _quickAmounts = [5, 10, 25, 50, 100];
   final TextEditingController _customAmountController = TextEditingController();
   bool _isProcessing = false;
-  Timer? _slowNetworkHintTimer;
 
   @override
   void initState() {
@@ -36,7 +36,6 @@ class _TipModalState extends State<TipModal> {
 
   @override
   void dispose() {
-    _slowNetworkHintTimer?.cancel();
     _customAmountController.dispose();
     super.dispose();
   }
@@ -55,7 +54,8 @@ class _TipModalState extends State<TipModal> {
       return;
     }
 
-    if (_selectedAmount > user.balance) {
+    final availableBalance = walletProvider.wallet?.balanceRc ?? user.balance;
+    if (_selectedAmount > availableBalance) {
       _showError('Insufficient Roobyte balance');
       return;
     }
@@ -66,62 +66,105 @@ class _TipModalState extends State<TipModal> {
     }
 
     setState(() => _isProcessing = true);
-    _slowNetworkHintTimer?.cancel();
-    _slowNetworkHintTimer = Timer(const Duration(seconds: 12), () {
-      if (!mounted || !_isProcessing) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Still confirming your tip...'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    });
 
     try {
-      // 1. Perform the transfer
-      final success = await userProvider
-          .transferRoo(
-            fromUserId: user.id,
-            toUsername: widget.post.author.username,
-            amount: _selectedAmount,
-            memo: 'Tip for post: ${widget.post.content.split('\n').first}',
-            referencePostId: widget.post.id,
-            metadata: {'activityType': 'tip'},
-          );
+      final memo = 'Tip for post: ${widget.post.content.split('\n').first}';
+      final localTxId = walletProvider.addOptimisticOutgoingTransaction(
+        userId: user.id,
+        amount: _selectedAmount,
+        txType: 'tip',
+        toUserId: widget.post.author.userId,
+        memo: memo,
+        metadata: {
+          'activityType': 'tip',
+          'referencePostId': widget.post.id,
+          'toUsername': widget.post.author.username,
+        },
+      );
 
-      if (success) {
-        // 2. Update post tip total (also backgrounded for speed)
-        feedProvider.tipPost(widget.post.id, _selectedAmount).catchError((e) {
-          debugPrint('TipModal: Error updating post tips - $e');
-        });
-
-        // 3. Refresh wallet balance and user data in the background
-        walletProvider.refreshWallet(user.id).catchError((e) => null);
-        authProvider.reloadCurrentUser().catchError((e) => null);
-
-        if (mounted) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Sent ${_selectedAmount.toStringAsFixed(0)} ROO tip!',
-              ),
-              backgroundColor: Colors.green.shade600,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          _showError(userProvider.error ?? 'Failed to send tip');
-        }
+      if (mounted) {
+        Navigator.pop(context);
       }
+      rootScaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Sent ${_selectedAmount.toStringAsFixed(0)} ROO tip. Confirming on-chain...',
+          ),
+          backgroundColor: Colors.green.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      unawaited(
+        userProvider
+            .transferRoo(
+              fromUserId: user.id,
+              toUsername: widget.post.author.username,
+              amount: _selectedAmount,
+              memo: memo,
+              referencePostId: widget.post.id,
+              metadata: {'activityType': 'tip'},
+            )
+            .then((success) async {
+              if (success) {
+                walletProvider.confirmOptimisticTransaction(localTxId);
+
+                feedProvider.tipPost(widget.post.id, _selectedAmount).catchError((
+                  e,
+                ) {
+                  debugPrint('TipModal: Error updating post tips - $e');
+                });
+
+                await walletProvider.refreshWallet(user.id).catchError(
+                  (_) => null,
+                );
+                await authProvider.reloadCurrentUser().catchError((_) => null);
+
+                rootScaffoldMessengerKey.currentState?.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Tip confirmed: ${_selectedAmount.toStringAsFixed(0)} ROO',
+                    ),
+                    backgroundColor: Colors.green.shade700,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                return;
+              }
+
+              final error = userProvider.error ?? 'Failed to send tip';
+              walletProvider.rollbackOptimisticTransaction(
+                localTxId,
+                errorMessage: error,
+              );
+              rootScaffoldMessengerKey.currentState?.showSnackBar(
+                SnackBar(
+                  content: Text(error),
+                  backgroundColor: Colors.red.shade600,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            })
+            .catchError((e) {
+              final error = 'Failed to send tip: ${e.toString()}';
+              walletProvider.rollbackOptimisticTransaction(
+                localTxId,
+                errorMessage: error,
+              );
+              rootScaffoldMessengerKey.currentState?.showSnackBar(
+                SnackBar(
+                  content: Text(error),
+                  backgroundColor: Colors.red.shade600,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }),
+      );
     } catch (e) {
       if (mounted) {
         _showError('Failed to send tip: ${e.toString()}');
       }
     } finally {
-      _slowNetworkHintTimer?.cancel();
       if (mounted) {
         setState(() => _isProcessing = false);
       }

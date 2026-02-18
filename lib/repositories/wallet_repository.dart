@@ -873,6 +873,31 @@ class WalletRepository {
     required Wallet wallet,
   }) async {
     try {
+      String? recipientDisplayName;
+      String? recipientUsername;
+      if (recipientUserId != null) {
+        try {
+          final recipientProfile = await _supabase
+              .from('profiles')
+              .select('display_name, username')
+              .eq('user_id', recipientUserId)
+              .maybeSingle();
+          recipientDisplayName = recipientProfile?['display_name'] as String?;
+          recipientUsername = recipientProfile?['username'] as String?;
+        } catch (_) {
+          // Non-critical; fallback labels still apply in UI.
+        }
+      }
+
+      double? newBalance;
+      if (result['remainingBalance'] != null) {
+        newBalance = _parseDouble(result['remainingBalance']);
+      }
+      final senderBalanceBefore = wallet.balanceRc;
+      final senderBalanceAfter =
+          newBalance ??
+          (senderBalanceBefore - amount).clamp(0.0, double.infinity).toDouble();
+
       // 1. Record the transaction in the database
       await _supabase.from('roocoin_transactions').insert({
         'tx_type': 'transfer',
@@ -888,17 +913,16 @@ class WalletRepository {
           'toAddress': toAddress,
           'fromAddress': wallet.walletAddress,
           'direction': recipientUserId != null ? 'internal' : 'outgoing',
+          'recipientDisplayName': recipientDisplayName,
+          'recipientUsername': recipientUsername,
+          'balanceBeforeRc': senderBalanceBefore,
+          'balanceAfterRc': senderBalanceAfter,
           ...?metadata,
         },
         'completed_at': DateTime.now().toIso8601String(),
       });
 
       // 2. Update sender's wallet balance
-      double? newBalance;
-      if (result['remainingBalance'] != null) {
-        newBalance = _parseDouble(result['remainingBalance']);
-      }
-
       if (newBalance != null) {
         await _supabase
             .from('wallets')

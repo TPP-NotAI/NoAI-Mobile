@@ -283,7 +283,7 @@ class UserProvider with ChangeNotifier {
           .select('*, ${SupabaseConfig.walletsTable}(*)')
           .inFilter('user_id', userIds.toList());
 
-      return (response as List)
+      final fetched = (response as List)
           .map(
             (json) => app_models.User.fromSupabase(
               json,
@@ -291,6 +291,18 @@ class UserProvider with ChangeNotifier {
             ),
           )
           .toList();
+
+      // Merge into local cache so `getUser` can resolve sender/receiver labels.
+      for (final user in fetched) {
+        final existingIndex = _users.indexWhere((u) => u.id == user.id);
+        if (existingIndex == -1) {
+          _users.add(user);
+        } else {
+          _users[existingIndex] = user;
+        }
+      }
+
+      return fetched;
     } catch (e) {
       debugPrint('UserProvider: Error fetching users by IDs - $e');
       return [];
@@ -369,27 +381,42 @@ class UserProvider with ChangeNotifier {
           .or('from_user_id.eq.$userId,to_user_id.eq.$userId')
           .order('created_at', ascending: false);
 
-      final List<Map<String, dynamic>> rawTxs = List<Map<String, dynamic>>.from(
-        response,
-      );
+      final rawTxs = List<Map<String, dynamic>>.from(response);
 
-      // Deduplicate by tx_hash if present
-      final Set<String> seenHashes = {};
-      final List<Map<String, dynamic>> uniqueTxs = [];
-
+      // Enrich with sender/receiver profile data for transaction details UI.
+      final userIds = <String>{};
       for (final tx in rawTxs) {
-        final hash = tx['tx_hash'] as String?;
-        if (hash != null && hash.isNotEmpty) {
-          if (!seenHashes.contains(hash)) {
-            seenHashes.add(hash);
-            uniqueTxs.add(tx);
+        final fromId = tx['from_user_id'] as String?;
+        final toId = tx['to_user_id'] as String?;
+        if (fromId != null && fromId.isNotEmpty) userIds.add(fromId);
+        if (toId != null && toId.isNotEmpty) userIds.add(toId);
+      }
+
+      final profileById = <String, Map<String, dynamic>>{};
+      if (userIds.isNotEmpty) {
+        final profiles = await _supabase.client
+            .from(SupabaseConfig.profilesTable)
+            .select('user_id, username, display_name, avatar_url')
+            .inFilter('user_id', userIds.toList());
+
+        for (final row in (profiles as List)) {
+          final profile = Map<String, dynamic>.from(row as Map);
+          final id = profile['user_id'] as String?;
+          if (id != null && id.isNotEmpty) {
+            profileById[id] = profile;
           }
-        } else {
-          uniqueTxs.add(tx);
         }
       }
 
-      _transactions = uniqueTxs;
+      _transactions = rawTxs.map((tx) {
+        final enriched = Map<String, dynamic>.from(tx);
+        final fromId = tx['from_user_id'] as String?;
+        final toId = tx['to_user_id'] as String?;
+        enriched['from_profile'] =
+            fromId != null ? profileById[fromId] : null;
+        enriched['to_profile'] = toId != null ? profileById[toId] : null;
+        return enriched;
+      }).toList();
     } catch (e) {
       debugPrint('UserProvider: Error fetching transactions - $e');
       _error = e.userMessage;

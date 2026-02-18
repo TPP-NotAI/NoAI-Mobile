@@ -155,7 +155,7 @@ class _ArchivedConversationTile extends StatelessWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
-            conversation.lastMessage?.content ?? '',
+            conversation.lastMessage?.displayContent ?? '',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14),

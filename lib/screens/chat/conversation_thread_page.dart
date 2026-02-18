@@ -13,11 +13,13 @@ import 'package:intl/intl.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/story_provider.dart';
 import '../../models/conversation.dart';
 import '../../models/message.dart';
 import '../../models/user.dart';
 import 'package:swipe_to/swipe_to.dart';
 import '../profile/profile_screen.dart';
+import '../../widgets/story_viewer.dart';
 
 class ConversationThreadPage extends StatefulWidget {
   final Conversation conversation;
@@ -127,6 +129,51 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
         );
       }
     });
+  }
+
+  Future<void> _openStoryReference(Message message) async {
+    final storyId = message.storyReferenceId;
+    if (storyId == null) return;
+
+    final storyProvider = context.read<StoryProvider>();
+    if (storyProvider.stories.isEmpty && !storyProvider.isLoading) {
+      await storyProvider.loadStories();
+    }
+    if (!mounted) return;
+
+    final allStories = storyProvider.stories;
+    if (allStories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Story is no longer available.')),
+      );
+      return;
+    }
+
+    final storyIndex = allStories.indexWhere((story) => story.id == storyId);
+    if (storyIndex == -1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Story has expired or is unavailable.')),
+      );
+      return;
+    }
+
+    final targetStory = allStories[storyIndex];
+    final userStories = allStories
+        .where((story) => story.userId == targetStory.userId)
+        .toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final initialIndex = userStories.indexWhere((story) => story.id == storyId);
+
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StoryViewer(
+          stories: List.of(userStories),
+          initialIndex: initialIndex >= 0 ? initialIndex : 0,
+        ),
+      ),
+    );
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -606,6 +653,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                                 message: message,
                                 isMe: isMe,
                                 otherUserAvatar: _otherUser.avatar,
+                                onStoryTap: message.hasStoryReference
+                                    ? () => _openStoryReference(message)
+                                    : null,
                               ),
                             ),
                           ),
@@ -841,7 +891,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                         ),
                       ),
                       Text(
-                        _replyMessage!.content,
+                        _replyMessage!.displayContent,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -980,11 +1030,13 @@ class _MessageBubble extends StatelessWidget {
   final Message message;
   final bool isMe;
   final String? otherUserAvatar;
+  final VoidCallback? onStoryTap;
 
   const _MessageBubble({
     required this.message,
     required this.isMe,
     this.otherUserAvatar,
+    this.onStoryTap,
   });
 
   @override
@@ -1065,6 +1117,43 @@ class _MessageBubble extends StatelessWidget {
                               ),
                             ),
                           ),
+                        if (message.hasStoryReference && onStoryTap != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: InkWell(
+                              onTap: onStoryTap,
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors.primary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.auto_stories_outlined,
+                                      size: 16,
+                                      color: colors.primary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'View Story',
+                                      style: TextStyle(
+                                        color: colors.primary,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         if (message.messageType == 'image' &&
                             message.mediaUrl != null)
                           Padding(
@@ -1133,7 +1222,7 @@ class _MessageBubble extends StatelessWidget {
                                 message.messageType != 'audio' &&
                                 message.messageType != 'contact'))
                           Text(
-                            message.content,
+                            message.displayContent,
                             style: TextStyle(
                               color: textColor,
                               fontSize: 15,
