@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -269,6 +270,29 @@ class StoryRepository {
     return '${SupabaseConfig.supabaseUrl}/storage/v1/object/public/${SupabaseConfig.postMediaBucket}/$url';
   }
 
+  Future<File?> _downloadStoryMediaToTempFile({
+    required String mediaUrl,
+    required String mediaType,
+  }) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final extension = mediaType == 'video' ? 'mp4' : 'jpg';
+      final fileName =
+          'story_${DateTime.now().millisecondsSinceEpoch}.$extension';
+      final filePath = '${tempDir.path}/$fileName';
+
+      final response = await http.get(Uri.parse(_resolveUrl(mediaUrl)));
+      if (response.statusCode != 200) return null;
+
+      final file = File(filePath);
+      await file.writeAsBytes(response.bodyBytes);
+      return file;
+    } catch (e) {
+      debugPrint('StoryRepository: Error downloading story media - $e');
+      return null;
+    }
+  }
+
   /// Backwards compatible single-story creator.
   Future<Story?> createStory({
     required String userId,
@@ -385,6 +409,8 @@ class StoryRepository {
     required String mediaUrl,
     required String mediaType,
     String? caption,
+    int retryAttempt = 0,
+    bool allowDeferredRetry = true,
   }) async {
     try {
       final trimmedCaption = caption?.trim() ?? '';
@@ -431,26 +457,19 @@ class StoryRepository {
       } else if (hasText && !hasMedia) {
         // Text only
         result = await _aiDetectionService.detectText(trimmedCaption);
-      } else if (hasMedia && mediaType == 'image') {
-        // Image only
-        try {
-          final tempDir = await getTemporaryDirectory();
-          final fileName = 'story_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          final filePath = '${tempDir.path}/$fileName';
-
-          final response = await http.get(Uri.parse(_resolveUrl(mediaUrl)));
-          if (response.statusCode == 200) {
-            final file = File(filePath);
-            await file.writeAsBytes(response.bodyBytes);
-            result = await _aiDetectionService.detectImage(file);
-            try {
-              await file.delete();
-            } catch (e) {
-              debugPrint('StoryRepository: Failed to clean up temp file - $e');
-            }
+      } else if (hasMedia && (mediaType == 'image' || mediaType == 'video')) {
+        // Media-only story (image or video)
+        final file = await _downloadStoryMediaToTempFile(
+          mediaUrl: mediaUrl,
+          mediaType: mediaType,
+        );
+        if (file != null) {
+          result = await _aiDetectionService.detectImage(file);
+          try {
+            await file.delete();
+          } catch (e) {
+            debugPrint('StoryRepository: Failed to clean up temp file - $e');
           }
-        } catch (e) {
-          debugPrint('StoryRepository: Error in image detection - $e');
         }
       } else if (hasText) {
         // Final fallback (e.g. video script)
@@ -516,14 +535,107 @@ class StoryRepository {
 
         return {'score': aiProbability, 'status': status};
       } else {
-        // Failed but let's assume pass to not block content on API error
-        return null;
+        // Failed detection: don't leave stories stuck under review.
+        await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
+        await _sendAiResultNotification(
+          userId: authorId,
+          storyId: storyId,
+          storyStatus: 'pass',
+          aiProbability: 0.0,
+        );
+        return {'score': 0.0, 'status': 'pass'};
       }
     } catch (e) {
+      if (e is TimeoutException) {
+        if (retryAttempt < 1) {
+          debugPrint(
+            'StoryRepository: AI detection timed out for story $storyId, retrying once...',
+          );
+          await Future.delayed(const Duration(seconds: 2));
+          return runAiDetection(
+            storyId: storyId,
+            authorId: authorId,
+            mediaUrl: mediaUrl,
+            mediaType: mediaType,
+            caption: caption,
+            retryAttempt: retryAttempt + 1,
+            allowDeferredRetry: allowDeferredRetry,
+          );
+        }
+
+        debugPrint(
+          'StoryRepository: AI detection still timing out for story $storyId; keeping status under review',
+        );
+
+        await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'review');
+        await _notificationRepository.createNotification(
+          userId: authorId,
+          type: 'story_review',
+          title: 'Story Under Review',
+          body:
+              'Story analysis is taking longer than expected. It is still under AI review.',
+          storyId: storyId,
+        );
+        if (allowDeferredRetry) {
+          unawaited(
+            _scheduleDeferredAiRetry(
+              storyId: storyId,
+              authorId: authorId,
+              mediaUrl: mediaUrl,
+              mediaType: mediaType,
+              caption: caption,
+            ),
+          );
+        }
+
+        return {'score': 0.0, 'status': 'review'};
+      }
+
       debugPrint(
         'StoryRepository: AI detection failed for story $storyId - $e',
       );
-      return null;
+      try {
+        await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
+        await _sendAiResultNotification(
+          userId: authorId,
+          storyId: storyId,
+          storyStatus: 'pass',
+          aiProbability: 0.0,
+        );
+      } catch (inner) {
+        debugPrint(
+          'StoryRepository: Failed to apply fallback pass status for story $storyId - $inner',
+        );
+      }
+      return {'score': 0.0, 'status': 'pass'};
+    }
+  }
+
+  Future<void> _scheduleDeferredAiRetry({
+    required String storyId,
+    required String authorId,
+    required String mediaUrl,
+    required String mediaType,
+    String? caption,
+  }) async {
+    try {
+      debugPrint(
+        'StoryRepository: Scheduling deferred AI retry for story $storyId in 45s',
+      );
+      await Future.delayed(const Duration(seconds: 45));
+      await runAiDetection(
+        storyId: storyId,
+        authorId: authorId,
+        mediaUrl: mediaUrl,
+        mediaType: mediaType,
+        caption: caption,
+        retryAttempt: 0,
+        allowDeferredRetry: false,
+      );
+    } catch (e) {
+      debugPrint(
+        'StoryRepository: Deferred AI retry failed for story $storyId - $e',
+      );
     }
   }
 
@@ -627,7 +739,8 @@ class StoryRepository {
           break;
         case 'review':
           title = 'Story Under Review';
-          body = 'Your story is being reviewed by our moderation team.';
+          body =
+              'Your story is being checked for AI. You\'ll be notified soon.';
           type = 'story_review';
           break;
         case 'flagged':

@@ -306,6 +306,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<CroppedFile?> _cropImage(String imagePath) async {
     final colors = Theme.of(context).colorScheme;
+    final isCompactHeight = MediaQuery.of(context).size.height < 700;
 
     return await ImageCropper().cropImage(
       sourcePath: imagePath,
@@ -325,14 +326,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           cropGridColor: colors.outlineVariant,
           initAspectRatio: CropAspectRatioPreset.square,
           lockAspectRatio: true, // Force square aspect ratio
-          hideBottomControls: false,
+          hideBottomControls: isCompactHeight,
+          statusBarColor: colors.surface,
         ),
         IOSUiSettings(
           title: 'Crop Profile Picture',
           aspectRatioLockEnabled: true, // Force square aspect ratio
           resetAspectRatioEnabled: false,
           aspectRatioPickerButtonHidden: true,
-          rotateButtonsHidden: false,
+          rotateButtonsHidden: isCompactHeight,
           rotateClockwiseButtonHidden: true,
         ),
       ],

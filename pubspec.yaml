@@ -102,6 +102,7 @@ dependencies:
   flutter_local_notifications: ^17.2.2
   qr_flutter: ^4.1.0
   in_app_update: ^4.2.3
+  package_info_plus: ^8.1.2
 
 dev_dependencies:
   flutter_test:

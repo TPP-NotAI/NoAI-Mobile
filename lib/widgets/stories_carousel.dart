@@ -338,239 +338,258 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                GestureDetector(
-                  onTap: isUploading ? null : pickMediaFromGallery,
-                  child: Container(
-                    width: double.infinity,
-                    constraints: const BoxConstraints(minHeight: 200),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceVariant.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: colors.outlineVariant,
-                        width: 1.4,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 12,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        if (selectedMedia.isEmpty)
-                          Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.cloud_upload_outlined,
-                                  size: 42,
-                                  color: colors.onSurface,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Click to upload',
-                                  style: textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Image or video (max 15s)',
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: colors.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
+                      GestureDetector(
+                        onTap: isUploading ? null : pickMediaFromGallery,
+                        child: Container(
+                          width: double.infinity,
+                          constraints: const BoxConstraints(minHeight: 200),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceVariant.withValues(
+                              alpha: 0.25,
                             ),
-                          )
-                        else
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: SizedBox(
-                              width: double.infinity,
-                              height: 240,
-                              child: ListView.separated(
-                                scrollDirection: Axis.horizontal,
-                                padding: const EdgeInsets.all(8),
-                                itemBuilder: (ctx, index) {
-                                  final media = selectedMedia[index];
-                                  return Stack(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: colors.outlineVariant,
+                              width: 1.4,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 12,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            children: [
+                              if (selectedMedia.isEmpty)
+                                Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Container(
-                                        width: 220,
-                                        decoration: BoxDecoration(
-                                          color: Colors.black12,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: media.mediaType == 'video'
-                                            ? Container(
-                                                color: Colors.black.withOpacity(
-                                                  0.75,
-                                                ),
-                                                alignment: Alignment.center,
-                                                child: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: const [
-                                                    Icon(
-                                                      Icons.play_circle_fill,
-                                                      color: Colors.white,
-                                                      size: 42,
-                                                    ),
-                                                    SizedBox(height: 8),
-                                                    Text(
-                                                      'Video ready',
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              )
-                                            : Image.network(
-                                                media.url,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) =>
-                                                    Container(
-                                                      color:
-                                                          Colors.grey.shade900,
-                                                      alignment:
-                                                          Alignment.center,
-                                                      child: const Icon(
-                                                        Icons.broken_image,
-                                                        color: Colors.white,
-                                                      ),
-                                                    ),
-                                              ),
+                                      Icon(
+                                        Icons.cloud_upload_outlined,
+                                        size: 42,
+                                        color: colors.onSurface,
                                       ),
-                                      Positioned(
-                                        top: 6,
-                                        right: 6,
-                                        child: IconButton(
-                                          style: IconButton.styleFrom(
-                                            backgroundColor: Colors.black
-                                                .withOpacity(0.55),
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(32, 32),
-                                            padding: EdgeInsets.zero,
-                                          ),
-                                          icon: const Icon(Icons.close),
-                                          onPressed: isUploading
-                                              ? null
-                                              : () {
-                                                  setState(() {
-                                                    selectedMedia.removeAt(
-                                                      index,
-                                                    );
-                                                  });
-                                                },
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Click to upload',
+                                        style: textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Image or video (max 15s)',
+                                        style: textTheme.bodySmall?.copyWith(
+                                          color: colors.onSurfaceVariant,
                                         ),
                                       ),
                                     ],
-                                  );
-                                },
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(width: 10),
-                                itemCount: selectedMedia.length,
-                              ),
-                            ),
-                          ),
-                        if (selectedMedia.isNotEmpty)
-                          Positioned(
-                            left: 12,
-                            bottom: 12,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.55),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '${selectedMedia.length} item${selectedMedia.length == 1 ? '' : 's'} selected',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
+                                  ),
+                                )
+                              else
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    height: 240,
+                                    child: ListView.separated(
+                                      scrollDirection: Axis.horizontal,
+                                      padding: const EdgeInsets.all(8),
+                                      itemBuilder: (ctx, index) {
+                                        final media = selectedMedia[index];
+                                        return Stack(
+                                          children: [
+                                            Container(
+                                              width: 220,
+                                              decoration: BoxDecoration(
+                                                color: Colors.black12,
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              child: media.mediaType == 'video'
+                                                  ? Container(
+                                                      color: Colors.black
+                                                          .withOpacity(0.75),
+                                                      alignment:
+                                                          Alignment.center,
+                                                      child: Column(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: const [
+                                                          Icon(
+                                                            Icons
+                                                                .play_circle_fill,
+                                                            color: Colors.white,
+                                                            size: 42,
+                                                          ),
+                                                          SizedBox(height: 8),
+                                                          Text(
+                                                            'Video ready',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors.white,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    )
+                                                  : Image.network(
+                                                      media.url,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder:
+                                                          (
+                                                            _,
+                                                            __,
+                                                            ___,
+                                                          ) => Container(
+                                                            color: Colors
+                                                                .grey
+                                                                .shade900,
+                                                            alignment: Alignment
+                                                                .center,
+                                                            child: const Icon(
+                                                              Icons
+                                                                  .broken_image,
+                                                              color:
+                                                                  Colors.white,
+                                                            ),
+                                                          ),
+                                                    ),
+                                            ),
+                                            Positioned(
+                                              top: 6,
+                                              right: 6,
+                                              child: IconButton(
+                                                style: IconButton.styleFrom(
+                                                  backgroundColor: Colors.black
+                                                      .withOpacity(0.55),
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize: const Size(
+                                                    32,
+                                                    32,
+                                                  ),
+                                                  padding: EdgeInsets.zero,
+                                                ),
+                                                icon: const Icon(Icons.close),
+                                                onPressed: isUploading
+                                                    ? null
+                                                    : () {
+                                                        setState(() {
+                                                          selectedMedia
+                                                              .removeAt(index);
+                                                        });
+                                                      },
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(width: 10),
+                                      itemCount: selectedMedia.length,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              if (selectedMedia.isNotEmpty)
+                                Positioned(
+                                  left: 12,
+                                  bottom: 12,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.55),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${selectedMedia.length} item${selectedMedia.length == 1 ? '' : 's'} selected',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              if (isUploading)
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.35),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: isUploading
+                                  ? null
+                                  : pickMediaFromGallery,
+                              icon: const Icon(Icons.photo_library_outlined),
+                              label: const Text('Gallery'),
                             ),
                           ),
-                        if (isUploading)
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.35),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Center(
-                              child: CircularProgressIndicator(),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: isUploading
+                                  ? null
+                                  : capturePhotoFromCamera,
+                              icon: const Icon(Icons.camera_alt_outlined),
+                              label: const Text('Camera'),
                             ),
                           ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: isUploading ? null : pickMediaFromGallery,
-                        icon: const Icon(Icons.photo_library_outlined),
-                        label: const Text('Gallery'),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: isUploading ? null : capturePhotoFromCamera,
-                        icon: const Icon(Icons.camera_alt_outlined),
-                        label: const Text('Camera'),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: captionController,
+                        decoration: InputDecoration(
+                          hintText:
+                              'Add a caption or share a text story (max 250 words)',
+                          filled: true,
+                          fillColor: colors.surfaceVariant.withValues(
+                            alpha: 0.25,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: colors.primary),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          errorText: textError,
+                        ),
+                        minLines: 1,
+                        maxLines: 8,
+                        onChanged: (_) => setState(() {}),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: captionController,
-                  decoration: InputDecoration(
-                    hintText:
-                        'Add a caption or share a text story (max 250 words)',
-                    filled: true,
-                    fillColor: colors.surfaceVariant.withValues(alpha: 0.25),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: colors.primary),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    errorText: textError,
-                  ),
-                  minLines: 1,
-                  maxLines: 8,
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Supported: JPG, PNG, MP4, MOV. Videos should be 15s or less.\nYou can also share a text-only story (max 250 words).',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Supported: JPG, PNG, MP4, MOV. Videos should be 15s or less.\nYou can also share a text-only story (max 250 words).',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -645,7 +664,8 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
   Future<MediaUploadResult?> _uploadStoryMediaFile(File file) async {
     try {
       final extension = file.path.split('.').last.toLowerCase();
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('\\').last}';
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('\\').last}';
       final bucket = SupabaseConfig.postMediaBucket;
 
       final response = await SupabaseService().client.storage
@@ -654,7 +674,9 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
 
       if (response.isEmpty) return null;
 
-      final publicUrl = SupabaseService().client.storage.from(bucket).getPublicUrl(fileName);
+      final publicUrl = SupabaseService().client.storage
+          .from(bucket)
+          .getPublicUrl(fileName);
       return FileUploadUtils.mediaResult(
         url: publicUrl,
         fileExtension: extension,
@@ -815,6 +837,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
 
   Future<CroppedFile?> _cropImage(String imagePath) async {
     final colors = Theme.of(context).colorScheme;
+    final isCompactHeight = MediaQuery.of(context).size.height < 700;
 
     return await ImageCropper().cropImage(
       sourcePath: imagePath,
@@ -827,6 +850,8 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
           activeControlsWidgetColor: colors.primary,
           initAspectRatio: CropAspectRatioPreset.original,
           lockAspectRatio: false,
+          hideBottomControls: isCompactHeight,
+          statusBarColor: colors.surface,
         ),
         IOSUiSettings(
           title: 'Crop Image',
@@ -836,6 +861,10 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
             CropAspectRatioPreset.ratio4x3,
             CropAspectRatioPreset.ratio16x9,
           ],
+          aspectRatioPickerButtonHidden: isCompactHeight,
+          rotateButtonsHidden: isCompactHeight,
+          rotateClockwiseButtonHidden: isCompactHeight,
+          resetAspectRatioEnabled: !isCompactHeight,
         ),
       ],
     );

@@ -961,7 +961,7 @@ class PostRepository {
             title: 'Post Rejected',
             body: notes != null && notes.isNotEmpty
                 ? 'Your post "$displayTitle" was rejected. Reason: $notes'
-                : 'Your post "$displayTitle" was rejected by a moderator.',
+                : 'Your post "$displayTitle" was rejected.',
             postId: postId,
             actorId: moderatorId,
           );
@@ -1135,7 +1135,8 @@ class PostRepository {
         } else if (isAiResult && labelConfidence >= 60) {
           scoreStatus = 'review';
           postStatus = 'published'; // Label for transparency
-          authenticityNotes = 'POTENTIAL AI CONTENT: ${labelConfidence.toStringAsFixed(1)}% [REVIEW]';
+          authenticityNotes =
+              'POTENTIAL AI CONTENT: ${labelConfidence.toStringAsFixed(1)}% [REVIEW]';
         } else {
           scoreStatus = 'pass';
           postStatus = 'published'; // Auto-publish
@@ -1316,14 +1317,13 @@ class PostRepository {
           break;
         case 'under_review':
           title = 'Post Under Review';
-          body =
-              'Your post is being reviewed by our moderation team. You\'ll be notified once a decision is made.';
+          body = 'Your post is being checked for AI. You\'ll be notified soon.';
           type = 'post_review';
           break;
         case 'deleted':
           title = 'Post Not Published';
           body =
-              'Your post was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence). If you believe this is an error, please contact support.';
+              'Your post was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence), and was not published.';
           type = 'post_flagged';
           break;
         default:

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -11,6 +12,7 @@ import '../models/moderation_result.dart';
 class AiDetectionService {
   static const String _baseUrl = 'https://noai-lm-production.up.railway.app';
   static const Duration _timeout = Duration(seconds: 60);
+  static const Duration _mediaTimeout = Duration(seconds: 180);
 
   static final AiDetectionService _instance = AiDetectionService._internal();
   factory AiDetectionService() => _instance;
@@ -100,6 +102,17 @@ class AiDetectionService {
       final fileSize = await file.length();
       debugPrint('AiDetectionService: File size: $fileSize bytes');
 
+      final extension = file.path.split('.').last.toLowerCase();
+      final isVideo = <String>{
+        'mp4',
+        'mov',
+        'm4v',
+        'webm',
+        'avi',
+        'mkv',
+      }.contains(extension);
+      final timeout = isVideo ? _mediaTimeout : _timeout;
+
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$_baseUrl/api/v1/detect/image'),
@@ -109,11 +122,11 @@ class AiDetectionService {
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
       debugPrint('AiDetectionService: Sending request to /detect/image...');
-      final streamedResponse = await request.send().timeout(_timeout);
+      final streamedResponse = await request.send().timeout(timeout);
       debugPrint('AiDetectionService: Request sent, waiting for response...');
       final response = await http.Response.fromStream(
         streamedResponse,
-      ).timeout(_timeout);
+      ).timeout(timeout);
 
       debugPrint(
         'AiDetectionService: Received response ${response.statusCode}',
@@ -130,6 +143,9 @@ class AiDetectionService {
       }
 
       return result;
+    } on TimeoutException catch (e) {
+      debugPrint('AiDetectionService: Image detection timed out - $e');
+      rethrow;
     } catch (e) {
       debugPrint('AiDetectionService: Error detecting image - $e');
       return null;
@@ -151,6 +167,17 @@ class AiDetectionService {
         return null;
       }
 
+      final extension = file.path.split('.').last.toLowerCase();
+      final isVideo = <String>{
+        'mp4',
+        'mov',
+        'm4v',
+        'webm',
+        'avi',
+        'mkv',
+      }.contains(extension);
+      final timeout = isVideo ? _mediaTimeout : _timeout;
+
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$_baseUrl/api/v1/detect/mixed'),
@@ -161,11 +188,11 @@ class AiDetectionService {
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
       debugPrint('AiDetectionService: Sending request to /detect/mixed...');
-      final streamedResponse = await request.send().timeout(_timeout);
+      final streamedResponse = await request.send().timeout(timeout);
       debugPrint('AiDetectionService: Request sent, waiting for response...');
       final response = await http.Response.fromStream(
         streamedResponse,
-      ).timeout(_timeout);
+      ).timeout(timeout);
 
       debugPrint(
         'AiDetectionService: Received response ${response.statusCode}',
@@ -182,6 +209,9 @@ class AiDetectionService {
       }
 
       return result;
+    } on TimeoutException catch (e) {
+      debugPrint('AiDetectionService: Mixed detection timed out - $e');
+      rethrow;
     } catch (e) {
       debugPrint('AiDetectionService: Error detecting mixed content - $e');
       return null;

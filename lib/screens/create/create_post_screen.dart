@@ -59,7 +59,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   // Character limit constant
   static const int _maxCharacterLimit = 280;
-  double _postCostRoo = 10.0; // Default posting cost in ROO
+  double _postCostRoo = 10.0; // Default posting reward in ROO
   bool _isLoadingPostCost = false;
   static const Duration _postCostCacheTtl = Duration(hours: 6);
 
@@ -122,7 +122,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             DateTime.fromMillisecondsSinceEpoch(ts),
           );
           if (age <= _postCostCacheTtl) {
-            _postCostRoo = value;
+            _postCostRoo = value >= 10 ? value : 10.0;
           }
         }
       }
@@ -144,8 +144,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (response != null) {
         final fee =
             (response['default_publish_fee_rc'] as num?)?.toDouble() ?? 10.0;
-        // Only update if fee is valid (> 0), otherwise keep default
-        final effectiveFee = fee > 0 ? fee : 10.0;
+        // Post creation reward is at least 10 ROO.
+        final effectiveFee = fee >= 10 ? fee : 10.0;
         if (mounted) {
           setState(() {
             _postCostRoo = effectiveFee;
@@ -262,7 +262,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           // If from camera, copy to a permanent location to ensure file accessibility
           // Camera images are often stored in temporary cache that may be cleared
           try {
-            debugPrint('CreatePostScreen: Copying camera image to stable path...');
+            debugPrint(
+              'CreatePostScreen: Copying camera image to stable path...',
+            );
             final bytes = await finalImage.readAsBytes();
             final tempDir = Directory.systemTemp;
             final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -270,7 +272,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             final permanentFile = File(permanentPath);
             await permanentFile.writeAsBytes(bytes);
             finalImage = permanentFile;
-            debugPrint('CreatePostScreen: Saved camera image to: $permanentPath');
+            debugPrint(
+              'CreatePostScreen: Saved camera image to: $permanentPath',
+            );
           } catch (e) {
             debugPrint('CreatePostScreen: Error copying camera image - $e');
           }
@@ -413,6 +417,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<CroppedFile?> _cropImage(String imagePath) async {
     final colors = Theme.of(context).colorScheme;
+    final isCompactHeight = MediaQuery.of(context).size.height < 700;
 
     return await ImageCropper().cropImage(
       sourcePath: imagePath,
@@ -431,6 +436,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             CropAspectRatioPreset.ratio4x3,
             CropAspectRatioPreset.ratio16x9,
           ],
+          hideBottomControls: isCompactHeight,
+          statusBarColor: colors.surface,
         ),
         IOSUiSettings(
           title: 'Crop Image',
@@ -440,6 +447,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             CropAspectRatioPreset.ratio4x3,
             CropAspectRatioPreset.ratio16x9,
           ],
+          aspectRatioPickerButtonHidden: isCompactHeight,
+          rotateButtonsHidden: isCompactHeight,
+          rotateClockwiseButtonHidden: isCompactHeight,
+          resetAspectRatioEnabled: !isCompactHeight,
         ),
       ],
     );
@@ -1074,7 +1085,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         height: 200,
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
         child: _selectedMediaTypes[0] == 'video'
-            ? _VideoPreviewWidget(videoFile: _selectedMediaFiles[0])
+            ? _VideoPreviewWidget(
+                videoFile: _selectedMediaFiles[0],
+                showControls: false,
+              )
             : Image.file(_selectedMediaFiles[0], fit: BoxFit.cover),
       );
     }
@@ -1093,7 +1107,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         return Container(
           decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
           child: _selectedMediaTypes[index] == 'video'
-              ? _VideoPreviewWidget(videoFile: _selectedMediaFiles[index])
+              ? _VideoPreviewWidget(
+                  videoFile: _selectedMediaFiles[index],
+                  showControls: false,
+                )
               : Image.file(_selectedMediaFiles[index], fit: BoxFit.cover),
         );
       },
@@ -1231,7 +1248,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         mentionedUserIds: taggedIds,
         optimisticAuthor: optimisticAuthor,
         optimisticTags: optimisticTags,
-        waitForAi: false, // Navigate to feed immediately; AI/review continues in background
+        waitForAi:
+            false, // Navigate to feed immediately; AI/review continues in background
       );
 
       if (!mounted) return;
@@ -1247,9 +1265,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               return null;
             }),
           );
-          unawaited(context.read<UserProvider>().fetchUser(userId).catchError((_) {
-            return null;
-          }));
+          unawaited(
+            context.read<UserProvider>().fetchUser(userId).catchError((_) {
+              return null;
+            }),
+          );
         }
 
         // 3. Navigate to feed after successful creation
@@ -1266,7 +1286,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         if (createdPost.status == 'published') {
           message = 'Post published successfully!';
           backgroundColor = Colors.green;
-        } else if (createdPost.status == 'deleted' || createdPost.status == 'hidden') {
+        } else if (createdPost.status == 'deleted' ||
+            createdPost.status == 'hidden') {
           final reason = createdPost.authenticityNotes != null
               ? ': ${createdPost.authenticityNotes}'
               : '';
@@ -1449,7 +1470,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       if (_postCostRoo > 0) {
                         return Tooltip(
                           message:
-                              'You’ll earn ${_postCostRoo.toStringAsFixed(2)} ROO',
+                              'You’ll earn ${_postCostRoo.toStringAsFixed(_postCostRoo % 1 == 0 ? 0 : 10)} ROO',
                           child: postButton,
                         );
                       }
@@ -1918,11 +1939,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.perm_media,
-                color: colors.primary,
-                size: 20,
-              ),
+              Icon(Icons.perm_media, color: colors.primary, size: 20),
               const SizedBox(width: 8),
               Text(
                 'Add Media',
@@ -2713,8 +2730,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 // Video Preview Widget
 class _VideoPreviewWidget extends StatefulWidget {
   final File videoFile;
+  final bool showControls;
 
-  const _VideoPreviewWidget({required this.videoFile});
+  const _VideoPreviewWidget({
+    required this.videoFile,
+    this.showControls = true,
+  });
 
   @override
   State<_VideoPreviewWidget> createState() => _VideoPreviewWidgetState();
@@ -2745,7 +2766,10 @@ class _VideoPreviewWidgetState extends State<_VideoPreviewWidget> {
       videoPlayerController: _controller!,
       autoPlay: false,
       looping: false,
-      showControls: true,
+      showControls: widget.showControls,
+      allowFullScreen: false,
+      allowMuting: false,
+      allowPlaybackSpeedChanging: false,
       aspectRatio: aspectRatio,
       materialProgressColors: ChewieProgressColors(
         playedColor: Theme.of(context).colorScheme.primary,

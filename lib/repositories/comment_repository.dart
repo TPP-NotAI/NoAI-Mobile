@@ -974,7 +974,8 @@ class CommentRepository {
           break;
         case 'under_review':
           title = 'Comment Under Review';
-          body = 'Your comment is being reviewed by our moderation team.';
+          body =
+              'Your comment is being checked for AI. You\'ll be notified soon.';
           type = 'comment_review';
           break;
         case 'deleted':

@@ -522,7 +522,10 @@ class _MainShellState extends State<MainShell> {
 
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
-    await AppUpdateService.instance.checkAndPromptForUpdate(context);
+    await AppUpdateService.instance.checkAndPromptForUpdate(
+      context,
+      force: true,
+    );
   }
 
   void _checkWelcomeBonus() {

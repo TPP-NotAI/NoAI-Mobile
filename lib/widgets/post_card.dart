@@ -93,7 +93,7 @@ class PostCard extends StatelessWidget {
                     SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
                     Expanded(
                       child: Text(
-                        'This post is under review by moderators.',
+                        'This post is under review.',
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(
                             context,
@@ -391,18 +391,15 @@ class _HeaderState extends State<_Header> {
 
   List<String> _extractInlineMentions(String text) {
     final matches = RegExp(r'@(\w+)').allMatches(text);
-    return matches
-        .map((m) => m.group(1))
-        .whereType<String>()
-        .toSet()
-        .toList();
+    return matches.map((m) => m.group(1)).whereType<String>().toSet().toList();
   }
 
   String? _buildMentionSummary(Post post) {
     final inlineMentions = _extractInlineMentions(post.content);
-    final displayMentions = [..._resolvedMentionUsernames, ...inlineMentions]
-        .toSet()
-        .toList();
+    final displayMentions = [
+      ..._resolvedMentionUsernames,
+      ...inlineMentions,
+    ].toSet().toList();
 
     final totalMentionedCount =
         (post.mentionedUserIds?.toSet().length ?? 0) > displayMentions.length
@@ -470,8 +467,8 @@ class _HeaderState extends State<_Header> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   Row(
-                     children: [
+                  Row(
+                    children: [
                       Flexible(
                         child: Text(
                           post.author.displayName.isNotEmpty
@@ -516,38 +513,38 @@ class _HeaderState extends State<_Header> {
                           ),
                         ),
                       ],
-                      ],
-                    ),
-                    if (mentionSummary != null) ...[
-                      SizedBox(height: AppSpacing.extraSmall.responsive(context)),
-                      MentionRichText(
-                        text: _isResolvingMentionUsernames
-                            ? '$mentionSummary...'
-                            : mentionSummary,
-                        style: TextStyle(
-                          fontSize: AppTypography.responsiveFontSize(
-                            context,
-                            AppTypography.badgeText,
-                          ),
-                          color: colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        mentionStyle: TextStyle(
-                          fontSize: AppTypography.responsiveFontSize(
-                            context,
-                            AppTypography.badgeText,
-                          ),
-                          color: colors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        onMentionTap: (username) {
-                          navigateToMentionedUser(context, username);
-                        },
-                        overflow: TextOverflow.ellipsis,
-                      ),
                     ],
-
+                  ),
+                  if (mentionSummary != null) ...[
                     SizedBox(height: AppSpacing.extraSmall.responsive(context)),
+                    MentionRichText(
+                      text: _isResolvingMentionUsernames
+                          ? '$mentionSummary...'
+                          : mentionSummary,
+                      style: TextStyle(
+                        fontSize: AppTypography.responsiveFontSize(
+                          context,
+                          AppTypography.badgeText,
+                        ),
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      mentionStyle: TextStyle(
+                        fontSize: AppTypography.responsiveFontSize(
+                          context,
+                          AppTypography.badgeText,
+                        ),
+                        color: colors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      onMentionTap: (username) {
+                        navigateToMentionedUser(context, username);
+                      },
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+
+                  SizedBox(height: AppSpacing.extraSmall.responsive(context)),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
