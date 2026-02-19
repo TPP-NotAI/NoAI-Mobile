@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:image/image.dart' as img;
@@ -272,9 +271,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                 return;
               }
 
-              final cropped = await _cropImage(picked.path);
-              final filePath = cropped != null ? cropped.path : picked.path;
-              final file = File(filePath);
+              final file = File(picked.path);
               final uploaded = await _uploadStoryMediaFile(file);
 
               if (!mounted) return;
@@ -766,10 +763,6 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  _filterButton('Crop', Icons.crop, () {
-                    Navigator.pop(context);
-                    _cropExistingImage(index);
-                  }),
                   _filterButton('Grayscale', Icons.filter_b_and_w, () {
                     Navigator.pop(context);
                     _applyFilterToImage(index, 'grayscale');
@@ -823,50 +816,6 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
           ),
         ),
       ),
-    );
-  }
-
-  Future<void> _cropExistingImage(int index) async {
-    final croppedFile = await _cropImage(_selectedMediaFiles[index].path);
-    if (croppedFile != null && mounted) {
-      setState(() {
-        _selectedMediaFiles[index] = File(croppedFile.path);
-      });
-    }
-  }
-
-  Future<CroppedFile?> _cropImage(String imagePath) async {
-    final colors = Theme.of(context).colorScheme;
-    final isCompactHeight = MediaQuery.of(context).size.height < 700;
-
-    return await ImageCropper().cropImage(
-      sourcePath: imagePath,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Image',
-          toolbarColor: colors.surface,
-          toolbarWidgetColor: colors.onSurface,
-          backgroundColor: colors.surface,
-          activeControlsWidgetColor: colors.primary,
-          initAspectRatio: CropAspectRatioPreset.original,
-          lockAspectRatio: false,
-          hideBottomControls: isCompactHeight,
-          statusBarColor: colors.surface,
-        ),
-        IOSUiSettings(
-          title: 'Crop Image',
-          aspectRatioPresets: [
-            CropAspectRatioPreset.original,
-            CropAspectRatioPreset.square,
-            CropAspectRatioPreset.ratio4x3,
-            CropAspectRatioPreset.ratio16x9,
-          ],
-          aspectRatioPickerButtonHidden: isCompactHeight,
-          rotateButtonsHidden: isCompactHeight,
-          rotateClockwiseButtonHidden: isCompactHeight,
-          resetAspectRatioEnabled: !isCompactHeight,
-        ),
-      ],
     );
   }
 

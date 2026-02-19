@@ -8,12 +8,14 @@ import '../widgets/video_player_widget.dart';
 import '../widgets/report_sheet.dart';
 import '../utils/time_utils.dart';
 import 'create/edit_post_screen.dart';
+import 'hashtag_feed_screen.dart';
 import '../widgets/full_screen_media_viewer.dart';
 import '../widgets/mention_rich_text.dart';
 import '../widgets/mention_autocomplete_field.dart';
 import '../utils/verification_utils.dart';
 import '../widgets/verification_required_widget.dart';
 import '../services/viral_content_service.dart';
+import '../widgets/comment_card.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -70,6 +72,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     } catch (e) {
       debugPrint('PostDetailScreen: Error checking viral reward - $e');
     }
+  }
+
+  void _openHashtagFeed(String hashtag) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => HashtagFeedScreen(hashtag: hashtag)),
+    );
   }
 
   Future<void> _submitComment() async {
@@ -222,6 +231,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final feedProvider = context.watch<FeedProvider>();
     final isAuthor = authProvider.currentUser?.id == _post.authorId;
     final colors = Theme.of(context).colorScheme;
+    final totalCommentCount = _countCommentsWithReplies(_comments);
 
     return Scaffold(
       appBar: AppBar(
@@ -528,6 +538,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                           context,
                                           username,
                                         ),
+                                    onHashtagTap: _openHashtagFeed,
                                   ),
                                   if (isOverflowing)
                                     GestureDetector(
@@ -580,11 +591,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               spacing: 8,
                               runSpacing: 4,
                               children: _post.tags!.map((tag) {
-                                return Text(
-                                  '#${tag.name}',
-                                  style: TextStyle(
-                                    color: colors.primary,
-                                    fontWeight: FontWeight.bold,
+                                return GestureDetector(
+                                  onTap: () => _openHashtagFeed(tag.name),
+                                  child: Text(
+                                    '#${tag.name}',
+                                    style: TextStyle(
+                                      color: colors.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 );
                               }).toList(),
@@ -780,7 +794,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '${_comments.length}',
+                            '$totalCommentCount',
                             style: Theme.of(context).textTheme.labelSmall,
                           ),
                         ),
@@ -806,66 +820,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       itemCount: _comments.length,
                       itemBuilder: (context, index) {
                         final comment = _comments[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 16,
-                                      backgroundImage:
-                                          comment.author.avatar != null
-                                          ? NetworkImage(comment.author.avatar!)
-                                          : null,
-                                      backgroundColor:
-                                          colors.surfaceContainerHighest,
-                                      child: comment.author.avatar == null
-                                          ? Icon(
-                                              Icons.person,
-                                              size: 20,
-                                              color: colors.onSurfaceVariant,
-                                            )
-                                          : null,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      comment.author.displayName,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      humanReadableTime(comment.timestamp),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelSmall
-                                          ?.copyWith(
-                                            color: colors.onSurfaceVariant,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                MentionRichText(
-                                  text: comment.text,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                  onMentionTap: (username) =>
-                                      navigateToMentionedUser(
-                                        context,
-                                        username,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        return CommentCard(
+                          comment: comment,
+                          postId: _post.id,
                         );
                       },
                     ),
@@ -982,5 +939,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           url.endsWith('.avi');
     }
     return false;
+  }
+
+  int _countCommentsWithReplies(List<Comment> comments) {
+    int total = 0;
+    for (final comment in comments) {
+      total++;
+      final replies = comment.replies;
+      if (replies != null && replies.isNotEmpty) {
+        total += _countCommentsWithReplies(replies);
+      }
+    }
+    return total;
   }
 }

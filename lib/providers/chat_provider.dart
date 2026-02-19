@@ -18,6 +18,8 @@ class ChatProvider extends ChangeNotifier {
   final _supabase = SupabaseService().client;
   final Map<String, DateTime> _recentlyReadAt = {};
   final Set<String> _locallyDeletedMessageIds = {};
+  // Pending messages keyed by conversationId for optimistic UI
+  final Map<String, List<Message>> _pendingMessages = {};
   Future<void>? _cacheInit;
   SharedPreferences? _preferences;
   bool _cacheDirty = false;
@@ -30,6 +32,8 @@ class ChatProvider extends ChangeNotifier {
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
+  String? _error;
+  String? get error => _error;
 
   int get totalUnreadCount =>
       _conversations.fold(0, (sum, c) => sum + c.unreadCount);
@@ -236,6 +240,7 @@ class ChatProvider extends ChangeNotifier {
       final conversation = await _chatService.getOrCreateConversation(
         otherUserId,
       );
+      _error = null;
 
       // Update local list if not present
       if (!_conversations.any((c) => c.id == conversation.id)) {
@@ -247,11 +252,13 @@ class ChatProvider extends ChangeNotifier {
       return conversation;
     } catch (e) {
       debugPrint('Error starting conversation: $e');
+      _error = e.toString().replaceFirst('Exception: ', '').trim();
       return null;
     }
   }
 
-  /// Send message and refresh list.
+  /// Send message with optimistic UI — appends a pending message immediately,
+  /// then removes it once the server stream confirms delivery.
   Future<void> sendMessage(
     String conversationId,
     String content, {
@@ -260,6 +267,23 @@ class ChatProvider extends ChangeNotifier {
     String? replyToId,
     String? replyContent,
   }) async {
+    _error = null;
+    final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
+    final pending = Message(
+      id: pendingId,
+      conversationId: conversationId,
+      senderId: _currentUserId ?? '',
+      content: content,
+      mediaUrl: mediaUrl,
+      mediaType: type != 'text' ? type : null,
+      replyToId: replyToId,
+      status: 'sending',
+      createdAt: DateTime.now(),
+    );
+
+    _pendingMessages.putIfAbsent(conversationId, () => []).add(pending);
+    notifyListeners();
+
     try {
       await _chatService.sendMessage(
         conversationId,
@@ -268,11 +292,15 @@ class ChatProvider extends ChangeNotifier {
         mediaType: type != 'text' ? type : null,
         replyToId: replyToId,
       );
-
       // Refresh list to show last message
       await loadConversations();
     } catch (e) {
       debugPrint('Error sending message: $e');
+      _error = e.toString().replaceFirst('Exception: ', '').trim();
+      rethrow;
+    } finally {
+      _pendingMessages[conversationId]?.removeWhere((m) => m.id == pendingId);
+      notifyListeners();
     }
   }
 
@@ -327,6 +355,7 @@ class ChatProvider extends ChangeNotifier {
   Future<void> deleteConversationForUser(String conversationId) async {
     try {
       await _chatService.deleteConversationForUser(conversationId);
+      _chatService.invalidateLeftAtCache(conversationId);
       _conversations.removeWhere((c) => c.id == conversationId);
       notifyListeners();
     } catch (e) {
@@ -334,35 +363,89 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  /// Send a media message.
-  Future<void> sendMediaMessage(
+  /// Send a media message with optimistic pending bubble shown during upload.
+  Future<bool> sendMediaMessage(
     String conversationId,
     String filePath,
     String fileName,
     String type,
   ) async {
+    final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
+    final content = _resolveMediaContent(type, fileName);
+    final pending = Message(
+      id: pendingId,
+      conversationId: conversationId,
+      senderId: _currentUserId ?? '',
+      content: content,
+      mediaType: type,
+      status: 'sending',
+      createdAt: DateTime.now(),
+    );
+
+    _pendingMessages.putIfAbsent(conversationId, () => []).add(pending);
+    notifyListeners();
+
     try {
       final mediaUrl = await _chatService.uploadMedia(filePath, fileName);
       if (mediaUrl != null) {
         await _chatService.sendMessage(
           conversationId,
-          '[Media]',
+          content,
           mediaType: type,
           mediaUrl: mediaUrl,
         );
         await loadConversations();
+        return true;
       }
+      return false;
     } catch (e) {
       debugPrint('Error sending media message: $e');
+      return false;
+    } finally {
+      _pendingMessages[conversationId]?.removeWhere((m) => m.id == pendingId);
+      notifyListeners();
+    }
+  }
+
+  String _resolveMediaContent(String type, String fileName) {
+    switch (type.toLowerCase()) {
+      case 'audio':
+        return 'Voice message';
+      case 'document':
+        return 'Document: $fileName';
+      case 'contact':
+        return fileName;
+      case 'image':
+      case 'video':
+      default:
+        return '[Media]';
     }
   }
 
   /// Subscribe to messages for a specific conversation.
+  /// Merges any pending (optimistic) messages at the front of the list.
   Stream<List<Message>> getMessageStream(String conversationId) {
     return _chatService.subscribeToMessages(conversationId).map((messages) {
-      return messages
+      final confirmed = messages
           .where((m) => !_locallyDeletedMessageIds.contains(m.id))
           .toList();
+
+      // Append pending messages that haven't been confirmed yet
+      final pending = _pendingMessages[conversationId] ?? [];
+      final pendingUnconfirmed = pending.where((p) {
+        // Drop a pending message only when a confirmed message with the same
+        // content+sender arrived at or after the pending was created.
+        // Using createdAt prevents premature dedup of two identical messages.
+        return !confirmed.any(
+          (c) =>
+              c.content == p.content &&
+              c.senderId == p.senderId &&
+              !c.createdAt.isBefore(p.createdAt),
+        );
+      }).toList();
+
+      // confirmed is newest-first (reverse:true list), pending goes at front
+      return [...pendingUnconfirmed, ...confirmed];
     });
   }
 

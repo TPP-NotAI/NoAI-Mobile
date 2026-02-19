@@ -20,6 +20,13 @@ class ChatService {
 
   final _supabase = SupabaseService().client;
   final _aiService = AiDetectionService();
+  static const Set<String> _imageMediaTypes = {'image'};
+  static const Set<String> _videoMediaTypes = {'video'};
+  static const Set<String> _aiScannableMediaTypes = {'image', 'video'};
+  static const double _aiReviewThreshold = 50;
+  static const double _aiFlagThreshold = 75;
+  static const Duration _signedUrlTtl = Duration(hours: 6);
+  final Map<String, _SignedUrlCacheEntry> _signedUrlCache = {};
 
   /// Fetch all conversations for the current user.
   Future<List<Conversation>> getConversations({
@@ -197,34 +204,8 @@ class ChatService {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) throw Exception('Not authenticated');
 
-    // 1. Check privacy settings of the other user
-    final otherUserResponse = await _supabase
-        .from('profiles')
-        .select()
-        .eq('user_id', otherUserId)
-        .single();
-
-    final otherUser = User.fromSupabase(otherUserResponse);
-    final visibility = otherUser.messagesVisibility ?? 'everyone';
-
-    if (visibility == 'private') {
-      throw Exception('This user does not accept messages.');
-    }
-
-    if (visibility == 'followers') {
-      final followResponse = await _supabase
-          .from('follows')
-          .select()
-          .eq('follower_id', currentUserId)
-          .eq('following_id', otherUserId)
-          .maybeSingle();
-
-      if (followResponse == null) {
-        throw Exception('This user only accepts messages from followers.');
-      }
-    }
-
-    // 2. Check if a 1:1 thread already exists
+    // 1. Check if a 1:1 thread already exists.
+    // Existing chats remain accessible even if follow/visibility changes later.
     final myThreads = await _supabase
         .from('dm_participants')
         .select('thread_id')
@@ -265,7 +246,33 @@ class ChatService {
       }
     }
 
-    // Create new thread
+    // 2. Creating a new chat is allowed only if current user follows target user.
+    final followResponse = await _supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('follower_id', currentUserId)
+        .eq('following_id', otherUserId)
+        .maybeSingle();
+
+    if (followResponse == null) {
+      throw Exception('You can only start chats with users you follow.');
+    }
+
+    // 3. Check privacy settings for new conversation creation.
+    final otherUserResponse = await _supabase
+        .from('profiles')
+        .select()
+        .eq('user_id', otherUserId)
+        .single();
+
+    final otherUser = User.fromSupabase(otherUserResponse);
+    final visibility = otherUser.messagesVisibility ?? 'everyone';
+
+    if (visibility == 'private') {
+      throw Exception('This user does not accept messages.');
+    }
+
+    // 4. Create new thread
     final newThread = await _supabase
         .from('dm_threads')
         .insert({'created_by': currentUserId})
@@ -302,7 +309,8 @@ class ChatService {
         .order('created_at', ascending: false)
         .limit(limit);
 
-    return (response as List).map((m) => Message.fromSupabase(m)).toList();
+    final messages = (response as List).map((m) => Message.fromSupabase(m));
+    return Future.wait(messages.map(_hydrateMessageMediaUrl));
   }
 
   /// Send a message.
@@ -315,6 +323,17 @@ class ChatService {
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
+    final precheck = await _runAiDetectionPreSend(
+      content: content,
+      mediaUrl: mediaUrl,
+      mediaType: mediaType,
+    );
+
+    if (precheck != null && precheck.aiScoreStatus == 'flagged') {
+      throw Exception(
+        'Message blocked: content detected as likely AI-generated.',
+      );
+    }
 
     final insertData = <String, dynamic>{
       'thread_id': threadId,
@@ -325,6 +344,12 @@ class ChatService {
     if (mediaUrl != null) insertData['media_url'] = mediaUrl;
     if (mediaType != null) insertData['media_type'] = mediaType;
     if (replyToId != null) insertData['reply_to_id'] = replyToId;
+    if (precheck != null) {
+      insertData['ai_score'] = precheck.aiScore;
+      insertData['ai_score_status'] = precheck.aiScoreStatus;
+      insertData['ai_metadata'] = precheck.aiMetadata;
+      insertData['verification_session_id'] = precheck.analysisId;
+    }
 
     final response = await _supabase
         .from('dm_messages')
@@ -347,8 +372,19 @@ class ChatService {
 
     final message = Message.fromSupabase(response);
 
-    // Trigger AI Detection asynchronously
-    unawaited(runAiDetection(message));
+    if (precheck == null) {
+      // Fallback for detector/API failures.
+      unawaited(runAiDetection(message));
+    } else {
+      await _createModerationCaseIfNeeded(
+        messageId: message.id,
+        senderId: message.senderId,
+        aiScore: precheck.aiScore,
+        aiMetadata: precheck.aiMetadata,
+        rationale: precheck.rationale,
+        combinedEvidence: precheck.combinedEvidence,
+      );
+    }
 
     return message;
   }
@@ -358,37 +394,39 @@ class ChatService {
     try {
       final textContent = message.displayContent;
       final hasText = textContent.isNotEmpty && textContent != '[Media]';
-      final hasMedia =
-          message.mediaUrl != null &&
-          message.mediaUrl!.isNotEmpty &&
-          (message.mediaType == 'image' || message.mediaType == 'video');
+      final mediaType = message.mediaType?.toLowerCase();
+      final hasMedia = message.mediaUrl != null && message.mediaUrl!.isNotEmpty;
+      final canScanMedia = hasMedia && _aiScannableMediaTypes.contains(mediaType);
 
       if (!hasText && !hasMedia) return;
 
       AiDetectionResult? result;
 
-      if (hasText && hasMedia && message.mediaType == 'image') {
-        // Mixed detection (text + image)
-        File? mediaFile = await _downloadMedia(message.mediaUrl!);
+      if (hasText && canScanMedia) {
+        // Mixed detection (text + image/video)
+        File? mediaFile = await _downloadMedia(
+          message.mediaUrl!,
+          mediaType: mediaType,
+        );
         if (mediaFile != null) {
           result = await _aiService.detectMixed(textContent, mediaFile);
           _cleanupFile(mediaFile);
         } else {
           result = await _aiService.detectText(textContent);
         }
-      } else if (hasText && !hasMedia) {
-        // Text only
+      } else if (hasText) {
+        // Text-only or unsupported media fallback (audio/doc/contact)
         result = await _aiService.detectText(textContent);
-      } else if (hasMedia && message.mediaType == 'image') {
-        // Image only
-        File? mediaFile = await _downloadMedia(message.mediaUrl!);
+      } else if (canScanMedia) {
+        // Image/video only
+        File? mediaFile = await _downloadMedia(
+          message.mediaUrl!,
+          mediaType: mediaType,
+        );
         if (mediaFile != null) {
           result = await _aiService.detectImage(mediaFile);
           _cleanupFile(mediaFile);
         }
-      } else if (hasText) {
-        // Text fallback (messages with video captions)
-        result = await _aiService.detectText(textContent);
       }
 
       if (result == null) return;
@@ -397,6 +435,8 @@ class ChatService {
       final double aiProbability = isAiResult
           ? result.confidence
           : 100 - result.confidence;
+      final status = _resolveAiScoreStatus(aiProbability);
+      final aiMetadata = _buildAiMetadata(result);
 
       // Update message in DB
       try {
@@ -404,15 +444,8 @@ class ChatService {
             .from('dm_messages')
             .update({
               'ai_score': aiProbability,
-              'ai_score_status': aiProbability >= 75
-                  ? 'flagged'
-                  : (aiProbability >= 50 ? 'review' : 'pass'),
-              'ai_metadata': {
-                'analysis_id': result.analysisId,
-                'rationale': result.rationale,
-                'combined_evidence': result.combinedEvidence,
-                'consensus_strength': result.consensusStrength,
-              },
+              'ai_score_status': status,
+              'ai_metadata': aiMetadata,
               'verification_session_id': result.analysisId,
             })
             .eq('id', message.id);
@@ -420,41 +453,14 @@ class ChatService {
         debugPrint('ChatService: Failed to update AI fields in DB - $e');
       }
 
-      // Create moderation case if flagged or review required
-      if (aiProbability >= 50) {
-        try {
-          // Check if a case already exists
-          final existing = await _supabase
-              .from('moderation_cases')
-              .select('id')
-              .eq('message_id', message.id)
-              .maybeSingle();
-
-          if (existing == null) {
-            await _supabase.from('moderation_cases').insert({
-              'message_id': message.id,
-              'reported_user_id': message.senderId,
-              'reason': 'ai_generated',
-              'source': 'ai',
-              'ai_confidence': aiProbability,
-              'status': 'pending',
-              'priority': 'normal',
-              'description':
-                  'Automated AI detection flagged this message with ${aiProbability.toStringAsFixed(1)}% confidence.',
-              'ai_metadata': {
-                'analysis_id': result.analysisId,
-                'rationale': result.rationale,
-                'combined_evidence': result.combinedEvidence,
-              },
-            });
-            debugPrint(
-              'ChatService: Created moderation case for message ${message.id}',
-            );
-          }
-        } catch (e) {
-          debugPrint('ChatService: Failed to create moderation case - $e');
-        }
-      }
+      await _createModerationCaseIfNeeded(
+        messageId: message.id,
+        senderId: message.senderId,
+        aiScore: aiProbability,
+        aiMetadata: aiMetadata,
+        rationale: result.rationale,
+        combinedEvidence: result.combinedEvidence,
+      );
     } catch (e) {
       debugPrint('ChatService: Error in runAiDetection - $e');
     }
@@ -474,16 +480,24 @@ class ChatService {
   Future<String?> uploadMedia(String filePath, String fileName) async {
     try {
       final file = File(filePath);
-      final bytes = await file.readAsBytes();
-      final extension = fileName.split('.').last;
-      final path = '${DateTime.now().millisecondsSinceEpoch}.$extension';
+      if (!await file.exists()) return null;
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return null;
+      final rawExtension = fileName.contains('.')
+          ? fileName.split('.').last
+          : filePath.split('.').last;
+      final extension = rawExtension.toLowerCase();
+      final mediaCategory = _resolveMediaCategory(extension);
+      final mimeType = _resolveContentType(extension, mediaCategory);
+      final path =
+          '$userId/$mediaCategory/${DateTime.now().millisecondsSinceEpoch}.$extension';
 
       await _supabase.storage
           .from(SupabaseConfig.chatMediaBucket)
-          .uploadBinary(
+          .upload(
             path,
-            bytes,
-            fileOptions: FileOptions(contentType: 'image/$extension'),
+            file,
+            fileOptions: FileOptions(contentType: mimeType),
           );
 
       return _supabase.storage
@@ -495,45 +509,248 @@ class ChatService {
     }
   }
 
+  // Cache left_at per thread so we don't query DB on every realtime event
+  final Map<String, DateTime?> _leftAtCache = {};
+
   Stream<List<Message>> subscribeToMessages(String threadId) {
     final currentUserId = _supabase.auth.currentUser?.id;
 
-    // We use asyncMap to fetch the participant's left_at timestamp once
-    // and filter messages that were created before the user last "deleted" the chat.
+    // Eagerly fetch left_at once, then use the cache for subsequent events
+    Future<void> _primeLeftAt() async {
+      if (_leftAtCache.containsKey(threadId)) return;
+      try {
+        final participant = await _supabase
+            .from('dm_participants')
+            .select('left_at')
+            .eq('thread_id', threadId)
+            .eq('user_id', currentUserId ?? '')
+            .maybeSingle();
+        final leftAtStr = participant?['left_at'] as String?;
+        _leftAtCache[threadId] =
+            leftAtStr != null ? DateTime.parse(leftAtStr) : null;
+      } catch (_) {
+        _leftAtCache[threadId] = null;
+      }
+    }
+
     return _supabase
         .from('dm_messages')
         .stream(primaryKey: ['id'])
         .eq('thread_id', threadId)
         .order('created_at', ascending: false)
         .asyncMap((data) async {
-          // Fetch our participant record to check left_at
-          final participant = await _supabase
-              .from('dm_participants')
-              .select('left_at')
-              .eq('thread_id', threadId)
-              .eq('user_id', currentUserId ?? '')
-              .maybeSingle();
-
-          final leftAtStr = participant?['left_at'] as String?;
-          final leftAt = leftAtStr != null ? DateTime.parse(leftAtStr) : null;
-
-          final allMessages = data.map((m) => Message.fromSupabase(m)).toList();
-
+          await _primeLeftAt();
+          final leftAt = _leftAtCache[threadId];
+          final baseMessages =
+              data.map((m) => Message.fromSupabase(m)).toList();
+          final allMessages = await Future.wait(
+            baseMessages.map(_hydrateMessageMediaUrl),
+          );
           return allMessages.where((m) {
-            // Filter by left_at (Hide messages from before the last deletion)
             if (leftAt != null && m.createdAt.isBefore(leftAt)) return false;
-
-            // Hide flagged messages from both players
             if (m.aiScoreStatus == 'flagged') return false;
-
-            // Hide review messages from the recipient
             if (m.aiScoreStatus == 'review' && m.senderId != currentUserId) {
               return false;
             }
-
             return true;
           }).toList();
         });
+  }
+
+  Future<_AiPrecheckResult?> _runAiDetectionPreSend({
+    required String content,
+    String? mediaUrl,
+    String? mediaType,
+  }) async {
+    try {
+      final textContent = Message.stripStoryReferenceFromContent(content);
+      final hasText = textContent.isNotEmpty && textContent != '[Media]';
+      final normalizedMediaType = mediaType?.toLowerCase();
+      final hasMedia = mediaUrl != null && mediaUrl.isNotEmpty;
+      final canScanMedia =
+          hasMedia && _aiScannableMediaTypes.contains(normalizedMediaType);
+
+      if (!hasText && !hasMedia) return null;
+
+      AiDetectionResult? result;
+      if (hasText && canScanMedia) {
+        final mediaFile = await _downloadMedia(
+          mediaUrl!,
+          mediaType: normalizedMediaType,
+        );
+        if (mediaFile != null) {
+          result = await _aiService.detectMixed(textContent, mediaFile);
+          _cleanupFile(mediaFile);
+        } else {
+          result = await _aiService.detectText(textContent);
+        }
+      } else if (hasText) {
+        result = await _aiService.detectText(textContent);
+      } else if (canScanMedia) {
+        final mediaFile = await _downloadMedia(
+          mediaUrl!,
+          mediaType: normalizedMediaType,
+        );
+        if (mediaFile != null) {
+          result = await _aiService.detectImage(mediaFile);
+          _cleanupFile(mediaFile);
+        }
+      }
+
+      if (result == null) return null;
+
+      final isAiResult = result.result.contains('AI');
+      final aiScore = isAiResult ? result.confidence : 100 - result.confidence;
+      return _AiPrecheckResult(
+        aiScore: aiScore,
+        aiScoreStatus: _resolveAiScoreStatus(aiScore),
+        aiMetadata: _buildAiMetadata(result),
+        analysisId: result.analysisId,
+        rationale: result.rationale,
+        combinedEvidence: result.combinedEvidence,
+      );
+    } catch (e) {
+      debugPrint('ChatService: Pre-send AI detection failed - $e');
+      return null;
+    }
+  }
+
+  String _resolveAiScoreStatus(double aiScore) {
+    if (aiScore >= _aiFlagThreshold) return 'flagged';
+    if (aiScore >= _aiReviewThreshold) return 'review';
+    return 'pass';
+  }
+
+  Map<String, dynamic> _buildAiMetadata(AiDetectionResult result) {
+    return {
+      'analysis_id': result.analysisId,
+      'rationale': result.rationale,
+      'combined_evidence': result.combinedEvidence,
+      'consensus_strength': result.consensusStrength,
+    };
+  }
+
+  Future<void> _createModerationCaseIfNeeded({
+    required String messageId,
+    required String senderId,
+    required double aiScore,
+    required Map<String, dynamic> aiMetadata,
+    String? rationale,
+    List<String>? combinedEvidence,
+  }) async {
+    if (aiScore < _aiReviewThreshold) return;
+    try {
+      final existing = await _supabase
+          .from('moderation_cases')
+          .select('id')
+          .eq('message_id', messageId)
+          .maybeSingle();
+
+      if (existing != null) return;
+
+      await _supabase.from('moderation_cases').insert({
+        'message_id': messageId,
+        'reported_user_id': senderId,
+        'reason': 'ai_generated',
+        'source': 'ai',
+        'ai_confidence': aiScore,
+        'status': 'pending',
+        'priority': 'normal',
+        'description':
+            'Automated AI detection flagged this message with ${aiScore.toStringAsFixed(1)}% confidence.',
+        'ai_metadata': {
+          ...aiMetadata,
+          'rationale': rationale,
+          'combined_evidence': combinedEvidence,
+        },
+      });
+      debugPrint('ChatService: Created moderation case for message $messageId');
+    } catch (e) {
+      debugPrint('ChatService: Failed to create moderation case - $e');
+    }
+  }
+
+  Future<Message> _hydrateMessageMediaUrl(Message message) async {
+    final rawUrl = message.mediaUrl;
+    if (rawUrl == null || rawUrl.isEmpty) return message;
+    final resolvedUrl = await _resolveMessageMediaUrl(rawUrl);
+    if (resolvedUrl == null || resolvedUrl == rawUrl) return message;
+    return message.copyWith(mediaUrl: resolvedUrl);
+  }
+
+  Future<String?> _resolveMessageMediaUrl(String rawMediaRef) async {
+    final path = _extractStoragePath(rawMediaRef);
+    if (path == null || path.isEmpty) return rawMediaRef;
+
+    final now = DateTime.now();
+    final cached = _signedUrlCache[path];
+    if (cached != null && now.isBefore(cached.expiresAt)) {
+      return cached.url;
+    }
+
+    try {
+      final signedUrl = await _supabase.storage
+          .from(SupabaseConfig.chatMediaBucket)
+          .createSignedUrl(path, _signedUrlTtl.inSeconds);
+
+      final expiresAt = now.add(_signedUrlTtl).subtract(
+        const Duration(minutes: 5),
+      );
+      _signedUrlCache[path] = _SignedUrlCacheEntry(
+        url: signedUrl,
+        expiresAt: expiresAt,
+      );
+      return signedUrl;
+    } catch (e) {
+      debugPrint('ChatService: Failed to create signed media URL - $e');
+      return rawMediaRef;
+    }
+  }
+
+  String? _extractStoragePath(String rawMediaRef) {
+    final trimmed = rawMediaRef.trim();
+    if (trimmed.isEmpty) return null;
+
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+      return trimmed.startsWith('/')
+          ? trimmed.replaceFirst(RegExp(r'^/+'), '')
+          : trimmed;
+    }
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return null;
+
+    final segments = uri.pathSegments;
+    final bucket = SupabaseConfig.chatMediaBucket;
+    final publicPrefix = ['storage', 'v1', 'object', 'public', bucket];
+    final signPrefix = ['storage', 'v1', 'object', 'sign', bucket];
+
+    int _matchPrefixIndex(List<String> prefix) {
+      for (var i = 0; i <= segments.length - prefix.length; i++) {
+        var matches = true;
+        for (var j = 0; j < prefix.length; j++) {
+          if (segments[i + j] != prefix[j]) {
+            matches = false;
+            break;
+          }
+        }
+        if (matches) return i + prefix.length;
+      }
+      return -1;
+    }
+
+    var start = _matchPrefixIndex(publicPrefix);
+    if (start == -1) {
+      start = _matchPrefixIndex(signPrefix);
+    }
+    if (start == -1 || start >= segments.length) return null;
+    return segments.sublist(start).join('/');
+  }
+
+  /// Call this when the user deletes a conversation so the cache reflects
+  /// the new left_at on the next stream event.
+  void invalidateLeftAtCache(String threadId) {
+    _leftAtCache.remove(threadId);
   }
 
   /// Mark all messages in a conversation as read for the current user.
@@ -553,12 +770,14 @@ class ChatService {
   }
 
   /// Helper to download media from URL to a temporary file.
-  Future<File?> _downloadMedia(String url) async {
+  Future<File?> _downloadMedia(String url, {String? mediaType}) async {
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final tempDir = await getTemporaryDirectory();
-        final fileName = 'msg_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final extension = _inferExtensionFromUrl(url, mediaType: mediaType);
+        final fileName =
+            'msg_${DateTime.now().millisecondsSinceEpoch}.$extension';
         final file = File('${tempDir.path}/$fileName');
         await file.writeAsBytes(response.bodyBytes);
         return file;
@@ -578,4 +797,123 @@ class ChatService {
       debugPrint('ChatService: Error cleaning up file - $e');
     }
   }
+
+  String _resolveMediaCategory(String extension) {
+    if (_isVideoExtension(extension)) return 'video';
+    if (_isAudioExtension(extension)) return 'audio';
+    if (_isImageExtension(extension)) return 'image';
+    if (_isDocumentExtension(extension)) return 'document';
+    return 'file';
+  }
+
+  String _resolveContentType(String extension, String mediaCategory) {
+    if (_isImageExtension(extension)) {
+      if (extension == 'png') return 'image/png';
+      if (extension == 'gif') return 'image/gif';
+      if (extension == 'webp') return 'image/webp';
+      if (extension == 'heic') return 'image/heic';
+      return 'image/jpeg';
+    }
+
+    if (_isVideoExtension(extension)) {
+      if (extension == 'mov') return 'video/quicktime';
+      if (extension == 'webm') return 'video/webm';
+      if (extension == 'avi') return 'video/x-msvideo';
+      if (extension == 'mkv') return 'video/x-matroska';
+      return 'video/mp4';
+    }
+
+    if (_isAudioExtension(extension)) {
+      if (extension == 'm4a') return 'audio/mp4';
+      if (extension == 'aac') return 'audio/aac';
+      if (extension == 'wav') return 'audio/wav';
+      if (extension == 'ogg') return 'audio/ogg';
+      return 'audio/mpeg';
+    }
+
+    if (_isDocumentExtension(extension)) {
+      if (extension == 'pdf') return 'application/pdf';
+      if (extension == 'doc') return 'application/msword';
+      if (extension == 'docx') {
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      }
+      if (extension == 'ppt') return 'application/vnd.ms-powerpoint';
+      if (extension == 'pptx') {
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      }
+      if (extension == 'xls') return 'application/vnd.ms-excel';
+      if (extension == 'xlsx') {
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      }
+      if (extension == 'txt') return 'text/plain';
+      if (extension == 'csv') return 'text/csv';
+    }
+
+    if (mediaCategory == 'document') return 'application/octet-stream';
+    return 'application/octet-stream';
+  }
+
+  bool _isImageExtension(String extension) =>
+      {'jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'}.contains(extension);
+
+  bool _isVideoExtension(String extension) =>
+      {'mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv'}.contains(extension);
+
+  bool _isAudioExtension(String extension) =>
+      {'mp3', 'm4a', 'aac', 'wav', 'ogg'}.contains(extension);
+
+  bool _isDocumentExtension(String extension) => {
+        'pdf',
+        'doc',
+        'docx',
+        'ppt',
+        'pptx',
+        'xls',
+        'xlsx',
+        'txt',
+        'csv',
+      }.contains(extension);
+
+  String _inferExtensionFromUrl(String url, {String? mediaType}) {
+    try {
+      final uri = Uri.parse(url);
+      final lastSegment = uri.pathSegments.isNotEmpty
+          ? uri.pathSegments.last
+          : '';
+      final parts = lastSegment.split('.');
+      if (parts.length > 1) {
+        final ext = parts.last.toLowerCase();
+        if (ext.isNotEmpty) return ext;
+      }
+    } catch (_) {}
+
+    if (_videoMediaTypes.contains(mediaType)) return 'mp4';
+    if (_imageMediaTypes.contains(mediaType)) return 'jpg';
+    return 'bin';
+  }
+}
+
+class _SignedUrlCacheEntry {
+  final String url;
+  final DateTime expiresAt;
+
+  const _SignedUrlCacheEntry({required this.url, required this.expiresAt});
+}
+
+class _AiPrecheckResult {
+  final double aiScore;
+  final String aiScoreStatus;
+  final Map<String, dynamic> aiMetadata;
+  final String analysisId;
+  final String? rationale;
+  final List<String>? combinedEvidence;
+
+  const _AiPrecheckResult({
+    required this.aiScore,
+    required this.aiScoreStatus,
+    required this.aiMetadata,
+    required this.analysisId,
+    this.rationale,
+    this.combinedEvidence,
+  });
 }

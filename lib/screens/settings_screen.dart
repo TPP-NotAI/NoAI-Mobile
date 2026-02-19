@@ -8,8 +8,10 @@ import 'profile/edit_profile_screen.dart';
 import 'profile/personal_information_screen.dart';
 import 'legal/terms_of_service_screen.dart';
 import 'legal/privacy_policy_screen.dart';
-import 'support/faq_screen.dart';
-import 'support/support_chat_screen.dart';
+import 'support/help_support_screen.dart';
+import 'support/support_tickets_admin_screen.dart';
+import 'moderation/my_flagged_content_screen.dart';
+import 'moderation/mod_queue_screen.dart';
 import 'wallet/transaction_history_screen.dart';
 import 'bookmarks/bookmarks_screen.dart';
 import 'security/password_security_screen.dart';
@@ -19,11 +21,15 @@ import 'language_screen.dart';
 import 'notifications/notification_settings_screen.dart';
 import 'auth/human_verification_screen.dart';
 import 'auth/phone_verification_screen.dart';
-import 'wallet/wallet_screen.dart';
+import 'wallet/wallet_settings_screen.dart';
 import '../services/app_update_service.dart';
+import '../repositories/support_ticket_repository.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+
+  static final SupportTicketRepository _supportTicketRepository =
+      SupportTicketRepository();
 
   @override
   Widget build(BuildContext context) {
@@ -158,27 +164,30 @@ class SettingsScreen extends StatelessWidget {
                 : Colors.orange,
             title: 'Human Verification',
             subtitle: _getVerificationStatus(currentUser?.verifiedHuman),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => HumanVerificationScreen(
-                    onVerify: () => Navigator.pop(context),
-                    onPhoneVerify: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PhoneVerificationScreen(
-                            onVerify: () => Navigator.pop(context),
-                            onBack: () => Navigator.pop(context),
-                          ),
+            onTap: currentUser?.verifiedHuman == 'verified' ||
+                    currentUser?.verifiedHuman == 'pending'
+                ? null
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HumanVerificationScreen(
+                          onVerify: () => Navigator.pop(context),
+                          onPhoneVerify: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PhoneVerificationScreen(
+                                  onVerify: () => Navigator.pop(context),
+                                  onBack: () => Navigator.pop(context),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                ),
-              );
-            },
+                      ),
+                    );
+                  },
           ),
           _buildSettingsTile(
             context,
@@ -201,11 +210,13 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.account_balance_wallet,
             iconColor: Colors.purple,
             title: 'Wallet Settings',
-            subtitle: '8x4a...3b9c',
+            subtitle: 'Manage wallet preferences',
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const WalletScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const WalletSettingsScreen(),
+                ),
               );
             },
           ),
@@ -307,24 +318,71 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.help_center,
             iconColor: Colors.teal,
-            title: 'Help Center',
+            title: 'Help & Support',
+            subtitle: 'FAQ and contact support',
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const FAQScreen()),
+                MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
+              );
+            },
+          ),
+          FutureBuilder<bool>(
+            future: _supportTicketRepository.isCurrentUserAdmin(),
+            builder: (context, snapshot) {
+              if (snapshot.data != true) {
+                return const SizedBox.shrink();
+              }
+              return _buildSettingsTile(
+                context,
+                icon: Icons.confirmation_number,
+                iconColor: Colors.indigo,
+                title: 'Support Tickets (Admin)',
+                subtitle: 'Review submitted support tickets',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SupportTicketsAdminScreen(),
+                    ),
+                  );
+                },
               );
             },
           ),
           _buildSettingsTile(
             context,
-            icon: Icons.contact_support,
-            iconColor: Colors.teal,
-            title: 'Support Chat',
-            subtitle: 'Online help with our team',
+            icon: Icons.gavel,
+            iconColor: Colors.deepOrange,
+            title: 'My Flagged Content',
+            subtitle: 'View, appeal or delete AI-flagged posts & comments',
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SupportChatScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const MyFlaggedContentScreen(),
+                ),
+              );
+            },
+          ),
+          FutureBuilder<bool>(
+            future: _supportTicketRepository.isCurrentUserAdmin(),
+            builder: (context, snapshot) {
+              if (snapshot.data != true) return const SizedBox.shrink();
+              return _buildSettingsTile(
+                context,
+                icon: Icons.admin_panel_settings,
+                iconColor: Colors.deepOrange,
+                title: 'Moderation Queue',
+                subtitle: 'Review AI-flagged content',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ModQueueScreen(),
+                    ),
+                  );
+                },
               );
             },
           ),
@@ -426,7 +484,7 @@ class SettingsScreen extends StatelessWidget {
     required Color iconColor,
     required String title,
     String? subtitle,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
   }) {
     final scheme = Theme.of(context).colorScheme;
 
@@ -526,11 +584,11 @@ class SettingsScreen extends StatelessWidget {
   static String _getVerificationStatus(String? status) {
     switch (status) {
       case 'verified':
-        return 'Verified';
+        return 'You are already verified';
       case 'pending':
-        return 'Pending verification';
+        return 'Verification pending — check back soon';
       default:
-        return 'Not verified';
+        return 'Tap to start verification';
     }
   }
 

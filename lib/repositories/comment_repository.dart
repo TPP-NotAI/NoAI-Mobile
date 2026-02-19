@@ -495,6 +495,43 @@ class CommentRepository {
     return (response as List).length;
   }
 
+  /// Fetch AI-flagged comments belonging to a specific user.
+  /// Fetch AI-flagged comments belonging to a specific user.
+  /// Only returns comments where the AI explicitly flagged or put them under review
+  /// (ai_score_status = 'flagged' or 'review'), not comments under review for other reasons.
+  Future<List<Comment>> getUserFlaggedComments(
+    String userId, {
+    int limit = 50,
+  }) async {
+    try {
+      final data = await _client
+          .from(SupabaseConfig.commentsTable)
+          .select('''
+            *,
+            profiles!comments_author_id_fkey (
+              user_id,
+              username,
+              display_name,
+              avatar_url,
+              verified_human
+            )
+          ''')
+          .eq('author_id', userId)
+          .inFilter('ai_score_status', ['flagged', 'review'])
+          .order('created_at', ascending: false)
+          .limit(limit) as List<dynamic>;
+
+      return data
+          .map((json) => Comment.fromSupabase(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint(
+        'CommentRepository: Error fetching user flagged comments - $e',
+      );
+      return [];
+    }
+  }
+
   /// Fetch comments that are under review (flagged by AI).
   Future<List<Comment>> getFlaggedComments({int limit = 20}) async {
     try {

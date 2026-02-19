@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:rooverse/models/user.dart';
+import '../../models/post.dart';
 import 'package:rooverse/models/user_activity.dart';
+import '../../repositories/post_repository.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -21,6 +23,7 @@ import 'edit_profile_screen.dart';
 import 'follow_list_screen.dart';
 import '../../providers/wallet_provider.dart';
 import '../wallet/send_roo_screen.dart';
+import '../moderation/my_flagged_content_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;
@@ -35,28 +38,56 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   int _tabIndex = 0;
   final ScrollController _scrollController = ScrollController();
+  final PostRepository _postRepository = PostRepository();
+  List<Post> _profilePosts = [];
+  bool _isLoadingPosts = true;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = context.read<AuthProvider>();
-      final userProvider = context.read<UserProvider>();
-      final String? targetId = widget.userId ?? authProvider.currentUser?.id;
-      if (targetId != null) {
-        userProvider.fetchUser(targetId);
-        userProvider.fetchUserActivities(targetId);
-        // Load follow and block status if viewing another user's profile
-        if (widget.userId != null &&
-            widget.userId != authProvider.currentUser?.id) {
-          userProvider.loadFollowStatus(targetId);
-          userProvider.loadBlockStatus(targetId);
-        } else {
-          // Load draft posts for own profile
-          context.read<FeedProvider>().loadDraftPosts();
-        }
-      }
+      _loadProfileData();
     });
+  }
+
+  Future<void> _loadProfileData() async {
+    if (!mounted) return;
+
+    final authProvider = context.read<AuthProvider>();
+    final userProvider = context.read<UserProvider>();
+    final String? target = widget.userId ?? authProvider.currentUser?.id;
+    if (target == null) return;
+
+    await userProvider.fetchUser(target);
+    if (!mounted) return;
+
+    final resolvedUser = userProvider.getUser(widget.userId);
+    final resolvedId = resolvedUser?.id ?? target;
+
+    await userProvider.fetchUserActivities(resolvedId);
+    if (!mounted) return;
+
+    // Load follow and block status if viewing another user's profile
+    if (resolvedId != authProvider.currentUser?.id) {
+      await Future.wait([
+        userProvider.loadFollowStatus(resolvedId),
+        userProvider.loadBlockStatus(resolvedId),
+      ]);
+    } else {
+      context.read<FeedProvider>().loadDraftPosts();
+    }
+
+    try {
+      final posts = await _postRepository.getPostsByUser(resolvedId);
+      if (mounted) {
+        setState(() {
+          _profilePosts = posts;
+          _isLoadingPosts = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingPosts = false);
+    }
   }
 
   @override
@@ -102,11 +133,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final bool isActuallyOwnProfile = user != null
         ? user.id == currentUserId
         : isOwnProfileInitial;
-
-    // If viewing another profile and tab is 0 (Activity Log), default to 1 (Statistics)
-    if (!isActuallyOwnProfile && _tabIndex == 0) {
-      _tabIndex = 1;
-    }
 
     if (user == null) {
       return Scaffold(
@@ -192,13 +218,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    final posts = feedProvider.allPosts
+    final posts =
+        _profilePosts
+            .where(
+              (p) =>
+                  p.status == 'published' &&
+                  ((p.aiScoreStatus?.toLowerCase() == 'pass') ||
+                      (p.detectionStatus?.toLowerCase() == 'pass')),
+            )
+            .toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final approvedPostsCount = posts
         .where(
           (p) =>
-              p.author.username == user.username ||
-              p.reposter?.username == user.username,
+              (p.aiScoreStatus?.toLowerCase() == 'pass') ||
+              (p.detectionStatus?.toLowerCase() == 'pass'),
         )
-        .toList();
+        .length;
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -309,7 +345,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
 
             // ───────── TAB CONTENT
-            if (_tabIndex == 0 && isActuallyOwnProfile)
+            if (_tabIndex == 0)
               _ActivityLog(
                 activities: userProvider.userActivities,
                 colors: colors,
@@ -319,9 +355,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 user: user,
                 colors: colors,
                 isOwnProfile: isActuallyOwnProfile,
+                approvedPostsCount: approvedPostsCount,
               )
             else if (_tabIndex == 2)
-              _PostsGrid(posts: posts, colors: colors)
+              if (_isLoadingPosts)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else
+                _PostsGrid(posts: posts, colors: colors)
             else if (_tabIndex == 3 && isActuallyOwnProfile)
               _DraftsGrid(
                 posts: feedProvider.draftPosts,
@@ -576,8 +618,10 @@ class _ProfileHeader extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           maxLines: 1,
         ),
-        // Location and website
-        if (user.location != null && user.location!.isNotEmpty ||
+        // Country, date of birth, and website
+        if (user.countryOfResidence != null &&
+                user.countryOfResidence!.isNotEmpty ||
+            user.birthDate != null ||
             user.websiteUrl != null && user.websiteUrl!.isNotEmpty) ...[
           const SizedBox(height: 8),
           Wrap(
@@ -585,7 +629,8 @@ class _ProfileHeader extends StatelessWidget {
             spacing: 12,
             runSpacing: 4,
             children: [
-              if (user.location != null && user.location!.isNotEmpty)
+              if (user.countryOfResidence != null &&
+                  user.countryOfResidence!.isNotEmpty)
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -596,7 +641,26 @@ class _ProfileHeader extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      user.location!,
+                      user.countryOfResidence!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              if (user.birthDate != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.cake_outlined,
+                      size: 14,
+                      color: colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      DateFormat('MMM d, yyyy').format(user.birthDate!),
                       style: TextStyle(
                         fontSize: 12,
                         color: colors.onSurfaceVariant,
@@ -765,6 +829,11 @@ class _RoobyteBalance extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!isVisible) return const SizedBox.shrink();
+    // Prefer the blockchain-synced balance from WalletProvider (updates after
+    // tips/transfers without requiring a full user profile refresh).
+    final walletBalance =
+        context.watch<WalletProvider>().wallet?.balanceRc;
+    final displayBalance = walletBalance ?? (user.balance as double);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -783,7 +852,7 @@ class _RoobyteBalance extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                '${user.balance.toStringAsFixed(1)}',
+                displayBalance.toStringAsFixed(1),
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -807,7 +876,7 @@ class _RoobyteBalance extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: LinearProgressIndicator(
-            value: user.balance / 15000,
+            value: (displayBalance / 15000).clamp(0.0, 1.0),
             minHeight: 8,
             backgroundColor: colors.surfaceVariant,
             valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
@@ -1133,6 +1202,15 @@ class _ActionRow extends StatelessWidget {
                             ),
                           ),
                         );
+                      } else if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              chatProvider.error ??
+                                  'You can only start chats with users you follow.',
+                            ),
+                          ),
+                        );
                       }
                     },
               child: const Icon(Icons.mail_outline),
@@ -1445,11 +1523,13 @@ class _Statistics extends StatelessWidget {
   final User user;
   final ColorScheme colors;
   final bool isOwnProfile;
+  final int approvedPostsCount;
 
   const _Statistics({
     required this.user,
     required this.colors,
     required this.isOwnProfile,
+    required this.approvedPostsCount,
   });
 
   @override
@@ -1460,7 +1540,7 @@ class _Statistics extends StatelessWidget {
         delegate: SliverChildListDelegate([
           _StatItem(
             label: 'Approved Posts',
-            value: user.humanVerifiedPostsCount.toString(),
+            value: approvedPostsCount.toString(),
             colors: colors,
           ),
           const SizedBox(height: 12),
@@ -1497,6 +1577,22 @@ class _Statistics extends StatelessWidget {
               );
             },
           ),
+          if (isOwnProfile) ...[
+            const SizedBox(height: 12),
+            _StatItem(
+              label: 'AI Flagged Content',
+              value: 'View',
+              colors: colors,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MyFlaggedContentScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
           const SizedBox(height: 12),
           _StatItem(
             label: 'Trust Score',

@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 import '../../providers/auth_provider.dart';
@@ -22,11 +21,181 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
+  static const List<String> _countries = [
+    'Afghanistan',
+    'Albania',
+    'Algeria',
+    'Andorra',
+    'Angola',
+    'Argentina',
+    'Armenia',
+    'Australia',
+    'Austria',
+    'Azerbaijan',
+    'Bahrain',
+    'Bangladesh',
+    'Belarus',
+    'Belgium',
+    'Belize',
+    'Benin',
+    'Bhutan',
+    'Bolivia',
+    'Bosnia and Herzegovina',
+    'Botswana',
+    'Brazil',
+    'Brunei',
+    'Bulgaria',
+    'Burkina Faso',
+    'Burundi',
+    'Cambodia',
+    'Cameroon',
+    'Canada',
+    'Cape Verde',
+    'Central African Republic',
+    'Chad',
+    'Chile',
+    'China',
+    'Colombia',
+    'Comoros',
+    'Congo',
+    'Costa Rica',
+    'Croatia',
+    'Cuba',
+    'Cyprus',
+    'Czech Republic',
+    'Denmark',
+    'Djibouti',
+    'Dominican Republic',
+    'Ecuador',
+    'Egypt',
+    'El Salvador',
+    'Equatorial Guinea',
+    'Eritrea',
+    'Estonia',
+    'Eswatini',
+    'Ethiopia',
+    'Finland',
+    'France',
+    'Gabon',
+    'Gambia',
+    'Georgia',
+    'Germany',
+    'Ghana',
+    'Greece',
+    'Guatemala',
+    'Guinea',
+    'Guyana',
+    'Haiti',
+    'Honduras',
+    'Hungary',
+    'Iceland',
+    'India',
+    'Indonesia',
+    'Iran',
+    'Iraq',
+    'Ireland',
+    'Israel',
+    'Italy',
+    'Jamaica',
+    'Japan',
+    'Jordan',
+    'Kazakhstan',
+    'Kenya',
+    'Kuwait',
+    'Kyrgyzstan',
+    'Laos',
+    'Latvia',
+    'Lebanon',
+    'Lesotho',
+    'Liberia',
+    'Libya',
+    'Lithuania',
+    'Luxembourg',
+    'Madagascar',
+    'Malawi',
+    'Malaysia',
+    'Maldives',
+    'Mali',
+    'Malta',
+    'Mauritania',
+    'Mauritius',
+    'Mexico',
+    'Moldova',
+    'Mongolia',
+    'Montenegro',
+    'Morocco',
+    'Mozambique',
+    'Myanmar',
+    'Namibia',
+    'Nepal',
+    'Netherlands',
+    'New Zealand',
+    'Nicaragua',
+    'Niger',
+    'Nigeria',
+    'North Korea',
+    'North Macedonia',
+    'Norway',
+    'Oman',
+    'Pakistan',
+    'Panama',
+    'Papua New Guinea',
+    'Paraguay',
+    'Peru',
+    'Philippines',
+    'Poland',
+    'Portugal',
+    'Qatar',
+    'Romania',
+    'Russia',
+    'Rwanda',
+    'Saudi Arabia',
+    'Senegal',
+    'Serbia',
+    'Sierra Leone',
+    'Singapore',
+    'Slovakia',
+    'Slovenia',
+    'Somalia',
+    'South Africa',
+    'South Korea',
+    'South Sudan',
+    'Spain',
+    'Sri Lanka',
+    'Sudan',
+    'Suriname',
+    'Sweden',
+    'Switzerland',
+    'Syria',
+    'Taiwan',
+    'Tajikistan',
+    'Tanzania',
+    'Thailand',
+    'Togo',
+    'Trinidad and Tobago',
+    'Tunisia',
+    'Turkey',
+    'Turkmenistan',
+    'Uganda',
+    'Ukraine',
+    'United Arab Emirates',
+    'United Kingdom',
+    'United States',
+    'Uruguay',
+    'Uzbekistan',
+    'Venezuela',
+    'Vietnam',
+    'Yemen',
+    'Zambia',
+    'Zimbabwe',
+  ];
+
   final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _countryController = TextEditingController();
   final TextEditingController _websiteController = TextEditingController();
   final TextEditingController _twitterController = TextEditingController();
   final TextEditingController _instagramController = TextEditingController();
@@ -37,11 +206,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isUploadingImage = false;
   XFile? _selectedImage;
   String? _newAvatarUrl;
+  DateTime? _selectedBirthDate;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final authProvider = context.read<AuthProvider>();
       final user = authProvider.currentUser;
       if (user != null) {
@@ -55,6 +226,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _bioController.text = user.bio ?? '';
           _emailController.text = email ?? '';
           _phoneController.text = user.phone ?? '';
+          _countryController.text = user.countryOfResidence ?? user.location ?? '';
+          _selectedBirthDate = user.birthDate;
         });
 
         _loadSocialLinks(user.id);
@@ -141,6 +314,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _bioController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _countryController.dispose();
     _websiteController.dispose();
     _twitterController.dispose();
     _instagramController.dispose();
@@ -257,14 +431,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (!mounted) return;
 
-      // Crop the image to square format
-      final croppedFile = await _cropImage(image.path);
-      if (croppedFile != null && mounted) {
-        setState(() {
-          _selectedImage = XFile(croppedFile.path);
-          _newAvatarUrl = null; // Clear any previously uploaded URL
-        });
-      }
+      setState(() {
+        _selectedImage = image;
+        _newAvatarUrl = null; // Clear any previously uploaded URL
+      });
     } on PlatformException catch (e) {
       debugPrint('Image picker error: $e');
       if (mounted) {
@@ -302,43 +472,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         );
       }
     }
-  }
-
-  Future<CroppedFile?> _cropImage(String imagePath) async {
-    final colors = Theme.of(context).colorScheme;
-    final isCompactHeight = MediaQuery.of(context).size.height < 700;
-
-    return await ImageCropper().cropImage(
-      sourcePath: imagePath,
-      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // Square
-      compressQuality: 85,
-      maxWidth: 800,
-      maxHeight: 800,
-      compressFormat: ImageCompressFormat.jpg,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Profile Picture',
-          toolbarColor: colors.surface,
-          toolbarWidgetColor: colors.onSurface,
-          backgroundColor: colors.surface,
-          activeControlsWidgetColor: colors.primary,
-          cropFrameColor: colors.primary,
-          cropGridColor: colors.outlineVariant,
-          initAspectRatio: CropAspectRatioPreset.square,
-          lockAspectRatio: true, // Force square aspect ratio
-          hideBottomControls: isCompactHeight,
-          statusBarColor: colors.surface,
-        ),
-        IOSUiSettings(
-          title: 'Crop Profile Picture',
-          aspectRatioLockEnabled: true, // Force square aspect ratio
-          resetAspectRatioEnabled: false,
-          aspectRatioPickerButtonHidden: true,
-          rotateButtonsHidden: isCompactHeight,
-          rotateClockwiseButtonHidden: true,
-        ),
-      ],
-    );
   }
 
   Future<String?> _uploadImage(String userId) async {
@@ -410,6 +543,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       'display_name': _displayNameController.text.trim(),
       'bio': _bioController.text.trim(),
       'phone_number': _phoneController.text.trim(),
+      'location': _countryController.text.trim().isEmpty
+          ? null
+          : _countryController.text.trim(),
+      'birth_date': _selectedBirthDate == null
+          ? null
+          : _formatDateForDb(_selectedBirthDate!),
     };
 
     // Add avatar URL if we uploaded a new image
@@ -653,6 +792,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     icon: Icons.phone,
                     hint: '+1 (555) 123-4567',
                   ),
+                  const SizedBox(height: 20),
+                  _buildCountryField(context),
+                  const SizedBox(height: 20),
+                  _buildDateField(
+                    context,
+                    label: 'Date of Birth',
+                    icon: Icons.cake_outlined,
+                  ),
                   const SizedBox(height: 32),
 
                   // Options
@@ -740,6 +887,227 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  String _formatDateForDb(DateTime date) {
+    final year = date.year.toString().padLeft(4, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+
+  String _formatDateForDisplay(DateTime date) {
+    final year = date.year.toString().padLeft(4, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+
+  Future<void> _selectBirthDate() async {
+    final now = DateTime.now();
+    final initialDate = _selectedBirthDate ?? DateTime(now.year - 18, 1, 1);
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isAfter(now) ? now : initialDate,
+      firstDate: DateTime(1900, 1, 1),
+      lastDate: now,
+    );
+
+    if (pickedDate != null && mounted) {
+      setState(() => _selectedBirthDate = pickedDate);
+    }
+  }
+
+  Future<void> _showCountryPicker() async {
+    final colors = Theme.of(context).colorScheme;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        var filteredCountries = List<String>.from(_countries);
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  12,
+                  16,
+                  MediaQuery.of(sheetContext).viewInsets.bottom + 12,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: colors.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: 'Search country...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        final query = value.trim().toLowerCase();
+                        setSheetState(() {
+                          filteredCountries = _countries
+                              .where(
+                                (country) => country.toLowerCase().contains(query),
+                              )
+                              .toList();
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 360,
+                      child: ListView.builder(
+                        itemCount: filteredCountries.length,
+                        itemBuilder: (context, index) {
+                          final country = filteredCountries[index];
+                          return ListTile(
+                            title: Text(country),
+                            trailing: _countryController.text == country
+                                ? Icon(Icons.check, color: colors.primary)
+                                : null,
+                            onTap: () {
+                              setState(() => _countryController.text = country);
+                              Navigator.pop(sheetContext);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildCountryField(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('Country of Residence', style: theme.textTheme.labelMedium),
+        ),
+        InkWell(
+          onTap: _showCountryPicker,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.public, size: 20, color: colors.onSurfaceVariant),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _countryController.text.isEmpty
+                        ? 'Select country'
+                        : _countryController.text,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: _countryController.text.isEmpty
+                          ? theme.textTheme.bodySmall?.color
+                          : colors.onSurface,
+                    ),
+                  ),
+                ),
+                if (_countryController.text.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => setState(() => _countryController.clear()),
+                    tooltip: 'Clear country',
+                  ),
+                const Icon(Icons.expand_more),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateField(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+  }) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(label, style: theme.textTheme.labelMedium),
+        ),
+        InkWell(
+          onTap: _selectBirthDate,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: colors.onSurfaceVariant),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _selectedBirthDate == null
+                        ? 'Select your date of birth'
+                        : _formatDateForDisplay(_selectedBirthDate!),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: _selectedBirthDate == null
+                          ? theme.textTheme.bodySmall?.color
+                          : colors.onSurface,
+                    ),
+                  ),
+                ),
+                if (_selectedBirthDate != null)
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => setState(() => _selectedBirthDate = null),
+                    tooltip: 'Clear date',
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

@@ -168,6 +168,7 @@ class Post {
   final String? authenticityNotes;
   final String? verificationMethod;
   final String? verificationSessionId;
+  final Map<String, dynamic>? aiMetadata; // Full AI detection metadata JSONB
 
   // AI verification fields (matching web - kept for compatibility)
   final double? aiConfidenceScore; // 0-100 probability of AI generation
@@ -202,6 +203,7 @@ class Post {
     this.authenticityNotes,
     this.verificationMethod,
     this.verificationSessionId,
+    this.aiMetadata,
     this.aiConfidenceScore,
     this.detectionStatus,
     this.status = 'published',
@@ -255,6 +257,7 @@ class Post {
     String? authenticityNotes,
     String? verificationMethod,
     String? verificationSessionId,
+    Map<String, dynamic>? aiMetadata,
     double? aiConfidenceScore,
     String? detectionStatus,
     String? status,
@@ -303,6 +306,7 @@ class Post {
       verificationMethod: verificationMethod ?? this.verificationMethod,
       verificationSessionId:
           verificationSessionId ?? this.verificationSessionId,
+      aiMetadata: aiMetadata ?? this.aiMetadata,
       aiConfidenceScore: aiConfidenceScore ?? this.aiConfidenceScore,
       detectionStatus: detectionStatus ?? this.detectionStatus,
       status: status ?? this.status,
@@ -401,6 +405,28 @@ class Post {
           .toList();
     }
 
+    // Fallback tip total from completed tip transactions linked to this post.
+    final tipTransactions = json['roocoin_transactions'] as List<dynamic>? ?? [];
+    double tipsFromTransactions = 0.0;
+    for (final tx in tipTransactions) {
+      final txMap = tx as Map<String, dynamic>;
+      final status = txMap['status']?.toString();
+      if (status != 'completed') continue;
+
+      final metadata = txMap['metadata'];
+      final activityType = metadata is Map ? metadata['activityType'] : null;
+      if (activityType?.toString() != 'tip') continue;
+
+      tipsFromTransactions += (txMap['amount_rc'] as num?)?.toDouble() ?? 0.0;
+    }
+
+    final persistedTipTotal = (json['total_tips_rc'] as num?)?.toDouble();
+    final legacyTipTotal = (json['tip_total'] as num?)?.toDouble();
+    final resolvedTips =
+        persistedTipTotal ??
+        legacyTipTotal ??
+        (tipsFromTransactions > 0 ? tipsFromTransactions : 0.0);
+
     return Post(
       id: json['id']?.toString() ?? '',
       author: PostAuthor(
@@ -424,10 +450,7 @@ class Post {
           json['comments_count'] as int? ??
           (json['comments'] as List<dynamic>?)?.length ??
           0,
-      tips:
-          (json['total_tips_rc'] as num?)?.toDouble() ??
-          (json['tip_total'] as num?)?.toDouble() ??
-          0.0,
+      tips: resolvedTips,
       timestamp: json['created_at'] ?? DateTime.now().toIso8601String(),
       isNFT: json['is_nft'] ?? false,
       isLiked: isLiked,
@@ -440,6 +463,7 @@ class Post {
       authenticityNotes: json['authenticity_notes'] as String?,
       verificationMethod: json['verification_method'] as String?,
       verificationSessionId: json['verification_session_id'] as String?,
+      aiMetadata: json['ai_metadata'] as Map<String, dynamic>?,
       aiConfidenceScore: (json['ai_score'] as num?)?.toDouble(),
       detectionStatus: json['ai_score_status'] as String?,
       status: json['status'] as String? ?? 'published',

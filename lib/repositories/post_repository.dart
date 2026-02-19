@@ -66,6 +66,11 @@ class PostRepository {
               name
             )
           ),
+          roocoin_transactions!roocoin_transactions_reference_post_id_fkey (
+            amount_rc,
+            status,
+            metadata
+          ),
           mentions (
             mentioned_user_id
           )
@@ -120,6 +125,11 @@ class PostRepository {
                 id,
                 name
               )
+            ),
+            roocoin_transactions!roocoin_transactions_reference_post_id_fkey (
+              amount_rc,
+              status,
+              metadata
             ),
             mentions (
               mentioned_user_id
@@ -277,6 +287,11 @@ class PostRepository {
               name
             )
           ),
+          roocoin_transactions!roocoin_transactions_reference_post_id_fkey (
+            amount_rc,
+            status,
+            metadata
+          ),
           mentions (
             mentioned_user_id
           )
@@ -397,6 +412,11 @@ class PostRepository {
                 id,
                 name
               )
+            ),
+            roocoin_transactions!roocoin_transactions_reference_post_id_fkey (
+              amount_rc,
+              status,
+              metadata
             ),
             mentions (
               mentioned_user_id
@@ -773,11 +793,13 @@ class PostRepository {
   /// Update tip total for a post.
   Future<bool> tipPost(String postId, double newTotal) async {
     try {
-      await _client
+      final updatedRow = await _client
           .from(SupabaseConfig.postsTable)
           .update({'total_tips_rc': newTotal})
-          .eq('id', postId);
-      return true;
+          .eq('id', postId)
+          .select('id')
+          .maybeSingle();
+      return updatedRow != null;
     } catch (e) {
       debugPrint('PostRepository: Error tipping post - $e');
       return false;
@@ -829,6 +851,43 @@ class PostRepository {
     } catch (e) {
       debugPrint('PostRepository: Error updating AI score - $e');
       return false;
+    }
+  }
+
+  /// Fetch AI-flagged posts belonging to a specific user.
+  /// Only returns posts where the AI explicitly flagged or put them under review
+  /// (ai_score_status = 'flagged' or 'review'), not posts under review for other reasons.
+  Future<List<Post>> getUserFlaggedPosts(String userId, {int limit = 50}) async {
+    try {
+      final data = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('''
+            *,
+            profiles!posts_author_id_fkey (
+              user_id,
+              username,
+              display_name,
+              avatar_url,
+              verified_human
+            ),
+            post_media (
+              id,
+              media_type,
+              storage_path,
+              mime_type
+            )
+          ''')
+          .eq('author_id', userId)
+          .inFilter('ai_score_status', ['flagged', 'review'])
+          .order('created_at', ascending: false)
+          .limit(limit) as List<dynamic>;
+
+      return data
+          .map((json) => Post.fromSupabase(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('PostRepository: Error fetching user flagged posts - $e');
+      return [];
     }
   }
 

@@ -56,13 +56,29 @@ class UserActivity {
       case UserActivityType.postReposted:
         return 'Reposted';
       case UserActivityType.userFollowed:
-        return 'Followed ${targetDisplayName ?? '@$targetUsername'}';
+        final followedLabel =
+            (targetDisplayName != null && targetDisplayName!.trim().isNotEmpty)
+            ? targetDisplayName!.trim()
+            : (targetUsername != null && targetUsername!.trim().isNotEmpty)
+            ? '@${targetUsername!.trim()}'
+            : 'a user';
+        return 'Followed $followedLabel';
       case UserActivityType.rookenEarned:
         return 'Earned ${amount?.toStringAsFixed(1)} ROOK';
       case UserActivityType.rookenSpent:
         return 'Spent ${amount?.toStringAsFixed(1)} ROOK';
       case UserActivityType.rookenTransferred:
-        return 'Transferred ${amount?.toStringAsFixed(1)} ROOK to @$targetUsername';
+        final recipientLabel =
+            (targetDisplayName != null &&
+                targetDisplayName!.trim().isNotEmpty &&
+                targetDisplayName!.trim().toLowerCase() != 'null')
+            ? targetDisplayName!.trim()
+            : (targetUsername != null &&
+                  targetUsername!.trim().isNotEmpty &&
+                  targetUsername!.trim().toLowerCase() != 'null')
+            ? '@${targetUsername!.trim()}'
+            : 'recipient';
+        return 'Transferred ${amount?.toStringAsFixed(1)} ROOK to $recipientLabel';
       case UserActivityType.storyCreated:
         return 'Created a story';
       case UserActivityType.bookmarkAdded:
@@ -136,5 +152,4 @@ class UserActivity {
     }
     return null;
   }
-
 }

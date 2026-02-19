@@ -32,18 +32,22 @@ class MentionRichText extends StatefulWidget {
   final String text;
   final TextStyle? style;
   final TextStyle? mentionStyle;
+  final TextStyle? hashtagStyle;
   final int? maxLines;
   final TextOverflow? overflow;
   final void Function(String username)? onMentionTap;
+  final void Function(String hashtag)? onHashtagTap;
 
   const MentionRichText({
     super.key,
     required this.text,
     this.style,
     this.mentionStyle,
+    this.hashtagStyle,
     this.maxLines,
     this.overflow,
     this.onMentionTap,
+    this.onHashtagTap,
   });
 
   @override
@@ -78,6 +82,14 @@ class _MentionRichTextState extends State<MentionRichText> {
           color: Theme.of(context).colorScheme.primary,
           fontWeight: FontWeight.w600,
         );
+    final defaultHashtagStyle = widget.style?.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        ) ??
+        TextStyle(
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        );
 
     final spans = segments.map((seg) {
       if (seg.isMention && widget.onMentionTap != null) {
@@ -87,6 +99,16 @@ class _MentionRichTextState extends State<MentionRichText> {
         return TextSpan(
           text: seg.text,
           style: widget.mentionStyle ?? defaultMentionStyle,
+          recognizer: recognizer,
+        );
+      }
+      if (seg.isHashtag && widget.onHashtagTap != null) {
+        final recognizer = TapGestureRecognizer()
+          ..onTap = () => widget.onHashtagTap!(seg.hashtag!);
+        _recognizers.add(recognizer);
+        return TextSpan(
+          text: seg.text,
+          style: widget.hashtagStyle ?? defaultHashtagStyle,
           recognizer: recognizer,
         );
       }

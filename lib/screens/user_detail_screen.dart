@@ -237,6 +237,15 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                                   ),
                                 ),
                               );
+                            } else if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    chatProvider.error ??
+                                        'You can only start chats with users you follow.',
+                                  ),
+                                ),
+                              );
                             }
                           },
                           icon: const Icon(Icons.mail_outline),
@@ -385,14 +394,6 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.volume_off_outlined),
-                title: const Text('Mute User'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _handleMute(context);
-                },
-              ),
-              ListTile(
                 leading: const Icon(Icons.block_outlined, color: Colors.red),
                 title: const Text(
                   'Block User',
@@ -423,22 +424,6 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         referenceId: widget.user.id,
         reportedUserId: widget.user.id,
         username: widget.user.username,
-      ),
-    );
-  }
-
-  void _handleMute(BuildContext context) async {
-    final userProvider = context.read<UserProvider>();
-    final success = await userProvider.toggleMute(widget.user.id);
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success
-              ? '${widget.user.username} has been muted'
-              : 'Failed to mute user',
-        ),
       ),
     );
   }

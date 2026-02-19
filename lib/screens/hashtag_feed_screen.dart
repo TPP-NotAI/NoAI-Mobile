@@ -182,7 +182,10 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
             post: post,
             onCommentTap: () => _openComments(context, post),
             onTipTap: () => _openTip(context, post),
-            onProfileTap: () => _openProfile(context, post.author.userId ?? ''),
+            onProfileTap: () => _openProfile(
+              context,
+              post.author.userId ?? post.author.username,
+            ),
           );
         },
       ),
@@ -253,11 +256,12 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
     );
   }
 
-  void _openProfile(BuildContext context, String username) {
+  void _openProfile(BuildContext context, String userIdOrUsername) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ProfileScreen(userId: username, showAppBar: true),
+        builder: (_) =>
+            ProfileScreen(userId: userIdOrUsername, showAppBar: true),
       ),
     );
   }

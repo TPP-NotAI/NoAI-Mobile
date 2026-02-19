@@ -14,12 +14,21 @@ class TransactionHistoryScreen extends StatefulWidget {
 }
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  DateTimeRange? _selectedDateRange;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadTransactions();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTransactions() async {
@@ -33,6 +42,82 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     }
   }
 
+  String _profileLabel(dynamic profile) {
+    if (profile is Map<String, dynamic>) {
+      final displayName = (profile['display_name'] as String?)?.trim();
+      final username = (profile['username'] as String?)?.trim();
+      if (displayName != null && displayName.isNotEmpty) return displayName;
+      if (username != null && username.isNotEmpty) return '@$username';
+    }
+    return '';
+  }
+
+  List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> source) {
+    final query = _searchController.text.trim().toLowerCase();
+    final from = _selectedDateRange?.start;
+    final to = _selectedDateRange?.end;
+
+    return source.where((tx) {
+      final createdAt = tx['created_at'] != null
+          ? DateTime.tryParse(tx['created_at'].toString())?.toLocal()
+          : null;
+
+      if (from != null && to != null && createdAt != null) {
+        final txDate = DateTime(createdAt.year, createdAt.month, createdAt.day);
+        final fromDate = DateTime(from.year, from.month, from.day);
+        final toDate = DateTime(to.year, to.month, to.day);
+        if (txDate.isBefore(fromDate) || txDate.isAfter(toDate)) {
+          return false;
+        }
+      }
+
+      if (query.isEmpty) return true;
+
+      final txType = (tx['tx_type'] as String? ?? '').toLowerCase();
+      final memo = (tx['memo'] as String? ?? '').toLowerCase();
+      final hash = (tx['tx_hash'] as String? ?? '').toLowerCase();
+      final amount = (tx['amount_rc'] as num?)?.toDouble() ?? 0.0;
+      final fromProfile = _profileLabel(tx['from_profile']).toLowerCase();
+      final toProfile = _profileLabel(tx['to_profile']).toLowerCase();
+
+      final metadataRaw = tx['metadata'];
+      final metadata = metadataRaw is Map
+          ? Map<String, dynamic>.from(metadataRaw)
+          : <String, dynamic>{};
+      final recipientUsername =
+          (metadata['recipientUsername'] as String? ?? '').toLowerCase();
+      final recipientDisplayName =
+          (metadata['recipientDisplayName'] as String? ?? '').toLowerCase();
+      final inputRecipient =
+          (metadata['inputRecipient'] as String? ?? '').toLowerCase();
+      final address = (metadata['toAddress'] as String? ?? '').toLowerCase();
+
+      return txType.contains(query) ||
+          memo.contains(query) ||
+          hash.contains(query) ||
+          amount.toStringAsFixed(2).contains(query) ||
+          fromProfile.contains(query) ||
+          toProfile.contains(query) ||
+          recipientUsername.contains(query) ||
+          recipientDisplayName.contains(query) ||
+          inputRecipient.contains(query) ||
+          address.contains(query);
+    }).toList();
+  }
+
+  Future<void> _pickDateRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1),
+      initialDateRange: _selectedDateRange,
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedDateRange = picked);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -40,6 +125,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     final authProvider = context.watch<AuthProvider>();
     final userProvider = context.watch<UserProvider>();
     final currentUserId = authProvider.currentUser?.id;
+    final filteredTransactions = _applyFilters(userProvider.transactions);
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -96,16 +182,80 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             )
           : RefreshIndicator(
               onRefresh: _loadTransactions,
-              child: ListView.builder(
+              child: ListView(
                 padding: const EdgeInsets.all(16),
-                itemCount: userProvider.transactions.length,
-                itemBuilder: (context, index) {
-                  final tx = userProvider.transactions[index];
-                  return _TransactionItem(
-                    tx: tx,
-                    currentUserId: currentUserId,
-                  );
-                },
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'Search by user, hash, memo, type, amount',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickDateRange,
+                          icon: const Icon(Icons.date_range),
+                          label: Text(
+                            _selectedDateRange == null
+                                ? 'Filter by date'
+                                : '${DateFormat.yMMMd().format(_selectedDateRange!.start)} - '
+                                      '${DateFormat.yMMMd().format(_selectedDateRange!.end)}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: _selectedDateRange == null &&
+                                _searchController.text.isEmpty
+                            ? null
+                            : () {
+                                _searchController.clear();
+                                setState(() => _selectedDateRange = null);
+                              },
+                        child: const Text('Clear'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (filteredTransactions.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 32),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.filter_alt_off,
+                            size: 48,
+                            color: colors.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No matching transactions',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: colors.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...filteredTransactions.map(
+                      (tx) => _TransactionItem(
+                        tx: tx,
+                        currentUserId: currentUserId,
+                      ),
+                    ),
+                ],
               ),
             ),
     );

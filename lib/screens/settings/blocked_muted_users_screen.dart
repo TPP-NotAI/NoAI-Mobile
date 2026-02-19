@@ -5,9 +5,9 @@ import '../../widgets/loading_widget.dart';
 import '../../widgets/error_widget.dart';
 import '../../widgets/user_card.dart';
 import '../../models/user.dart';
-import '../../config/app_colors.dart';
 
 class BlockedMutedUsersScreen extends StatefulWidget {
+  // initialIndex kept for API compatibility
   final int initialIndex;
 
   const BlockedMutedUsersScreen({super.key, this.initialIndex = 0});
@@ -17,31 +17,17 @@ class BlockedMutedUsersScreen extends StatefulWidget {
       _BlockedMutedUsersScreenState();
 }
 
-class _BlockedMutedUsersScreenState extends State<BlockedMutedUsersScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _BlockedMutedUsersScreenState extends State<BlockedMutedUsersScreen> {
   List<User> _blockedUsers = [];
-  List<User> _mutedUsers = [];
   bool _isLoading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-      length: 2,
-      vsync: this,
-      initialIndex: widget.initialIndex,
-    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -52,20 +38,12 @@ class _BlockedMutedUsersScreenState extends State<BlockedMutedUsersScreen>
 
     try {
       final userProvider = context.read<UserProvider>();
-
-      // Load both blocked and muted users
       final blockedIds = userProvider.blockedUserIds;
-      final mutedIds = userProvider.mutedUserIds;
-
-      final results = await Future.wait([
-        userProvider.fetchUsersByIds(blockedIds),
-        userProvider.fetchUsersByIds(mutedIds),
-      ]);
+      final results = await userProvider.fetchUsersByIds(blockedIds);
 
       if (mounted) {
         setState(() {
-          _blockedUsers = results[0];
-          _mutedUsers = results[1];
+          _blockedUsers = results;
         });
       }
     } catch (e) {
@@ -88,41 +66,25 @@ class _BlockedMutedUsersScreenState extends State<BlockedMutedUsersScreen>
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: scheme.background,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         backgroundColor: scheme.surface,
         title: Text(
-          'Safety Controls',
+          'Blocked Users',
           style: TextStyle(color: scheme.onSurface),
         ),
         centerTitle: true,
         elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: scheme.onSurface.withOpacity(0.5),
-          indicatorColor: AppColors.primary,
-          tabs: const [
-            Tab(text: 'Blocked'),
-            Tab(text: 'Muted'),
-          ],
-        ),
       ),
       body: _isLoading
-          ? const LoadingWidget(message: 'Loading safety settings...')
+          ? const LoadingWidget(message: 'Loading blocked users...')
           : _error != null
           ? ErrorDisplayWidget(message: _error!, onRetry: _loadData)
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildUserList(_blockedUsers, isBlock: true),
-                _buildUserList(_mutedUsers, isBlock: false),
-              ],
-            ),
+          : _buildUserList(_blockedUsers),
     );
   }
 
-  Widget _buildUserList(List<User> users, {required bool isBlock}) {
+  Widget _buildUserList(List<User> users) {
     final scheme = Theme.of(context).colorScheme;
 
     if (users.isEmpty) {
@@ -131,15 +93,15 @@ class _BlockedMutedUsersScreenState extends State<BlockedMutedUsersScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isBlock ? Icons.block : Icons.volume_off,
+              Icons.block,
               size: 64,
-              color: scheme.onSurface.withOpacity(0.2),
+              color: scheme.onSurface.withValues(alpha: 0.2),
             ),
             const SizedBox(height: 16),
             Text(
-              isBlock ? 'No blocked users' : 'No muted users',
+              'No blocked users',
               style: TextStyle(
-                color: scheme.onSurface.withOpacity(0.6),
+                color: scheme.onSurface.withValues(alpha: 0.6),
                 fontSize: 16,
               ),
             ),
@@ -155,40 +117,25 @@ class _BlockedMutedUsersScreenState extends State<BlockedMutedUsersScreen>
         final user = users[index];
         return UserCard(
           user: user,
-          onTap: () {
-            // Navigate to profile if needed
-          },
+          onTap: () {},
           trailing: TextButton(
-            onPressed: () => _toggleStatus(user, isBlock),
-            child: Text(
-              isBlock ? 'Unblock' : 'Unmute',
-              style: const TextStyle(color: Colors.red),
-            ),
+            onPressed: () => _unblock(user),
+            child: const Text('Unblock', style: TextStyle(color: Colors.red)),
           ),
         );
       },
     );
   }
 
-  Future<void> _toggleStatus(User user, bool isBlock) async {
+  Future<void> _unblock(User user) async {
     final userProvider = context.read<UserProvider>();
-    bool success;
-
-    if (isBlock) {
-      success = await userProvider.toggleBlock(user.id);
-    } else {
-      success = await userProvider.toggleMute(user.id);
-    }
+    final success = await userProvider.toggleBlock(user.id);
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${user.username} ${isBlock ? 'unblocked' : 'unmuted'}.',
-          ),
-        ),
+        SnackBar(content: Text('${user.username} unblocked.')),
       );
-      _loadData(); // Refresh lists
+      _loadData();
     }
   }
 }

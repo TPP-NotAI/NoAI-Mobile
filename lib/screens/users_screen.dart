@@ -5,6 +5,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/error_widget.dart';
 import '../widgets/user_card.dart';
 import 'user_detail_screen.dart';
+import 'profile/profile_screen.dart';
 
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});
@@ -17,9 +18,7 @@ class _UsersScreenState extends State<UsersScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(
-      () => context.read<UserProvider>().fetchUsers(),
-    );
+    Future.microtask(() => context.read<UserProvider>().fetchUsers());
   }
 
   @override
@@ -51,9 +50,7 @@ class _UsersScreenState extends State<UsersScreen> {
           final displayUsers = userProvider.filteredUsers;
 
           if (displayUsers.isEmpty) {
-            return const Center(
-              child: Text('No users available'),
-            );
+            return const Center(child: Text('No users available'));
           }
 
           return RefreshIndicator(
@@ -69,7 +66,8 @@ class _UsersScreenState extends State<UsersScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => UserDetailScreen(user: user),
+                        builder: (context) =>
+                            ProfileScreen(userId: user.id, showAppBar: true),
                       ),
                     );
                   },

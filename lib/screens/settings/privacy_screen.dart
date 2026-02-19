@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
-import '../../models/user.dart' as app_models; // Alias your custom User model
 import '../../config/app_colors.dart';
 import 'blocked_muted_users_screen.dart';
 
@@ -16,6 +15,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
   late String _postsVisibility; // everyone, followers, private
   late String _commentsVisibility;
   late String _messagesVisibility;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -108,7 +108,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
           const SizedBox(height: 48),
 
           ElevatedButton(
-            onPressed: _saveSettings,
+            onPressed: _isSaving ? null : _saveSettings,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -117,7 +117,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                 borderRadius: BorderRadius.circular(25),
               ),
             ),
-            child: const Text('Save Settings'),
+            child: Text(_isSaving ? 'Saving...' : 'Save Settings'),
           ),
         ],
       ),
@@ -211,6 +211,8 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
   }
 
   void _saveSettings() async {
+    if (_isSaving) return;
+
     final userProvider = context.read<UserProvider>();
     final currentUser = userProvider.currentUser;
 
@@ -224,12 +226,16 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
       return;
     }
 
+    setState(() => _isSaving = true);
     final success = await userProvider.updatePrivacySettings(
       userId: currentUser.id,
       postsVisibility: _postsVisibility,
       commentsVisibility: _commentsVisibility,
       messagesVisibility: _messagesVisibility,
     );
+    if (mounted) {
+      setState(() => _isSaving = false);
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -237,7 +243,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
           content: Text(
             success
                 ? 'Privacy settings saved successfully'
-                : 'Failed to save privacy settings',
+                : (userProvider.error ?? 'Failed to save privacy settings'),
           ),
           backgroundColor: success ? Colors.green : Colors.red,
         ),

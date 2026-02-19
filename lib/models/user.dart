@@ -46,6 +46,8 @@ class User {
   final String? bio;
   final String? phone;
   final String? location;
+  final DateTime? birthDate;
+  final String? countryOfResidence;
   final String? websiteUrl;
   final bool isVerified;
   final double balance;
@@ -75,6 +77,8 @@ class User {
     this.bio,
     this.phone,
     this.location,
+    this.birthDate,
+    this.countryOfResidence,
     this.websiteUrl,
     this.isVerified = false,
     this.balance = 0.0,
@@ -127,6 +131,12 @@ class User {
       bio: profile['bio'] as String?,
       phone: profile['phone_number'] as String?,
       location: profile['location'] as String?,
+      birthDate: profile['birth_date'] != null
+          ? DateTime.tryParse(profile['birth_date'].toString())
+          : null,
+      countryOfResidence:
+          profile['country_of_residence'] as String? ??
+          profile['location'] as String?,
       websiteUrl: profile['website_url'] as String?,
       isVerified: profile['verified_human'] == 'verified',
       verifiedHuman: profile['verified_human'] as String? ?? 'unverified',
@@ -169,6 +179,8 @@ class User {
     String? bio,
     String? phone,
     String? location,
+    DateTime? birthDate,
+    String? countryOfResidence,
     String? websiteUrl,
     bool? isVerified,
     double? balance,
@@ -197,6 +209,8 @@ class User {
       bio: bio ?? this.bio,
       phone: phone ?? this.phone,
       location: location ?? this.location,
+      birthDate: birthDate ?? this.birthDate,
+      countryOfResidence: countryOfResidence ?? this.countryOfResidence,
       websiteUrl: websiteUrl ?? this.websiteUrl,
       isVerified: isVerified ?? this.isVerified,
       balance: balance ?? this.balance,

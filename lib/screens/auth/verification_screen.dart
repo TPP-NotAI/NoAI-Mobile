@@ -9,8 +9,15 @@ import '../../utils/responsive_extensions.dart';
 
 class VerificationScreen extends StatefulWidget {
   final VoidCallback onVerify;
+  final VoidCallback? onBack;
+  final VoidCallback? onChangeEmail;
 
-  const VerificationScreen({super.key, required this.onVerify});
+  const VerificationScreen({
+    super.key,
+    required this.onVerify,
+    this.onBack,
+    this.onChangeEmail,
+  });
 
   @override
   State<VerificationScreen> createState() => _VerificationScreenState();
@@ -177,7 +184,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         IconButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed:
+                              widget.onBack ??
+                              () => Navigator.maybePop(context),
                           icon: Icon(
                             Icons.arrow_back,
                             color: scheme.onBackground,
@@ -539,7 +548,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       ),
                       SizedBox(height: AppSpacing.largePlus.responsive(context)),
                       TextButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed:
+                            widget.onChangeEmail ??
+                            widget.onBack ??
+                            () => Navigator.maybePop(context),
                         child: Text(
                           'CHANGE EMAIL ADDRESS',
                           style: TextStyle(

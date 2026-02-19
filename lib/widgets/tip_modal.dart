@@ -28,9 +28,14 @@ class _TipModalState extends State<TipModal> {
   @override
   void initState() {
     super.initState();
-    // Refresh balance when modal opens to ensure it's up to date
+    // Refresh wallet data in background when modal opens.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthProvider>().reloadCurrentUser();
+      final userId = context.read<AuthProvider>().currentUser?.id;
+      if (userId != null) {
+        context.read<WalletProvider>().refreshWallet(userId).catchError((_) {
+          return null;
+        });
+      }
     });
   }
 
@@ -118,7 +123,6 @@ class _TipModalState extends State<TipModal> {
                 await walletProvider.refreshWallet(user.id).catchError(
                   (_) => null,
                 );
-                await authProvider.reloadCurrentUser().catchError((_) => null);
 
                 rootScaffoldMessengerKey.currentState?.showSnackBar(
                   SnackBar(
@@ -186,6 +190,7 @@ class _TipModalState extends State<TipModal> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final user = context.watch<AuthProvider>().currentUser;
+    final wallet = context.watch<WalletProvider>().wallet;
 
     if (user == null) {
       return const SizedBox.shrink();
@@ -302,7 +307,7 @@ class _TipModalState extends State<TipModal> {
                         Icon(Icons.toll, size: 16, color: colors.primary),
                         const SizedBox(width: 6),
                         Text(
-                          user.balance.toStringAsFixed(2),
+                          (wallet?.balanceRc ?? user.balance).toStringAsFixed(2),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: colors.onSurface,

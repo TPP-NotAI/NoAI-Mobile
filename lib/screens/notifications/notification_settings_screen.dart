@@ -27,11 +27,14 @@ class _NotificationSettingsScreenState
     final authProvider = context.read<AuthProvider>();
     final notificationProvider = context.read<NotificationProvider>();
 
-    if (authProvider.currentUser != null) {
-      await notificationProvider.loadSettings(authProvider.currentUser!.id);
-      if (mounted) {
-        setState(() => _initialized = true);
-      }
+    if (authProvider.currentUser == null) {
+      if (mounted) setState(() => _initialized = true);
+      return;
+    }
+
+    await notificationProvider.loadSettings(authProvider.currentUser!.id);
+    if (mounted) {
+      setState(() => _initialized = true);
     }
   }
 
@@ -42,9 +45,13 @@ class _NotificationSettingsScreenState
     context.read<NotificationProvider>().updateSettings(newSettings).then((
       success,
     ) {
-      if (!success && mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update settings')),
+          SnackBar(
+            content: Text(
+              success ? 'Notification settings updated' : 'Failed to update settings',
+            ),
+          ),
         );
       }
     });
@@ -54,8 +61,12 @@ class _NotificationSettingsScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final authProvider = context.watch<AuthProvider>();
     final notificationProvider = context.watch<NotificationProvider>();
-    final settings = notificationProvider.settings;
+    final settings = notificationProvider.settings ??
+        (authProvider.currentUser != null
+            ? NotificationSettings(userId: authProvider.currentUser!.id)
+            : null);
 
     return Scaffold(
       backgroundColor: colors.background,

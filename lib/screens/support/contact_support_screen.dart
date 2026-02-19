@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../repositories/support_ticket_repository.dart';
 
 class ContactSupportScreen extends StatefulWidget {
   const ContactSupportScreen({super.key});
@@ -16,9 +17,12 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
   final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
   final Random _random = Random();
+  final SupportTicketRepository _supportTicketRepository =
+      SupportTicketRepository();
 
   String _selectedCategory = 'general';
   String _selectedPriority = 'normal';
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -29,7 +33,8 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
     super.dispose();
   }
 
-  void _submitSupport() {
+  Future<void> _submitSupport() async {
+    if (_isSubmitting) return;
     if (_nameController.text.trim().isEmpty ||
         _emailController.text.trim().isEmpty ||
         _subjectController.text.trim().isEmpty ||
@@ -43,7 +48,31 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
       return;
     }
 
-    final ticketReference = _generateTicketReference();
+    setState(() => _isSubmitting = true);
+
+    final ticketId = await _supportTicketRepository.createTicket(
+      subject: _subjectController.text.trim(),
+      category: _selectedCategory,
+      priority: _selectedPriority,
+      message: _messageController.text.trim(),
+      requesterName: _nameController.text.trim(),
+      requesterEmail: _emailController.text.trim(),
+    );
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    if (ticketId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to submit ticket. Please try again.'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+
+    final ticketReference = _toTicketReference(ticketId);
     _resetForm();
     FocusScope.of(context).unfocus();
 
@@ -109,6 +138,12 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
       buffer.write(chars[_random.nextInt(chars.length)]);
     }
     return buffer.toString();
+  }
+
+  String _toTicketReference(String ticketId) {
+    final compact = ticketId.replaceAll('-', '').toUpperCase();
+    if (compact.length < 6) return _generateTicketReference();
+    return 'ROO-${compact.substring(0, 6)}';
   }
 
   @override
@@ -308,7 +343,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _submitSupport,
+                onPressed: _isSubmitting ? null : _submitSupport,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -317,14 +352,24 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                   ),
                   elevation: 0,
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.send, size: 20),
-                    SizedBox(width: 8),
+                    if (_isSubmitting)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    else
+                      const Icon(Icons.send, size: 20),
+                    const SizedBox(width: 8),
                     Text(
-                      'Submit Ticket',
-                      style: TextStyle(
+                      _isSubmitting ? 'Submitting...' : 'Submit Ticket',
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),

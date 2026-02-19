@@ -639,6 +639,41 @@ class StoryRepository {
     }
   }
 
+  /// Fetch AI-flagged stories belonging to a specific user.
+  Future<List<Story>> getUserFlaggedStories(
+    String userId, {
+    int limit = 50,
+  }) async {
+    try {
+      final data = await _client
+          .from(SupabaseConfig.storiesTable)
+          .select('''
+            *,
+            profiles!stories_user_id_fkey (
+              user_id,
+              username,
+              display_name,
+              avatar_url,
+              verified_human
+            )
+          ''')
+          .eq('user_id', userId)
+          .inFilter('status', ['flagged', 'review'])
+          .order('created_at', ascending: false)
+          .limit(limit) as List<dynamic>;
+
+      return data
+          .map((json) => Story.fromSupabase(
+                json as Map<String, dynamic>,
+                currentUserId: userId,
+              ))
+          .toList();
+    } catch (e) {
+      debugPrint('StoryRepository: Error fetching user flagged stories - $e');
+      return [];
+    }
+  }
+
   /// Update a story's AI score and status.
   Future<bool> _updateAiScore({
     required String storyId,

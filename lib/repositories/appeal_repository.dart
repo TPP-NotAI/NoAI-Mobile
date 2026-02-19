@@ -6,24 +6,32 @@ import '../services/supabase_service.dart';
 class AppealRepository {
   final _client = SupabaseService().client;
 
-  /// Find or create a moderation case for an AI-flagged post or comment.
+  /// Find or create a moderation case for an AI-flagged post, comment, or story.
   /// Returns the moderation case ID, or null on failure.
   Future<String?> getOrCreateModerationCase({
     String? postId,
     String? commentId,
+    String? storyId,
     required String reportedUserId,
     required double aiConfidence,
   }) async {
     assert(
-      (postId != null) ^ (commentId != null),
-      'Provide either postId or commentId',
+      [postId, commentId, storyId].where((v) => v != null).length == 1,
+      'Provide exactly one of postId, commentId, or storyId',
     );
+
+    final field = postId != null
+        ? 'post_id'
+        : commentId != null
+        ? 'comment_id'
+        : 'story_id';
+    final contentId = postId ?? commentId ?? storyId;
 
     try {
       final existing = await _client
           .from(SupabaseConfig.moderationCasesTable)
           .select('id')
-          .eq(postId != null ? 'post_id' : 'comment_id', (postId ?? commentId)!)
+          .eq(field, contentId!)
           .maybeSingle();
 
       if (existing != null) {
@@ -35,6 +43,7 @@ class AppealRepository {
           .insert({
             if (postId != null) 'post_id': postId,
             if (commentId != null) 'comment_id': commentId,
+            if (storyId != null) 'story_id': storyId,
             'reported_user_id': reportedUserId,
             'reason': 'ai_generated',
             'source': 'ai',
@@ -74,19 +83,24 @@ class AppealRepository {
     }
   }
 
-  /// Check if user already has a pending appeal for a given post.
+  /// Check if user already has a pending appeal for a given post, comment, or story.
   Future<bool> hasExistingAppeal({
     required String userId,
     String? postId,
     String? commentId,
+    String? storyId,
   }) async {
     assert(
-      (postId != null) ^ (commentId != null),
-      'Provide either postId or commentId',
+      [postId, commentId, storyId].where((v) => v != null).length == 1,
+      'Provide exactly one of postId, commentId, or storyId',
     );
 
-    final field = postId != null ? 'post_id' : 'comment_id';
-    final contentId = postId ?? commentId;
+    final field = postId != null
+        ? 'post_id'
+        : commentId != null
+        ? 'comment_id'
+        : 'story_id';
+    final contentId = postId ?? commentId ?? storyId;
 
     try {
       final result = await _client

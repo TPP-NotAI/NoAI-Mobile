@@ -12,6 +12,7 @@ import '../providers/auth_provider.dart';
 import '../config/supabase_config.dart';
 import '../screens/bookmarks/bookmarks_screen.dart';
 import '../screens/create/edit_post_screen.dart';
+import '../screens/hashtag_feed_screen.dart';
 import '../screens/post_detail_screen.dart';
 import '../utils/time_utils.dart';
 import 'video_player_widget.dart';
@@ -46,6 +47,16 @@ class PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    void handleHashtagTap(String hashtag) {
+      if (onHashtagTap != null) {
+        onHashtagTap!(hashtag);
+        return;
+      }
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => HashtagFeedScreen(hashtag: hashtag)),
+      );
+    }
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -182,9 +193,7 @@ class PostCard extends StatelessWidget {
                 ),
               ),
 
-            _Content(post: post),
-
-            if (post.hasMedia) _MediaGridView(post: post),
+            _Content(post: post, onHashtagTap: handleHashtagTap),
 
             if (post.tags != null && post.tags!.isNotEmpty)
               Padding(
@@ -194,9 +203,7 @@ class PostCard extends StatelessWidget {
                   runSpacing: AppSpacing.extraSmall.responsive(context),
                   children: post.tags!.map((tag) {
                     return GestureDetector(
-                      onTap: onHashtagTap != null
-                          ? () => onHashtagTap!(tag.name)
-                          : null,
+                      onTap: () => handleHashtagTap(tag.name),
                       child: Text(
                         '#${tag.name}',
                         style: TextStyle(
@@ -212,6 +219,8 @@ class PostCard extends StatelessWidget {
                   }).toList(),
                 ),
               ),
+
+            if (post.hasMedia) _MediaGridView(post: post),
 
             _Actions(
               post: post,
@@ -809,8 +818,9 @@ class _MlScoreBadge extends StatelessWidget {
 
 class _Content extends StatefulWidget {
   final Post post;
+  final void Function(String hashtag)? onHashtagTap;
 
-  const _Content({required this.post});
+  const _Content({required this.post, this.onHashtagTap});
 
   @override
   State<_Content> createState() => _ContentState();
@@ -866,6 +876,7 @@ class _ContentState extends State<_Content> {
                         style: textStyle,
                         onMentionTap: (username) =>
                             navigateToMentionedUser(context, username),
+                        onHashtagTap: widget.onHashtagTap,
                       )
                     : MentionRichText(
                         text: post.content,
@@ -874,6 +885,7 @@ class _ContentState extends State<_Content> {
                         overflow: TextOverflow.clip,
                         onMentionTap: (username) =>
                             navigateToMentionedUser(context, username),
+                        onHashtagTap: widget.onHashtagTap,
                       ),
               ),
               if (isOverflowing)
@@ -1338,7 +1350,9 @@ class _Actions extends StatelessWidget {
             const SizedBox(width: 4),
             _ActionButton(
               icon: Icons.toll,
-              label: post.tips > 0 ? _format(post.tips.toInt()) : null,
+              label: post.tips > 0
+                  ? '${_format(post.tips.toInt())} ROO'
+                  : null,
               onTap:
                   onTipTap ??
                   () {
@@ -1683,34 +1697,6 @@ class _PostMenu extends StatelessWidget {
                 icon: Icons.report_outlined,
                 label: 'Report',
                 onTap: () => _handleReport(context),
-              ),
-              _MenuOption(
-                icon: Icons.volume_off,
-                label: 'Mute @${post.author.username}',
-                onTap: () async {
-                  final userProvider = context.read<UserProvider>();
-                  final success = await userProvider.toggleMute(post.authorId);
-                  if (context.mounted) {
-                    if (success) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('@${post.author.username} muted.'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            userProvider.error ?? 'Failed to mute user',
-                          ),
-                          backgroundColor: Theme.of(context).colorScheme.error,
-                        ),
-                      );
-                    }
-                  }
-                },
               ),
               _MenuOption(
                 icon: Icons.block,

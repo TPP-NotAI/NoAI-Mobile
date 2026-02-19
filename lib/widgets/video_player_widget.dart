@@ -29,6 +29,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   late VideoPlayerController _videoPlayerController;
   ChewieController? _chewieController;
   bool _isInitialized = false;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -81,6 +82,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       }
     } catch (e) {
       debugPrint('Error initializing video player: $e');
+      if (mounted) setState(() => _hasError = true);
     }
   }
 
@@ -93,6 +95,15 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    if (_hasError) {
+      return Container(
+        height: 200,
+        color: Colors.black12,
+        child: const Center(
+          child: Icon(Icons.videocam_off_outlined, size: 40, color: Colors.grey),
+        ),
+      );
+    }
     if (!_isInitialized || _chewieController == null) {
       return const ShimmerLoading(
         isLoading: true,

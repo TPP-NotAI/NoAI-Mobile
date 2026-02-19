@@ -343,10 +343,14 @@ class NotificationProvider with ChangeNotifier {
   /// Load notification settings
   Future<void> loadSettings(String userId) async {
     try {
-      _settings = await _repository.getNotificationSettings(userId);
+      _settings =
+          await _repository.getNotificationSettings(userId) ??
+          NotificationSettings(userId: userId);
       notifyListeners();
     } catch (e) {
       debugPrint('NotificationProvider: Error loading settings - $e');
+      _settings = NotificationSettings(userId: userId);
+      notifyListeners();
     }
   }
 

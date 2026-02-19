@@ -130,6 +130,39 @@ class UserProvider with ChangeNotifier {
     return null;
   }
 
+  /// Resolve a user ID from either a UUID-like user id or a username.
+  Future<String?> resolveUserId(String userIdOrUsername) async {
+    final raw = userIdOrUsername.trim();
+    if (raw.isEmpty) return null;
+
+    final normalized = raw.startsWith('@') ? raw.substring(1) : raw;
+
+    // Fast path: already cached as id/username.
+    final cached = getUser(normalized);
+    if (cached != null) return cached.id;
+
+    try {
+      final byId = await _supabase.client
+          .from(SupabaseConfig.profilesTable)
+          .select('user_id')
+          .eq('user_id', normalized)
+          .maybeSingle();
+      if (byId != null) {
+        return byId['user_id'] as String?;
+      }
+
+      final byUsername = await _supabase.client
+          .from(SupabaseConfig.profilesTable)
+          .select('user_id')
+          .ilike('username', normalized)
+          .maybeSingle();
+      return byUsername?['user_id'] as String?;
+    } catch (e) {
+      debugPrint('UserProvider: Error resolving user id for $raw - $e');
+      return null;
+    }
+  }
+
   // Fetch all users
   Future<void> fetchUsers() async {
     _isLoading = true;
@@ -159,18 +192,23 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Fetch user by ID with full statistics
-  Future<void> fetchUser(String userId) async {
+  // Fetch user by ID or username with full statistics
+  Future<void> fetchUser(String userIdOrUsername) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      final resolvedUserId = await resolveUserId(userIdOrUsername);
+      if (resolvedUserId == null) {
+        throw Exception('User not found');
+      }
+
       // 1. Fetch profile and wallet
       final profileResponse = await _supabase.client
           .from(SupabaseConfig.profilesTable)
           .select('*, ${SupabaseConfig.walletsTable}(*)')
-          .eq('user_id', userId)
+          .eq('user_id', resolvedUserId)
           .maybeSingle();
 
       if (profileResponse == null) {
@@ -181,26 +219,26 @@ class UserProvider with ChangeNotifier {
       final postsCountRes = await _supabase.client
           .from(SupabaseConfig.postsTable)
           .select('id')
-          .eq('author_id', userId)
+          .eq('author_id', resolvedUserId)
           .eq('status', 'published')
           .count(CountOption.exact);
 
       final followersCountRes = await _supabase.client
           .from(SupabaseConfig.followsTable)
           .select('follower_id')
-          .eq('following_id', userId)
+          .eq('following_id', resolvedUserId)
           .count(CountOption.exact);
 
       final followingCountRes = await _supabase.client
           .from(SupabaseConfig.followsTable)
           .select('follower_id')
-          .eq('follower_id', userId)
+          .eq('follower_id', resolvedUserId)
           .count(CountOption.exact);
 
       final humanVerifiedCountRes = await _supabase.client
           .from(SupabaseConfig.postsTable)
           .select('id')
-          .eq('author_id', userId)
+          .eq('author_id', resolvedUserId)
           .eq('status', 'published')
           .eq('ai_score_status', 'pass')
           .count(CountOption.exact);
@@ -211,7 +249,7 @@ class UserProvider with ChangeNotifier {
         final achievementsRes = await _supabase.client
             .from('user_achievements')
             .select('*, achievements(*)')
-            .eq('user_id', userId);
+            .eq('user_id', resolvedUserId);
         achievements = (achievementsRes as List)
             .map((json) => app_models.UserAchievement.fromSupabase(json))
             .toList();
@@ -243,12 +281,12 @@ class UserProvider with ChangeNotifier {
       );
 
       // If it's the current user, update it
-      if (_currentUser?.id == userId) {
+      if (_currentUser?.id == resolvedUserId) {
         _currentUser = user;
       }
 
       // Update in the users list
-      final index = _users.indexWhere((u) => u.id == userId);
+      final index = _users.indexWhere((u) => u.id == resolvedUserId);
       if (index != -1) {
         // Ensure the existing user in _users list is updated with the new counts
         // and potentially other profile data fetched by profileResponse.
@@ -427,12 +465,17 @@ class UserProvider with ChangeNotifier {
   }
 
   /// Fetch user's own app activities (posts created, likes given, comments made, etc.)
-  Future<void> fetchUserActivities(String userId, {int limit = 50}) async {
+  Future<void> fetchUserActivities(String userIdOrUsername, {int limit = 50}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      final userId = await resolveUserId(userIdOrUsername);
+      if (userId == null) {
+        throw Exception('User not found');
+      }
+
       final List<UserActivity> activities = [];
 
       // Fetch posts created by user
@@ -565,7 +608,7 @@ class UserProvider with ChangeNotifier {
       final txResponse = await _supabase.client
           .from(SupabaseConfig.roocoinTransactionsTable)
           .select(
-            'id, created_at, amount_rc, tx_type, from_user_id, to_user_id, tx_hash',
+            'id, created_at, amount_rc, tx_type, from_user_id, to_user_id, tx_hash, metadata',
           )
           .or('from_user_id.eq.$userId,to_user_id.eq.$userId')
           .order('created_at', ascending: false)
@@ -575,6 +618,28 @@ class UserProvider with ChangeNotifier {
         txResponse,
       );
       final Set<String> seenHashes = {};
+      final txParticipantIds = <String>{};
+      for (final tx in rawTxs) {
+        final fromId = tx['from_user_id'] as String?;
+        final toId = tx['to_user_id'] as String?;
+        if (fromId != null && fromId.isNotEmpty) txParticipantIds.add(fromId);
+        if (toId != null && toId.isNotEmpty) txParticipantIds.add(toId);
+      }
+
+      final profilesById = <String, Map<String, dynamic>>{};
+      if (txParticipantIds.isNotEmpty) {
+        final profileRows = await _supabase.client
+            .from(SupabaseConfig.profilesTable)
+            .select('user_id, username, display_name, avatar_url')
+            .inFilter('user_id', txParticipantIds.toList());
+        for (final row in (profileRows as List)) {
+          final profile = Map<String, dynamic>.from(row as Map);
+          final id = profile['user_id'] as String?;
+          if (id != null && id.isNotEmpty) {
+            profilesById[id] = profile;
+          }
+        }
+      }
 
       for (final tx in rawTxs) {
         final hash = tx['tx_hash'] as String?;
@@ -587,6 +652,14 @@ class UserProvider with ChangeNotifier {
         final isReceived = tx['to_user_id'] == userId;
         final txType = tx['tx_type'] as String?;
         final isTransfer = txType == 'transfer' || txType == 'tip';
+        final metadataRaw = tx['metadata'];
+        final metadata = metadataRaw is Map
+            ? Map<String, dynamic>.from(metadataRaw)
+            : <String, dynamic>{};
+        final toUserId = tx['to_user_id'] as String?;
+        final fromUserId = tx['from_user_id'] as String?;
+        final toProfile = toUserId != null ? profilesById[toUserId] : null;
+        final fromProfile = fromUserId != null ? profilesById[fromUserId] : null;
 
         UserActivityType activityType;
         if (isTransfer && !isReceived) {
@@ -604,6 +677,18 @@ class UserProvider with ChangeNotifier {
             timestamp: DateTime.parse(tx['created_at']),
             amount: amount,
             transactionType: txType,
+            targetUserId: isReceived ? fromUserId : toUserId,
+            targetUsername: isReceived
+                ? (fromProfile?['username'] as String?)
+                : (toProfile?['username'] as String?) ??
+                      (metadata['recipientUsername'] as String?),
+            targetDisplayName: isReceived
+                ? (fromProfile?['display_name'] as String?)
+                : (toProfile?['display_name'] as String?) ??
+                      (metadata['recipientDisplayName'] as String?),
+            targetAvatarUrl: isReceived
+                ? (fromProfile?['avatar_url'] as String?)
+                : (toProfile?['avatar_url'] as String?),
           ),
         );
       }
@@ -1051,7 +1136,15 @@ class UserProvider with ChangeNotifier {
 
   /// Search users by username or display name.
   Future<List<app_models.User>> searchUsers(String query) async {
-    if (query.trim().isEmpty) return [];
+    final rawQuery = query.trim();
+    if (rawQuery.isEmpty) return [];
+
+    // Support both "@username" and plain name search.
+    final normalizedQuery = rawQuery.startsWith('@')
+        ? rawQuery.substring(1).trim()
+        : rawQuery;
+    if (normalizedQuery.isEmpty) return [];
+
     _isLoading =
         true; // Optional: might not want to set global loading for local search
     notifyListeners();
@@ -1060,7 +1153,9 @@ class UserProvider with ChangeNotifier {
       final response = await _supabase.client
           .from(SupabaseConfig.profilesTable)
           .select('*, ${SupabaseConfig.walletsTable}(*)')
-          .or('username.ilike.%$query%,display_name.ilike.%$query%')
+          .or(
+            'username.ilike.%$normalizedQuery%,display_name.ilike.%$normalizedQuery%',
+          )
           .limit(20);
 
       final users = (response as List)

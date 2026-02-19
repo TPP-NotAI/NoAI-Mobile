@@ -37,6 +37,9 @@ class Comment {
   final String? mediaUrl;
   final String? mediaType;
   final double? aiScore;
+  final String? aiScoreStatus;
+  final String? authenticityNotes;
+  final Map<String, dynamic>? aiMetadata; // Full AI detection metadata JSONB
   final String status; // 'published', 'under_review', 'hidden', 'deleted'
   Comment({
     required this.id,
@@ -50,6 +53,9 @@ class Comment {
     this.mediaUrl,
     this.mediaType,
     this.aiScore,
+    this.aiScoreStatus,
+    this.authenticityNotes,
+    this.aiMetadata,
     this.status = 'published',
   });
 
@@ -69,6 +75,9 @@ class Comment {
     String? mediaUrl,
     String? mediaType,
     double? aiScore,
+    String? aiScoreStatus,
+    String? authenticityNotes,
+    Map<String, dynamic>? aiMetadata,
     String? status,
   }) {
     return Comment(
@@ -83,6 +92,9 @@ class Comment {
       mediaUrl: mediaUrl ?? this.mediaUrl,
       mediaType: mediaType ?? this.mediaType,
       aiScore: aiScore ?? this.aiScore,
+      aiScoreStatus: aiScoreStatus ?? this.aiScoreStatus,
+      authenticityNotes: authenticityNotes ?? this.authenticityNotes,
+      aiMetadata: aiMetadata ?? this.aiMetadata,
       status: status ?? this.status,
     );
   }
@@ -133,6 +145,13 @@ class Comment {
       mediaUrl: json['media_url'] as String?,
       mediaType: json['media_type'] as String?,
       aiScore: (json['ai_score'] as num?)?.toDouble(),
+      aiScoreStatus: json['ai_score_status'] as String?,
+      aiMetadata: json['ai_metadata'] as Map<String, dynamic>?,
+      // authenticity_notes is stored inside ai_metadata for comments
+      authenticityNotes:
+          json['authenticity_notes'] as String? ??
+          (json['ai_metadata'] as Map<String, dynamic>?)?['authenticity_notes']
+              as String?,
       status: json['status'] as String? ?? 'published',
     );
   }

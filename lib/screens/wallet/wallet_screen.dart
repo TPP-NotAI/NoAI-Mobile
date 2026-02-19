@@ -14,9 +14,9 @@ import '../../config/app_colors.dart';
 import '../../utils/responsive_extensions.dart';
 import 'send_roo_screen.dart';
 import 'receive_roo_screen.dart';
-import 'staking_screen.dart';
 import 'transaction_history_screen.dart';
 import '../../services/referral_service.dart';
+import '../../services/roo_purchase_service.dart';
 import 'package:share_plus/share_plus.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -29,6 +29,7 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen> {
   final NumberFormat _currencyFormat = NumberFormat.decimalPattern();
   final ReferralService _referralService = ReferralService();
+  final RooPurchaseService _rooPurchaseService = RooPurchaseService();
   String? _referralCode;
   bool _isLoadingCode = false;
   bool _isResolvingTxUsers = false;
@@ -208,6 +209,194 @@ class _WalletScreenState extends State<WalletScreen> {
         ),
       ),
     );
+  }
+
+  void _showBuyRooSheet(BuildContext context, String userId) {
+    final colors = Theme.of(context).colorScheme;
+    final packages = <int>[50, 100, 250, 500];
+    const rooToUsdRate = 0.16;
+    final customAmountController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (modalContext) {
+        bool isCreatingCheckout = false;
+        int customRooAmount = 0;
+
+        return StatefulBuilder(
+          builder: (modalContext, setModalState) {
+            Future<void> startCheckout(int rooAmount) async {
+              if (rooAmount <= 0) return;
+              setModalState(() => isCreatingCheckout = true);
+              try {
+                final usdAmount = rooAmount * rooToUsdRate;
+                final checkoutUri = await _rooPurchaseService.createCheckoutUrl(
+                  userId: userId,
+                  rooAmount: rooAmount,
+                  usdAmount: usdAmount,
+                );
+
+                if (!mounted) return;
+                await _rooPurchaseService.launchCheckout(checkoutUri);
+
+                if (!mounted) return;
+                Navigator.pop(modalContext);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Complete payment in Stripe. ROO will be credited after confirmation.',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } catch (e) {
+                _rooPurchaseService.logError(e);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Could not start Stripe checkout: $e'),
+                    backgroundColor: AppColors.error,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } finally {
+                if (mounted) {
+                  setModalState(() => isCreatingCheckout = false);
+                }
+              }
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Buy ROO',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose a package or enter a custom amount.',
+                      style: TextStyle(color: colors.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 16),
+                    ...packages.map((rooAmount) {
+                      final usdAmount = rooAmount * rooToUsdRate;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed:
+                                isCreatingCheckout
+                                    ? null
+                                    : () => startCheckout(rooAmount),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _rooOrange,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              '$rooAmount ROO  |  \$${usdAmount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Custom amount',
+                      style: TextStyle(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: customAmountController,
+                      enabled: !isCreatingCheckout,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: InputDecoration(
+                        hintText: 'Enter ROO amount',
+                        suffixText: 'ROO',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setModalState(() {
+                          customRooAmount = int.tryParse(value.trim()) ?? 0;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      customRooAmount > 0
+                          ? 'You will pay: \$${(customRooAmount * rooToUsdRate).toStringAsFixed(2)}'
+                          : 'Enter at least 1 ROO',
+                      style: TextStyle(
+                        color:
+                            customRooAmount > 0
+                                ? colors.onSurfaceVariant
+                                : AppColors.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed:
+                            (isCreatingCheckout || customRooAmount <= 0)
+                                ? null
+                                : () => startCheckout(customRooAmount),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _rooOrange,
+                          side: const BorderSide(color: _rooOrange),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.shopping_cart_checkout),
+                        label: Text(
+                          customRooAmount > 0
+                              ? 'Buy $customRooAmount ROO  |  \$${(customRooAmount * rooToUsdRate).toStringAsFixed(2)}'
+                              : 'Buy Custom ROO',
+                        ),
+                      ),
+                    ),
+                    if (isCreatingCheckout)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(customAmountController.dispose);
   }
 
   @override
@@ -1027,16 +1216,13 @@ class _WalletScreenState extends State<WalletScreen> {
           Row(
             children: [
               _buildActionButton(
-                'Stake',
-                Icons.trending_up,
+                'Buy ROO',
+                Icons.shopping_cart_checkout,
                 AppColors.primary,
                 true,
                 colors,
                 () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const StakingScreen()),
-                  );
+                  _showBuyRooSheet(context, userId);
                 },
               ),
               const SizedBox(width: 6),
@@ -1571,3 +1757,5 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 }
+
+

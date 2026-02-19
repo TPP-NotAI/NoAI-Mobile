@@ -3,20 +3,26 @@ import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
 import '../../models/post.dart';
 import '../../models/comment.dart';
+import '../../models/story.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/appeal_repository.dart';
 
 class AppealFormScreen extends StatefulWidget {
   final Post? post;
   final Comment? comment;
+  final Story? story;
 
   const AppealFormScreen({
     super.key,
     this.post,
     this.comment,
+    this.story,
   }) : assert(
-          (post != null) ^ (comment != null),
-          'Provide either a post or a comment to appeal.',
+          (post != null ? 1 : 0) +
+                  (comment != null ? 1 : 0) +
+                  (story != null ? 1 : 0) ==
+              1,
+          'Provide exactly one of post, comment, or story.',
         );
 
   @override
@@ -49,14 +55,16 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final isPostAppeal = widget.post != null;
-      final contentId = isPostAppeal ? widget.post!.id : widget.comment!.id;
+      final postId = widget.post?.id;
+      final commentId = widget.comment?.id;
+      final storyId = widget.story?.id;
 
       // Check for existing appeal
       final alreadyAppealed = await _appealRepo.hasExistingAppeal(
         userId: currentUser.id,
-        postId: isPostAppeal ? contentId : null,
-        commentId: isPostAppeal ? null : contentId,
+        postId: postId,
+        commentId: commentId,
+        storyId: storyId,
       );
 
       if (alreadyAppealed) {
@@ -71,13 +79,17 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
       }
 
       // Create moderation case if needed
+      final aiConfidence = widget.post?.aiConfidenceScore ??
+          widget.comment?.aiScore ??
+          widget.story?.aiScore ??
+          0.0;
+
       final caseId = await _appealRepo.getOrCreateModerationCase(
-        postId: isPostAppeal ? contentId : null,
-        commentId: isPostAppeal ? null : contentId,
+        postId: postId,
+        commentId: commentId,
+        storyId: storyId,
         reportedUserId: currentUser.id,
-        aiConfidence: isPostAppeal
-            ? (widget.post?.aiConfidenceScore ?? 0)
-            : (widget.comment?.aiScore ?? 0),
+        aiConfidence: aiConfidence,
       );
 
       if (caseId == null) {
@@ -108,7 +120,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
               TextButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  Navigator.pop(context);
+                  Navigator.pop(context, true); // true = appeal was submitted
                 },
                 child: const Text('OK'),
               ),
@@ -132,8 +144,13 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
     final scheme = Theme.of(context).colorScheme;
     final post = widget.post;
     final comment = widget.comment;
-    final title = post != null ? 'Post Appeal' : 'Comment Appeal';
-    final bodyPreview = post?.content ?? comment?.text ?? '';
+    final story = widget.story;
+    final title = post != null
+        ? 'Post Appeal'
+        : story != null
+        ? 'Story Appeal'
+        : 'Comment Appeal';
+    final bodyPreview = post?.content ?? comment?.text ?? story?.caption ?? '';
 
     return Scaffold(
       backgroundColor: scheme.background,
@@ -167,7 +184,11 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    post != null ? 'FLAGGED POST' : 'FLAGGED COMMENT',
+                    post != null
+                        ? 'FLAGGED POST'
+                        : story != null
+                        ? 'FLAGGED STORY'
+                        : 'FLAGGED COMMENT',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,

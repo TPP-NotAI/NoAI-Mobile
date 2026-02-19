@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
+import 'package:rooverse/widgets/profile_image_preview.dart';
 import 'providers/auth_provider.dart';
 import 'providers/post_provider.dart';
 import 'providers/user_provider.dart';
@@ -20,7 +20,6 @@ import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'services/presence_service.dart';
 import 'services/connectivity_service.dart';
-
 import 'services/deep_link_service.dart';
 import 'core/extensions/exception_extensions.dart';
 import 'models/view_enum.dart';
@@ -467,7 +466,11 @@ class _AppNavigatorState extends State<AppNavigator> {
           onLogin: () => _go(ViewType.login),
         );
       case ViewType.verify:
-        return VerificationScreen(onVerify: () => _go(ViewType.humanVerify));
+        return VerificationScreen(
+          onVerify: () => _go(ViewType.humanVerify),
+          onBack: () => _go(ViewType.signup),
+          onChangeEmail: () => _go(ViewType.signup),
+        );
       case ViewType.humanVerify:
         return HumanVerificationScreen(
           onVerify: () => _go(ViewType.feed),
@@ -887,41 +890,52 @@ void _showProfileSheet(BuildContext parentContext) {
                   padding: const EdgeInsets.only(bottom: 20),
                   child: Row(
                     children: [
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: colors.surfaceContainerHighest,
-                        child: user.avatar != null
-                            ? ClipOval(
-                                child: Image.network(
-                                  user.avatar!,
-                                  width: 48,
-                                  height: 48,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder:
-                                      (imageContext, child, loadingProgress) {
-                                        if (loadingProgress == null) {
-                                          return child;
-                                        }
-                                        return Icon(
-                                          Icons.person,
-                                          size: 24,
-                                          color: colors.onSurface,
-                                        );
-                                      },
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Icon(
-                                      Icons.person,
-                                      size: 24,
-                                      color: colors.onSurface,
-                                    );
-                                  },
+                      GestureDetector(
+                        onTap: () {
+                          final avatarUrl = user.avatar?.trim();
+                          if (avatarUrl != null && avatarUrl.isNotEmpty) {
+                            ProfileImagePreview.show(
+                              parentContext,
+                              imageUrl: avatarUrl,
+                            );
+                          }
+                        },
+                        child: CircleAvatar(
+                          radius: 24,
+                          backgroundColor: colors.surfaceContainerHighest,
+                          child: user.avatar != null
+                              ? ClipOval(
+                                  child: Image.network(
+                                    user.avatar!,
+                                    width: 48,
+                                    height: 48,
+                                    fit: BoxFit.cover,
+                                    loadingBuilder:
+                                        (imageContext, child, loadingProgress) {
+                                          if (loadingProgress == null) {
+                                            return child;
+                                          }
+                                          return Icon(
+                                            Icons.person,
+                                            size: 24,
+                                            color: colors.onSurface,
+                                          );
+                                        },
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Icon(
+                                        Icons.person,
+                                        size: 24,
+                                        color: colors.onSurface,
+                                      );
+                                    },
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.person,
+                                  size: 24,
+                                  color: colors.onSurface,
                                 ),
-                              )
-                            : Icon(
-                                Icons.person,
-                                size: 24,
-                                color: colors.onSurface,
-                              ),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/conversation.dart';
@@ -111,6 +112,15 @@ class _ChatListScreenState extends State<ChatListScreen> {
           context,
           MaterialPageRoute(
             builder: (_) => ConversationThreadPage(conversation: conversation),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              chatProvider.error ??
+                  'You can only start chats with users you follow.',
+            ),
           ),
         );
       }
@@ -268,7 +278,7 @@ class _ConversationTile extends StatelessWidget {
               radius: 28,
               backgroundColor: colors.surfaceContainerHighest,
               backgroundImage: otherUser.avatar != null
-                  ? NetworkImage(otherUser.avatar!)
+                  ? CachedNetworkImageProvider(otherUser.avatar!)
                   : null,
               child: otherUser.avatar == null
                   ? Icon(Icons.person, color: colors.onSurfaceVariant)
@@ -306,7 +316,7 @@ class _ConversationTile extends StatelessWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
-            conversation.lastMessage?.displayContent ?? '',
+            _lastMessagePreview(conversation),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -352,6 +362,23 @@ class _ConversationTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _lastMessagePreview(Conversation conversation) {
+    final msg = conversation.lastMessage;
+    if (msg == null) return '';
+    switch (msg.mediaType) {
+      case 'image':
+        return '📷 Photo';
+      case 'video':
+        return '🎥 Video';
+      case 'audio':
+        return '🎵 Voice message';
+      case 'document':
+        return '📄 Document';
+      default:
+        return msg.displayContent;
+    }
   }
 
   String _formatDateTime(DateTime dateTime) {

@@ -4,7 +4,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:image/image.dart' as img;
@@ -413,47 +412,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (e) {
       debugPrint('Proactive moderation failed: $e');
     }
-  }
-
-  Future<CroppedFile?> _cropImage(String imagePath) async {
-    final colors = Theme.of(context).colorScheme;
-    final isCompactHeight = MediaQuery.of(context).size.height < 700;
-
-    return await ImageCropper().cropImage(
-      sourcePath: imagePath,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Image',
-          toolbarColor: colors.surface,
-          toolbarWidgetColor: colors.onSurface,
-          backgroundColor: colors.surface,
-          activeControlsWidgetColor: colors.primary,
-          initAspectRatio: CropAspectRatioPreset.original,
-          lockAspectRatio: false,
-          aspectRatioPresets: [
-            CropAspectRatioPreset.original,
-            CropAspectRatioPreset.square,
-            CropAspectRatioPreset.ratio4x3,
-            CropAspectRatioPreset.ratio16x9,
-          ],
-          hideBottomControls: isCompactHeight,
-          statusBarColor: colors.surface,
-        ),
-        IOSUiSettings(
-          title: 'Crop Image',
-          aspectRatioPresets: [
-            CropAspectRatioPreset.original,
-            CropAspectRatioPreset.square,
-            CropAspectRatioPreset.ratio4x3,
-            CropAspectRatioPreset.ratio16x9,
-          ],
-          aspectRatioPickerButtonHidden: isCompactHeight,
-          rotateButtonsHidden: isCompactHeight,
-          rotateClockwiseButtonHidden: isCompactHeight,
-          resetAspectRatioEnabled: !isCompactHeight,
-        ),
-      ],
-    );
   }
 
   void _removeMedia(int index) {
@@ -1616,8 +1574,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         style: theme.textTheme.bodyMedium,
                         decoration: InputDecoration(
                           hintText: _postType == 'Text'
-                              ? 'Share your thoughts...'
-                              : 'Add a caption...',
+                              ? 'Share your thoughts... use #topics'
+                              : 'Add a caption... use #topics',
                           hintStyle: theme.textTheme.bodyMedium,
                           border: InputBorder.none,
                           counterText: '', // Hide default counter
@@ -1705,6 +1663,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                     _maxCharacterLimit
                               ? Colors.red
                               : colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Tip: Add hashtags like #travel or #flutter in your post.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -1823,10 +1790,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     _optionCard(
                       context,
                       icon: Icons.tag,
-                      title: 'Add Topics',
+                      title: 'Add #Topics',
                       subtitle: _selectedTags.isNotEmpty
                           ? '${_selectedTags.length} topics added'
-                          : null,
+                          : 'You can also type #topics in your caption',
                       onTap: _showTopicsPicker,
                     ),
                   ],
@@ -2123,14 +2090,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  Future<void> _cropExistingImage(int index) async {
-    final croppedFile = await _cropImage(_selectedMediaFiles[index].path);
-    if (croppedFile != null && mounted) {
-      setState(() {
-        _selectedMediaFiles[index] = File(croppedFile.path);
-      });
-    }
-  }
 
   Future<void> _applyFilterToImage(int index, String filterType) async {
     try {
@@ -2210,10 +2169,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  _filterButton('Crop', Icons.crop, () {
-                    Navigator.pop(context);
-                    _cropExistingImage(index);
-                  }),
                   _filterButton('Grayscale', Icons.filter_b_and_w, () {
                     Navigator.pop(context);
                     _applyFilterToImage(index, 'grayscale');

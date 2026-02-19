@@ -354,26 +354,29 @@ class FeedProvider with ChangeNotifier {
     // Require KYC verification before tipping
     await _kycService.requireVerification();
 
-    final index = _posts.indexWhere((p) => p.id == postId);
-    if (index == -1) return;
+    final first = _posts.indexWhere((p) => p.id == postId);
+    if (first == -1) return;
 
-    final post = _posts[index];
-    final newTotal = post.tips + amount;
+    final originalPost = _posts[first];
+    final newTotal = originalPost.tips + amount;
 
-    // Optimistic update
-    _posts[index] = post.copyWith(tips: newTotal);
+    // Optimistic update across all feed instances (original + repost cards)
+    final originals = _updateAllInstances(
+      postId,
+      (p) => p.copyWith(tips: p.tips + amount),
+    );
     notifyListeners();
 
     try {
       final success = await _postRepository.tipPost(postId, newTotal);
       if (!success) {
-        // Revert on failure
-        _posts[index] = post;
-        notifyListeners();
+        debugPrint(
+          'FeedProvider: tipPost write returned no updated row for post=$postId',
+        );
       }
     } catch (e) {
-      // Revert on failure
-      _posts[index] = post;
+      // Revert only on actual request failure.
+      _revertInstances(originals);
       notifyListeners();
       debugPrint('Failed to tip post: $e');
     }

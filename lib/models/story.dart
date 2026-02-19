@@ -21,7 +21,9 @@ class Story {
   final User author;
   final bool isViewed;
   final double? aiScore;
-  final String? status;
+  final String? status; // 'pass' | 'review' | 'flagged'
+  final String? aiScoreStatus; // same as status, alias for clarity
+  final Map<String, dynamic>? aiMetadata;
   final int? likes;
   final bool? isLiked;
 
@@ -41,6 +43,8 @@ class Story {
     this.isViewed = false,
     this.aiScore,
     this.status,
+    this.aiScoreStatus,
+    this.aiMetadata,
     this.likes = 0,
     this.isLiked = false,
   });
@@ -77,6 +81,8 @@ class Story {
       isViewed: isViewed,
       aiScore: (json['ai_score'] as num?)?.toDouble(),
       status: (json['status'] as String?)?.trim().toLowerCase(),
+      aiScoreStatus: (json['status'] as String?)?.trim().toLowerCase(),
+      aiMetadata: json['ai_metadata'] as Map<String, dynamic>?,
       likes: reactions.length,
       isLiked: isLiked,
     );
@@ -92,6 +98,8 @@ class Story {
     bool? isLiked,
     double? aiScore,
     String? status,
+    String? aiScoreStatus,
+    Map<String, dynamic>? aiMetadata,
   }) {
     return Story(
       id: id,
@@ -109,6 +117,8 @@ class Story {
       isViewed: isViewed ?? this.isViewed,
       aiScore: aiScore ?? this.aiScore,
       status: status ?? this.status,
+      aiScoreStatus: aiScoreStatus ?? this.aiScoreStatus,
+      aiMetadata: aiMetadata ?? this.aiMetadata,
       likes: likes ?? this.likes,
       isLiked: isLiked ?? this.isLiked,
     );
