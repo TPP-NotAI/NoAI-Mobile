@@ -15,6 +15,7 @@ import '../models/story_media_input.dart';
 import '../providers/auth_provider.dart';
 import '../providers/story_provider.dart';
 import '../utils/file_upload_utils.dart';
+import '../utils/verification_utils.dart';
 import '../services/supabase_service.dart';
 import 'story_card.dart';
 import 'story_viewer.dart';
@@ -223,7 +224,11 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
     );
   }
 
-  void _showCreateStoryDialog(BuildContext context) {
+  Future<void> _showCreateStoryDialog(BuildContext context) async {
+    // Require full activation (verified + purchased ROO) to create stories
+    final isActivated = await VerificationUtils.checkActivation(context);
+    if (!isActivated) return;
+
     final List<MediaUploadResult> selectedMedia = [];
     bool isUploading = false;
     final captionController = TextEditingController();

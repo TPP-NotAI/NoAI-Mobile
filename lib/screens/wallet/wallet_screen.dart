@@ -211,6 +211,48 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
+  bool _ensureVerifiedForWalletActions(BuildContext context) {
+    final user = context.read<AuthProvider>().currentUser;
+    if (user == null) return false;
+
+    if (user.isVerificationPending) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Your verification is pending review. This feature unlocks once approved.',
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+
+    if (!user.isVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Please complete identity verification to use this feature.',
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Verify',
+            textColor: Colors.white,
+            onPressed: () {
+              if (context.mounted) {
+                Navigator.pushNamed(context, '/verify');
+              }
+            },
+          ),
+        ),
+      );
+      return false;
+    }
+
+    return true;
+  }
+
   void _showBuyRooSheet(BuildContext context, String userId) {
     final colors = Theme.of(context).colorScheme;
     final packages = <int>[50, 100, 250, 500];
@@ -1222,11 +1264,48 @@ class _WalletScreenState extends State<WalletScreen> {
                 true,
                 colors,
                 () {
+                  final user = context.read<AuthProvider>().currentUser;
+                  if (user == null) return;
+
+                  if (user.isVerificationPending) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Your verification is pending. You can buy ROO once approved.',
+                        ),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                    return;
+                  }
+
+                  if (!user.isVerified) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text(
+                          'Please complete identity verification before purchasing ROO.',
+                        ),
+                        backgroundColor: Colors.orange,
+                        action: SnackBarAction(
+                          label: 'Verify',
+                          textColor: Colors.white,
+                          onPressed: () {
+                            if (context.mounted) {
+                              Navigator.pushNamed(context, '/verify');
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
                   _showBuyRooSheet(context, userId);
                 },
               ),
               const SizedBox(width: 6),
               _buildActionButton('Send', Icons.send, null, false, colors, () {
+                if (!_ensureVerifiedForWalletActions(context)) return;
                 if (wallet != null) {
                   Navigator.push(
                     context,
@@ -1245,6 +1324,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 false,
                 colors,
                 () {
+                  if (!_ensureVerifiedForWalletActions(context)) return;
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const ReceiveRooScreen()),
@@ -1259,6 +1339,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 false,
                 colors,
                 () {
+                  if (!_ensureVerifiedForWalletActions(context)) return;
                   if (wallet != null) {
                     Navigator.push(
                       context,

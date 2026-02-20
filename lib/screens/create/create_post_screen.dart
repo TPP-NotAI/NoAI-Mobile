@@ -1080,9 +1080,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       return;
     }
 
-    // 0. Verify Human Status
-    final isVerified = await VerificationUtils.checkVerification(context);
-    if (!mounted || !isVerified) return;
+    // 0. Require full activation (verified + purchased ROO)
+    final isActivated = await VerificationUtils.checkActivation(context);
+    if (!mounted || !isActivated) return;
     // 1. Post creation is now a reward (+10 ROO) processed in PostRepository
     // final paid = await _confirmAndPayPostFee();
     // if (!mounted || !paid) return;
@@ -1304,6 +1304,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               onPressed: () {
                 if (context.mounted) {
                   Navigator.pushNamed(context, '/verify');
+                }
+              },
+            ),
+          ),
+        );
+      }
+    } on NotActivatedException catch (e) {
+      if (!mounted) return;
+      setState(() => _isPosting = false);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Buy ROO',
+              textColor: Colors.white,
+              onPressed: () {
+                if (context.mounted) {
+                  Navigator.pushNamed(context, '/wallet');
                 }
               },
             ),

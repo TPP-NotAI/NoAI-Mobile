@@ -108,6 +108,13 @@ class User {
   /// Whether the user account is banned.
   bool get isBanned => status == 'banned';
 
+  /// Whether the user has completed the full activation flow (verified + purchased ROO).
+  /// Both gates must pass for the user to post, comment, like, tip, etc.
+  bool get isActivated => isVerified && balance > 0;
+
+  /// Whether the user's Veriff identity review is in progress.
+  bool get isVerificationPending => verifiedHuman == 'pending';
+
   /// Create a User from Supabase profile row.
   ///
   /// [profile] is the row from the profiles table.

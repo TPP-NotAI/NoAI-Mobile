@@ -1170,17 +1170,26 @@ class _ActionRow extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: FilledButton(
-                onPressed: isBlocked ? null : onFollow,
-                style: FilledButton.styleFrom(
-                  backgroundColor: isBlocked
-                      ? colors.surfaceContainerHighest
-                      : null,
-                ),
-                child: Text(
-                  isBlocked
-                      ? 'Blocked'
-                      : (isFollowing ? 'Following' : 'Follow'),
+              child: SizedBox(
+                height: 48,
+                child: FilledButton(
+                  onPressed: isBlocked ? null : onFollow,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: isBlocked
+                        ? colors.surfaceContainerHighest
+                        : null,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      isBlocked
+                          ? 'Blocked'
+                          : (isFollowing ? 'Following' : 'Follow'),
+                      maxLines: 1,
+                      softWrap: false,
+                    ),
+                  ),
                 ),
               ),
             ),

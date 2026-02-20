@@ -85,9 +85,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
 
-    // Verify Human Status
-    final isVerified = await VerificationUtils.checkVerification(context);
-    if (!mounted || !isVerified) return;
+    // Require full activation (verified + purchased ROO)
+    final isActivated = await VerificationUtils.checkActivation(context);
+    if (!mounted || !isActivated) return;
 
     setState(() => _submittingComment = true);
 

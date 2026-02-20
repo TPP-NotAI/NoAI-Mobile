@@ -33,6 +33,41 @@ class ReceiveRooScreen extends StatelessWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    if (!user.isVerified) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Receive ROO')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  user.isVerificationPending
+                      ? Icons.hourglass_top
+                      : Icons.verified_user_outlined,
+                  size: 48,
+                  color: Colors.orange,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  user.isVerificationPending
+                      ? 'Your verification is pending. You can receive ROO once approved.'
+                      : 'Complete identity verification to access Receive ROO.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => Navigator.pushNamed(context, '/verify'),
+                  child: const Text('Verify Now'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final backgroundColor = isDarkMode
         ? AppColors.backgroundDark
         : AppColors.backgroundLight;

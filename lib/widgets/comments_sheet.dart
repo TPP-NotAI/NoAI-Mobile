@@ -265,6 +265,31 @@ class _CommentsSheetState extends State<CommentsSheet> {
           );
       }
       return;
+    } on NotActivatedException catch (e) {
+      // Reload comments to clear the optimistic update
+      await context.read<FeedProvider>().loadCommentsForPost(widget.post.id);
+      if (mounted) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Buy ROO',
+                textColor: Colors.white,
+                onPressed: () {
+                  if (context.mounted) {
+                    Navigator.pushNamed(context, '/wallet');
+                  }
+                },
+              ),
+            ),
+          );
+      }
+      return;
     }
 
     _commentController.clear();
@@ -526,6 +551,34 @@ class _CommentsSheetState extends State<CommentsSheet> {
                           onPressed: () {
                             if (context.mounted) {
                               Navigator.pushNamed(context, '/verify');
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                }
+                return;
+              } on NotActivatedException catch (e) {
+                // Reload comments to clear the optimistic update
+                await context.read<FeedProvider>().loadCommentsForPost(
+                  widget.post.id,
+                );
+                if (mounted) {
+                  setSheetState(() => isReplyUploading = false);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: Text(e.message),
+                        backgroundColor: Colors.orange,
+                        duration: const Duration(seconds: 5),
+                        action: SnackBarAction(
+                          label: 'Buy ROO',
+                          textColor: Colors.white,
+                          onPressed: () {
+                            if (context.mounted) {
+                              Navigator.pushNamed(context, '/wallet');
                             }
                           },
                         ),

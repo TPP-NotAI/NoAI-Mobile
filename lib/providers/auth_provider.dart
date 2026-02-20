@@ -29,6 +29,10 @@ class AuthProvider with ChangeNotifier {
   bool _isPasswordResetPending = false; // For recovery flow
   RecoveryStep _recoveryStep = RecoveryStep.email;
 
+  // Realtime subscription for profile changes (verified_human, etc.)
+  RealtimeChannel? _profileChannel;
+  String? _subscribedUserId;
+
   /// Current authentication status.
   AuthStatus get status => _status;
 
@@ -77,6 +81,7 @@ class AuthProvider with ChangeNotifier {
           }
           break;
         case AuthChangeEvent.signedOut:
+          _unsubscribeFromProfileChanges();
           _currentUser = null;
           _status = AuthStatus.unauthenticated;
           _error = null;
@@ -180,6 +185,10 @@ class AuthProvider with ChangeNotifier {
       // which is called from main.dart after auth state changes.
       // Don't call getOrCreateWallet here to avoid race conditions
       // that could award the welcome bonus multiple times.
+
+      // Subscribe to realtime profile changes so the app reacts instantly
+      // when Veriff's webhook updates verified_human (or any other field).
+      _subscribeToProfileChanges(userId);
     } catch (e) {
       debugPrint('AuthProvider: Error loading user - $e');
       // Even if profile loading fails, user is still authenticated
@@ -199,6 +208,56 @@ class AuthProvider with ChangeNotifier {
     final session = _supabase.currentSession;
     if (session != null) {
       await _loadCurrentUser(session.user.id);
+    }
+  }
+
+  /// Subscribe to realtime profile changes for [userId].
+  ///
+  /// When Veriff's webhook updates `verified_human` (or any other profile
+  /// field), this fires and immediately reloads the user — so the app
+  /// reacts without the user having to do anything.
+  void _subscribeToProfileChanges(String userId) {
+    // Already subscribed for this user — nothing to do.
+    if (_subscribedUserId == userId && _profileChannel != null) return;
+
+    // Remove any previous subscription first.
+    _unsubscribeFromProfileChanges();
+
+    _subscribedUserId = userId;
+    _profileChannel = _supabase.client
+        .channel('profile_changes_$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: SupabaseConfig.profilesTable,
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            debugPrint(
+              'AuthProvider: Profile changed via realtime — reloading user',
+            );
+            // Reload the full user object so all derived state
+            // (isVerified, isActivated, verifiedHuman, etc.) updates.
+            reloadCurrentUser();
+          },
+        )
+        .subscribe((status, [error]) {
+          debugPrint(
+            'AuthProvider: Profile realtime subscription status: $status'
+            '${error != null ? ', error: $error' : ''}',
+          );
+        });
+  }
+
+  /// Cancel the realtime profile subscription (called on sign-out).
+  void _unsubscribeFromProfileChanges() {
+    if (_profileChannel != null) {
+      _supabase.client.removeChannel(_profileChannel!);
+      _profileChannel = null;
+      _subscribedUserId = null;
     }
   }
 
@@ -381,6 +440,9 @@ class AuthProvider with ChangeNotifier {
 
   /// Sign out the current user.
   Future<void> signOut() async {
+    // Cancel profile realtime subscription before signing out.
+    _unsubscribeFromProfileChanges();
+
     try {
       await _authService.signOut();
       // Manually update status to ensure UI responds immediately

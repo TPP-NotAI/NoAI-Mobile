@@ -20,6 +20,7 @@ import 'package:swipe_to/swipe_to.dart';
 import '../profile/profile_screen.dart';
 import '../../widgets/story_viewer.dart';
 import '../../widgets/video_player_widget.dart';
+import '../../utils/verification_utils.dart';
 
 class ConversationThreadPage extends StatefulWidget {
   final Conversation conversation;
@@ -128,6 +129,10 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+
+    // Require full activation (verified + purchased ROO) to send messages
+    final isActivated = await VerificationUtils.checkActivation(context);
+    if (!mounted || !isActivated) return;
 
     FocusScope.of(context).unfocus();
     final chatProvider = context.read<ChatProvider>();

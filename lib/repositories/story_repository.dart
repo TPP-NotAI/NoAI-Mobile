@@ -172,6 +172,7 @@ class StoryRepository {
             'text_position': textPosition,
             'expires_at': expiresAt.toIso8601String(),
             'status': 'review', // Start under review for AI moderation
+            'ai_score_status': 'review',
           },
         ];
       } else {
@@ -188,6 +189,7 @@ class StoryRepository {
                 'text_position': textPosition,
                 'expires_at': expiresAt.toIso8601String(),
                 'status': 'review', // Start under review for AI moderation
+                'ai_score_status': 'review',
               },
             )
             .toList();
@@ -686,6 +688,7 @@ class StoryRepository {
       final updates = <String, dynamic>{
         'ai_score': confidence,
         'status': status,
+        'ai_score_status': status,
       };
 
       if (analysisId != null) {

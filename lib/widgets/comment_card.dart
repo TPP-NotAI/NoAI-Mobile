@@ -558,6 +558,30 @@ class _CommentCardState extends State<CommentCard> {
                                       ),
                                     );
                                 }
+                              } on NotActivatedException catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context)
+                                    ..hideCurrentSnackBar()
+                                    ..showSnackBar(
+                                      SnackBar(
+                                        content: Text(e.message),
+                                        backgroundColor: Colors.orange,
+                                        duration: const Duration(seconds: 5),
+                                        action: SnackBarAction(
+                                          label: 'Buy ROO',
+                                          textColor: Colors.white,
+                                          onPressed: () {
+                                            if (context.mounted) {
+                                              Navigator.pushNamed(
+                                                context,
+                                                '/wallet',
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    );
+                                }
                               }
                             },
                             borderRadius: AppSpacing.responsiveRadius(

@@ -177,6 +177,35 @@ class _SendRooScreenState extends State<SendRooScreen> {
       return;
     }
 
+    if (user.isVerificationPending) {
+      setState(() => _isProcessing = false);
+      _showError('Your verification is pending. You can send ROO once approved.');
+      return;
+    }
+
+    if (!user.isVerified) {
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Please complete identity verification to send ROO.',
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Verify',
+            textColor: Colors.white,
+            onPressed: () {
+              if (context.mounted) {
+                Navigator.pushNamed(context, '/verify');
+              }
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
     try {
       // 1. Resolve address
       final result = await _resolveUserAndAddress(recipient);

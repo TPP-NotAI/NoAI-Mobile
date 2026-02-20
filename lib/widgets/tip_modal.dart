@@ -59,6 +59,33 @@ class _TipModalState extends State<TipModal> {
       return;
     }
 
+    if (user.isVerificationPending) {
+      _showError('Your verification is pending. You can tip once approved.');
+      return;
+    }
+
+    if (!user.isVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Please complete identity verification to send tips.',
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Verify',
+            textColor: Colors.white,
+            onPressed: () {
+              if (context.mounted) {
+                Navigator.pushNamed(context, '/verify');
+              }
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
     final availableBalance = walletProvider.wallet?.balanceRc ?? user.balance;
     if (_selectedAmount > availableBalance) {
       _showError('Insufficient Roobyte balance');

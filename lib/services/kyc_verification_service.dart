@@ -11,6 +11,20 @@ class KycNotVerifiedException implements Exception {
   String toString() => message;
 }
 
+/// Exception thrown when a user is verified but has not yet purchased ROO.
+/// Users must buy at least 1 ROO via Stripe to activate full platform access.
+class NotActivatedException implements Exception {
+  final String message;
+
+  const NotActivatedException([
+    this.message =
+        'Please buy at least 1 ROO to activate your account and unlock posting, commenting, and all platform features.',
+  ]);
+
+  @override
+  String toString() => message;
+}
+
 /// Service to check and enforce KYC verification requirements
 class KycVerificationService {
   static final KycVerificationService _instance = KycVerificationService._internal();
@@ -22,21 +36,22 @@ class KycVerificationService {
   // Cache the verification status to avoid repeated DB calls
   String? _cachedUserId;
   bool? _cachedIsVerified;
+  String? _cachedVerifiedHuman;
   DateTime? _cacheTime;
   static const _cacheDuration = Duration(minutes: 5);
 
-  /// Check if the current user has completed KYC verification
-  /// Returns true if verified, false otherwise
-  Future<bool> isCurrentUserVerified() async {
+  /// Returns the raw verified_human string: 'unverified', 'pending', or 'verified'.
+  /// Uses the same cache as [isCurrentUserVerified].
+  Future<String> _getCurrentVerifiedHumanStatus() async {
     final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return false;
+    if (userId == null) return 'unverified';
 
     // Check cache validity
     if (_cachedUserId == userId &&
-        _cachedIsVerified != null &&
+        _cachedVerifiedHuman != null &&
         _cacheTime != null &&
         DateTime.now().difference(_cacheTime!) < _cacheDuration) {
-      return _cachedIsVerified!;
+      return _cachedVerifiedHuman!;
     }
 
     try {
@@ -47,28 +62,66 @@ class KycVerificationService {
           .single();
 
       final verifiedHuman = response['verified_human'] as String? ?? 'unverified';
-      final isVerified = verifiedHuman == 'verified';
 
       // Update cache
       _cachedUserId = userId;
-      _cachedIsVerified = isVerified;
+      _cachedVerifiedHuman = verifiedHuman;
+      _cachedIsVerified = verifiedHuman == 'verified';
       _cacheTime = DateTime.now();
 
-      return isVerified;
+      return verifiedHuman;
     } catch (e) {
       debugPrint('KycVerificationService: Error checking verification status - $e');
-      return false;
+      return 'unverified';
     }
   }
 
-  /// Require KYC verification for an action
-  /// Throws KycNotVerifiedException if not verified
+  /// Check if the current user has completed KYC verification
+  /// Returns true if verified, false otherwise
+  Future<bool> isCurrentUserVerified() async {
+    final status = await _getCurrentVerifiedHumanStatus();
+    return status == 'verified';
+  }
+
+  /// Require KYC verification for an action.
+  /// Throws [KycNotVerifiedException] if not verified (handles pending state separately).
   Future<void> requireVerification() async {
-    final isVerified = await isCurrentUserVerified();
-    if (!isVerified) {
+    final status = await _getCurrentVerifiedHumanStatus();
+    if (status == 'verified') return;
+    if (status == 'pending') {
+      throw const KycNotVerifiedException(
+        'Your verification is being reviewed. You will be notified once approved.',
+      );
+    }
+    throw const KycNotVerifiedException(
+      'Please complete human verification (KYC) before posting, commenting, or liking content.',
+    );
+  }
+
+  /// Require full activation for an action: verified AND has purchased ROO (balance > 0).
+  ///
+  /// [currentBalance] — pass the user's current wallet balance (from WalletProvider).
+  ///
+  /// Throws [KycNotVerifiedException] if not verified or pending.
+  /// Throws [NotActivatedException] if verified but balance is 0.
+  Future<void> requireActivation({double currentBalance = 0.0}) async {
+    final status = await _getCurrentVerifiedHumanStatus();
+
+    if (status == 'pending') {
+      throw const KycNotVerifiedException(
+        'Your verification is being reviewed. You will be notified once approved.',
+      );
+    }
+
+    if (status != 'verified') {
       throw const KycNotVerifiedException(
         'Please complete human verification (KYC) before posting, commenting, or liking content.',
       );
+    }
+
+    // Verified — now check balance
+    if (currentBalance <= 0) {
+      throw const NotActivatedException();
     }
   }
 
@@ -76,6 +129,7 @@ class KycVerificationService {
   void clearCache() {
     _cachedUserId = null;
     _cachedIsVerified = null;
+    _cachedVerifiedHuman = null;
     _cacheTime = null;
   }
 
@@ -83,6 +137,7 @@ class KycVerificationService {
   void setVerified(String userId, bool isVerified) {
     _cachedUserId = userId;
     _cachedIsVerified = isVerified;
+    _cachedVerifiedHuman = isVerified ? 'verified' : 'unverified';
     _cacheTime = DateTime.now();
   }
 }

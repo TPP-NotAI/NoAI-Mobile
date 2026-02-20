@@ -38,6 +38,15 @@ class FeedProvider with ChangeNotifier {
   final Set<String> _repostedPostIds = {};
   final Map<String, int> _repostCounts = {}; // postId -> count
 
+  // Current user's wallet balance — synced from WalletProvider in main.dart.
+  // Used by requireActivation() to check Gate 2 without an extra DB call.
+  double _currentUserBalance = 0.0;
+
+  /// Called from AuthWrapper whenever WalletProvider updates.
+  void setCurrentUserBalance(double balance) {
+    _currentUserBalance = balance;
+  }
+
   // Blocked user IDs to filter from feed
   Set<String> _blockedUserIds = {};
   Set<String> _blockedByUserIds = {};
@@ -308,7 +317,7 @@ class FeedProvider with ChangeNotifier {
     if (userId == null) return;
 
     // Require KYC verification before liking
-    await _kycService.requireVerification();
+    await _kycService.requireActivation(currentBalance: _currentUserBalance);
 
     final first = _posts.indexWhere((p) => p.id == postId);
     if (first == -1) return;
@@ -352,7 +361,7 @@ class FeedProvider with ChangeNotifier {
   /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
   Future<void> tipPost(String postId, double amount) async {
     // Require KYC verification before tipping
-    await _kycService.requireVerification();
+    await _kycService.requireActivation(currentBalance: _currentUserBalance);
 
     final first = _posts.indexWhere((p) => p.id == postId);
     if (first == -1) return;
@@ -393,7 +402,7 @@ class FeedProvider with ChangeNotifier {
     if (userId == null) return null;
 
     // Require KYC verification before commenting
-    await _kycService.requireVerification();
+    await _kycService.requireActivation(currentBalance: _currentUserBalance);
 
     try {
       final savedComment = await _commentRepository.addComment(
@@ -500,7 +509,7 @@ class FeedProvider with ChangeNotifier {
     if (userId == null) return null;
 
     // Require KYC verification before commenting
-    await _kycService.requireVerification();
+    await _kycService.requireActivation(currentBalance: _currentUserBalance);
 
     try {
       final savedComment = await _commentRepository.addComment(
@@ -587,7 +596,7 @@ class FeedProvider with ChangeNotifier {
     if (userId == null) return;
 
     // Require KYC verification before liking
-    await _kycService.requireVerification();
+    await _kycService.requireActivation(currentBalance: _currentUserBalance);
 
     final postIndex = _posts.indexWhere((p) => p.id == postId);
     if (postIndex == -1) return;
@@ -649,7 +658,7 @@ class FeedProvider with ChangeNotifier {
     if (userId == null) return;
 
     // Require KYC verification before replying
-    await _kycService.requireVerification();
+    await _kycService.requireActivation(currentBalance: _currentUserBalance);
 
     try {
       final savedReply = await _commentRepository.addComment(
@@ -780,7 +789,7 @@ class FeedProvider with ChangeNotifier {
     if (userId == null) return;
 
     // Require KYC verification before replying
-    await _kycService.requireVerification();
+    await _kycService.requireActivation(currentBalance: _currentUserBalance);
 
     try {
       final savedReply = await _commentRepository.addComment(
@@ -1092,7 +1101,7 @@ class FeedProvider with ChangeNotifier {
     if (userId == null) return;
 
     // Require KYC verification before reposting
-    await _kycService.requireVerification();
+    await _kycService.requireActivation(currentBalance: _currentUserBalance);
 
     final wasReposted = _repostedPostIds.contains(postId);
     final oldCount = _repostCounts[postId] ?? 0;
@@ -1180,7 +1189,7 @@ class FeedProvider with ChangeNotifier {
     if (userId == null) return null;
 
     // Require KYC verification before posting
-    await _kycService.requireVerification();
+    await _kycService.requireActivation(currentBalance: _currentUserBalance);
 
     String? tempId;
     if (optimisticAuthor != null && waitForAi) {

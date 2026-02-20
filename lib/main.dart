@@ -165,6 +165,7 @@ class MyApp extends StatelessWidget {
                   );
                 },
               ),
+              '/wallet': (context) => const WalletScreen(),
             },
             home: const AuthWrapper(),
             builder: (context, child) {
@@ -279,6 +280,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeHandleDeepLink());
 
     final authProvider = context.watch<AuthProvider>();
+    // Watch WalletProvider so AuthWrapper rebuilds when balance changes,
+    // which re-triggers the addPostFrameCallback balance sync to FeedProvider.
+    context.watch<WalletProvider>();
 
     // Sync user when auth state changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -331,6 +335,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
         // Sync muted user IDs to FeedProvider for filtering
         feedProvider.setMutedUserIds(userProvider.mutedUserIds);
+
+        // Sync wallet balance to FeedProvider for activation gate (Gate 2)
+        final walletProvider = context.read<WalletProvider>();
+        feedProvider.setCurrentUserBalance(
+          walletProvider.wallet?.balanceRc ?? 0.0,
+        );
 
         // Refresh user interests when authenticated
         if (authProvider.status == AuthStatus.authenticated) {
@@ -566,6 +576,14 @@ class _MainShellState extends State<MainShell> {
         return;
       }
 
+      // Only award daily login to fully activated users (verified + purchased ROO).
+      // Prevents unactivated users from accidentally getting a free balance.
+      final user = authProvider.currentUser;
+      if (user == null || !user.isActivated) {
+        debugPrint('Skipping daily login check: User not yet activated');
+        return;
+      }
+
       final dailyLoginService = DailyLoginService();
       final rewarded = await dailyLoginService
           .checkAndRewardDailyLoginOnAppOpen(userId);
@@ -635,11 +653,81 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       backgroundColor: colors.surface,
       appBar: const RooverseAppBar(),
-      body: IndexedStack(index: _index, children: _screens),
+      body: Consumer2<AuthProvider, WalletProvider>(
+        builder: (context, auth, wallet, _) {
+          final user = auth.currentUser;
+          final balance = wallet.wallet?.balanceRc ?? 0.0;
+          // Show banner when verified but balance = 0 (pending ROO purchase)
+          final needsActivation = user != null && user.isVerified && balance <= 0;
+
+          return Column(
+            children: [
+              if (needsActivation)
+                _ActivationBanner(
+                  onBuyTap: () => setState(() => _index = 3), // Wallet tab
+                ),
+              Expanded(
+                child: IndexedStack(index: _index, children: _screens),
+              ),
+            ],
+          );
+        },
+      ),
       bottomNavigationBar: AdaptiveNavigationBar(
         currentIndex: _index,
         destinations: _destinations,
         onDestinationSelected: (i) => setState(() => _index = i),
+      ),
+    );
+  }
+}
+
+/* ───────────────────────────────────────────── */
+/* ACTIVATION BANNER                             */
+/* ───────────────────────────────────────────── */
+
+class _ActivationBanner extends StatelessWidget {
+  final VoidCallback onBuyTap;
+
+  const _ActivationBanner({required this.onBuyTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: Colors.orange.shade800,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(Icons.lock_open, color: Colors.white, size: 16),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              "You're verified! Buy ROO to unlock posting, commenting, and more.",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onBuyTap,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Buy ROO',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

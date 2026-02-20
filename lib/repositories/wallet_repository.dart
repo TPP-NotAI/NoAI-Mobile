@@ -15,6 +15,10 @@ class WalletRepository {
   static final Map<String, Future<Wallet>> _getOrCreateInFlight = {};
   static final Map<String, Future<Wallet>> _repairInFlight = {};
 
+  /// Set to false to disable the 100 ROO welcome bonus (new activation flow:
+  /// users must purchase ROO via Stripe to activate their account).
+  static const bool _enableWelcomeBonus = false;
+
   WalletRepository({
     SupabaseClient? supabase,
     RookenService? rookenService,
@@ -73,20 +77,22 @@ class WalletRepository {
           .select()
           .single();
 
-      // 4. Award welcome bonus (100 ROOK)
-      try {
-        await checkAndAwardWelcomeBonus(userId, address: address);
+      // 4. Award welcome bonus (100 ROOK) — disabled under new activation flow
+      if (_enableWelcomeBonus) {
+        try {
+          await checkAndAwardWelcomeBonus(userId, address: address);
 
-        // Refresh response after welcome bonus
-        final refreshedResponse = await _supabase
-            .from('wallets')
-            .select()
-            .eq('user_id', userId)
-            .single();
-        return Wallet.fromSupabase(refreshedResponse);
-      } catch (e) {
-        debugPrint('Failed to award welcome bonus during creation: $e');
-        // Continue even if bonus fails, user can get it later via checkAndAwardWelcomeBonus
+          // Refresh response after welcome bonus
+          final refreshedResponse = await _supabase
+              .from('wallets')
+              .select()
+              .eq('user_id', userId)
+              .single();
+          return Wallet.fromSupabase(refreshedResponse);
+        } catch (e) {
+          debugPrint('Failed to award welcome bonus during creation: $e');
+          // Continue even if bonus fails, user can get it later via checkAndAwardWelcomeBonus
+        }
       }
 
       return Wallet.fromSupabase(response);
@@ -297,12 +303,14 @@ class WalletRepository {
           .select()
           .single();
 
-      // 4. Award welcome bonus (force it, since this is a repair/reset)
-      try {
-        await checkAndAwardWelcomeBonus(userId, address: address, force: true);
-      } catch (e) {
-        debugPrint('Failed to award welcome bonus during repair: $e');
-        // Continue event if bonus fails
+      // 4. Award welcome bonus (force it, since this is a repair/reset) — disabled under new activation flow
+      if (_enableWelcomeBonus) {
+        try {
+          await checkAndAwardWelcomeBonus(userId, address: address, force: true);
+        } catch (e) {
+          debugPrint('Failed to award welcome bonus during repair: $e');
+          // Continue even if bonus fails
+        }
       }
 
       // Fetch fresh to get updated balance

@@ -1355,14 +1355,7 @@ class _Actions extends StatelessWidget {
                   : null,
               onTap:
                   onTipTap ??
-                  () {
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (context) => TipModal(post: post),
-                    );
-                  },
+                  () => _handleTip(context),
             ),
           ],
           const Spacer(),
@@ -1408,7 +1401,73 @@ class _Actions extends StatelessWidget {
             ),
           );
       }
+    } on NotActivatedException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Buy ROO',
+                textColor: Colors.white,
+                onPressed: () {
+                  if (context.mounted) {
+                    Navigator.pushNamed(context, '/wallet');
+                  }
+                },
+              ),
+            ),
+          );
+      }
     }
+  }
+
+  void _handleTip(BuildContext context) {
+    final user = context.read<AuthProvider>().currentUser;
+    if (user == null) return;
+
+    if (user.isVerificationPending) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your verification is pending. You can tip once approved.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    if (!user.isVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Please complete identity verification to send tips.',
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Verify',
+            textColor: Colors.white,
+            onPressed: () {
+              if (context.mounted) {
+                Navigator.pushNamed(context, '/verify');
+              }
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => TipModal(post: post),
+    );
   }
 
   Future<void> _handleRepost(
@@ -1450,6 +1509,27 @@ class _Actions extends StatelessWidget {
                 onPressed: () {
                   if (context.mounted) {
                     Navigator.pushNamed(context, '/verify');
+                  }
+                },
+              ),
+            ),
+          );
+      }
+    } on NotActivatedException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Buy ROO',
+                textColor: Colors.white,
+                onPressed: () {
+                  if (context.mounted) {
+                    Navigator.pushNamed(context, '/wallet');
                   }
                 },
               ),
