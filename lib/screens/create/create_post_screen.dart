@@ -578,7 +578,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final draftData = _storageService.getString('post_draft');
       if (draftData != null && draftData.isNotEmpty) {
         final draft = draftData.split('|||');
-        if (draft.length >= 5) {
+        if (draft.length >= 4) {
           setState(() {
             _contentController.text = draft[0];
             _postType = draft[1];
@@ -786,68 +786,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.toll,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'You will earn ${_postCostRoo.toStringAsFixed(_postCostRoo % 1 == 0 ? 0 : 10)} ROO',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
-                                  ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'This amount will be added to your wallet',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 // Preview using a simplified PostCard
                 Container(
                   decoration: BoxDecoration(
@@ -1572,6 +1510,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     // Optional title
                     TextField(
                       controller: _titleController,
+                      textCapitalization: TextCapitalization.sentences,
+                      enableSuggestions: true,
+                      autocorrect: true,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -1783,13 +1724,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ],
 
                     // Option cards
-                    _optionCard(
-                      context,
-                      icon: Icons.token,
-                      title: 'Earn 5.00 Roobyte',
-                      subtitle: 'Reward for original content',
-                    ),
-                    const SizedBox(height: 16),
                     _optionCard(
                       context,
                       icon: Icons.people,

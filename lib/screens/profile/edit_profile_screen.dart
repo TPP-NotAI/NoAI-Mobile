@@ -1265,6 +1265,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             enabled: enabled,
             maxLines: maxLines,
             maxLength: maxLength,
+            textCapitalization: TextCapitalization.sentences,
+            enableSuggestions: true,
+            autocorrect: true,
             style: theme.textTheme.bodyMedium,
             decoration: InputDecoration(
               hintText: hint,

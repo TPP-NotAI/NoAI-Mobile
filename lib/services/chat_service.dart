@@ -549,9 +549,6 @@ class ChatService {
           return allMessages.where((m) {
             if (leftAt != null && m.createdAt.isBefore(leftAt)) return false;
             if (m.aiScoreStatus == 'flagged') return false;
-            if (m.aiScoreStatus == 'review' && m.senderId != currentUserId) {
-              return false;
-            }
             return true;
           }).toList();
         });

@@ -297,9 +297,12 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       );
     } catch (_) {
       if (mounted) {
+        final chatProvider = context.read<ChatProvider>();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to send media. Please try again.'),
+          SnackBar(
+            content: Text(
+              chatProvider.error ?? 'Failed to send media. Please try again.',
+            ),
           ),
         );
       }
@@ -711,6 +714,11 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       statusText = 'Offline';
     }
 
+    final isSupportChat =
+        otherUser.username.toLowerCase().contains('support') ||
+        otherUser.username.toLowerCase().contains('admin') ||
+        otherUser.displayName == 'Support Team';
+
     return AppBar(
       elevation: 0,
       backgroundColor: colors.surface.withOpacity(0.8),
@@ -722,16 +730,18 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
         ),
       ),
       leadingWidth: 40,
-      title: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  ProfileScreen(userId: otherUser.id, showAppBar: true),
-            ),
-          );
-        },
+      title: GestureDetector(
+        onTap: isSupportChat
+            ? null
+            : () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ProfileScreen(userId: otherUser.id, showAppBar: true),
+                  ),
+                );
+              },
         child: Row(
           children: [
             Hero(
@@ -739,10 +749,12 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
               child: CircleAvatar(
                 radius: 18,
                 backgroundColor: colors.primary.withOpacity(0.1),
-                backgroundImage: otherUser.avatar != null
+                backgroundImage: !isSupportChat && otherUser.avatar != null
                     ? CachedNetworkImageProvider(otherUser.avatar!)
                     : null,
-                child: otherUser.avatar == null
+                child: isSupportChat
+                    ? Icon(Icons.headset_mic, size: 20, color: colors.primary)
+                    : otherUser.avatar == null
                     ? Icon(Icons.person, size: 20, color: colors.primary)
                     : null,
               ),
@@ -754,32 +766,46 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    otherUser.displayName,
+                    isSupportChat
+                        ? 'Support Team'
+                        : otherUser.displayName.isNotEmpty
+                        ? otherUser.displayName
+                        : otherUser.username,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: isOnline ? Colors.green : Colors.grey,
-                          shape: BoxShape.circle,
-                        ),
+                  if (isSupportChat)
+                    Text(
+                      'Official Support',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colors.primary,
+                        fontWeight: FontWeight.w500,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        statusText,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: colors.onSurfaceVariant,
+                    )
+                  else
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: isOnline ? Colors.green : Colors.grey,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 4),
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),

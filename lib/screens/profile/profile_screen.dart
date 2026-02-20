@@ -64,16 +64,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final resolvedUser = userProvider.getUser(widget.userId);
     final resolvedId = resolvedUser?.id ?? target;
 
-    await userProvider.fetchUserActivities(resolvedId);
-    if (!mounted) return;
+    final isOwnProfile = resolvedId == authProvider.currentUser?.id;
 
     // Load follow and block status if viewing another user's profile
-    if (resolvedId != authProvider.currentUser?.id) {
+    if (!isOwnProfile) {
+      // Start on Statistics tab when viewing another user's profile
+      setState(() => _tabIndex = 1);
       await Future.wait([
         userProvider.loadFollowStatus(resolvedId),
         userProvider.loadBlockStatus(resolvedId),
       ]);
     } else {
+      await userProvider.fetchUserActivities(resolvedId);
+      if (!mounted) return;
       context.read<FeedProvider>().loadDraftPosts();
     }
 
@@ -345,12 +348,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
 
             // ───────── TAB CONTENT
-            if (_tabIndex == 0)
+            if (_tabIndex == 0 && isActuallyOwnProfile)
               _ActivityLog(
                 activities: userProvider.userActivities,
                 colors: colors,
               )
-            else if (_tabIndex == 1)
+            else if (_tabIndex == 1 || (_tabIndex == 0 && !isActuallyOwnProfile))
               _Statistics(
                 user: user,
                 colors: colors,

@@ -25,8 +25,56 @@ import 'package:share_plus/share_plus.dart';
 import '../repositories/mention_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../services/rooken_service.dart';
+import '../services/supabase_service.dart';
 import '../services/kyc_verification_service.dart';
 import 'tip_modal.dart';
+import 'boost_post_modal.dart';
+import '../screens/boost/boost_analytics_page.dart';
+
+// ---------------------------------------------------------------------------
+// Public cache so boost_post_modal.dart can mark a post as boosted immediately
+// after a successful boost, causing the Sponsored badge to appear on the card.
+// ---------------------------------------------------------------------------
+class PostBoostCache {
+  PostBoostCache._();
+
+  static final Set<String> _boostedPostIds = {};
+  static bool _loaded = false;
+  static Future<void>? _loadFuture;
+
+  static bool isBoosted(String postId) => _boostedPostIds.contains(postId);
+
+  static void markBoosted(String postId) {
+    _boostedPostIds.add(postId);
+    _loaded = true;
+  }
+
+  static Future<void> ensureLoaded(String userId) {
+    if (_loaded) return Future.value();
+    _loadFuture ??= _fetch(userId);
+    return _loadFuture!;
+  }
+
+  static Future<void> _fetch(String userId) async {
+    try {
+      final rows = await SupabaseService().client
+          .from('roocoin_transactions')
+          .select('metadata')
+          .eq('from_user_id', userId)
+          .eq('tx_type', 'fee');
+      for (final row in rows as List<dynamic>) {
+        final meta = row['metadata'] as Map<String, dynamic>?;
+        if (meta?['activityType'] == 'POST_BOOST') {
+          final pid = meta?['referencePostId'] as String?;
+          if (pid != null) _boostedPostIds.add(pid);
+        }
+      }
+      _loaded = true;
+    } catch (_) {
+      // Silently fail — badge just won't show
+    }
+  }
+}
 
 class PostCard extends StatelessWidget {
   final Post post;
@@ -47,6 +95,7 @@ class PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+
     void handleHashtagTap(String hashtag) {
       if (onHashtagTap != null) {
         onHashtagTap!(hashtag);
@@ -58,30 +107,39 @@ class PostCard extends StatelessWidget {
       );
     }
 
+    void openPostDetails() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: AppSpacing.standard.responsive(context),
         vertical: AppSpacing.mediumSmall.responsive(context),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: AppSpacing.responsiveRadius(
-            context,
-            AppSpacing.radiusExtraLarge,
-          ),
-          border: Border.all(color: colors.outlineVariant.withOpacity(0.6)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.25),
-              blurRadius: 16.responsive(context),
-              offset: Offset(0, 8.responsive(context)),
+      child: GestureDetector(
+        onTap: openPostDetails,
+        child: Container(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: AppSpacing.responsiveRadius(
+              context,
+              AppSpacing.radiusExtraLarge,
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+            border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.6)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 16.responsive(context),
+                offset: Offset(0, 8.responsive(context)),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             if (post.reposter != null) _RepostHeader(post: post),
 
             _Header(post: post, onProfileTap: onProfileTap),
@@ -227,7 +285,8 @@ class PostCard extends StatelessWidget {
               onCommentTap: onCommentTap,
               onTipTap: onTipTap,
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -257,11 +316,31 @@ class _HeaderState extends State<_Header> {
   static final Map<String, String> _locationCache = {};
   static final Map<String, String> _mentionUsernameCache = {};
 
+  bool _isBoosted = false;
+
   @override
   void initState() {
     super.initState();
     _initLocation();
     _resolveMentionUsernames();
+    _ensureBoostCacheLoaded();
+  }
+
+  void _ensureBoostCacheLoaded() {
+    // Sync check first — cache may already be warm
+    if (PostBoostCache.isBoosted(widget.post.id)) {
+      _isBoosted = true;
+      return;
+    }
+    final userId = SupabaseService().client.auth.currentUser?.id;
+    if (userId == null) return;
+    PostBoostCache.ensureLoaded(userId).then((_) {
+      if (mounted) {
+        setState(() {
+          _isBoosted = PostBoostCache.isBoosted(widget.post.id);
+        });
+      }
+    });
   }
 
   @override
@@ -459,7 +538,7 @@ class _HeaderState extends State<_Header> {
               backgroundImage: post.author.avatar.isNotEmpty
                   ? NetworkImage(post.author.avatar)
                   : null,
-              backgroundColor: colors.surfaceVariant,
+              backgroundColor: colors.surfaceContainerHighest,
               child: post.author.avatar.isEmpty
                   ? Icon(
                       Icons.person,
@@ -576,6 +655,10 @@ class _HeaderState extends State<_Header> {
                             score: post.aiConfidenceScore,
                             isModerated: post.status == 'under_review',
                           ),
+                          if (_isBoosted) ...[
+                            SizedBox(width: AppSpacing.small.responsive(context)),
+                            const _SponsoredBadge(),
+                          ],
                         ],
                       ),
                       if (post.location != null &&
@@ -676,7 +759,7 @@ class _RepostHeader extends StatelessWidget {
           Icon(
             Icons.repeat,
             size: 14,
-            color: colors.onSurfaceVariant.withOpacity(0.7),
+            color: colors.onSurfaceVariant.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 8),
           Flexible(
@@ -685,9 +768,43 @@ class _RepostHeader extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: colors.onSurfaceVariant.withOpacity(0.7),
+                color: colors.onSurfaceVariant.withValues(alpha: 0.7),
               ),
               overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* ───────────────── SPONSORED BADGE ───────────────── */
+
+class _SponsoredBadge extends StatelessWidget {
+  const _SponsoredBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF97316).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFF97316).withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.rocket_launch, size: 9, color: Color(0xFFF97316)),
+          SizedBox(width: 3),
+          Text(
+            'Sponsored',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFF97316),
+              letterSpacing: 0.2,
             ),
           ),
         ],
@@ -861,33 +978,23 @@ class _ContentState extends State<_Content> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PostDetailScreen(post: post),
+              _expanded || !isOverflowing
+                  ? MentionRichText(
+                      text: post.content,
+                      style: textStyle,
+                      onMentionTap: (username) =>
+                          navigateToMentionedUser(context, username),
+                      onHashtagTap: widget.onHashtagTap,
+                    )
+                  : MentionRichText(
+                      text: post.content,
+                      style: textStyle,
+                      maxLines: _maxLines,
+                      overflow: TextOverflow.clip,
+                      onMentionTap: (username) =>
+                          navigateToMentionedUser(context, username),
+                      onHashtagTap: widget.onHashtagTap,
                     ),
-                  );
-                },
-                child: _expanded || !isOverflowing
-                    ? MentionRichText(
-                        text: post.content,
-                        style: textStyle,
-                        onMentionTap: (username) =>
-                            navigateToMentionedUser(context, username),
-                        onHashtagTap: widget.onHashtagTap,
-                      )
-                    : MentionRichText(
-                        text: post.content,
-                        style: textStyle,
-                        maxLines: _maxLines,
-                        overflow: TextOverflow.clip,
-                        onMentionTap: (username) =>
-                            navigateToMentionedUser(context, username),
-                        onHashtagTap: widget.onHashtagTap,
-                      ),
-              ),
               if (isOverflowing)
                 GestureDetector(
                   onTap: () {
@@ -1257,7 +1364,7 @@ class _MediaTile extends StatelessWidget {
                   ),
                 ),
                 errorWidget: (context, url, error) => Container(
-                  color: colors.surfaceVariant,
+                  color: colors.surfaceContainerHighest,
                   child: Center(
                     child: Icon(
                       Icons.broken_image_outlined,
@@ -1735,6 +1842,16 @@ class _PostMenu extends StatelessWidget {
             const SizedBox(height: 24),
             if (isAuthor) ...[
               _MenuOption(
+                icon: Icons.rocket_launch,
+                label: 'Boost Post',
+                onTap: () => _handleBoost(context),
+              ),
+              _MenuOption(
+                icon: Icons.bar_chart,
+                label: 'View Boost Analytics',
+                onTap: () => _handleBoostAnalytics(context),
+              ),
+              _MenuOption(
                 icon: Icons.edit,
                 label: 'Edit Post',
                 onTap: () => _handleEdit(context),
@@ -1819,6 +1936,24 @@ class _PostMenu extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => EditPostScreen(post: post)),
+    );
+  }
+
+  void _handleBoost(BuildContext context) {
+    Navigator.pop(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BoostPostModal(post: post),
+    );
+  }
+
+  void _handleBoostAnalytics(BuildContext context) {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => BoostAnalyticsPage(post: post)),
     );
   }
 

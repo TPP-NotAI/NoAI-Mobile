@@ -63,6 +63,13 @@ class PushNotificationService {
   Future<void> initialize() async {
     if (_initialized) return;
 
+    // Local notifications and FCM tokens are not supported on web
+    if (kIsWeb) {
+      _initialized = true;
+      debugPrint('PushNotificationService: Skipping local notifications on web');
+      return;
+    }
+
     try {
       // Initialize Firebase
       await Firebase.initializeApp(
@@ -289,7 +296,7 @@ class PushNotificationService {
         await client.from('user_fcm_tokens').upsert({
           'user_id': userId,
           'token': token,
-          'platform': Platform.isIOS ? 'ios' : 'android',
+          'platform': kIsWeb ? 'web' : (Platform.isIOS ? 'ios' : 'android'),
           'updated_at': DateTime.now().toIso8601String(),
         }, onConflict: 'user_id,token');
 
@@ -307,6 +314,9 @@ class PushNotificationService {
     String type = 'social',
     Map<String, dynamic>? data,
   }) async {
+    // flutter_local_notifications does not support web
+    if (kIsWeb) return;
+
     final channel = _getChannelForType(type);
 
     await _localNotifications.show(

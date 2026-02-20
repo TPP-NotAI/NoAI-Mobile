@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
 import '../services/chat_service.dart';
+import '../services/push_notification_service.dart';
 import '../services/supabase_service.dart';
 
 class ChatProvider extends ChangeNotifier {
@@ -150,13 +151,14 @@ class ChatProvider extends ChangeNotifier {
     if (index != -1) {
       final conversation = _conversations[index];
       final newMessage = Message.fromSupabase(messageData);
+      final isFromOther = senderId != _currentUserId;
 
       // Update the conversation with new message info
       final updatedConversation = conversation.copyWith(
         lastMessage: newMessage,
         lastMessageAt: newMessage.createdAt,
         // Increment unread if message is from someone else
-        unreadCount: senderId != _currentUserId
+        unreadCount: isFromOther
             ? conversation.unreadCount + 1
             : conversation.unreadCount,
       );
@@ -165,6 +167,26 @@ class ChatProvider extends ChangeNotifier {
       _conversations.removeAt(index);
       _conversations.insert(0, updatedConversation);
       notifyListeners();
+
+      // Show local notification for incoming messages
+      if (isFromOther) {
+        final sender = conversation.participants.firstWhere(
+          (u) => u.id == senderId,
+          orElse: () => conversation.otherParticipant(_currentUserId ?? ''),
+        );
+        final senderName = sender.displayName.isNotEmpty
+            ? sender.displayName
+            : sender.username;
+        final body = newMessage.mediaType != null
+            ? '📎 ${newMessage.displayContent}'
+            : newMessage.displayContent;
+        PushNotificationService().showLocalNotification(
+          title: senderName,
+          body: body.isNotEmpty ? body : 'Sent you a message',
+          type: 'message',
+          data: {'type': 'message', 'thread_id': threadId},
+        );
+      }
     } else {
       // New conversation we don't have yet - refresh the list
       loadConversations();
@@ -400,7 +422,9 @@ class ChatProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       debugPrint('Error sending media message: $e');
-      return false;
+      _error = e.toString().replaceFirst('Exception: ', '').trim();
+      notifyListeners();
+      rethrow;
     } finally {
       _pendingMessages[conversationId]?.removeWhere((m) => m.id == pendingId);
       notifyListeners();

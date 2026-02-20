@@ -22,6 +22,8 @@ class MentionAutocompleteField extends StatefulWidget {
   final ValueChanged<String>? onSubmitted;
   final bool autofocus;
   final TextCapitalization textCapitalization;
+  final bool enableSuggestions;
+  final bool autocorrect;
 
   const MentionAutocompleteField({
     super.key,
@@ -35,7 +37,9 @@ class MentionAutocompleteField extends StatefulWidget {
     this.textInputAction,
     this.onSubmitted,
     this.autofocus = false,
-    this.textCapitalization = TextCapitalization.none,
+    this.textCapitalization = TextCapitalization.sentences,
+    this.enableSuggestions = true,
+    this.autocorrect = true,
   });
 
   @override
@@ -315,6 +319,8 @@ class _MentionAutocompleteFieldState extends State<MentionAutocompleteField> {
         onSubmitted: widget.onSubmitted,
         autofocus: widget.autofocus,
         textCapitalization: widget.textCapitalization,
+        enableSuggestions: widget.enableSuggestions,
+        autocorrect: widget.autocorrect,
       ),
     );
   }

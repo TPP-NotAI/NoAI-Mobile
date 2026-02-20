@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:rooverse/widgets/profile_image_preview.dart';
 import 'providers/auth_provider.dart';
@@ -43,6 +45,7 @@ import 'screens/notifications/notifications_screen.dart';
 import 'screens/chat/chat_list_screen.dart';
 import 'screens/support/contact_support_screen.dart';
 import 'screens/support/faq_screen.dart';
+import 'screens/support/support_chat_screen.dart';
 import 'config/app_constants.dart';
 import 'config/global_keys.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
@@ -142,14 +145,33 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => StakingProvider()),
         Provider(create: (_) => DeepLinkService()),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (_, themeProvider, __) {
+      child: Consumer2<ThemeProvider, LanguageProvider>(
+        builder: (_, themeProvider, languageProvider, __) {
           return MaterialApp(
             title: AppConstants.appName,
             scaffoldMessengerKey: rootScaffoldMessengerKey,
             navigatorKey: rootNavigatorKey,
             debugShowCheckedModeBanner: false,
             theme: themeProvider.theme,
+            locale: Locale(languageProvider.currentLanguage),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('en'),
+              Locale('es'),
+              Locale('fr'),
+              Locale('de'),
+              Locale('it'),
+              Locale('pt'),
+              Locale('ru'),
+              Locale('zh'),
+              Locale('ja'),
+              Locale('ko'),
+            ],
             routes: {
               '/verify': (context) => HumanVerificationScreen(
                 onVerify: () => Navigator.pop(context),
@@ -1084,14 +1106,14 @@ void _showProfileSheet(BuildContext parentContext) {
                 onTap: () => themeProvider.toggleTheme(),
               ),
               _ProfileItem(
-                icon: Icons.help_outline,
-                label: 'Help & Support',
+                icon: Icons.headset_mic,
+                label: 'Support Chat',
                 onTap: () {
                   Navigator.pop(sheetContext);
                   Navigator.push(
                     parentContext,
                     MaterialPageRoute(
-                      builder: (_) => const ContactSupportScreen(),
+                      builder: (_) => const SupportChatScreen(),
                     ),
                   );
                 },

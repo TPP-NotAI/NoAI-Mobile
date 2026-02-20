@@ -21,7 +21,6 @@ import 'language_screen.dart';
 import 'notifications/notification_settings_screen.dart';
 import 'auth/human_verification_screen.dart';
 import 'auth/phone_verification_screen.dart';
-import 'wallet/wallet_settings_screen.dart';
 import '../services/app_update_service.dart';
 import '../repositories/support_ticket_repository.dart';
 
@@ -205,21 +204,6 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 24),
 
           _buildSectionHeader(context, 'ROOBYTE WALLET'),
-          _buildSettingsTile(
-            context,
-            icon: Icons.account_balance_wallet,
-            iconColor: Colors.purple,
-            title: 'Wallet Settings',
-            subtitle: 'Manage wallet preferences',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const WalletSettingsScreen(),
-                ),
-              );
-            },
-          ),
           _buildSettingsTile(
             context,
             icon: Icons.history,

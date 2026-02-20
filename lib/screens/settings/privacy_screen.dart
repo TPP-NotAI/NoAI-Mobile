@@ -92,18 +92,6 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          _buildSettingsLink(
-            title: 'Muted Users',
-            subtitle: 'Hide posts and notifications from these users',
-            icon: Icons.volume_off,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const BlockedMutedUsersScreen(initialIndex: 1),
-              ),
-            ),
-          ),
 
           const SizedBox(height: 48),
 

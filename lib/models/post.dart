@@ -177,6 +177,10 @@ class Post {
   final String
   status; // 'draft', 'published', 'under_review', 'hidden', 'deleted', 'scheduled'
 
+  /// Whether this post has ever been boosted (runtime-only, not persisted in JSON).
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  final bool isBoosted;
+
   Post({
     required this.id,
     required this.author,
@@ -222,6 +226,7 @@ class Post {
     this.editCount = 0,
     this.lastEditedAt,
     this.updatedAt,
+    this.isBoosted = false,
   });
 
   final PostAuthor? reposter;
@@ -276,6 +281,7 @@ class Post {
     int? editCount,
     String? lastEditedAt,
     String? updatedAt,
+    bool? isBoosted,
   }) {
     return Post(
       id: id ?? this.id,
@@ -325,6 +331,7 @@ class Post {
       editCount: editCount ?? this.editCount,
       lastEditedAt: lastEditedAt ?? this.lastEditedAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isBoosted: isBoosted ?? this.isBoosted,
     );
   }
 

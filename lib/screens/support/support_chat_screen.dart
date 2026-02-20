@@ -198,7 +198,26 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     }
 
     if (_supportConversation != null) {
-      return ConversationThreadPage(conversation: _supportConversation!);
+      // Ensure the support participant always shows "Support Team" regardless
+      // of what display name the support account has in the database.
+      final patched = _supportConversation!.copyWith(
+        participants: _supportConversation!.participants.map((u) {
+          final isSupportUser = u.username.toLowerCase().contains('support') ||
+              u.username.toLowerCase().contains('admin');
+          if (isSupportUser) {
+            return User(
+              id: u.id,
+              username: u.username,
+              displayName: 'Support Team',
+              avatar: null,
+              isVerified: true,
+              status: u.status,
+            );
+          }
+          return u;
+        }).toList(),
+      );
+      return ConversationThreadPage(conversation: patched);
     }
 
     return const Scaffold(body: Center(child: Text('Something went wrong.')));
