@@ -22,7 +22,7 @@ class ReferralService {
         return existing['code'] as String;
       }
 
-      // Generate a new code (8 characters: first 4 of user ID + 4 random)
+      // Generate a new code (8 characters: first 4 of user ID + 4 timestamp digits)
       final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       final code =
           '${userId.substring(0, 4).toUpperCase()}${timestamp.substring(timestamp.length - 4)}';
@@ -34,6 +34,12 @@ class ReferralService {
         'created_at': DateTime.now().toIso8601String(),
       });
 
+      // Also store in profiles.referral_code for quick lookup
+      await _client
+          .from('profiles')
+          .update({'referral_code': code})
+          .eq('user_id', userId);
+
       return code;
     } catch (e) {
       debugPrint('ReferralService: Error generating referral code - $e');
@@ -42,22 +48,22 @@ class ReferralService {
   }
 
   /// Apply a referral code when a new user signs up
-  /// Awards 50 ROOK to the referrer
   Future<bool> applyReferralCode(String newUserId, String referralCode) async {
     try {
-      // Find the referrer
-      final referralData = await _client
+      // Find the referral code record
+      final referralCodeData = await _client
           .from('referral_codes')
-          .select('user_id')
+          .select('id, user_id, is_active, max_uses, current_uses, expires_at')
           .eq('code', referralCode.toUpperCase())
           .maybeSingle();
 
-      if (referralData == null) {
+      if (referralCodeData == null) {
         debugPrint('ReferralService: Invalid referral code: $referralCode');
         return false;
       }
 
-      final referrerId = referralData['user_id'] as String;
+      final referrerId = referralCodeData['user_id'] as String;
+      final referralCodeId = referralCodeData['id'] as String;
 
       // Prevent self-referral
       if (referrerId == newUserId) {
@@ -65,11 +71,33 @@ class ReferralService {
         return false;
       }
 
+      // Check if code is active
+      if (referralCodeData['is_active'] == false) {
+        debugPrint('ReferralService: Referral code is inactive');
+        return false;
+      }
+
+      // Check expiry
+      final expiresAt = referralCodeData['expires_at'] as String?;
+      if (expiresAt != null &&
+          DateTime.tryParse(expiresAt)?.isBefore(DateTime.now()) == true) {
+        debugPrint('ReferralService: Referral code has expired');
+        return false;
+      }
+
+      // Check max uses
+      final maxUses = referralCodeData['max_uses'] as int?;
+      final currentUses = referralCodeData['current_uses'] as int? ?? 0;
+      if (maxUses != null && currentUses >= maxUses) {
+        debugPrint('ReferralService: Referral code has reached max uses');
+        return false;
+      }
+
       // Check if this user was already referred
       final existingReferral = await _client
           .from('referrals')
           .select('id')
-          .eq('referred_user_id', newUserId)
+          .eq('referred_id', newUserId)
           .maybeSingle();
 
       if (existingReferral != null) {
@@ -77,14 +105,27 @@ class ReferralService {
         return false;
       }
 
-      // Record the referral
+      // Record the referral using the new schema columns
       await _client.from('referrals').insert({
-        'referrer_user_id': referrerId,
-        'referred_user_id': newUserId,
-        'referral_code': referralCode.toUpperCase(),
-        'status': 'pending', // Will be 'completed' after new user is verified
+        'referred_id': newUserId,
+        'referral_code_id': referralCodeId,
+        'status': 'pending',
+        'registration_completed': true,
         'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
       });
+
+      // Increment usage count on the code
+      await _client
+          .from('referral_codes')
+          .update({'current_uses': currentUses + 1})
+          .eq('id', referralCodeId);
+
+      // Store referred_by on the new user's profile
+      await _client
+          .from('profiles')
+          .update({'referred_by': referrerId})
+          .eq('user_id', newUserId);
 
       debugPrint(
         'ReferralService: Recorded referral from $referrerId to $newUserId',
@@ -96,15 +137,15 @@ class ReferralService {
     }
   }
 
-  /// Complete a referral and award ROOK when the referred user gets verified
-  /// This should be called when a new user completes verification
+  /// Complete a referral and award ROOK when the referred user gets verified.
+  /// Call this when a new user completes identity verification.
   Future<bool> completeReferral(String referredUserId) async {
     try {
-      // Find the pending referral
+      // Find the pending referral — join through referral_codes to get referrer
       final referral = await _client
           .from('referrals')
-          .select('id, referrer_user_id, referral_code')
-          .eq('referred_user_id', referredUserId)
+          .select('id, referral_code_id, referral_codes(user_id, reward_amount)')
+          .eq('referred_id', referredUserId)
           .eq('status', 'pending')
           .maybeSingle();
 
@@ -115,31 +156,42 @@ class ReferralService {
         return false;
       }
 
-      final referrerId = referral['referrer_user_id'] as String;
       final referralId = referral['id'] as String;
+      final codeData = referral['referral_codes'] as Map<String, dynamic>?;
+      if (codeData == null) {
+        debugPrint('ReferralService: No referral code data found');
+        return false;
+      }
 
-      // Award 50 ROOK to the referrer
+      final referrerId = codeData['user_id'] as String;
+      final rewardAmount = (codeData['reward_amount'] as num?)?.toDouble() ?? 10.0;
+
+      // Mark as verified (identity_verified milestone)
+      await _client
+          .from('referrals')
+          .update({
+            'status': 'rewarded',
+            'identity_verified': true,
+            'referrer_reward_amount': rewardAmount,
+            'referred_rewarded_at': DateTime.now().toIso8601String(),
+            'verified_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', referralId);
+
+      // Award ROO to the referrer
       await _walletRepo.earnRoo(
         userId: referrerId,
         activityType: RookenActivityType.referral,
         metadata: {
           'referred_user_id': referredUserId,
-          'referral_code': referral['referral_code'],
+          'reward_amount': rewardAmount,
           'completion_date': DateTime.now().toIso8601String(),
         },
       );
 
-      // Update referral status
-      await _client
-          .from('referrals')
-          .update({
-            'status': 'completed',
-            'completed_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', referralId);
-
       debugPrint(
-        'ReferralService: Completed referral and awarded 50 ROOK to $referrerId',
+        'ReferralService: Completed referral — awarded $rewardAmount ROO to $referrerId',
       );
       return true;
     } catch (e) {
@@ -151,22 +203,47 @@ class ReferralService {
   /// Get referral stats for a user
   Future<Map<String, dynamic>> getReferralStats(String userId) async {
     try {
+      // Get user's referral code id first
+      final codeRow = await _client
+          .from('referral_codes')
+          .select('id, current_uses, reward_amount')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (codeRow == null) {
+        return {
+          'total_referrals': 0,
+          'completed_referrals': 0,
+          'pending_referrals': 0,
+          'total_earned': 0.0,
+        };
+      }
+
+      final codeId = codeRow['id'] as String;
+      final rewardAmount = (codeRow['reward_amount'] as num?)?.toDouble() ?? 10.0;
+
       final referrals = await _client
           .from('referrals')
-          .select('status')
-          .eq('referrer_user_id', userId);
+          .select('status, referrer_reward_amount')
+          .eq('referral_code_id', codeId);
 
-      final total = (referrals as List).length;
-      final completed = referrals
-          .where((r) => r['status'] == 'completed')
-          .length;
-      final pending = referrals.where((r) => r['status'] == 'pending').length;
+      final list = referrals as List;
+      final total = list.length;
+      final completed = list.where((r) => r['status'] == 'rewarded').length;
+      final pending = list.where((r) => r['status'] == 'pending').length;
+      final totalEarned = list
+          .where((r) => r['status'] == 'rewarded')
+          .fold<double>(
+            0.0,
+            (sum, r) =>
+                sum + ((r['referrer_reward_amount'] as num?)?.toDouble() ?? rewardAmount),
+          );
 
       return {
         'total_referrals': total,
         'completed_referrals': completed,
         'pending_referrals': pending,
-        'total_earned': completed * 50, // 50 ROOK per completed referral
+        'total_earned': totalEarned,
       };
     } catch (e) {
       debugPrint('ReferralService: Error getting referral stats - $e');
@@ -174,12 +251,12 @@ class ReferralService {
         'total_referrals': 0,
         'completed_referrals': 0,
         'pending_referrals': 0,
-        'total_earned': 0,
+        'total_earned': 0.0,
       };
     }
   }
 
-  /// Get user's referral code
+  /// Get user's referral code string
   Future<String?> getUserReferralCode(String userId) async {
     try {
       final result = await _client

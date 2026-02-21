@@ -7,8 +7,9 @@ import '../config/global_keys.dart';
 import '../models/post.dart';
 import '../providers/auth_provider.dart';
 import '../providers/wallet_provider.dart';
+import '../repositories/boost_repository.dart';
 import '../repositories/notification_repository.dart';
-import '../services/supabase_service.dart';
+import '../services/push_notification_service.dart';
 import 'post_card.dart' show PostBoostCache;
 
 /// Cost per user notified (in ROO).
@@ -112,6 +113,8 @@ class _BoostPostModalState extends State<BoostPostModal> {
     required String localTxId,
     required WalletProvider walletProvider,
   }) async {
+    final boostRepo = BoostRepository();
+
     try {
       // 1. Deduct ROO from wallet
       final success = await walletProvider.spendRoo(
@@ -141,24 +144,57 @@ class _BoostPostModalState extends State<BoostPostModal> {
 
       walletProvider.confirmOptimisticTransaction(localTxId);
 
+      // 2. Record the boost in post_boosts
+      final boostId = await boostRepo.createBoost(
+        postId: widget.post.id,
+        authorId: userId,
+        targetUserCount: targetUsers,
+        costRc: cost,
+      );
+
       // Update the in-card Sponsored badge cache immediately
       PostBoostCache.markBoosted(widget.post.id);
 
-      // 2. Send notifications to a random sample of users
-      await _sendBoostNotifications(
-        boosterId: userId,
-        targetUsers: targetUsers,
+      // 3. Select recipients, persist to post_boost_recipients, and notify
+      if (boostId != null) {
+        final recipientIds = await boostRepo.selectAndInsertRecipients(
+          boostId: boostId,
+          authorId: userId,
+          targetUserCount: targetUsers,
+        );
+        await _sendBoostNotifications(
+          boosterId: userId,
+          recipientIds: recipientIds,
+        );
+      }
+
+      // 4. Fire a local push notification
+      await PushNotificationService().showLocalNotification(
+        title: 'Post Boosted! 🚀',
+        body: 'Your post was successfully boosted to $targetUsers users.',
+        type: 'social',
       );
 
-      rootScaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Boost confirmed! Your post was sent to $targetUsers users.',
+      // 5. Show an in-app success dialog
+      final ctx = rootNavigatorKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        showDialog<void>(
+          context: ctx,
+          builder: (_) => AlertDialog(
+            icon: const Icon(Icons.rocket_launch, color: Color(0xFFF97316), size: 36),
+            title: const Text('Boost Successful!'),
+            content: Text(
+              'Your post was successfully boosted to $targetUsers users.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Great!'),
+              ),
+            ],
           ),
-          backgroundColor: Colors.green.shade700,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+        );
+      }
     } catch (e) {
       walletProvider.rollbackOptimisticTransaction(
         localTxId,
@@ -174,21 +210,12 @@ class _BoostPostModalState extends State<BoostPostModal> {
     }
   }
 
-  /// Fetches a random sample of [targetUsers] user IDs and creates a
-  /// 'mention' notification for each (using the existing notifications table).
+  /// Sends 'mention' notifications to the already-selected [recipientIds].
   Future<void> _sendBoostNotifications({
     required String boosterId,
-    required int targetUsers,
+    required List<String> recipientIds,
   }) async {
-    final client = SupabaseService().client;
     final notifRepo = NotificationRepository();
-
-    // Fetch random active users (excluding the post author / booster)
-    final rows = await client
-        .from('profiles')
-        .select('user_id')
-        .neq('user_id', boosterId)
-        .limit(targetUsers);
 
     final postTitle = widget.post.title?.isNotEmpty == true
         ? widget.post.title!
@@ -196,14 +223,9 @@ class _BoostPostModalState extends State<BoostPostModal> {
     final truncatedTitle =
         postTitle.length > 60 ? '${postTitle.substring(0, 60)}…' : postTitle;
 
-    // Send notifications in batches to avoid overwhelming the DB
     const batchSize = 50;
-    final userIds = (rows as List<dynamic>)
-        .map((r) => r['user_id'] as String)
-        .toList();
-
-    for (int i = 0; i < userIds.length; i += batchSize) {
-      final batch = userIds.skip(i).take(batchSize);
+    for (int i = 0; i < recipientIds.length; i += batchSize) {
+      final batch = recipientIds.skip(i).take(batchSize);
       await Future.wait(
         batch.map(
           (recipientId) => notifRepo.createNotification(

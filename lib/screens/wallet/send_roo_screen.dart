@@ -140,6 +140,9 @@ class _SendRooScreenState extends State<SendRooScreen> {
     }
   }
 
+  /// Platform withdrawal fee: 1% of the transfer amount.
+  static const double _withdrawalFeeRate = 0.01;
+
   Future<void> _sendRoo() async {
     final recipient = _recipientController.text.trim();
     final amountText = _amountController.text.trim();
@@ -160,10 +163,53 @@ class _SendRooScreenState extends State<SendRooScreen> {
       return;
     }
 
-    if (amount > widget.currentBalance) {
-      _showError('Insufficient balance');
+    final fee = double.parse((amount * _withdrawalFeeRate).toStringAsFixed(6));
+    final totalDeducted = amount + fee;
+
+    if (totalDeducted > widget.currentBalance) {
+      _showError(
+        'Insufficient balance. You need ${totalDeducted.toStringAsFixed(2)} ROO '
+        '(${amount.toStringAsFixed(2)} + ${fee.toStringAsFixed(2)} fee).',
+      );
       return;
     }
+
+    // Show fee confirmation dialog before proceeding
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Transfer'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _FeeRow(label: 'Amount', value: '${amount.toStringAsFixed(2)} ROO'),
+            _FeeRow(
+              label: 'Platform fee (1%)',
+              value: '${fee.toStringAsFixed(2)} ROO',
+              isSubtle: true,
+            ),
+            const Divider(height: 16),
+            _FeeRow(
+              label: 'Total deducted',
+              value: '${totalDeducted.toStringAsFixed(2)} ROO',
+              bold: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
 
     setState(() => _isProcessing = true);
 
@@ -230,13 +276,18 @@ class _SendRooScreenState extends State<SendRooScreen> {
           ? null
           : _noteController.text.trim();
 
-      // 2. Optimistic local update (immediate)
+      // 2. Optimistic local update — deduct full amount including fee
       final localTxId = walletProvider.addOptimisticOutgoingTransaction(
         userId: user.id,
-        amount: amount,
+        amount: totalDeducted,
         txType: 'transfer',
         memo: memo,
-        metadata: {'activityType': 'transfer', 'inputRecipient': recipient},
+        metadata: {
+          'activityType': 'transfer',
+          'inputRecipient': recipient,
+          'withdrawal_fee': fee,
+          'fee_rate': '1%',
+        },
       );
 
       // 3. Close quickly and show "pending confirmation"
@@ -246,7 +297,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
       rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text(
-            'Sent ${amount.toStringAsFixed(2)} ROO to $recipient. Confirming on-chain...',
+            'Sent ${amount.toStringAsFixed(2)} ROO to $recipient (fee: ${fee.toStringAsFixed(2)} ROO). Confirming on-chain...',
           ),
           backgroundColor: Colors.green.shade600,
           behavior: SnackBarBehavior.floating,
@@ -254,16 +305,20 @@ class _SendRooScreenState extends State<SendRooScreen> {
       );
 
       // 4. Confirm in background and reconcile UI
+      // The recipient receives `amount`; platform fee is deducted separately.
       unawaited(
         walletProvider
             .transferToExternal(
               userId: user.id,
               toAddress: toAddress,
               amount: amount,
+              fee: fee,
               memo: memo,
               metadata: {
                 'activityType': 'transfer',
                 'inputRecipient': recipient,
+                'withdrawal_fee': fee,
+                'fee_rate': '1%',
               },
             )
             .then((success) async {
@@ -275,7 +330,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                 rootScaffoldMessengerKey.currentState?.showSnackBar(
                   SnackBar(
                     content: Text(
-                      'Transfer confirmed: ${amount.toStringAsFixed(2)} ROO',
+                      'Transfer confirmed: ${amount.toStringAsFixed(2)} ROO sent (${fee.toStringAsFixed(2)} ROO fee)',
                     ),
                     backgroundColor: Colors.green.shade700,
                     behavior: SnackBarBehavior.floating,
@@ -745,6 +800,43 @@ class _SendRooScreenState extends State<SendRooScreen> {
           label,
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
+      ),
+    );
+  }
+}
+
+class _FeeRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isSubtle;
+  final bool bold;
+
+  const _FeeRow({
+    required this.label,
+    required this.value,
+    this.isSubtle = false,
+    this.bold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isSubtle
+        ? Theme.of(context).colorScheme.onSurfaceVariant
+        : Theme.of(context).colorScheme.onSurface;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: color)),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
       ),
     );
   }

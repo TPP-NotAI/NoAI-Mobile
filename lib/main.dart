@@ -17,7 +17,6 @@ import 'providers/language_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/story_provider.dart';
 import 'providers/wallet_provider.dart';
-import 'providers/staking_provider.dart';
 import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'services/presence_service.dart';
@@ -50,7 +49,6 @@ import 'config/app_constants.dart';
 import 'config/global_keys.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
 import 'screens/auth/banned_screen.dart';
-import 'services/daily_login_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/app_update_service.dart';
 import 'widgets/connectivity_overlay.dart';
@@ -142,7 +140,6 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => WalletProvider()),
-        ChangeNotifierProvider(create: (_) => StakingProvider()),
         Provider(create: (_) => DeepLinkService()),
       ],
       child: Consumer2<ThemeProvider, LanguageProvider>(
@@ -171,6 +168,8 @@ class MyApp extends StatelessWidget {
               Locale('zh'),
               Locale('ja'),
               Locale('ko'),
+              Locale('ar'),
+              Locale('hi'),
             ],
             routes: {
               '/verify': (context) => HumanVerificationScreen(
@@ -436,6 +435,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (destination == null) return;
     _deepLinkHandled = true;
 
+    if (destination == DeepLinkDestination.verificationCallback) return;
+
     final screen = destination == DeepLinkDestination.helpCenter
         ? const FAQScreen()
         : const ContactSupportScreen();
@@ -537,7 +538,6 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
-  bool _dailyRewardChecked = false;
   bool _updateCheckTriggered = false;
 
   @override
@@ -545,7 +545,6 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     // Check and award daily login reward
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkDailyLoginReward();
       _checkWelcomeBonus();
       _checkForAppUpdate();
     });
@@ -579,54 +578,6 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  Future<void> _checkDailyLoginReward() async {
-    if (_dailyRewardChecked) return;
-    _dailyRewardChecked = true;
-
-    try {
-      final authProvider = context.read<AuthProvider>();
-      final userId = authProvider.currentUser?.id;
-      if (userId == null) return;
-
-      // Wait a bit for wallet to initialize
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Check if wallet exists before attempting daily login
-      final walletProvider = context.read<WalletProvider>();
-      if (walletProvider.wallet == null) {
-        debugPrint('Skipping daily login check: Wallet not initialized yet');
-        return;
-      }
-
-      // Only award daily login to fully activated users (verified + purchased ROO).
-      // Prevents unactivated users from accidentally getting a free balance.
-      final user = authProvider.currentUser;
-      if (user == null || !user.isActivated) {
-        debugPrint('Skipping daily login check: User not yet activated');
-        return;
-      }
-
-      final dailyLoginService = DailyLoginService();
-      final rewarded = await dailyLoginService
-          .checkAndRewardDailyLoginOnAppOpen(userId);
-
-      if (rewarded && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎁 Daily login bonus! You earned 1 ROO!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-
-        // Refresh wallet balance
-        context.read<WalletProvider>().refreshWallet(userId);
-      }
-    } catch (e) {
-      debugPrint('Failed to check daily login reward: $e');
-    }
-  }
-
   void _onPostCreated() {
     // Navigate back to feed after creating a post
     setState(() => _index = 0);
@@ -640,33 +591,36 @@ class _MainShellState extends State<MainShell> {
     const ProfileScreen(),
   ];
 
-  List<AdaptiveNavigationDestination> get _destinations => [
-    const AdaptiveNavigationDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home),
-      label: 'Home',
-    ),
-    const AdaptiveNavigationDestination(
-      icon: Icon(Icons.explore_outlined),
-      selectedIcon: Icon(Icons.explore),
-      label: 'Discover',
-    ),
-    const AdaptiveNavigationDestination(
-      icon: Icon(Icons.add_circle_outline),
-      selectedIcon: Icon(Icons.add_circle),
-      label: 'Create',
-    ),
-    const AdaptiveNavigationDestination(
-      icon: Icon(Icons.account_balance_wallet_outlined),
-      selectedIcon: Icon(Icons.account_balance_wallet),
-      label: 'Wallet',
-    ),
-    const AdaptiveNavigationDestination(
-      icon: Icon(Icons.person_outline),
-      selectedIcon: Icon(Icons.person),
-      label: 'Profile',
-    ),
-  ];
+  List<AdaptiveNavigationDestination> _destinations(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
+      AdaptiveNavigationDestination(
+        icon: const Icon(Icons.home_outlined),
+        selectedIcon: const Icon(Icons.home),
+        label: l10n.home,
+      ),
+      AdaptiveNavigationDestination(
+        icon: const Icon(Icons.explore_outlined),
+        selectedIcon: const Icon(Icons.explore),
+        label: l10n.discover,
+      ),
+      AdaptiveNavigationDestination(
+        icon: const Icon(Icons.add_circle_outline),
+        selectedIcon: const Icon(Icons.add_circle),
+        label: l10n.create,
+      ),
+      AdaptiveNavigationDestination(
+        icon: const Icon(Icons.account_balance_wallet_outlined),
+        selectedIcon: const Icon(Icons.account_balance_wallet),
+        label: l10n.wallet,
+      ),
+      AdaptiveNavigationDestination(
+        icon: const Icon(Icons.person_outline),
+        selectedIcon: const Icon(Icons.person),
+        label: l10n.profile,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -679,8 +633,8 @@ class _MainShellState extends State<MainShell> {
         builder: (context, auth, wallet, _) {
           final user = auth.currentUser;
           final balance = wallet.wallet?.balanceRc ?? 0.0;
-          // Show banner when verified but balance = 0 (pending ROO purchase)
-          final needsActivation = user != null && user.isVerified && balance <= 0;
+          // Show banner when user has 0 ROO balance (regardless of verification status)
+          final needsActivation = user != null && balance <= 0;
 
           return Column(
             children: [
@@ -697,7 +651,7 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: AdaptiveNavigationBar(
         currentIndex: _index,
-        destinations: _destinations,
+        destinations: _destinations(context),
         onDestinationSelected: (i) => setState(() => _index = i),
       ),
     );
@@ -725,7 +679,7 @@ class _ActivationBanner extends StatelessWidget {
           const SizedBox(width: 8),
           const Expanded(
             child: Text(
-              "You're verified! Buy ROO to unlock posting, commenting, and more.",
+              "Buy ROO to unlock posting, commenting, and all platform features.",
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 12,
@@ -962,6 +916,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
 
 void _showProfileSheet(BuildContext parentContext) {
   final colors = Theme.of(parentContext).colorScheme;
+  final l10n = AppLocalizations.of(parentContext)!;
   final user = parentContext.read<UserProvider>().currentUser;
   final themeProvider = parentContext.read<ThemeProvider>();
 
@@ -1076,7 +1031,7 @@ void _showProfileSheet(BuildContext parentContext) {
                 ),
               _ProfileItem(
                 icon: Icons.person_outline,
-                label: 'My Profile',
+                label: l10n.profile,
                 onTap: () {
                   Navigator.pop(sheetContext);
                   Navigator.push(
@@ -1089,7 +1044,7 @@ void _showProfileSheet(BuildContext parentContext) {
               ),
               _ProfileItem(
                 icon: Icons.settings_outlined,
-                label: 'Settings',
+                label: l10n.settings,
                 onTap: () {
                   Navigator.pop(sheetContext);
                   Navigator.push(
@@ -1102,12 +1057,12 @@ void _showProfileSheet(BuildContext parentContext) {
                 icon: themeProvider.isDarkMode
                     ? Icons.light_mode_outlined
                     : Icons.dark_mode_outlined,
-                label: themeProvider.isDarkMode ? 'Light Mode' : 'Dark Mode',
+                label: themeProvider.isDarkMode ? 'Light Mode' : l10n.darkMode,
                 onTap: () => themeProvider.toggleTheme(),
               ),
               _ProfileItem(
                 icon: Icons.headset_mic,
-                label: 'Support Chat',
+                label: l10n.contactSupport,
                 onTap: () {
                   Navigator.pop(sheetContext);
                   Navigator.push(
@@ -1121,7 +1076,7 @@ void _showProfileSheet(BuildContext parentContext) {
               const Divider(height: 28),
               _ProfileItem(
                 icon: Icons.logout,
-                label: 'Sign Out',
+                label: l10n.logOut,
                 destructive: true,
                 onTap: () {
                   // Close bottom sheet first
@@ -1133,11 +1088,11 @@ void _showProfileSheet(BuildContext parentContext) {
                     builder: (dialogContext) => AlertDialog(
                       backgroundColor: colors.surface,
                       title: Text(
-                        'Sign Out',
+                        l10n.logOut,
                         style: TextStyle(color: colors.onSurface),
                       ),
                       content: Text(
-                        'Are you sure you want to sign out?',
+                        l10n.areYouSureLogOut,
                         style: TextStyle(
                           color: colors.onSurface.withOpacity(0.7),
                         ),
@@ -1145,7 +1100,7 @@ void _showProfileSheet(BuildContext parentContext) {
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(dialogContext),
-                          child: const Text('Cancel'),
+                          child: Text(l10n.cancel),
                         ),
                         TextButton(
                           onPressed: () async {
@@ -1162,9 +1117,9 @@ void _showProfileSheet(BuildContext parentContext) {
                             // but we've already captured the reference safely
                             await auth.signOut();
                           },
-                          child: const Text(
-                            'Sign Out',
-                            style: TextStyle(color: Colors.red),
+                          child: Text(
+                            l10n.logOut,
+                            style: const TextStyle(color: Colors.red),
                           ),
                         ),
                       ],

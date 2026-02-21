@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:geocoding/geocoding.dart';
 import '../providers/user_provider.dart';
@@ -22,6 +23,7 @@ import 'shimmer_loading.dart';
 import 'mention_rich_text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
+import '../repositories/boost_repository.dart';
 import '../repositories/mention_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../services/rooken_service.dart';
@@ -57,18 +59,8 @@ class PostBoostCache {
 
   static Future<void> _fetch(String userId) async {
     try {
-      final rows = await SupabaseService().client
-          .from('roocoin_transactions')
-          .select('metadata')
-          .eq('from_user_id', userId)
-          .eq('tx_type', 'fee');
-      for (final row in rows as List<dynamic>) {
-        final meta = row['metadata'] as Map<String, dynamic>?;
-        if (meta?['activityType'] == 'POST_BOOST') {
-          final pid = meta?['referencePostId'] as String?;
-          if (pid != null) _boostedPostIds.add(pid);
-        }
-      }
+      final ids = await BoostRepository().getBoostedPostIds(userId);
+      _boostedPostIds.addAll(ids);
       _loaded = true;
     } catch (_) {
       // Silently fail — badge just won't show
@@ -128,7 +120,9 @@ class PostCard extends StatelessWidget {
               context,
               AppSpacing.radiusExtraLarge,
             ),
-            border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.6)),
+            border: Border.all(
+              color: colors.outlineVariant.withValues(alpha: 0.6),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.25),
@@ -140,151 +134,156 @@ class PostCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            if (post.reposter != null) _RepostHeader(post: post),
+              if (post.reposter != null) _RepostHeader(post: post),
 
-            _Header(post: post, onProfileTap: onProfileTap),
+              _Header(post: post, onProfileTap: onProfileTap),
 
-            if (post.status == 'under_review')
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.largePlus.responsive(context),
-                  vertical: AppSpacing.mediumSmall.responsive(context),
-                ),
-                color: colors.errorContainer,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: AppTypography.responsiveIconSize(context, 16),
-                      color: colors.onErrorContainer,
-                    ),
-                    SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
-                    Expanded(
-                      child: Text(
-                        'This post is under review.',
-                        style: TextStyle(
-                          fontSize: AppTypography.responsiveFontSize(
-                            context,
-                            AppTypography.badgeText,
+              if (post.status == 'under_review')
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.largePlus.responsive(context),
+                    vertical: AppSpacing.mediumSmall.responsive(context),
+                  ),
+                  color: colors.errorContainer,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: AppTypography.responsiveIconSize(context, 16),
+                        color: colors.onErrorContainer,
+                      ),
+                      SizedBox(
+                        width: AppSpacing.mediumSmall.responsive(context),
+                      ),
+                      Expanded(
+                        child: Text(
+                          'This post is under review.',
+                          style: TextStyle(
+                            fontSize: AppTypography.responsiveFontSize(
+                              context,
+                              AppTypography.badgeText,
+                            ),
+                            color: colors.onErrorContainer,
+                            fontWeight: FontWeight.w500,
                           ),
-                          color: colors.onErrorContainer,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
-            if (post.isSensitive)
-              Container(
-                width: double.infinity,
-                margin: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.largePlus.responsive(context),
-                  vertical: AppSpacing.mediumSmall.responsive(context),
-                ),
-                padding: AppSpacing.responsiveAll(context, AppSpacing.standard),
-                decoration: BoxDecoration(
-                  color: colors.errorContainer.withValues(alpha: 0.1),
-                  borderRadius: AppSpacing.responsiveRadius(
+              if (post.isSensitive)
+                Container(
+                  width: double.infinity,
+                  margin: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.largePlus.responsive(context),
+                    vertical: AppSpacing.mediumSmall.responsive(context),
+                  ),
+                  padding: AppSpacing.responsiveAll(
                     context,
-                    AppSpacing.radiusLarge,
+                    AppSpacing.standard,
                   ),
-                  border: Border.all(
-                    color: colors.error.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.warning_amber_rounded,
-                      color: colors.error,
-                      size: AppTypography.responsiveIconSize(context, 24),
+                  decoration: BoxDecoration(
+                    color: colors.errorContainer.withValues(alpha: 0.1),
+                    borderRadius: AppSpacing.responsiveRadius(
+                      context,
+                      AppSpacing.radiusLarge,
                     ),
-                    SizedBox(width: AppSpacing.standard.responsive(context)),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Sensitive Content',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: colors.error,
-                              fontSize: AppTypography.responsiveFontSize(
-                                context,
-                                AppTypography.base,
-                              ),
-                            ),
-                          ),
-                          if (post.sensitiveReason != null)
+                    border: Border.all(
+                      color: colors.error.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: colors.error,
+                        size: AppTypography.responsiveIconSize(context, 24),
+                      ),
+                      SizedBox(width: AppSpacing.standard.responsive(context)),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              post.sensitiveReason!,
+                              'Sensitive Content',
                               style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: colors.error,
                                 fontSize: AppTypography.responsiveFontSize(
                                   context,
-                                  AppTypography.badgeText,
+                                  AppTypography.base,
                                 ),
-                                color: colors.onErrorContainer,
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            if (post.title != null && post.title!.isNotEmpty)
-              Padding(
-                padding: AppSpacing.responsiveLTRB(context, 16, 8, 16, 0),
-                child: Text(
-                  post.title!,
-                  style: TextStyle(
-                    fontSize: AppTypography.responsiveFontSize(
-                      context,
-                      AppTypography.cardHeading,
-                    ),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-
-            _Content(post: post, onHashtagTap: handleHashtagTap),
-
-            if (post.tags != null && post.tags!.isNotEmpty)
-              Padding(
-                padding: AppSpacing.responsiveLTRB(context, 16, 8, 16, 8),
-                child: Wrap(
-                  spacing: AppSpacing.mediumSmall.responsive(context),
-                  runSpacing: AppSpacing.extraSmall.responsive(context),
-                  children: post.tags!.map((tag) {
-                    return GestureDetector(
-                      onTap: () => handleHashtagTap(tag.name),
-                      child: Text(
-                        '#${tag.name}',
-                        style: TextStyle(
-                          color: colors.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: AppTypography.responsiveFontSize(
-                            context,
-                            AppTypography.small,
-                          ),
+                            if (post.sensitiveReason != null)
+                              Text(
+                                post.sensitiveReason!,
+                                style: TextStyle(
+                                  fontSize: AppTypography.responsiveFontSize(
+                                    context,
+                                    AppTypography.badgeText,
+                                  ),
+                                  color: colors.onErrorContainer,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                    );
-                  }).toList(),
+                    ],
+                  ),
                 ),
+
+              if (post.title != null && post.title!.isNotEmpty)
+                Padding(
+                  padding: AppSpacing.responsiveLTRB(context, 16, 8, 16, 0),
+                  child: Text(
+                    post.title!,
+                    style: TextStyle(
+                      fontSize: AppTypography.responsiveFontSize(
+                        context,
+                        AppTypography.cardHeading,
+                      ),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+              _Content(post: post, onHashtagTap: handleHashtagTap),
+
+              if (post.tags != null && post.tags!.isNotEmpty)
+                Padding(
+                  padding: AppSpacing.responsiveLTRB(context, 16, 8, 16, 8),
+                  child: Wrap(
+                    spacing: AppSpacing.mediumSmall.responsive(context),
+                    runSpacing: AppSpacing.extraSmall.responsive(context),
+                    children: post.tags!.map((tag) {
+                      return GestureDetector(
+                        onTap: () => handleHashtagTap(tag.name),
+                        child: Text(
+                          '#${tag.name}',
+                          style: TextStyle(
+                            color: colors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: AppTypography.responsiveFontSize(
+                              context,
+                              AppTypography.small,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+
+              if (post.hasMedia) _MediaGridView(post: post),
+
+              _Actions(
+                post: post,
+                onCommentTap: onCommentTap,
+                onTipTap: onTipTap,
               ),
-
-            if (post.hasMedia) _MediaGridView(post: post),
-
-            _Actions(
-              post: post,
-              onCommentTap: onCommentTap,
-              onTipTap: onTipTap,
-            ),
             ],
           ),
         ),
@@ -656,7 +655,9 @@ class _HeaderState extends State<_Header> {
                             isModerated: post.status == 'under_review',
                           ),
                           if (_isBoosted) ...[
-                            SizedBox(width: AppSpacing.small.responsive(context)),
+                            SizedBox(
+                              width: AppSpacing.small.responsive(context),
+                            ),
                             const _SponsoredBadge(),
                           ],
                         ],
@@ -791,7 +792,9 @@ class _SponsoredBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF97316).withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFF97316).withValues(alpha: 0.5)),
+        border: Border.all(
+          color: const Color(0xFFF97316).withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1457,12 +1460,8 @@ class _Actions extends StatelessWidget {
             const SizedBox(width: 4),
             _ActionButton(
               icon: Icons.toll,
-              label: post.tips > 0
-                  ? '${_format(post.tips.toInt())} ROO'
-                  : null,
-              onTap:
-                  onTipTap ??
-                  () => _handleTip(context),
+              label: post.tips > 0 ? '${_format(post.tips.toInt())} ROO' : null,
+              onTap: onTipTap ?? () => _handleTip(context),
             ),
           ],
           const Spacer(),
@@ -1539,7 +1538,9 @@ class _Actions extends StatelessWidget {
     if (user.isVerificationPending) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Your verification is pending. You can tip once approved.'),
+          content: Text(
+            'Your verification is pending. You can tip once approved.',
+          ),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 4),
         ),
@@ -1975,7 +1976,7 @@ class _PostMenu extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -2015,14 +2016,14 @@ class _PostMenu extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: Text(AppLocalizations.of(context)!.delete),
           ),
         ],
       ),
@@ -2112,3 +2113,5 @@ class _MenuOption extends StatelessWidget {
     );
   }
 }
+
+

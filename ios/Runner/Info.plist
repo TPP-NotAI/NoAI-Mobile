@@ -57,10 +57,27 @@
 	<string>We need your location to show location-based features and let you share it with friends.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>We need permission to save photos to your photo library.</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>ROOVERSE uses NFC to read identity document chips for secure verification.</string>
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array>
+		<string>A0000002471001</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>rooverse</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

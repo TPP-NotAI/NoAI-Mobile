@@ -2,8 +2,6 @@ import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
 import 'notification_repository.dart';
-import 'wallet_repository.dart';
-import '../services/rooken_service.dart';
 import '../services/viral_content_service.dart';
 
 /// Repository for repost operations.
@@ -75,18 +73,6 @@ class RepostRepository {
             actorId: userId,
             postId: postId,
           );
-        }
-
-        // Award 5 ROOK to the user who reposted
-        try {
-          final walletRepo = WalletRepository();
-          await walletRepo.earnRoo(
-            userId: userId,
-            activityType: RookenActivityType.postShare,
-            referencePostId: postId,
-          );
-        } catch (e) {
-          debugPrint('RepostRepository: Error awarding ROOK for repost - $e');
         }
 
         // Check if post has gone viral and award bonus

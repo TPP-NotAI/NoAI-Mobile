@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:rooverse/models/user.dart';
 import '../../models/post.dart';
 import 'package:rooverse/models/user_activity.dart';
@@ -418,7 +419,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
@@ -1818,7 +1819,7 @@ class _DraftGridItem extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
@@ -2344,3 +2345,5 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
     return child != oldDelegate.child;
   }
 }
+
+

@@ -26,6 +26,7 @@ class FeedProvider with ChangeNotifier {
   final KycVerificationService _kycService = KycVerificationService();
 
   List<Post> _posts = [];
+  List<Post>? _cachedFilteredPosts; // cached result of the posts getter
   List<Post> _draftPosts = [];
   List<String>? _userInterests;
   bool _isLoading = false;
@@ -55,7 +56,10 @@ class FeedProvider with ChangeNotifier {
   /// Get posts filtered by blocked users and prioritized by interests.
   /// Hides posts from users you've blocked and users who've blocked you.
   /// Prioritizes posts with tags matching user interests.
+  /// Result is cached and only recomputed when _posts, interests, or block sets change.
   List<Post> get posts {
+    if (_cachedFilteredPosts != null) return _cachedFilteredPosts!;
+
     // First filter by blocked and muted users
     List<Post> filtered = _posts;
     if (_blockedUserIds.isNotEmpty ||
@@ -64,16 +68,16 @@ class FeedProvider with ChangeNotifier {
       filtered = _posts.where((post) {
         final authorId = post.author.userId;
         if (authorId == null) return true;
-        // Hide posts from users you've blocked, who've blocked you, or you've muted
         return !_blockedUserIds.contains(authorId) &&
             !_blockedByUserIds.contains(authorId) &&
             !_mutedUserIds.contains(authorId);
       }).toList();
     }
 
-    // If no interests, return filtered posts as-is
+    // If no interests, cache and return filtered posts as-is
     if (_userInterests == null || _userInterests!.isEmpty) {
-      return filtered;
+      _cachedFilteredPosts = filtered;
+      return _cachedFilteredPosts!;
     }
 
     // Prioritize posts with matching interests
@@ -91,7 +95,6 @@ class FeedProvider with ChangeNotifier {
           }
         }
       }
-
       if (hasMatchingInterest) {
         prioritized.add(post);
       } else {
@@ -99,12 +102,15 @@ class FeedProvider with ChangeNotifier {
       }
     }
 
-    // Return prioritized posts first, then others
-    return [...prioritized, ...others];
+    _cachedFilteredPosts = [...prioritized, ...others];
+    return _cachedFilteredPosts!;
   }
 
-  /// Get unfiltered posts (for internal use).
-  List<Post> get allPosts => _posts;
+  /// Invalidate the cached filtered posts list. Call whenever _posts, interests,
+  /// or block/mute sets change.
+  void _invalidatePostsCache() {
+    _cachedFilteredPosts = null;
+  }
 
   /// Get draft (unpublished) posts for the current user.
   List<Post> get draftPosts => _draftPosts;
@@ -113,6 +119,7 @@ class FeedProvider with ChangeNotifier {
   void setBlockedUserIds(Set<String> blocked, Set<String> blockedBy) {
     _blockedUserIds = blocked;
     _blockedByUserIds = blockedBy;
+    _invalidatePostsCache();
     notifyListeners();
   }
 
@@ -122,6 +129,7 @@ class FeedProvider with ChangeNotifier {
       'FeedProvider: Updating muted user IDs - count: ${muted.length}',
     );
     _mutedUserIds = muted;
+    _invalidatePostsCache();
     notifyListeners();
   }
 
@@ -143,6 +151,7 @@ class FeedProvider with ChangeNotifier {
   Future<void> _loadUserInterests() async {
     try {
       _userInterests = await _interestsRepository.getUserInterests();
+      _invalidatePostsCache();
       notifyListeners();
     } catch (e) {
       debugPrint('FeedProvider: Error loading user interests - $e');
@@ -166,6 +175,7 @@ class FeedProvider with ChangeNotifier {
       }
     }
     _posts = unique;
+    _invalidatePostsCache();
   }
 
   Future<void> _loadInitialFeed() async {
@@ -1184,6 +1194,9 @@ class FeedProvider with ChangeNotifier {
     PostAuthor? optimisticAuthor,
     List<PostTag>? optimisticTags,
     bool waitForAi = false,
+    /// Called when the post is detected as an advertisement requiring an ad
+    /// fee payment in ROO. Return true if the user successfully paid.
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
   }) async {
     final userId = _currentUserId;
     if (userId == null) return null;
@@ -1253,6 +1266,7 @@ class FeedProvider with ChangeNotifier {
           authorId: userId,
           body: body,
           mediaFiles: mediaFiles,
+          onAdFeeRequired: onAdFeeRequired,
         );
 
         if (waitForAi) {
@@ -1275,8 +1289,9 @@ class FeedProvider with ChangeNotifier {
                     : updatedPost;
                 if (updatedPost.status == 'under_review' ||
                     updatedPost.status == 'deleted' ||
-                    updatedPost.status == 'hidden') {
-                  // Post was flagged or auto-blocked — remove from feed
+                    updatedPost.status == 'hidden' ||
+                    updatedPost.status == 'pending_ad_payment') {
+                  // Post was flagged, auto-blocked, or held for ad fee — remove from feed
                   _posts.removeAt(idx);
                 } else {
                   _posts[idx] = mergedPost;
@@ -1320,8 +1335,9 @@ class FeedProvider with ChangeNotifier {
                         : updatedPost;
                     if (updatedPost.status == 'under_review' ||
                         updatedPost.status == 'deleted' ||
-                        updatedPost.status == 'hidden') {
-                      // Post was flagged or auto-blocked — remove from feed
+                        updatedPost.status == 'hidden' ||
+                        updatedPost.status == 'pending_ad_payment') {
+                      // Post was flagged, auto-blocked, or held for ad fee — remove from feed
                       _posts.removeAt(idx);
                     } else {
                       _posts[idx] = mergedPost;

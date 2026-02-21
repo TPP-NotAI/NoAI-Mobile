@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -8,7 +9,6 @@ import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/wallet_provider.dart';
-import '../../providers/staking_provider.dart';
 import '../../models/wallet.dart';
 import '../../config/app_colors.dart';
 import '../../utils/responsive_extensions.dart';
@@ -27,7 +27,7 @@ class WalletScreen extends StatefulWidget {
 }
 
 class _WalletScreenState extends State<WalletScreen> {
-  final NumberFormat _currencyFormat = NumberFormat.decimalPattern();
+  static final NumberFormat _currencyFormat = NumberFormat.decimalPattern();
   final ReferralService _referralService = ReferralService();
   final RooPurchaseService _rooPurchaseService = RooPurchaseService();
   String? _referralCode;
@@ -46,7 +46,6 @@ class _WalletScreenState extends State<WalletScreen> {
       final user = context.read<AuthProvider>().currentUser;
       if (user != null) {
         context.read<WalletProvider>().refreshWallet(user.id);
-        context.read<StakingProvider>().init(user.id);
         context.read<UserProvider>().fetchTransactions(user.id);
         _fetchReferralCode(user.id);
       }
@@ -445,7 +444,6 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser;
     final walletProvider = context.watch<WalletProvider>();
-    final stakingProvider = context.watch<StakingProvider>();
     final userProvider = context.watch<UserProvider>();
     final wallet = walletProvider.wallet;
     final transactions = walletProvider.transactions;
@@ -476,7 +474,6 @@ class _WalletScreenState extends State<WalletScreen> {
           color: _rooOrange,
           onRefresh: () async {
             await context.read<WalletProvider>().refreshWallet(user.id);
-            await context.read<StakingProvider>().refresh(user.id);
           },
           child: CustomScrollView(
             slivers: [
@@ -608,7 +605,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     ),
                     child: Row(
                       children: [
-                        Expanded(child: _buildApyCard(stakingProvider, colors)),
+                        Expanded(child: _buildApyCard(colors)),
                         SizedBox(
                           width: AppSpacing.standard.responsive(context),
                         ),
@@ -640,22 +637,10 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                         Expanded(
                           child: _buildBreakdownCard(
-                            'STAKED',
-                            stakingProvider.userSummary.totalStaked,
+                            'LIFETIME EARNED',
+                            wallet?.lifetimeEarnedRc ?? 0,
                             'ROO',
                             colors,
-                          ),
-                        ),
-                        SizedBox(
-                          width: AppSpacing.standard.responsive(context),
-                        ),
-                        Expanded(
-                          child: _buildBreakdownCard(
-                            'PENDING',
-                            stakingProvider.userSummary.pendingRewards,
-                            'ROO',
-                            colors,
-                            isReward: true,
                           ),
                         ),
                       ],
@@ -870,7 +855,11 @@ class _WalletScreenState extends State<WalletScreen> {
                         label = isReceived ? 'Received ROO' : 'Sent ROO';
                         subtitle = isReceived ? 'From $sender' : 'To $receiver';
                       } else if (tx.txType == 'fee') {
-                        label = 'Platform Fee';
+                        if (activityType == 'post_boost') {
+                          label = 'Post Boost';
+                        } else {
+                          label = 'Platform Fee';
+                        }
                         subtitle = tx.memo ?? 'Fee charged';
                       } else if (tx.txType == 'engagement_reward' ||
                           tx.txType == 'post_reward' ||
@@ -1034,7 +1023,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                         child: ElevatedButton(
                                           onPressed: () =>
                                               Navigator.pop(context),
-                                          child: const Text('Close'),
+                                          child: Text(AppLocalizations.of(context)!.close),
                                         ),
                                       ),
                                     ],
@@ -1492,8 +1481,7 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  Widget _buildApyCard(StakingProvider stakingProvider, ColorScheme colors) {
-    final avgApy = stakingProvider.userSummary.avgApy;
+  Widget _buildApyCard(ColorScheme colors) {
     return Container(
       padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
       decoration: BoxDecoration(
@@ -1530,7 +1518,7 @@ class _WalletScreenState extends State<WalletScreen> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  avgApy > 0 ? '${avgApy.toStringAsFixed(1)}%' : '8.5%',
+                  '8.5%',
                   style: const TextStyle(
                     color: _rooGold,
                     fontSize: 28,
@@ -1838,5 +1826,7 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 }
+
+
 
 

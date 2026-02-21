@@ -53,7 +53,7 @@ class VerificationUtils {
 
   /// Full two-gate check: verified AND wallet balance > 0.
   ///
-  /// - Unverified: shows verify prompt (or pending message if Veriff review in progress)
+  /// - Unverified: shows verify prompt (or pending message if Didit review in progress)
   /// - Verified but balance = 0: shows "Buy ROO to activate" prompt
   /// - Both gates pass: returns true
   static Future<bool> checkActivation(BuildContext context) async {

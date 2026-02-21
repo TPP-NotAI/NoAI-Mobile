@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
 import '../config/app_colors.dart';
+import '../l10n/app_localizations.dart';
 
 class LanguageScreen extends StatelessWidget {
   const LanguageScreen({super.key});
@@ -9,13 +10,14 @@ class LanguageScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final languageProvider = context.watch<LanguageProvider>();
 
     return Scaffold(
-      backgroundColor: scheme.background,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         backgroundColor: scheme.surface,
-        title: Text('Language', style: TextStyle(color: scheme.onSurface)),
+        title: Text(l10n.language, style: TextStyle(color: scheme.onSurface)),
         centerTitle: true,
         elevation: 0,
       ),
@@ -24,10 +26,10 @@ class LanguageScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              'Select your preferred language',
+              l10n.selectLanguage,
               style: TextStyle(
                 fontSize: 16,
-                color: scheme.onSurface.withOpacity(0.7),
+                color: scheme.onSurface.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -40,9 +42,11 @@ class LanguageScreen extends StatelessWidget {
               code: language['code']!,
               name: language['name']!,
               isSelected: isSelected,
-              onTap: () {
-                languageProvider.setLanguage(language['code']!);
-                Navigator.pop(context);
+              onTap: () async {
+                await languageProvider.setLanguage(language['code']!);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
               },
             );
           }),
@@ -71,13 +75,13 @@ class LanguageScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppColors.primary.withOpacity(0.1)
+                ? AppColors.primary.withValues(alpha: 0.1)
                 : scheme.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected
                   ? AppColors.primary
-                  : scheme.outline.withOpacity(0.2),
+                  : scheme.outline.withValues(alpha: 0.2),
               width: isSelected ? 2 : 1,
             ),
           ),

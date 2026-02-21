@@ -10,7 +10,7 @@ import '../models/moderation_result.dart';
 
 /// Singleton service for the NOAI AI Content Detection and Moderation API.
 class AiDetectionService {
-  static const String _baseUrl = 'https://noai-lm-production.up.railway.app';
+  static const String _baseUrl = 'https://detectorllm.rooverse.app';
   static const Duration _timeout = Duration(seconds: 60);
   static const Duration _mediaTimeout = Duration(seconds: 180);
 
@@ -214,6 +214,65 @@ class AiDetectionService {
       rethrow;
     } catch (e) {
       debugPrint('AiDetectionService: Error detecting mixed content - $e');
+      return null;
+    }
+  }
+
+  // --- Full Combined Endpoint (Recommended) ---
+
+  /// Runs AI detection + Content Moderation + Advertisement detection in a
+  /// single parallel call. Use this instead of the individual endpoints.
+  ///
+  /// Pass [content] for text, [file] for media, or both.
+  Future<AiDetectionResult?> detectFull({
+    String? content,
+    File? file,
+    String models = 'gpt-5.2,o3',
+  }) async {
+    assert(
+      content != null || file != null,
+      'detectFull: provide content, file, or both',
+    );
+
+    try {
+      final extension = file?.path.split('.').last.toLowerCase() ?? '';
+      final isVideo = <String>{
+        'mp4',
+        'mov',
+        'm4v',
+        'webm',
+        'avi',
+        'mkv',
+      }.contains(extension);
+      final timeout = isVideo ? _mediaTimeout : _timeout;
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$_baseUrl/api/v1/detect/full'),
+      );
+      request.fields['models'] = models;
+      if (content != null && content.isNotEmpty) {
+        request.fields['content'] = content;
+      }
+      if (file != null) {
+        request.files.add(await http.MultipartFile.fromPath('file', file.path));
+      }
+
+      debugPrint('AiDetectionService: Sending request to /detect/full...');
+      final streamedResponse = await request.send().timeout(timeout);
+      final response = await http.Response.fromStream(
+        streamedResponse,
+      ).timeout(timeout);
+
+      debugPrint(
+        'AiDetectionService: /detect/full response ${response.statusCode}',
+      );
+      return _parseResponse(response);
+    } on TimeoutException catch (e) {
+      debugPrint('AiDetectionService: /detect/full timed out - $e');
+      rethrow;
+    } catch (e) {
+      debugPrint('AiDetectionService: /detect/full error - $e');
       return null;
     }
   }

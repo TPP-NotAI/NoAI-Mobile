@@ -409,26 +409,25 @@ class RookenService {
 
 /// Activity types for Rooken rewards
 class RookenActivityType {
-  static const String postCreate = 'POST_CREATE'; // 10 ROOK
-  static const String postLike = 'POST_LIKE'; // 0.1 ROOK
-  static const String postComment = 'POST_COMMENT'; // 2 ROOK
-  static const String postShare = 'POST_SHARE'; // 5 ROOK
-  static const String referral = 'REFERRAL'; // 50 ROOK
-  static const String profileComplete = 'PROFILE_COMPLETE'; // 25 ROOK
-  static const String dailyLogin =
-      'DAILY_LOGIN'; // 1 ROOK (Note: Server currently returns 0.5)
-  static const String contentViral = 'CONTENT_VIRAL'; // 100 ROOK
-  static const String welcomeBonus = 'WELCOME_BONUS'; // 100 ROOK
+  static const String postCreate = 'POST_CREATE'; // 0.01 ROOK per day (one reward per calendar day)
+  static const String postLike = 'POST_LIKE'; // 0.01 ROOK (liker earns)
+  static const String postComment = 'POST_COMMENT'; // engagement reward
+  static const String postShare = 'POST_SHARE'; // engagement reward
+  static const String referral = 'REFERRAL'; // 10 ROOK (after full registration + verification)
+  static const String profileComplete = 'PROFILE_COMPLETE'; // 5 ROOK
+  static const String contentViral = 'CONTENT_VIRAL'; // 1 ROOK per 1,000 engagements
+  static const String dailyLogin = 'DAILY_LOGIN'; // daily login bonus
+  static const String welcomeBonus = 'WELCOME_BONUS'; // one-time signup bonus
+  static const String adFee = 'AD_FEE'; // fee charged when post is detected as advertisement
 
   static const Map<String, double> rewards = {
-    postCreate: 10.0,
-    postLike: 0.1,
-    postComment: 2.0,
-    postShare: 5.0,
-    referral: 50.0,
-    profileComplete: 25.0,
+    postCreate: 0.01,
+    postLike: 0.01,
+    // postComment and postShare rewards removed — no reward for comments/shares
+    referral: 10.0,
+    profileComplete: 5.0,
+    contentViral: 1.0, // awarded per 1,000 engagements milestone
     dailyLogin: 1.0,
-    contentViral: 100.0,
-    welcomeBonus: 100.0,
+    welcomeBonus: 0.0, // amount set dynamically
   };
 }

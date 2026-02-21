@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import '../../config/app_colors.dart';
 import '../../repositories/support_ticket_repository.dart';
 
@@ -110,7 +111,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text('Close', style: TextStyle(color: scheme.primary)),
+              child: Text(AppLocalizations.of(context)!.close, style: TextStyle(color: scheme.primary)),
             ),
           ],
         );
@@ -509,3 +510,4 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
     );
   }
 }
+

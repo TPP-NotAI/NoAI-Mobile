@@ -3,7 +3,20 @@
     "allow": [
       "WebFetch(domain:tpp-noai-ai-web-mqic.vercel.app)",
       "Bash(gh repo view:*)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.didit.me)",
+      "Bash(flutter pub get:*)",
+      "Bash(flutter pub:*)",
+      "Bash(dart --version:*)",
+      "Bash(flutter --version:*)",
+      "Bash(dart pub search:*)",
+      "WebFetch(domain:pub.dev)",
+      "Bash(dart analyze:*)",
+      "Bash(npx supabase functions list:*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \":*)",
+      "WebFetch(domain:detectorllm.rooverse.app)",
+      "Bash(python3:*)"
     ]
   }
 }

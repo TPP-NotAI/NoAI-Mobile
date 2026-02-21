@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
@@ -151,7 +152,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('Cancel'),
+                        child: Text(AppLocalizations.of(context)!.cancel),
                       ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(true),
@@ -220,3 +221,5 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 }
+
+

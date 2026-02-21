@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
@@ -1013,6 +1014,121 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
+  /// Shows a dialog informing the user their post was detected as an
+  /// advertisement and they must pay a ROO fee before it goes live.
+  /// Returns true if the fee was successfully charged, false otherwise.
+  Future<bool> _showAdFeeDialog(double adConfidence, String? adType) async {
+    const double adFeeRoo = 50.0; // flat advertising fee in ROO
+
+    if (!mounted) return false;
+
+    final walletProvider = context.read<WalletProvider>();
+    final userId = SupabaseService().currentUser?.id;
+    if (userId == null) return false;
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.campaign_outlined, color: Color(0xFFFF8C00)),
+            SizedBox(width: 8),
+            Text('Advertisement Detected'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Our system detected this post as promotional content '
+              '(${adConfidence.toStringAsFixed(0)}% confidence'
+              '${adType != null ? " · ${adType.replaceAll('_', ' ')}" : ""}).',
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'To publish it, an advertising fee is required.',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF8C00).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Ad fee'),
+                  Text(
+                    '${adFeeRoo.toStringAsFixed(0)} ROO',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFFF8C00),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'If you decline, your post will be held and you can pay later from your profile.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF8C00),
+            ),
+            child: Text('Pay ${adFeeRoo.toStringAsFixed(0)} ROO'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return false;
+
+    try {
+      final success = await walletProvider.spendRoo(
+        userId: userId,
+        amount: adFeeRoo,
+        activityType: 'AD_FEE',
+        metadata: {
+          'ad_confidence': adConfidence,
+          'ad_type': adType,
+        },
+      );
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Insufficient ROO balance to pay the advertising fee.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return success;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
   Future<void> _createPost() async {
     if (_contentController.text.trim().isEmpty && _selectedMediaFiles.isEmpty) {
       return;
@@ -1146,6 +1262,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         optimisticTags: optimisticTags,
         waitForAi:
             false, // Navigate to feed immediately; AI/review continues in background
+        onAdFeeRequired: (adConfidence, adType) =>
+            _showAdFeeDialog(adConfidence, adType),
       );
 
       if (!mounted) return;
@@ -2335,7 +2453,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton(
                 onPressed: () async {
@@ -2453,7 +2571,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton(
                 onPressed: () {
@@ -2588,7 +2706,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton(
                 onPressed: () {
@@ -3060,7 +3178,7 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+                    child: Text(AppLocalizations.of(context)!.cancel),
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
@@ -3274,7 +3392,7 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+                    child: Text(AppLocalizations.of(context)!.cancel),
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
@@ -3293,3 +3411,5 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
     );
   }
 }
+
+

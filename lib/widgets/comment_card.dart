@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../config/app_spacing.dart';
 import '../config/app_typography.dart';
@@ -130,14 +131,14 @@ class _CommentCardState extends State<CommentCard> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('Delete'),
+            child: Text(AppLocalizations.of(context)!.delete),
           ),
         ],
       ),
@@ -958,3 +959,5 @@ class _AiCheckBadge extends StatelessWidget {
     );
   }
 }
+
+

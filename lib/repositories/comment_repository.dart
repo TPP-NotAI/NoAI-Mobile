@@ -12,8 +12,6 @@ import '../services/ai_detection_service.dart';
 
 import 'notification_repository.dart';
 import 'mention_repository.dart';
-import 'wallet_repository.dart';
-import '../services/rooken_service.dart';
 
 /// Repository for comment-related Supabase operations.
 class CommentRepository {
@@ -752,26 +750,6 @@ class CommentRepository {
               'safety_score': result.safetyScore,
             },
           );
-        } else {
-          // Comment passed AI check - award 2 ROOK to author (skip if own post)
-          try {
-            final isSelf = await _isCommentOnOwnPost(
-              commentId: commentId,
-              authorId: authorId,
-            );
-            if (!isSelf) {
-              final walletRepo = WalletRepository();
-              await walletRepo.earnRoo(
-                userId: authorId,
-                activityType: RookenActivityType.postComment,
-                referenceCommentId: commentId,
-              );
-            }
-          } catch (e) {
-            debugPrint(
-              'CommentRepository: Error awarding ROOK for comment - $e',
-            );
-          }
         }
 
         return aiProbability;
@@ -859,37 +837,6 @@ class CommentRepository {
           .update(updates)
           .eq('id', commentId);
 
-      // If approved, award 2 ROOK to comment author (skip if own post)
-      if (action == 'approve') {
-        try {
-          final comment = await _client
-              .from(SupabaseConfig.commentsTable)
-              .select('author_id, post_id')
-              .eq('id', commentId)
-              .single();
-
-          final authorId = comment['author_id'] as String;
-          final postId = comment['post_id'] as String?;
-
-          bool isSelf = false;
-          if (postId != null && postId.isNotEmpty) {
-            isSelf = await _isAuthorOfPost(authorId: authorId, postId: postId);
-          }
-
-          if (isSelf) return true;
-          final walletRepo = WalletRepository();
-          await walletRepo.earnRoo(
-            userId: authorId,
-            activityType: RookenActivityType.postComment,
-            referenceCommentId: commentId,
-          );
-        } catch (e) {
-          debugPrint(
-            'CommentRepository: Error awarding ROOK on comment approval - $e',
-          );
-        }
-      }
-
       // Resolve the moderation case
       try {
         final caseUpdates = <String, dynamic>{
@@ -943,50 +890,6 @@ class CommentRepository {
       return true;
     } catch (e) {
       debugPrint('CommentRepository: Error moderating comment $commentId - $e');
-      return false;
-    }
-  }
-
-  Future<bool> _isCommentOnOwnPost({
-    required String commentId,
-    required String authorId,
-  }) async {
-    try {
-      final comment = await _client
-          .from(SupabaseConfig.commentsTable)
-          .select('post_id')
-          .eq('id', commentId)
-          .single();
-
-      final postId = comment['post_id'] as String?;
-      if (postId == null || postId.isEmpty) return false;
-
-      return await _isAuthorOfPost(authorId: authorId, postId: postId);
-    } catch (e) {
-      debugPrint(
-        'CommentRepository: Error checking self-comment for $commentId - $e',
-      );
-      return false;
-    }
-  }
-
-  Future<bool> _isAuthorOfPost({
-    required String authorId,
-    required String postId,
-  }) async {
-    try {
-      final post = await _client
-          .from(SupabaseConfig.postsTable)
-          .select('author_id')
-          .eq('id', postId)
-          .single();
-
-      final postAuthorId = post['author_id'] as String?;
-      return postAuthorId == authorId;
-    } catch (e) {
-      debugPrint(
-        'CommentRepository: Error checking post author for $postId - $e',
-      );
       return false;
     }
   }

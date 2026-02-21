@@ -281,6 +281,21 @@ CREATE TABLE public.comments (
   CONSTRAINT comments_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.profiles(user_id),
   CONSTRAINT comments_parent_comment_id_fkey FOREIGN KEY (parent_comment_id) REFERENCES public.comments(id)
 );
+CREATE TABLE public.content_translations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  source_type character varying NOT NULL CHECK (source_type::text = ANY (ARRAY['post'::character varying, 'comment'::character varying, 'story'::character varying, 'message'::character varying, 'bio'::character varying]::text[])),
+  source_id uuid NOT NULL,
+  source_language character varying NOT NULL,
+  target_language character varying NOT NULL,
+  original_text text NOT NULL,
+  translated_text text NOT NULL,
+  translation_provider character varying DEFAULT 'google'::character varying,
+  confidence_score numeric,
+  created_at timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone DEFAULT (now() + '30 days'::interval),
+  CONSTRAINT content_translations_pkey PRIMARY KEY (id),
+  CONSTRAINT content_translations_target_language_fkey FOREIGN KEY (target_language) REFERENCES public.supported_languages(code)
+);
 CREATE TABLE public.creator_tiers (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   creator_id uuid NOT NULL,
@@ -311,6 +326,20 @@ CREATE TABLE public.detections (
   final_rationale text,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT detections_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.didit_sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  session_id text NOT NULL UNIQUE,
+  user_id uuid NOT NULL,
+  session_url text NOT NULL,
+  workflow_id text,
+  vendor_data text,
+  status text NOT NULL DEFAULT 'Not Started'::text CHECK (status = ANY (ARRAY['Not Started'::text, 'In Progress'::text, 'In Review'::text, 'Approved'::text, 'Declined'::text, 'Abandoned'::text])),
+  verification_result jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT didit_sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT didit_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
 );
 CREATE TABLE public.dm_messages (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -642,6 +671,7 @@ CREATE TABLE public.platform_config (
   post_rate_limit_per_hour integer NOT NULL DEFAULT 10,
   comment_rate_limit_per_hour integer NOT NULL DEFAULT 30,
   dm_rate_limit_per_hour integer NOT NULL DEFAULT 20,
+  mobile_app_latest_version text NOT NULL DEFAULT '1.0.0'::text,
   CONSTRAINT platform_config_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.poll_options (
@@ -869,16 +899,30 @@ CREATE TABLE public.referral_codes (
   CONSTRAINT referral_codes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
 );
 CREATE TABLE public.referrals (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  referrer_user_id uuid NOT NULL,
-  referred_user_id uuid NOT NULL,
-  referral_code text NOT NULL,
-  status text NOT NULL DEFAULT 'pending'::text,
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  referrer_id uuid NOT NULL,
+  referred_id uuid NOT NULL,
+  referral_code_id uuid,
+  status character varying DEFAULT 'pending'::character varying CHECK (status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rewarded'::character varying, 'rejected'::character varying, 'fraud_detected'::character varying]::text[])),
+  registration_completed boolean DEFAULT false,
+  email_verified boolean DEFAULT false,
+  profile_completed boolean DEFAULT false,
+  identity_verified boolean DEFAULT false,
+  first_post_created boolean DEFAULT false,
+  minimum_activity_reached boolean DEFAULT false,
+  referrer_reward_amount numeric DEFAULT 0,
+  referred_rewarded_at timestamp with time zone,
+  referred_ip_address inet,
+  referred_device_fingerprint character varying,
+  fraud_score numeric DEFAULT 0 CHECK (fraud_score >= 0::numeric AND fraud_score <= 100::numeric),
+  fraud_flags jsonb DEFAULT '[]'::jsonb,
   created_at timestamp with time zone DEFAULT now(),
-  completed_at timestamp with time zone,
+  verified_at timestamp with time zone,
+  updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT referrals_pkey PRIMARY KEY (id),
-  CONSTRAINT referrals_referrer_user_id_fkey FOREIGN KEY (referrer_user_id) REFERENCES public.profiles(user_id),
-  CONSTRAINT referrals_referred_user_id_fkey FOREIGN KEY (referred_user_id) REFERENCES public.profiles(user_id)
+  CONSTRAINT referrals_referrer_id_fkey FOREIGN KEY (referrer_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT referrals_referred_id_fkey FOREIGN KEY (referred_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT referrals_referral_code_id_fkey FOREIGN KEY (referral_code_id) REFERENCES public.referral_codes(id)
 );
 CREATE TABLE public.reposts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1091,6 +1135,16 @@ CREATE TABLE public.support_tickets (
   CONSTRAINT support_tickets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
   CONSTRAINT support_tickets_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.profiles(user_id)
 );
+CREATE TABLE public.supported_languages (
+  code character varying NOT NULL,
+  name character varying NOT NULL,
+  native_name character varying NOT NULL,
+  direction character varying DEFAULT 'ltr'::character varying CHECK (direction::text = ANY (ARRAY['ltr'::character varying, 'rtl'::character varying]::text[])),
+  is_active boolean DEFAULT true,
+  sort_order integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT supported_languages_pkey PRIMARY KEY (code)
+);
 CREATE TABLE public.tags (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL UNIQUE CHECK (char_length(name) >= 1 AND char_length(name) <= 50 AND name ~ '^[a-zA-Z0-9_]+$'::text),
@@ -1103,6 +1157,17 @@ CREATE TABLE public.tags (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT tags_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.translation_strings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  key character varying NOT NULL,
+  language_code character varying NOT NULL,
+  value text NOT NULL,
+  context character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT translation_strings_pkey PRIMARY KEY (id),
+  CONSTRAINT translation_strings_language_code_fkey FOREIGN KEY (language_code) REFERENCES public.supported_languages(code)
 );
 CREATE TABLE public.treasury_actions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1209,6 +1274,49 @@ CREATE TABLE public.user_activities (
   CONSTRAINT user_activities_pkey PRIMARY KEY (id),
   CONSTRAINT user_activities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
 );
+CREATE TABLE public.user_activity_log (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  session_id uuid,
+  activity_type character varying NOT NULL,
+  activity_category character varying,
+  target_type character varying,
+  target_id uuid,
+  ip_address inet,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_activity_log_pkey PRIMARY KEY (id),
+  CONSTRAINT user_activity_log_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT user_activity_log_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.user_sessions(id)
+);
+CREATE TABLE public.user_analytics_daily (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  date date NOT NULL,
+  posts_created integer DEFAULT 0,
+  comments_created integer DEFAULT 0,
+  stories_created integer DEFAULT 0,
+  likes_given integer DEFAULT 0,
+  likes_received integer DEFAULT 0,
+  comments_received integer DEFAULT 0,
+  shares_given integer DEFAULT 0,
+  shares_received integer DEFAULT 0,
+  follows_given integer DEFAULT 0,
+  follows_received integer DEFAULT 0,
+  messages_sent integer DEFAULT 0,
+  messages_received integer DEFAULT 0,
+  transactions_count integer DEFAULT 0,
+  roo_earned numeric DEFAULT 0,
+  roo_spent numeric DEFAULT 0,
+  sessions_count integer DEFAULT 0,
+  total_time_minutes integer DEFAULT 0,
+  ai_flagged_content integer DEFAULT 0,
+  ai_passed_content integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_analytics_daily_pkey PRIMARY KEY (id),
+  CONSTRAINT user_analytics_daily_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
 CREATE TABLE public.user_fcm_tokens (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid,
@@ -1241,17 +1349,23 @@ CREATE TABLE public.user_reports (
 CREATE TABLE public.user_sessions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
-  device_name text,
-  device_type text,
-  browser text,
-  os text,
+  session_token character varying NOT NULL UNIQUE,
   ip_address inet,
-  country text,
-  city text,
-  is_current boolean NOT NULL DEFAULT false,
-  last_active_at timestamp with time zone NOT NULL DEFAULT now(),
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  expires_at timestamp with time zone NOT NULL,
+  user_agent text,
+  device_type character varying,
+  device_os character varying,
+  device_browser character varying,
+  browser_version character varying,
+  country_code character varying,
+  region character varying,
+  city character varying,
+  is_active boolean DEFAULT true,
+  login_method character varying DEFAULT 'email'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  last_activity_at timestamp with time zone DEFAULT now(),
+  ended_at timestamp with time zone,
+  is_suspicious boolean DEFAULT false,
+  suspicious_reason text,
   CONSTRAINT user_sessions_pkey PRIMARY KEY (id),
   CONSTRAINT user_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
 );
@@ -1264,24 +1378,6 @@ CREATE TABLE public.user_wallet_keys (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT user_wallet_keys_pkey PRIMARY KEY (id),
   CONSTRAINT user_wallet_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
-);
-CREATE TABLE public.veriff_sessions (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  veriff_session_id text NOT NULL UNIQUE,
-  user_id uuid NOT NULL,
-  session_url text NOT NULL,
-  session_token text,
-  vendor_data text,
-  status text NOT NULL DEFAULT 'created'::text CHECK (status = ANY (ARRAY['created'::text, 'started'::text, 'submitted'::text, 'approved'::text, 'declined'::text, 'resubmission_requested'::text, 'expired'::text, 'abandoned'::text, 'review'::text])),
-  decision_code integer,
-  person_data jsonb,
-  document_data jsonb,
-  verification_result jsonb,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  expires_at timestamp with time zone,
-  CONSTRAINT veriff_sessions_pkey PRIMARY KEY (id),
-  CONSTRAINT veriff_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
 );
 CREATE TABLE public.wallets (
   user_id uuid NOT NULL,

@@ -43,6 +43,15 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
   interests:
       (json['interests'] as List<dynamic>?)?.map((e) => e as String).toList() ??
       const [],
+  countryCode: json['countryCode'] as String?,
+  phoneVerified: json['phoneVerified'] as bool? ?? false,
+  phoneVerifiedAt: json['phoneVerifiedAt'] == null
+      ? null
+      : DateTime.parse(json['phoneVerifiedAt'] as String),
+  onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
+  onboardingStep: (json['onboardingStep'] as num?)?.toInt() ?? 0,
+  referralCode: json['referralCode'] as String?,
+  referredBy: json['referredBy'] as String?,
 );
 
 Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
@@ -73,4 +82,11 @@ Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
   'createdAt': instance.createdAt?.toIso8601String(),
   'lastSeen': instance.lastSeen?.toIso8601String(),
   'interests': instance.interests,
+  'countryCode': instance.countryCode,
+  'phoneVerified': instance.phoneVerified,
+  'phoneVerifiedAt': instance.phoneVerifiedAt?.toIso8601String(),
+  'onboardingCompleted': instance.onboardingCompleted,
+  'onboardingStep': instance.onboardingStep,
+  'referralCode': instance.referralCode,
+  'referredBy': instance.referredBy,
 };

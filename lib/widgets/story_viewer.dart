@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../config/supabase_config.dart';
@@ -263,7 +264,7 @@ class _StoryViewerState extends State<StoryViewer>
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
@@ -827,3 +828,5 @@ class _AiScoreBadge extends StatelessWidget {
     );
   }
 }
+
+

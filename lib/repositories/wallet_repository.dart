@@ -781,6 +781,7 @@ class WalletRepository {
     required String userId,
     required String toAddress,
     required double amount,
+    double fee = 0.0,
     String? memo,
     String? referencePostId,
     String? referenceCommentId,
@@ -802,11 +803,12 @@ class WalletRepository {
         throw Exception('Invalid recipient wallet address');
       }
 
-      if (wallet.balanceRc < amount) {
+      final totalDeducted = amount + fee;
+      if (wallet.balanceRc < totalDeducted) {
         throw Exception('Insufficient balance');
       }
 
-      if (wallet.remainingDailyLimit < amount) {
+      if (wallet.remainingDailyLimit < totalDeducted) {
         throw Exception('Daily transfer limit exceeded');
       }
 
@@ -850,6 +852,7 @@ class WalletRepository {
         recipientUserId: recipientUserId,
         toAddress: toAddress,
         amount: amount,
+        fee: fee,
         txHash: txHash,
         memo: memo,
         referencePostId: referencePostId,
@@ -872,6 +875,7 @@ class WalletRepository {
     required String? recipientUserId,
     required String toAddress,
     required double amount,
+    required double fee,
     required String? txHash,
     required String? memo,
     required String? referencePostId,
@@ -906,7 +910,7 @@ class WalletRepository {
           newBalance ??
           (senderBalanceBefore - amount).clamp(0.0, double.infinity).toDouble();
 
-      // 1. Record the transaction in the database
+      // 1. Record the transfer transaction in the database
       await _supabase.from('roocoin_transactions').insert({
         'tx_type': 'transfer',
         'status': 'completed',
@@ -930,14 +934,35 @@ class WalletRepository {
         'completed_at': DateTime.now().toIso8601String(),
       });
 
-      // 2. Update sender's wallet balance
+      // 1b. Record the withdrawal fee as a separate fee transaction
+      if (fee > 0) {
+        await _supabase.from('roocoin_transactions').insert({
+          'tx_type': 'fee',
+          'status': 'completed',
+          'from_user_id': userId,
+          'amount_rc': fee,
+          'memo': 'Withdrawal fee (1%)',
+          'tx_hash': txHash,
+          'metadata': {
+            'feeType': 'withdrawal',
+            'feeRate': '1%',
+            'transferAmount': amount,
+            'fromAddress': wallet.walletAddress,
+            'activityType': 'WITHDRAWAL_FEE',
+          },
+          'completed_at': DateTime.now().toIso8601String(),
+        });
+      }
+
+      // 2. Update sender's wallet balance (deduct amount + fee)
+      final totalDeducted = amount + fee;
       if (newBalance != null) {
         await _supabase
             .from('wallets')
             .update({
-              'balance_rc': newBalance,
-              'daily_sent_today_rc': wallet.dailySentTodayRc + amount,
-              'lifetime_spent_rc': wallet.lifetimeSpentRc + amount,
+              'balance_rc': newBalance - fee,
+              'daily_sent_today_rc': wallet.dailySentTodayRc + totalDeducted,
+              'lifetime_spent_rc': wallet.lifetimeSpentRc + totalDeducted,
               'updated_at': DateTime.now().toIso8601String(),
             })
             .eq('user_id', userId);
@@ -946,14 +971,14 @@ class WalletRepository {
           'update_wallet_balance_atomic',
           params: {
             'p_user_id': userId,
-            'p_delta': -amount,
-            'p_spent_delta': amount,
+            'p_delta': -totalDeducted,
+            'p_spent_delta': totalDeducted,
           },
         );
 
         await _supabase
             .from('wallets')
-            .update({'daily_sent_today_rc': wallet.dailySentTodayRc + amount})
+            .update({'daily_sent_today_rc': wallet.dailySentTodayRc + totalDeducted})
             .eq('user_id', userId);
       }
 

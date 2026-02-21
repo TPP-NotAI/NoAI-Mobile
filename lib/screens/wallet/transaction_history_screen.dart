@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -416,9 +417,11 @@ class _TransactionItem extends StatelessWidget {
       amountStr = '+${amountRc.toStringAsFixed(2)}';
       amountColor = Colors.green;
     } else if (txType == 'fee') {
-      icon = Icons.receipt;
+      icon = activityType == 'post_boost'
+          ? Icons.rocket_launch
+          : Icons.receipt;
       iconColor = Colors.orange;
-      title = 'Platform Fee';
+      title = activityType == 'post_boost' ? 'Post Boost' : 'Platform Fee';
       subtitle = memo ?? 'Fee charged';
       amountStr = '-${amountRc.toStringAsFixed(2)}';
       amountColor = Colors.red;
@@ -714,7 +717,7 @@ class _TransactionDetailsSheet extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
+                child: Text(AppLocalizations.of(context)!.close),
               ),
             ),
           ],
@@ -723,3 +726,5 @@ class _TransactionDetailsSheet extends StatelessWidget {
     );
   }
 }
+
+

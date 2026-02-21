@@ -187,7 +187,7 @@ class AuthProvider with ChangeNotifier {
       // that could award the welcome bonus multiple times.
 
       // Subscribe to realtime profile changes so the app reacts instantly
-      // when Veriff's webhook updates verified_human (or any other field).
+      // when Didit's webhook updates verified_human (or any other field).
       _subscribeToProfileChanges(userId);
     } catch (e) {
       debugPrint('AuthProvider: Error loading user - $e');
@@ -213,7 +213,7 @@ class AuthProvider with ChangeNotifier {
 
   /// Subscribe to realtime profile changes for [userId].
   ///
-  /// When Veriff's webhook updates `verified_human` (or any other profile
+  /// When Didit's webhook updates `verified_human` (or any other profile
   /// field), this fires and immediately reloads the user — so the app
   /// reacts without the user having to do anything.
   void _subscribeToProfileChanges(String userId) {
@@ -494,6 +494,19 @@ class AuthProvider with ChangeNotifier {
       _error = null;
 
       await _authService.verifyPhoneOtp(phone: phoneNumber, token: token);
+
+      // Mark phone as verified in the profile
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId != null) {
+        await _supabase.client
+            .from(SupabaseConfig.profilesTable)
+            .update({
+              'phone_verified': true,
+              'phone_verified_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', userId);
+        await reloadCurrentUser();
+      }
 
       notifyListeners();
       return true;

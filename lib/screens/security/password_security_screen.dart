@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/auth_service.dart';
 import '../../config/app_colors.dart';
@@ -383,7 +384,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
               if (!is2FAEnabled)
                 TextButton(
                   onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
+                  child: Text(AppLocalizations.of(context)!.cancel),
                 ),
               if (!codeSent && !is2FAEnabled)
                 FilledButton(
@@ -590,7 +591,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
           actions: [
             TextButton(
               onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.cancel),
             ),
             TextButton(
               onPressed: isLoading
@@ -712,7 +713,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
           actions: [
             TextButton(
               onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.cancel),
             ),
             TextButton(
               onPressed: isLoading
@@ -771,3 +772,5 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
     );
   }
 }
+
+

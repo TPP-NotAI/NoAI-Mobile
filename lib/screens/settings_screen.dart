@@ -23,6 +23,7 @@ import 'auth/human_verification_screen.dart';
 import 'auth/phone_verification_screen.dart';
 import '../services/app_update_service.dart';
 import '../repositories/support_ticket_repository.dart';
+import '../l10n/app_localizations.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -33,6 +34,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final authProvider = context.watch<AuthProvider>();
     final currentUser = authProvider.currentUser;
 
@@ -40,7 +42,7 @@ class SettingsScreen extends StatelessWidget {
       backgroundColor: scheme.background,
       appBar: AppBar(
         backgroundColor: scheme.surface,
-        title: Text('Settings', style: TextStyle(color: scheme.onSurface)),
+        title: Text(l10n.settings, style: TextStyle(color: scheme.onSurface)),
         centerTitle: true,
         elevation: 0,
         actions: [
@@ -111,7 +113,7 @@ class SettingsScreen extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.edit),
-                    label: const Text('Edit Profile'),
+                    label: Text(l10n.editProfile),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
@@ -131,7 +133,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.person,
             iconColor: AppColors.primary,
-            title: 'Personal Information',
+            title: l10n.personalInformation,
             onTap: () {
               Navigator.push(
                 context,
@@ -145,7 +147,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.lock,
             iconColor: AppColors.primary,
-            title: 'Password & Security',
+            title: l10n.passwordSecurity,
             onTap: () {
               Navigator.push(
                 context,
@@ -161,8 +163,8 @@ class SettingsScreen extends StatelessWidget {
             iconColor: currentUser?.verifiedHuman == 'verified'
                 ? Colors.green
                 : Colors.orange,
-            title: 'Human Verification',
-            subtitle: _getVerificationStatus(currentUser?.verifiedHuman),
+            title: l10n.humanVerification,
+            subtitle: _getVerificationStatus(context, currentUser?.verifiedHuman),
             onTap: currentUser?.verifiedHuman == 'verified' ||
                     currentUser?.verifiedHuman == 'pending'
                 ? null
@@ -192,8 +194,8 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.bookmark,
             iconColor: AppColors.primary,
-            title: 'Bookmarks',
-            subtitle: 'Saved posts',
+            title: l10n.bookmarks,
+            subtitle: l10n.savedPosts,
             onTap: () {
               Navigator.push(
                 context,
@@ -208,7 +210,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.history,
             iconColor: Colors.purple,
-            title: 'Transaction History',
+            title: l10n.transactionHistory,
             onTap: () {
               Navigator.push(
                 context,
@@ -226,7 +228,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.notifications,
             iconColor: Colors.orange,
-            title: 'Notifications',
+            title: l10n.notifications,
             onTap: () {
               Navigator.push(
                 context,
@@ -240,7 +242,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.privacy_tip,
             iconColor: Colors.orange,
-            title: 'Privacy',
+            title: l10n.privacy,
             onTap: () {
               Navigator.push(
                 context,
@@ -270,7 +272,7 @@ class SettingsScreen extends StatelessWidget {
                 context,
                 icon: Icons.dark_mode,
                 iconColor: Colors.grey,
-                title: 'Dark Mode',
+                title: l10n.darkMode,
                 value: themeProvider.isDarkMode,
                 onChanged: (_) => themeProvider.toggleTheme(),
               );
@@ -283,7 +285,7 @@ class SettingsScreen extends StatelessWidget {
                 context,
                 icon: Icons.language,
                 iconColor: Colors.orange,
-                title: 'Language',
+                title: l10n.language,
                 subtitle: languageProvider.currentLanguageName,
                 onTap: () {
                   Navigator.push(
@@ -302,7 +304,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.help_center,
             iconColor: Colors.teal,
-            title: 'Help & Support',
+            title: l10n.helpCenter,
             subtitle: 'FAQ and contact support',
             onTap: () {
               Navigator.push(
@@ -374,7 +376,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.info,
             iconColor: Colors.teal,
-            title: 'About ROOVERSE',
+            title: l10n.aboutROOVERSE,
             onTap: () => _showAboutDialog(context),
           ),
           _buildSettingsTile(
@@ -397,7 +399,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.description,
             iconColor: Colors.blue,
-            title: 'Terms of Service',
+            title: l10n.termsOfService,
             onTap: () {
               Navigator.push(
                 context,
@@ -409,7 +411,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.privacy_tip,
             iconColor: Colors.blue,
-            title: 'Privacy Policy',
+            title: l10n.privacyPolicy,
             onTap: () {
               Navigator.push(
                 context,
@@ -425,8 +427,8 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.delete_forever,
             iconColor: Colors.red,
-            title: 'Delete Account',
-            subtitle: 'Permanently delete your account',
+            title: l10n.deleteAccount,
+            subtitle: l10n.permanentlyDeleteAccount,
             onTap: () => _showDeleteAccountDialog(context),
           ),
 
@@ -434,9 +436,9 @@ class SettingsScreen extends StatelessWidget {
 
           TextButton(
             onPressed: () => _showLogoutDialog(context),
-            child: const Text(
-              'Log Out',
-              style: TextStyle(color: Colors.red, fontSize: 16),
+            child: Text(
+              l10n.logOut,
+              style: const TextStyle(color: Colors.red, fontSize: 16),
             ),
           ),
 
@@ -565,36 +567,38 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  static String _getVerificationStatus(String? status) {
+  static String _getVerificationStatus(BuildContext context, String? status) {
+    final l10n = AppLocalizations.of(context)!;
     switch (status) {
       case 'verified':
-        return 'You are already verified';
+        return l10n.verified;
       case 'pending':
-        return 'Verification pending — check back soon';
+        return l10n.pendingVerification;
       default:
-        return 'Tap to start verification';
+        return l10n.notVerified;
     }
   }
 
   static void _showAboutDialog(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: scheme.surface,
         title: Text(
-          'About ROOVERSE',
+          l10n.aboutROOVERSE,
           style: TextStyle(color: scheme.onSurface),
         ),
         content: Text(
-          'ROOVERSE – Human-First Social Platform\n\nVersion 1.0.2\n\n© 2026 ROOVERSE Inc.',
+          l10n.aboutROOVERSEDescription,
           style: TextStyle(color: scheme.onSurface.withOpacity(0.75)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(l10n.close),
           ),
         ],
       ),
@@ -603,20 +607,21 @@ class SettingsScreen extends StatelessWidget {
 
   static void _showLogoutDialog(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: scheme.surface,
-        title: Text('Log Out', style: TextStyle(color: scheme.onSurface)),
+        title: Text(l10n.logOut, style: TextStyle(color: scheme.onSurface)),
         content: Text(
-          'Are you sure you want to log out?',
+          l10n.areYouSureLogOut,
           style: TextStyle(color: scheme.onSurface.withOpacity(0.7)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -624,7 +629,7 @@ class SettingsScreen extends StatelessWidget {
               Navigator.pop(dialogContext);
               await authProvider.signOut();
             },
-            child: const Text('Log Out', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.logOut, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -633,6 +638,7 @@ class SettingsScreen extends StatelessWidget {
 
   static void _showDeleteAccountDialog(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final controller = TextEditingController();
 
     showDialog(
@@ -640,7 +646,7 @@ class SettingsScreen extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: scheme.surface,
         title: Text(
-          'Delete Account',
+          l10n.deleteAccount,
           style: TextStyle(color: scheme.onSurface),
         ),
         content: Column(
@@ -648,7 +654,7 @@ class SettingsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'This action cannot be undone. Type DELETE to confirm.',
+              l10n.typeDeleteConfirm,
               style: TextStyle(color: scheme.onSurface.withOpacity(0.7)),
             ),
             const SizedBox(height: 16),
@@ -668,7 +674,7 @@ class SettingsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -678,25 +684,27 @@ class SettingsScreen extends StatelessWidget {
                 await auth.signOut();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(
-                        'Account deletion request submitted. You have been logged out.',
+                        l10n.accountDeletionRequested,
                       ),
                     ),
                   );
                 }
               } else {
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please type DELETE to confirm'),
+                  SnackBar(
+                    content: Text(l10n.pleaseTypeDelete),
                   ),
                 );
               }
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
 }
+
+

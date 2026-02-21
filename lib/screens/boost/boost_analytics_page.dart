@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/post.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/supabase_service.dart';
+import '../../repositories/boost_repository.dart';
 
 class BoostAnalyticsPage extends StatefulWidget {
   /// If provided, shows analytics for this specific post only.
@@ -37,71 +37,29 @@ class _BoostAnalyticsPageState extends State<BoostAnalyticsPage> {
       final userId = context.read<AuthProvider>().currentUser?.id;
       if (userId == null) throw Exception('Not logged in');
 
-      final client = SupabaseService().client;
-
-      // Query boost transactions for this user
-      var query = client
-          .from('roocoin_transactions')
-          .select()
-          .eq('from_user_id', userId)
-          .eq('tx_type', 'fee');
-
-      final List<dynamic> rows = await query
-          .order('created_at', ascending: false)
-          .limit(100);
-
-      // Filter to POST_BOOST only
-      final boostRows = rows.where((r) {
-        final meta = r['metadata'] as Map<String, dynamic>?;
-        return meta?['activityType'] == 'POST_BOOST';
-      }).toList();
-
-      // Fetch associated post data
-      final postIds = boostRows
-          .map((r) {
-            final meta = r['metadata'] as Map<String, dynamic>?;
-            return meta?['referencePostId'] as String?;
-          })
-          .whereType<String>()
-          .toSet()
-          .toList();
-
-      Map<String, Map<String, dynamic>> postData = {};
-      if (postIds.isNotEmpty) {
-        final postRows = await client
-            .from('posts')
-            .select('id, body, title, views_count, likes_count, comments_count, reposts_count, shares_count')
-            .inFilter('id', postIds);
-        for (final p in postRows as List<dynamic>) {
-          postData[p['id'] as String] = p as Map<String, dynamic>;
-        }
-      }
-
-      // Build records — filter to specific post if provided
-      final records = boostRows.map((r) {
-        final meta = r['metadata'] as Map<String, dynamic>?;
-        final postId = meta?['referencePostId'] as String?;
-        final pd = postId != null ? postData[postId] : null;
-        return _BoostRecord(
-          txId: r['id'] as String,
-          postId: postId,
-          amountRoo: (r['amount_rc'] as num).toDouble(),
-          targetUsers: (meta?['targetUsers'] as num?)?.toInt() ?? 0,
-          boostedAt: DateTime.parse(r['created_at'] as String),
-          postTitle: pd?['title'] as String? ??
-              (pd?['body'] as String? ?? '').split('\n').first,
-          postViews: (pd?['views_count'] as num?)?.toInt() ?? 0,
-          postLikes: (pd?['likes_count'] as num?)?.toInt() ?? 0,
-          postComments: (pd?['comments_count'] as num?)?.toInt() ?? 0,
-          postReposts: (pd?['reposts_count'] as num?)?.toInt() ?? 0,
-        );
-      }).where((rec) {
-        if (widget.post == null) return true;
-        return rec.postId == widget.post!.id;
-      }).toList();
+      final records = await BoostRepository().getBoostsForUser(
+        userId,
+        postId: widget.post?.id,
+      );
 
       setState(() {
-        _boosts = records;
+        _boosts = records
+            .map(
+              (r) => _BoostRecord(
+                boostId: r.id,
+                postId: r.postId,
+                amountRoo: r.costRc,
+                targetUsers: r.targetUserCount,
+                actualReached: r.actualReachedCount,
+                boostedAt: r.createdAt,
+                postTitle: r.postTitle ?? '',
+                postViews: r.postViews,
+                postLikes: r.postLikes,
+                postComments: r.postComments,
+                postReposts: r.postReposts,
+              ),
+            )
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -184,7 +142,7 @@ class _SummaryHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totalRoo = boosts.fold(0.0, (s, b) => s + b.amountRoo);
-    final totalUsers = boosts.fold(0, (s, b) => s + b.targetUsers);
+    final totalUsers = boosts.fold(0, (s, b) => s + b.actualReached);
     final totalBoosts = boosts.length;
 
     return Container(
@@ -398,8 +356,8 @@ class _BoostCard extends StatelessWidget {
             children: [
               _MetricCell(
                 icon: Icons.people_outline,
-                label: 'Notified',
-                value: _fmt(boost.targetUsers),
+                label: 'Reached',
+                value: _fmt(boost.actualReached > 0 ? boost.actualReached : boost.targetUsers),
                 colors: colors,
                 theme: theme,
               ),
@@ -435,7 +393,7 @@ class _BoostCard extends StatelessWidget {
           ),
 
           // ── Engagement rate ─────────────────────────────
-          if (boost.targetUsers > 0) ...[
+          if (boost.actualReached > 0 || boost.targetUsers > 0) ...[
             const SizedBox(height: 14),
             _EngagementBar(boost: boost, colors: colors, theme: theme),
           ],
@@ -517,8 +475,9 @@ class _EngagementBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final totalEngagements =
         boost.postLikes + boost.postComments + boost.postReposts;
-    final rate = boost.targetUsers > 0
-        ? (totalEngagements / boost.targetUsers * 100).clamp(0.0, 100.0)
+    final reached = boost.actualReached > 0 ? boost.actualReached : boost.targetUsers;
+    final rate = reached > 0
+        ? (totalEngagements / reached * 100).clamp(0.0, 100.0)
         : 0.0;
     final rateStr = rate.toStringAsFixed(1);
 
@@ -528,11 +487,27 @@ class _EngagementBar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Engagement Rate',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colors.onSurfaceVariant,
-                letterSpacing: 0.5,
+            Tooltip(
+              message:
+                  '(Likes + Comments + Reposts) ÷ Users Notified × 100\n'
+                  '≥5% Excellent · ≥2% Good · <2% Needs improvement',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Engagement Rate',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.info_outline,
+                    size: 11,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ],
               ),
             ),
             Text(
@@ -638,10 +613,11 @@ class _ErrorState extends StatelessWidget {
 // ── Data model ──────────────────────────────────────────────────────────────
 
 class _BoostRecord {
-  final String txId;
-  final String? postId;
+  final String boostId;
+  final String postId;
   final double amountRoo;
   final int targetUsers;
+  final int actualReached;
   final DateTime boostedAt;
   final String postTitle;
   final int postViews;
@@ -650,10 +626,11 @@ class _BoostRecord {
   final int postReposts;
 
   const _BoostRecord({
-    required this.txId,
+    required this.boostId,
     required this.postId,
     required this.amountRoo,
     required this.targetUsers,
+    required this.actualReached,
     required this.boostedAt,
     required this.postTitle,
     required this.postViews,

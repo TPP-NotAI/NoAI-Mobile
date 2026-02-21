@@ -58,14 +58,14 @@ class ProfileRewardService {
       final isComplete = hasDisplayName && hasBio && hasAvatar && hasSocialLink;
 
       if (isComplete) {
-        // Award 25 ROOK for profile completion
+        // Award 5 ROOK for profile completion
         await _walletRepo.earnRoo(
           userId: userId,
           activityType: RookenActivityType.profileComplete,
           metadata: {'completion_date': DateTime.now().toIso8601String()},
         );
         debugPrint(
-          'ProfileRewardService: Awarded 25 ROOK to $userId for profile completion',
+          'ProfileRewardService: Awarded 5 ROOK to $userId for profile completion',
         );
         return true;
       }

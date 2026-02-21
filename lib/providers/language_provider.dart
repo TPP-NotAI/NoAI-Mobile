@@ -31,6 +31,10 @@ class LanguageProvider with ChangeNotifier {
         return '日本語';
       case 'ko':
         return '한국어';
+      case 'ar':
+        return 'العربية';
+      case 'hi':
+        return 'हिन्दी';
       default:
         return 'English';
     }
@@ -47,6 +51,8 @@ class LanguageProvider with ChangeNotifier {
     {'code': 'zh', 'name': '中文'},
     {'code': 'ja', 'name': '日本語'},
     {'code': 'ko', 'name': '한국어'},
+    {'code': 'ar', 'name': 'العربية'},
+    {'code': 'hi', 'name': 'हिन्दी'},
   ];
 
   LanguageProvider() {
@@ -54,16 +60,20 @@ class LanguageProvider with ChangeNotifier {
   }
 
   Future<void> _load() async {
-    _currentLanguage =
+    final savedLanguage =
         _storage.getString(AppConstants.languageKey) ?? _defaultLanguage;
+    final isSupported = supportedLanguages.any(
+      (language) => language['code'] == savedLanguage,
+    );
+    _currentLanguage = isSupported ? savedLanguage : _defaultLanguage;
     notifyListeners();
   }
 
   Future<void> setLanguage(String languageCode) async {
-    if (_currentLanguage != languageCode) {
-      _currentLanguage = languageCode;
-      await _storage.setString(AppConstants.languageKey, languageCode);
-      notifyListeners();
-    }
+    if (_currentLanguage == languageCode) return;
+
+    _currentLanguage = languageCode;
+    notifyListeners();
+    await _storage.setString(AppConstants.languageKey, languageCode);
   }
 }

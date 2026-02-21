@@ -1,5 +1,53 @@
 import 'moderation_result.dart';
 
+/// Advertisement detection result from /api/v1/detect/full
+class AdvertisementResult {
+  final bool detected;
+  final double confidence; // 0-100
+  final String? type; // e.g. "product_promotion", "service_ad"
+  final List<String> evidence;
+  final String? rationale;
+
+  /// Platform action: "allow" | "flag_for_review" | "require_payment"
+  final String action;
+
+  AdvertisementResult({
+    required this.detected,
+    required this.confidence,
+    this.type,
+    required this.evidence,
+    this.rationale,
+    required this.action,
+  });
+
+  bool get requiresPayment => action == 'require_payment';
+  bool get flaggedForReview => action == 'flag_for_review';
+
+  factory AdvertisementResult.fromJson(Map<String, dynamic> json) {
+    return AdvertisementResult(
+      detected: json['detected'] as bool? ?? false,
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      type: json['type'] as String?,
+      evidence:
+          (json['evidence'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      rationale: json['rationale'] as String?,
+      action: json['action'] as String? ?? 'allow',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'detected': detected,
+    'confidence': confidence,
+    'type': type,
+    'evidence': evidence,
+    'rationale': rationale,
+    'action': action,
+  };
+}
+
 /// Response model for the NOAI AI Detection API.
 class AiDetectionResult {
   final String analysisId;
@@ -16,6 +64,7 @@ class AiDetectionResult {
   final List<ModelResult>? modelResults;
   final ModerationResult? moderation;
   final double? safetyScore;
+  final AdvertisementResult? advertisement;
 
   AiDetectionResult({
     required this.analysisId,
@@ -29,6 +78,7 @@ class AiDetectionResult {
     this.modelResults,
     this.moderation,
     this.safetyScore,
+    this.advertisement,
   });
 
   factory AiDetectionResult.fromJson(Map<String, dynamic> json) {
@@ -78,6 +128,11 @@ class AiDetectionResult {
             )
           : null,
       safetyScore: (json['safety_score'] as num?)?.toDouble(),
+      advertisement: json['advertisement'] != null
+          ? AdvertisementResult.fromJson(
+              json['advertisement'] as Map<String, dynamic>,
+            )
+          : null,
     );
   }
 
@@ -94,6 +149,7 @@ class AiDetectionResult {
       'model_results': modelResults?.map((e) => e.toJson()).toList(),
       'moderation': moderation?.toJson(),
       'safety_score': safetyScore,
+      'advertisement': advertisement?.toJson(),
     };
   }
 }

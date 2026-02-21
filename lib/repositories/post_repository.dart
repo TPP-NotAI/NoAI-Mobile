@@ -1032,15 +1032,11 @@ class PostRepository {
         // Continue execution, don't fail the moderation action
       }
 
-      // If approved, award ROOK to the author
+      // If approved, award daily post ROO to the author (0.01 ROO, once per day)
       if (action == 'approve') {
         try {
           final walletRepo = WalletRepository();
-          await walletRepo.earnRoo(
-            userId: authorId,
-            activityType: RookenActivityType.postCreate,
-            referencePostId: postId,
-          );
+          await _awardDailyPostRoo(walletRepo, authorId, postId);
         } catch (e) {
           debugPrint(
             'PostRepository: Error awarding ROOK on moderation approval - $e',
@@ -1103,24 +1099,26 @@ class PostRepository {
     }
   }
 
-  /// Run AI detection for a post in the background.
-  /// Picks the right endpoint based on content type:
-  ///   - Text only → /detect/text
-  ///   - Media only → /detect/image (first file)
-  ///   - Both → /detect/mixed (text + first file)
-  /// Returns the confidence score on success, or null on failure.
+  /// Run AI detection for a post in the background using the combined
+  /// /detect/full endpoint (AI + Moderation + Advertisement in one call).
+  ///
+  /// When advertisement is detected with [action == 'require_payment'], the
+  /// post is held as 'pending_ad_payment' and [onAdFeeRequired] is called with
+  /// the confidence percentage so the caller can prompt the user to pay.
+  ///
+  /// Returns the AI confidence score on success, or null on failure.
   Future<double?> runAiDetection({
     required String postId,
     required String authorId,
     required String body,
     List<File>? mediaFiles,
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
   }) async {
     try {
       final trimmedBody = body.trim();
       final hasText = trimmedBody.isNotEmpty;
       final hasMedia = mediaFiles != null && mediaFiles.isNotEmpty;
 
-      // All posts must have either text or media
       if (!hasText && !hasMedia) {
         debugPrint(
           'PostRepository: Cannot run AI detection - no content for post $postId',
@@ -1128,23 +1126,11 @@ class PostRepository {
         return null;
       }
 
-      AiDetectionResult? result;
-
-      if (hasText && hasMedia) {
-        // Both text and media: run mixed detection
-        result = await _aiDetectionService.detectMixed(
-          trimmedBody,
-          mediaFiles.first,
-        );
-      } else if (hasText) {
-        // Text only (and long enough): run text detection
-        result = await _aiDetectionService.detectText(trimmedBody);
-      } else if (hasMedia) {
-        // Media only (or short text with media): run image detection
-        result = await _aiDetectionService.detectImage(mediaFiles.first);
-      } else {
-        return null; // Nothing to detect
-      }
+      // Single call — AI + Moderation + Advertisement in parallel
+      final AiDetectionResult? result = await _aiDetectionService.detectFull(
+        content: hasText ? trimmedBody : null,
+        file: hasMedia ? mediaFiles.first : null,
+      );
 
       if (result != null) {
         // Result label is normalized to UPPER CASE in fromJson.
@@ -1201,6 +1187,50 @@ class PostRepository {
           postStatus = 'published'; // Auto-publish
         }
 
+        // --- Advertisement Detection ---
+        // Only applies when content is not already blocked/under_review by
+        // AI or moderation checks.
+        final ad = result.advertisement;
+        if (postStatus == 'published' && ad != null && ad.requiresPayment) {
+          debugPrint(
+            'PostRepository: Advertisement detected — confidence=${ad.confidence}%, '
+            'type=${ad.type}, action=${ad.action}',
+          );
+
+          // Hold the post until the user pays the ad fee.
+          await _client
+              .from(SupabaseConfig.postsTable)
+              .update({'status': 'pending_ad_payment'})
+              .eq('id', postId);
+
+          // Notify the caller so they can show the payment dialog.
+          bool feePaid = false;
+          if (onAdFeeRequired != null) {
+            feePaid = await onAdFeeRequired(ad.confidence, ad.type);
+          }
+
+          if (feePaid) {
+            // User paid — publish the post and record the spend.
+            postStatus = 'published';
+            authenticityNotes =
+                'ADVERTISEMENT: ${ad.confidence.toStringAsFixed(1)}% confidence '
+                '(${ad.type ?? "promotional content"}) — ad fee paid';
+          } else {
+            // User declined — keep post held; they can pay later from their profile.
+            postStatus = 'pending_ad_payment';
+            authenticityNotes =
+                'ADVERTISEMENT: ${ad.confidence.toStringAsFixed(1)}% confidence '
+                '(${ad.type ?? "promotional content"}) — awaiting ad fee payment';
+          }
+        } else if (postStatus == 'published' &&
+            ad != null &&
+            ad.flaggedForReview) {
+          // 40-69% — possible ad, label it but still publish.
+          authenticityNotes =
+              (authenticityNotes != null ? '$authenticityNotes | ' : '') +
+              'POSSIBLE ADVERTISEMENT: ${ad.confidence.toStringAsFixed(1)}% confidence';
+        }
+
         if (postStatus == 'published') {
           // Addition: Auto-label as sensitive if moderation flagged categories like 'sexual' or 'violence'
           // but recommended action was 'allow' or 'warn'.
@@ -1221,11 +1251,7 @@ class PostRepository {
 
           try {
             final walletRepo = WalletRepository();
-            await walletRepo.earnRoo(
-              userId: authorId,
-              activityType: RookenActivityType.postCreate,
-              referencePostId: postId,
-            );
+            await _awardDailyPostRoo(walletRepo, authorId, postId);
           } catch (e) {
             debugPrint(
               'PostRepository: Error awarding ROOK on auto-publish - $e',
@@ -1252,6 +1278,8 @@ class PostRepository {
             'model_results': result.modelResults
                 ?.map((e) => e.toJson())
                 .toList(),
+            if (result.advertisement != null)
+              'advertisement': result.advertisement!.toJson(),
           },
         );
 
@@ -1261,6 +1289,10 @@ class PostRepository {
           postId: postId,
           postStatus: postStatus,
           aiProbability: aiProbability,
+          isModerationBlock: isModerationFlagged &&
+              (mod?.recommendedAction == 'block' ||
+                  mod?.recommendedAction == 'block_and_report'),
+          moderationDetails: mod?.details,
         );
 
         // Automatically create a moderation case if flagged or review required
@@ -1362,6 +1394,8 @@ class PostRepository {
     required String postId,
     required String postStatus,
     required double aiProbability,
+    bool isModerationBlock = false,
+    String? moderationDetails,
   }) async {
     try {
       String title;
@@ -1376,13 +1410,16 @@ class PostRepository {
           break;
         case 'under_review':
           title = 'Post Under Review';
-          body = 'Your post is being checked for AI. You\'ll be notified soon.';
+          body = isModerationBlock
+              ? 'Your post is under review for content policy reasons.'
+              : 'Your post is being checked for AI. You\'ll be notified soon.';
           type = 'post_review';
           break;
         case 'deleted':
           title = 'Post Not Published';
-          body =
-              'Your post was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence), and was not published.';
+          body = isModerationBlock
+              ? 'Your post was removed for violating content policies. ${moderationDetails != null ? "Reason: $moderationDetails" : ""}'
+              : 'Your post was flagged as potentially AI-generated (${aiProbability.toStringAsFixed(0)}% confidence), and was not published.';
           type = 'post_flagged';
           break;
         default:
@@ -1409,5 +1446,45 @@ class PostRepository {
     } catch (e) {
       debugPrint('PostRepository: Error sending AI result notification - $e');
     }
+  }
+
+  /// Award 0.01 ROO for the daily post reward — once per calendar day per user.
+  /// Skips silently if the user already received the reward today.
+  Future<void> _awardDailyPostRoo(
+    WalletRepository walletRepo,
+    String userId,
+    String postId,
+  ) async {
+    final today = DateTime.now().toUtc();
+    final todayStart = DateTime.utc(today.year, today.month, today.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+
+    final todaysTxs = await _client
+        .from('roocoin_transactions')
+        .select('metadata')
+        .eq('to_user_id', userId)
+        .gte('created_at', todayStart.toIso8601String())
+        .lt('created_at', todayEnd.toIso8601String());
+
+    final alreadyRewarded = (todaysTxs as List).any((tx) {
+      final metadata = tx['metadata'];
+      if (metadata is Map) {
+        return metadata['activityType'] == RookenActivityType.postCreate;
+      }
+      return false;
+    });
+
+    if (alreadyRewarded) {
+      debugPrint(
+        'PostRepository: Daily post ROO already awarded to $userId today',
+      );
+      return;
+    }
+
+    await walletRepo.earnRoo(
+      userId: userId,
+      activityType: RookenActivityType.postCreate,
+      referencePostId: postId,
+    );
   }
 }

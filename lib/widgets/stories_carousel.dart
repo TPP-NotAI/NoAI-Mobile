@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
@@ -602,7 +603,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                 onPressed: isUploading
                     ? null
                     : () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton(
                 onPressed: (!canShare || isUploading)
@@ -1017,7 +1018,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton(
                 onPressed: () async {
@@ -1126,7 +1127,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton(
                 onPressed: () {
@@ -1259,7 +1260,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton(
                 onPressed: () {
@@ -1382,3 +1383,5 @@ class _VideoPreviewWidgetState extends State<_VideoPreviewWidget> {
     return Chewie(controller: _chewieController!);
   }
 }
+
+

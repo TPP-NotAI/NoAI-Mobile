@@ -152,7 +152,7 @@ class ReactionRepository {
           postId: postId,
         );
 
-        // Award 0.1 ROOK to the user who liked the post (per API activity rules)
+        // Award 0.01 ROOK to the user who liked the post.
         // Skip if the user is liking their own post.
         if (postAuthorId != userId) {
           try {

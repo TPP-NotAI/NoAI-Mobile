@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
@@ -199,7 +200,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text('Cancel'),
+                    child: Text(AppLocalizations.of(context)!.cancel),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -355,3 +356,5 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     return '${date.month}/${date.day}/${date.year}';
   }
 }
+
+

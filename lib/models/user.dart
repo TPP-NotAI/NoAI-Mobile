@@ -67,6 +67,14 @@ class User {
   final List<String> interests;
   @JsonKey(includeFromJson: false, includeToJson: false)
   final List<UserAchievement> achievements;
+  // New profile fields from schema migration
+  final String? countryCode;
+  final bool phoneVerified;
+  final DateTime? phoneVerifiedAt;
+  final bool onboardingCompleted;
+  final int onboardingStep;
+  final String? referralCode;
+  final String? referredBy;
 
   User({
     required this.id,
@@ -97,6 +105,13 @@ class User {
     this.lastSeen,
     this.interests = const [],
     this.achievements = const [],
+    this.countryCode,
+    this.phoneVerified = false,
+    this.phoneVerifiedAt,
+    this.onboardingCompleted = false,
+    this.onboardingStep = 0,
+    this.referralCode,
+    this.referredBy,
   });
 
   /// Whether the user account is active.
@@ -112,7 +127,7 @@ class User {
   /// Both gates must pass for the user to post, comment, like, tip, etc.
   bool get isActivated => isVerified && balance > 0;
 
-  /// Whether the user's Veriff identity review is in progress.
+  /// Whether the user's Didit identity review is in progress.
   bool get isVerificationPending => verifiedHuman == 'pending';
 
   /// Create a User from Supabase profile row.
@@ -171,6 +186,16 @@ class User {
       humanVerifiedPostsCount: 0,
       followersCount: 0,
       followingCount: 0,
+      // New profile fields from schema migration
+      countryCode: profile['country_code'] as String?,
+      phoneVerified: profile['phone_verified'] as bool? ?? false,
+      phoneVerifiedAt: profile['phone_verified_at'] != null
+          ? DateTime.tryParse(profile['phone_verified_at'].toString())
+          : null,
+      onboardingCompleted: profile['onboarding_completed'] as bool? ?? false,
+      onboardingStep: profile['onboarding_step'] as int? ?? 0,
+      referralCode: profile['referral_code'] as String?,
+      referredBy: profile['referred_by'] as String?,
     );
   }
 
@@ -206,6 +231,13 @@ class User {
     DateTime? lastSeen,
     List<String>? interests,
     List<UserAchievement>? achievements,
+    String? countryCode,
+    bool? phoneVerified,
+    DateTime? phoneVerifiedAt,
+    bool? onboardingCompleted,
+    int? onboardingStep,
+    String? referralCode,
+    String? referredBy,
   }) {
     return User(
       id: id ?? this.id,
@@ -237,6 +269,13 @@ class User {
       lastSeen: lastSeen ?? this.lastSeen,
       interests: interests ?? this.interests,
       achievements: achievements ?? this.achievements,
+      countryCode: countryCode ?? this.countryCode,
+      phoneVerified: phoneVerified ?? this.phoneVerified,
+      phoneVerifiedAt: phoneVerifiedAt ?? this.phoneVerifiedAt,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      onboardingStep: onboardingStep ?? this.onboardingStep,
+      referralCode: referralCode ?? this.referralCode,
+      referredBy: referredBy ?? this.referredBy,
     );
   }
 }

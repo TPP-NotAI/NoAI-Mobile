@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:rooverse/l10n/app_localizations.dart';
 import '../../services/supabase_service.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -467,7 +468,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context)!.close),
           ),
         ],
       ),
@@ -509,14 +510,14 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel'),
+                        child: Text(AppLocalizations.of(context)!.cancel),
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(context, true),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red,
                         ),
-                        child: const Text('Delete'),
+                        child: Text(AppLocalizations.of(context)!.delete),
                       ),
                     ],
                   ),
@@ -1724,3 +1725,5 @@ class _AiScoreBadge extends StatelessWidget {
     );
   }
 }
+
+

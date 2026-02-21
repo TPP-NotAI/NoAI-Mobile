@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 enum DeepLinkDestination {
   helpCenter,
   contactSupport,
+  verificationCallback,
 }
 
 /// Resolves platform deep links into app destinations.
@@ -49,6 +50,9 @@ class DeepLinkService {
     }
     if (first == 'contact-support' || first == 'contact_support') {
       return DeepLinkDestination.contactSupport;
+    }
+    if (first == 'verification') {
+      return DeepLinkDestination.verificationCallback;
     }
     return null;
   }
