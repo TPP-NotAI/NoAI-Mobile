@@ -391,7 +391,12 @@ class AiDetectionService {
     debugPrint('AiDetectionService: Raw response body: ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body) as Map<String, dynamic>;
-      return AiDetectionResult.fromJson(data);
+      final parsed = AiDetectionResult.fromJson(data);
+      debugPrint(
+        'AiDetectionService: Parsed result=${parsed.result}, '
+        'confidence=${parsed.confidence}, analysisId=${parsed.analysisId}',
+      );
+      return parsed;
     }
     debugPrint(
       'AiDetectionService: API returned ${response.statusCode} - ${response.body}',

@@ -1219,6 +1219,7 @@ class FeedProvider with ChangeNotifier {
         status: 'under_review',
       );
       _posts.insert(0, optimisticPost);
+      _invalidatePostsCache();
       notifyListeners();
     }
 
@@ -1258,6 +1259,7 @@ class FeedProvider with ChangeNotifier {
         } else if (shouldShowInFeed) {
           _posts.insert(0, newPost);
         }
+        _invalidatePostsCache();
         notifyListeners();
 
         // Run AI detection
@@ -1290,13 +1292,20 @@ class FeedProvider with ChangeNotifier {
                 if (updatedPost.status == 'under_review' ||
                     updatedPost.status == 'deleted' ||
                     updatedPost.status == 'hidden' ||
-                    updatedPost.status == 'pending_ad_payment') {
+                    (updatedPost.status == 'draft' &&
+                        (updatedPost.authenticityNotes ?? '')
+                            .toLowerCase()
+                            .contains('awaiting ad fee payment'))) {
                   // Post was flagged, auto-blocked, or held for ad fee — remove from feed
                   _posts.removeAt(idx);
                 } else {
                   _posts[idx] = mergedPost;
                 }
+                _invalidatePostsCache();
                 notifyListeners();
+              }
+              if (updatedPost.status == 'published') {
+                await refreshFeed();
               }
               return updatedPost; // Return the final updated post
             }
@@ -1304,7 +1313,7 @@ class FeedProvider with ChangeNotifier {
           return newPost; // Return original if detection didn't change anything (or failed)
         } else {
           // Fire-and-forget: run AI detection in the background.
-          detectionFuture.then((confidence) {
+          detectionFuture.then((confidence) async {
             if (confidence != null) {
               // Check if AI score is 95%+ (auto-block threshold)
               // Remove immediately from UI without waiting for backend
@@ -1312,6 +1321,7 @@ class FeedProvider with ChangeNotifier {
                 final idx = _posts.indexWhere((p) => p.id == newPost.id);
                 if (idx != -1) {
                   _posts.removeAt(idx);
+                  _invalidatePostsCache();
                   notifyListeners();
                 }
                 _showPostAiReviewResultSnackBar(status: 'deleted');
@@ -1321,7 +1331,7 @@ class FeedProvider with ChangeNotifier {
               // Fetch updated post to get the AI score and status
               _postRepository.getPost(newPost.id, currentUserId: userId).then((
                 updatedPost,
-              ) {
+              ) async {
                 if (updatedPost != null) {
                   final idx = _posts.indexWhere((p) => p.id == newPost.id);
                   if (idx != -1) {
@@ -1336,18 +1346,26 @@ class FeedProvider with ChangeNotifier {
                     if (updatedPost.status == 'under_review' ||
                         updatedPost.status == 'deleted' ||
                         updatedPost.status == 'hidden' ||
-                        updatedPost.status == 'pending_ad_payment') {
+                        (updatedPost.status == 'draft' &&
+                            (updatedPost.authenticityNotes ?? '')
+                                .toLowerCase()
+                                .contains('awaiting ad fee payment'))) {
                       // Post was flagged, auto-blocked, or held for ad fee — remove from feed
                       _posts.removeAt(idx);
                     } else {
                       _posts[idx] = mergedPost;
                     }
+                    _invalidatePostsCache();
                     notifyListeners();
                   } else if (updatedPost.status == 'published') {
                     // The post was hidden while under review; surface it
                     // immediately once AI clears it without requiring refresh.
                     _posts.insert(0, updatedPost);
+                    _invalidatePostsCache();
                     notifyListeners();
+                  }
+                  if (updatedPost.status == 'published') {
+                    await refreshFeed();
                   }
                   _showPostAiReviewResultSnackBar(status: updatedPost.status);
                 }
@@ -1361,6 +1379,7 @@ class FeedProvider with ChangeNotifier {
     } catch (e) {
       if (tempId != null) {
         _posts.removeWhere((p) => p.id == tempId);
+        _invalidatePostsCache();
         notifyListeners();
       }
       debugPrint('Failed to create post: $e');
@@ -1417,6 +1436,7 @@ class FeedProvider with ChangeNotifier {
     );
     if (success) {
       _posts.removeWhere((p) => p.id == postId);
+      _invalidatePostsCache();
       notifyListeners();
     }
     return success;
@@ -1439,6 +1459,7 @@ class FeedProvider with ChangeNotifier {
         _draftPosts.insert(0, post);
       }
       _posts.removeWhere((p) => p.id == postId);
+      _invalidatePostsCache();
       notifyListeners();
     }
     return success;
@@ -1475,6 +1496,7 @@ class FeedProvider with ChangeNotifier {
         _posts.insert(0, post);
       }
       _draftPosts.removeWhere((p) => p.id == postId);
+      _invalidatePostsCache();
       notifyListeners();
     }
     return success;

@@ -144,6 +144,39 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleGoogleLogin() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+      _loginError = null;
+      _isRateLimited = false;
+    });
+
+    final authProvider = context.read<AuthProvider>();
+
+    try {
+      final launched = await authProvider.signInWithGoogle();
+      if (!mounted) return;
+
+      if (!launched) {
+        setState(() {
+          _loginError = authProvider.error ?? 'Unable to start Google login';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // OAuth returns to the app asynchronously via Supabase auth state.
+      // Keep existing flows intact by not forcing navigation here.
+      setState(() => _isLoading = false);
+    } catch (e) {
+      if (!mounted) return;
+      SnackBarUtils.showError(context, e);
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -403,21 +436,22 @@ class _LoginScreenState extends State<LoginScreen> {
               // Social login buttons
               Row(
                 children: [
-                  Expanded(
-                    child: _buildSocialButton(
-                      context,
-                      label: 'Apple',
-                      icon: Icons.apple,
-                      onPressed: () {},
-                    ),
-                  ),
-                  SizedBox(width: AppSpacing.standard.responsive(context)),
+                  // Apple login temporarily disabled.
+                  // Expanded(
+                  //   child: _buildSocialButton(
+                  //     context,
+                  //     label: 'Apple',
+                  //     icon: Icons.apple,
+                  //     onPressed: () {},
+                  //   ),
+                  // ),
+                  // SizedBox(width: AppSpacing.standard.responsive(context)),
                   Expanded(
                     child: _buildSocialButton(
                       context,
                       label: 'Google',
                       icon: Icons.g_mobiledata_rounded,
-                      onPressed: () {},
+                      onPressed: _isLoading ? null : _handleGoogleLogin,
                     ),
                   ),
                 ],
@@ -753,7 +787,7 @@ class _LoginScreenState extends State<LoginScreen> {
     BuildContext context, {
     required String label,
     required IconData icon,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
     final scheme = Theme.of(context).colorScheme;
 

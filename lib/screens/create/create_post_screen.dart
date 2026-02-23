@@ -20,14 +20,17 @@ import '../../repositories/tag_repository.dart';
 import '../../repositories/mention_repository.dart';
 import '../../widgets/mention_autocomplete_field.dart';
 import '../../models/post.dart';
+import '../../models/local_post_draft.dart';
 import '../../services/supabase_service.dart';
 import '../../config/supabase_config.dart';
+import '../../services/local_post_draft_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/kyc_verification_service.dart';
 import '../../utils/verification_utils.dart';
 import '../../widgets/verification_required_widget.dart';
 import '../../config/global_keys.dart';
 import '../post_detail_screen.dart';
+import '../profile/edit_profile_screen.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final String? initialPostType;
@@ -66,6 +69,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   // Media state
   final List<File> _selectedMediaFiles = [];
   final List<String> _selectedMediaTypes = []; // 'image' or 'video'
+  // Camera-created temp files that should be deleted on dispose
+  final List<File> _tempCameraFiles = [];
 
   // Tags/Topics state
   final List<String> _selectedTags = [];
@@ -79,31 +84,29 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final List<Map<String, dynamic>> _taggedPeople = [];
   final TextEditingController _mentionController = TextEditingController();
 
-  // Video editing flags
-  final Map<int, bool> _videoMuteFlags = {};
-  final Map<int, int> _videoRotationFlags = {};
-
   // Draft and character count state
   bool _hasUnsavedChanges = false;
   bool _isDraftLoaded = false;
   bool _isLoadingDraft = false;
   bool _isInitialLoad = true;
-  bool _hasSavedDraft = false;
+  int _savedDraftCount = 0;
+  String? _activeDraftId;
   final StorageService _storageService = StorageService();
+  late final LocalPostDraftService _draftService;
   bool _postCostLoadFailed = false;
 
   @override
   void initState() {
     super.initState();
     _postType = widget.initialPostType ?? 'Text';
+    _draftService = LocalPostDraftService(storage: _storageService);
     _loadCachedPostCost();
     _loadPostCost();
     _checkForSavedDraft().then((_) {
-      _loadDraft().then((_) {
-        // Add listener after draft is loaded to prevent auto-save notifications
-        _contentController.addListener(_onContentChanged);
-        _titleController.addListener(_onContentChanged);
-      });
+      _isInitialLoad = false;
+      // Add listener after draft count check to avoid early autosave behavior.
+      _contentController.addListener(_onContentChanged);
+      _titleController.addListener(_onContentChanged);
     });
   }
 
@@ -185,6 +188,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     _titleController.dispose();
     _tagController.dispose();
     _mentionController.dispose();
+    for (final file in _tempCameraFiles) {
+      file.delete().ignore();
+    }
     super.dispose();
   }
 
@@ -241,6 +247,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             setState(() {
               _selectedMediaFiles.addAll(filesToAdd);
               _selectedMediaTypes.addAll(typesToAdd);
+              _hasUnsavedChanges = true;
             });
 
             for (var i = 0; i < filesToAdd.length; i++) {
@@ -265,13 +272,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             debugPrint(
               'CreatePostScreen: Copying camera image to stable path...',
             );
-            final bytes = await finalImage.readAsBytes();
             final tempDir = Directory.systemTemp;
             final timestamp = DateTime.now().millisecondsSinceEpoch;
             final permanentPath = '${tempDir.path}/camera_image_$timestamp.jpg';
-            final permanentFile = File(permanentPath);
-            await permanentFile.writeAsBytes(bytes);
+            final permanentFile = await finalImage.copy(permanentPath);
             finalImage = permanentFile;
+            _tempCameraFiles.add(permanentFile);
             debugPrint(
               'CreatePostScreen: Saved camera image to: $permanentPath',
             );
@@ -283,6 +289,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             setState(() {
               _selectedMediaFiles.add(finalImage);
               _selectedMediaTypes.add('image');
+              _hasUnsavedChanges = true;
             });
           }
 
@@ -302,9 +309,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               debugPrint(
                 'CreatePostScreen: Copying camera video to stable path...',
               );
-              // Read the video bytes
-              final bytes = await videoFile.readAsBytes();
-
               // Create a permanent file path in the app's temporary directory
               final tempDir = Directory.systemTemp;
               final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -312,10 +316,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   '${tempDir.path}/camera_video_$timestamp.mp4';
 
               // Write to permanent location
-              final permanentFile = File(permanentPath);
-              await permanentFile.writeAsBytes(bytes);
+              final permanentFile = await videoFile.copy(permanentPath);
 
               videoFile = permanentFile;
+              _tempCameraFiles.add(permanentFile);
               debugPrint(
                 'CreatePostScreen: Saved camera video to: $permanentPath',
               );
@@ -329,6 +333,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             setState(() {
               _selectedMediaFiles.add(videoFile);
               _selectedMediaTypes.add('video');
+              _hasUnsavedChanges = true;
             });
           }
 
@@ -419,6 +424,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     setState(() {
       _selectedMediaFiles.removeAt(index);
       _selectedMediaTypes.removeAt(index);
+      _hasUnsavedChanges = true;
     });
   }
 
@@ -485,6 +491,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       setState(() {
         _selectedLocation = locationName;
+        _hasUnsavedChanges = true;
       });
     } catch (e) {
       if (!mounted) return;
@@ -507,11 +514,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         isLoading: _isLoadingLocation,
         onGetCurrentLocation: _getCurrentLocation,
         onLocationSelected: (location) {
-          setState(() => _selectedLocation = location);
+          setState(() {
+            _selectedLocation = location;
+            _hasUnsavedChanges = true;
+          });
           Navigator.pop(context);
         },
         onClear: () {
-          setState(() => _selectedLocation = null);
+          setState(() {
+            _selectedLocation = null;
+            _hasUnsavedChanges = true;
+          });
           Navigator.pop(context);
         },
       ),
@@ -529,6 +542,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           setState(() {
             _selectedTags.clear();
             _selectedTags.addAll(tags);
+            _hasUnsavedChanges = true;
           });
         },
       ),
@@ -552,7 +566,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             _taggedPeople.addAll(people);
             _hasUnsavedChanges = true;
           });
-          _saveDraft(showNotification: false);
         },
       ),
     );
@@ -561,43 +574,107 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   // Draft management methods
   Future<void> _checkForSavedDraft() async {
     try {
-      final draftData = _storageService.getString('post_draft');
+      final drafts = await _draftService.getDrafts();
+      if (!mounted) return;
       setState(() {
-        _hasSavedDraft = draftData != null && draftData.isNotEmpty;
+        _savedDraftCount = drafts.length;
       });
     } catch (e) {
       debugPrint('Error checking for saved draft: $e');
-      setState(() {
-        _hasSavedDraft = false;
-      });
+      if (!mounted) return;
+      setState(() => _savedDraftCount = 0);
     }
   }
 
-  Future<void> _loadDraft() async {
+  String _generateDraftId() => 'draft_${DateTime.now().microsecondsSinceEpoch}';
+
+  LocalPostDraft _buildCurrentDraft({String? id, DateTime? createdAt}) {
+    final now = DateTime.now();
+    return LocalPostDraft(
+      id: id ?? _activeDraftId ?? _generateDraftId(),
+      title: _titleController.text.trim(),
+      content: _contentController.text,
+      postType: _postType,
+      tags: List<String>.from(_selectedTags),
+      location: _selectedLocation,
+      taggedPeople: _taggedPeople
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(),
+      mediaPaths: _selectedMediaFiles.map((f) => f.path).toList(),
+      mediaTypes: List<String>.from(_selectedMediaTypes),
+      certifyHumanGenerated: _certifyHumanGenerated,
+      createdAt: createdAt ?? now,
+      updatedAt: now,
+    );
+  }
+
+  Future<void> _loadDraft([String? draftId]) async {
+    if (_isLoadingDraft) return;
     _isLoadingDraft = true;
     try {
-      final draftData = _storageService.getString('post_draft');
-      if (draftData != null && draftData.isNotEmpty) {
-        final draft = draftData.split('|||');
-        if (draft.length >= 4) {
-          setState(() {
-            _contentController.text = draft[0];
-            _postType = draft[1];
-            _selectedTags.clear();
-            _selectedTags.addAll(
-              draft[2].isNotEmpty ? draft[2].split(',') : [],
+      final drafts = await _draftService.getDrafts();
+      if (drafts.isEmpty) {
+        if (!mounted) return;
+        setState(() => _savedDraftCount = 0);
+        return;
+      }
+
+      final LocalPostDraft? selected = draftId == null
+          ? drafts.first
+          : drafts.cast<LocalPostDraft?>().firstWhere(
+              (d) => d?.id == draftId,
+              orElse: () => drafts.first,
             );
-            _selectedLocation = draft[3].isNotEmpty ? draft[3] : null;
-            // Note: Media files and tagged people are not persisted in this simple implementation
-            _isDraftLoaded = true;
-            _hasSavedDraft = true;
-            _hasUnsavedChanges = false;
-          });
+      if (selected == null || !mounted) return;
+
+      final restoredFiles = <File>[];
+      final restoredTypes = <String>[];
+      final maxPairs = math.min(
+        selected.mediaPaths.length,
+        selected.mediaTypes.length,
+      );
+      for (var i = 0; i < maxPairs; i++) {
+        final path = selected.mediaPaths[i];
+        final file = File(path);
+        if (file.existsSync()) {
+          restoredFiles.add(file);
+          restoredTypes.add(selected.mediaTypes[i]);
         }
-      } else {
-        setState(() {
-          _hasSavedDraft = false;
-        });
+      }
+
+      setState(() {
+        _titleController.text = selected.title;
+        _contentController.text = selected.content;
+        _postType = selected.postType;
+        _selectedTags
+          ..clear()
+          ..addAll(selected.tags);
+        _selectedLocation = selected.location;
+        _taggedPeople
+          ..clear()
+          ..addAll(selected.taggedPeople.map((e) => Map<String, dynamic>.from(e)));
+        _selectedMediaFiles
+          ..clear()
+          ..addAll(restoredFiles);
+        _selectedMediaTypes
+          ..clear()
+          ..addAll(restoredTypes);
+        _certifyHumanGenerated = selected.certifyHumanGenerated;
+        _isDraftLoaded = true;
+        _activeDraftId = selected.id;
+        _savedDraftCount = drafts.length;
+        _hasUnsavedChanges = false;
+      });
+
+      final missingCount = selected.mediaPaths.length - restoredFiles.length;
+      if (missingCount > 0 && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$missingCount draft media file(s) could not be restored and were skipped.',
+            ),
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Error loading draft: $e');
@@ -609,68 +686,243 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _saveDraft({bool showNotification = true}) async {
     try {
-      final draftData = [
-        _contentController.text,
-        _postType,
-        _selectedTags.join(','),
-        _selectedLocation ?? '',
-        // Note: Media files and tagged people are not persisted in this simple implementation
-      ].join('|||');
+      final contentDraft = _buildCurrentDraft();
+      if (!contentDraft.hasContent) return;
 
-      await _storageService.setString('post_draft', draftData);
+      final existing = _activeDraftId == null
+          ? null
+          : await _draftService.getDraft(_activeDraftId!);
+      final saved = await _draftService.upsertDraft(
+        contentDraft.copyWith(
+          id: existing?.id ?? contentDraft.id,
+          createdAt: existing?.createdAt ?? contentDraft.createdAt,
+        ),
+      );
 
+      final allDrafts = await _draftService.getDrafts();
+      if (!mounted) return;
       setState(() {
-        _hasSavedDraft = true;
-        if (_hasUnsavedChanges) {
-          _hasUnsavedChanges = false;
-        }
+        _activeDraftId = saved.id;
+        _isDraftLoaded = true;
+        _savedDraftCount = allDrafts.length;
+        _hasUnsavedChanges = false;
       });
 
       if (showNotification && context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Draft saved')));
+        ).showSnackBar(
+          SnackBar(
+            content: Text(
+              allDrafts.length > 1
+                  ? 'Draft saved (${allDrafts.length} drafts available)'
+                  : 'Draft saved',
+            ),
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Error saving draft: $e');
     }
   }
 
-  Future<void> _clearDraft() async {
+  Future<void> _clearDraft({String? draftId}) async {
     try {
-      await _storageService.remove('post_draft');
+      final idToDelete = draftId ?? _activeDraftId;
+      if (idToDelete != null && idToDelete.isNotEmpty) {
+        await _draftService.deleteDraft(idToDelete);
+      }
+      final remaining = await _draftService.getDrafts();
+      if (!mounted) return;
       setState(() {
-        _hasSavedDraft = false;
+        if (draftId == null || draftId == _activeDraftId) {
+          _activeDraftId = null;
+          _isDraftLoaded = false;
+        }
+        _savedDraftCount = remaining.length;
       });
     } catch (e) {
       debugPrint('Error clearing draft: $e');
     }
   }
 
+  void _resetComposer() {
+    _contentController.clear();
+    _titleController.clear();
+    _selectedMediaFiles.clear();
+    _selectedMediaTypes.clear();
+    _selectedTags.clear();
+    _taggedPeople.clear();
+    _selectedLocation = null;
+    _certifyHumanGenerated = false;
+    _hasUnsavedChanges = false;
+    _isDraftLoaded = false;
+    _activeDraftId = null;
+  }
+
   Future<void> _discardDraft() async {
-    await _clearDraft();
+    final hadLoadedDraft = _activeDraftId != null;
     setState(() {
-      _contentController.clear();
-      _titleController.clear();
-      _selectedMediaFiles.clear();
-      _selectedMediaTypes.clear();
-      _selectedTags.clear();
-      _taggedPeople.clear();
-      _selectedLocation = null;
-      _certifyHumanGenerated = false;
-      _hasUnsavedChanges = false;
-      _isDraftLoaded = false;
+      _resetComposer();
     });
+    await _checkForSavedDraft();
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Draft discarded')));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(
+            hadLoadedDraft
+                ? 'Draft closed. It is still available in your drafts list.'
+                : 'Changes discarded',
+          ),
+        ),
+      );
     }
+  }
+
+  bool get _hasComposerContent =>
+      _titleController.text.trim().isNotEmpty ||
+      _contentController.text.trim().isNotEmpty ||
+      _selectedMediaFiles.isNotEmpty ||
+      _selectedTags.isNotEmpty ||
+      _taggedPeople.isNotEmpty ||
+      (_selectedLocation?.trim().isNotEmpty ?? false);
+
+  Future<bool> _confirmLoadDifferentDraft() async {
+    if (!_hasUnsavedChanges && !_hasComposerContent) return true;
+    if (!mounted) return false;
+
+    final shouldLoad = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Load another draft?'),
+        content: const Text(
+          'This will replace your current unsaved changes. Save your current work as a draft first if you want to keep it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Load Draft'),
+          ),
+        ],
+      ),
+    );
+
+    return shouldLoad == true;
+  }
+
+  Future<bool> _onWillPop() async {
+    await _handleClose();
+    return false;
+  }
+
+  Future<void> _showDraftActionsSheet() async {
+    if (!mounted) return;
+    final hasCurrentDraftContent = _hasComposerContent;
+    final canDeleteLoadedDraft = _activeDraftId != null;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text(
+                'Draft Options',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.save_outlined),
+              title: const Text('Save Draft'),
+              enabled: hasCurrentDraftContent,
+              onTap: !hasCurrentDraftContent
+                  ? null
+                  : () async {
+                      Navigator.pop(sheetContext);
+                      await _saveDraft(showNotification: true);
+                    },
+            ),
+            ListTile(
+              leading: const Icon(Icons.drafts_outlined),
+              title: Text(
+                _savedDraftCount > 0
+                    ? 'Open Drafts ($_savedDraftCount)'
+                    : 'Open Drafts',
+              ),
+              enabled: _savedDraftCount > 0,
+              onTap: _savedDraftCount == 0
+                  ? null
+                  : () async {
+                      Navigator.pop(sheetContext);
+                      await _showDraftsPicker();
+                    },
+            ),
+            if (canDeleteLoadedDraft)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text(
+                  'Delete Loaded Draft',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Delete draft?'),
+                      content: const Text(
+                        'This removes the currently loaded draft from your saved drafts list.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true) {
+                    await _clearDraft();
+                    if (!mounted) return;
+                    setState(_resetComposer);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Draft deleted')),
+                    );
+                  }
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.clear_all_outlined),
+              title: const Text('Discard Current Changes'),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                await _discardDraft();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _handleClose() async {
     if (_hasUnsavedChanges ||
-        (_isDraftLoaded && _contentController.text.isNotEmpty)) {
+        (_isDraftLoaded && _hasComposerContent)) {
       final result = await showDialog<bool>(
         context: context,
         builder: (context) {
@@ -693,7 +945,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               ),
               TextButton(
                 onPressed: () async {
-                  await _clearDraft();
                   if (context.mounted) {
                     Navigator.pop(context, true); // Discard
                   }
@@ -1018,7 +1269,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   /// advertisement and they must pay a ROO fee before it goes live.
   /// Returns true if the fee was successfully charged, false otherwise.
   Future<bool> _showAdFeeDialog(double adConfidence, String? adType) async {
-    const double adFeeRoo = 50.0; // flat advertising fee in ROO
+    const double adFeeRoo = 5.0; // flat advertising fee in ROO
 
     if (!mounted) return false;
 
@@ -1137,6 +1388,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     // 0. Require full activation (verified + purchased ROO)
     final isActivated = await VerificationUtils.checkActivation(context);
     if (!mounted || !isActivated) return;
+
+    final missingProfileRequirements = _getMissingProfileRequirements();
+    if (missingProfileRequirements.isNotEmpty) {
+      await _showCompleteProfileRequiredAlert(missingProfileRequirements);
+      return;
+    }
     // 1. Post creation is now a reward (+10 ROO) processed in PostRepository
     // final paid = await _confirmAndPayPostFee();
     // if (!mounted || !paid) return;
@@ -1261,7 +1518,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         optimisticAuthor: optimisticAuthor,
         optimisticTags: optimisticTags,
         waitForAi:
-            false, // Navigate to feed immediately; AI/review continues in background
+            true, // Keep screen active so ad-fee modal can be shown before leaving
         onAdFeeRequired: (adConfidence, adType) =>
             _showAdFeeDialog(adConfidence, adType),
       );
@@ -1310,6 +1567,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         } else if (createdPost.status == 'under_review') {
           message = 'Post sent to review. It will show after review.';
           backgroundColor = Colors.amber.shade700;
+        } else if (createdPost.status == 'draft' &&
+            (createdPost.authenticityNotes ?? '')
+                .toLowerCase()
+                .contains('awaiting ad fee payment')) {
+          message =
+              'Advertisement detected. Post is held until you pay the 5 ROO ad fee.';
+          backgroundColor = Colors.orange.shade700;
         } else {
           message = null;
           backgroundColor = null;
@@ -1400,6 +1664,78 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
+  List<String> _getMissingProfileRequirements() {
+    final user = context.read<UserProvider>().currentUser;
+    if (user == null) {
+      return const ['profile'];
+    }
+
+    final missing = <String>[];
+    if (user.displayName.trim().isEmpty) {
+      missing.add('display name');
+    }
+
+    final phone = user.phone?.trim() ?? '';
+    if (phone.isEmpty) {
+      missing.add('phone number');
+    }
+
+    final country = (user.countryOfResidence ?? user.location ?? '').trim();
+    if (country.isEmpty) {
+      missing.add('country');
+    }
+
+    final birthDate = user.birthDate;
+    if (birthDate == null) {
+      missing.add('date of birth');
+    } else if (_calculateAge(birthDate) < 18) {
+      missing.add('age must be 18+');
+    }
+
+    return missing;
+  }
+
+  int _calculateAge(DateTime birthDate) {
+    final now = DateTime.now();
+    var age = now.year - birthDate.year;
+    final hadBirthdayThisYear =
+        now.month > birthDate.month ||
+        (now.month == birthDate.month && now.day >= birthDate.day);
+    if (!hadBirthdayThisYear) age--;
+    return age;
+  }
+
+  Future<void> _showCompleteProfileRequiredAlert(List<String> missingFields) async {
+    if (!mounted) return;
+
+    final missingText = missingFields.join(', ');
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Complete Your Profile'),
+        content: Text(
+          'Finish your profile before creating a post.\n\nRequired: $missingText',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              if (!mounted) return;
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+              );
+            },
+            child: const Text('Finish Profile'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1410,16 +1746,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         _contentController.text.trim().isNotEmpty ||
         _selectedMediaFiles.isNotEmpty;
 
-    return Scaffold(
-      floatingActionButton: _hasSavedDraft && !_isDraftLoaded
-          ? FloatingActionButton.extended(
-              onPressed: _loadDraft,
-              label: const Text('Load Draft'),
-              icon: const Icon(Icons.drafts),
-            )
-          : null,
-      body: SafeArea(
-        child: Column(
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        floatingActionButton: null,
+        body: SafeArea(
+          child: Column(
           children: [
             // App bar
             Container(
@@ -1471,18 +1803,54 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ),
                   ),
                   const Spacer(),
-                  TextButton(
-                    onPressed: _hasUnsavedChanges
-                        ? () => _saveDraft(showNotification: true)
+                  IconButton(
+                    tooltip: _savedDraftCount > 0
+                        ? 'Open drafts ($_savedDraftCount)'
+                        : 'No drafts saved',
+                    onPressed:
+                        _savedDraftCount > 0 && !_isLoadingDraft
+                        ? _showDraftsPicker
                         : null,
-                    child: const Text('Save Draft'),
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.drafts_outlined),
+                        if (_savedDraftCount > 0)
+                          Positioned(
+                            right: -6,
+                            top: -6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              constraints: const BoxConstraints(minWidth: 18),
+                              child: Text(
+                                _savedDraftCount > 99
+                                    ? '99+'
+                                    : '$_savedDraftCount',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: () => _discardDraft(),
-                    child: const Text('Discard'),
+                  IconButton(
+                    tooltip: 'Draft options',
+                    onPressed: _showDraftActionsSheet,
+                    icon: const Icon(Icons.more_vert),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   Builder(
                     builder: (context) {
                       final postButton = FilledButton(
@@ -1874,6 +2242,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );
@@ -2577,9 +2946,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 onPressed: () {
                   Navigator.pop(context);
                   if (isMuted && mounted) {
-                    // Store mute flag - the video will be uploaded with mute applied server-side
-                    // For local preview, track the muted state
-                    _videoMuteFlags[index] = true;
                     ScaffoldMessenger.of(this.context).showSnackBar(
                       const SnackBar(
                         content: Text('Video will be muted when posted'),
@@ -2712,7 +3078,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 onPressed: () {
                   Navigator.pop(context);
                   if (rotationDegrees != 0 && mounted) {
-                    _videoRotationFlags[index] = rotationDegrees;
                     ScaffoldMessenger.of(this.context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -2753,6 +3118,114 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ),
     );
   }
+
+  String _draftPreview(LocalPostDraft draft) {
+    final title = draft.title.trim();
+    final content = draft.content.trim();
+    if (title.isNotEmpty) return title;
+    if (content.isNotEmpty) {
+      return content.length > 60 ? '${content.substring(0, 60)}...' : content;
+    }
+    if (draft.mediaPaths.isNotEmpty) return '[Media Draft]';
+    return 'Untitled draft';
+  }
+
+  Future<void> _showDraftsPicker() async {
+    final drafts = await _draftService.getDrafts();
+    if (!mounted) return;
+    if (drafts.isEmpty) {
+      setState(() => _savedDraftCount = 0);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No saved drafts')));
+      return;
+    }
+
+    if (drafts.length == 1) {
+      if (_activeDraftId != drafts.first.id &&
+          !await _confirmLoadDifferentDraft()) {
+        return;
+      }
+      await _loadDraft(drafts.first.id);
+      return;
+    }
+
+    final selectedId = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        final colors = Theme.of(context).colorScheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text(
+                    'My Drafts',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text('${drafts.length} saved drafts'),
+                ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.65,
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: drafts.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: colors.outlineVariant,
+                    ),
+                    itemBuilder: (context, index) {
+                      final draft = drafts[index];
+                      final updated = draft.updatedAt.toLocal();
+                      final subtitle =
+                          '${updated.year}-${updated.month.toString().padLeft(2, '0')}-${updated.day.toString().padLeft(2, '0')} ${updated.hour.toString().padLeft(2, '0')}:${updated.minute.toString().padLeft(2, '0')}';
+                      return ListTile(
+                        leading: const Icon(Icons.drafts_outlined),
+                        title: Text(
+                          _draftPreview(draft),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () async {
+                            await _clearDraft(draftId: draft.id);
+                            if (!context.mounted) return;
+                            Navigator.pop(context);
+                            await _showDraftsPicker();
+                          },
+                        ),
+                        onTap: () => Navigator.pop(context, draft.id),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedId != null) {
+      if (_activeDraftId != selectedId &&
+          !await _confirmLoadDifferentDraft()) {
+        return;
+      }
+      await _loadDraft(selectedId);
+    }
+  }
+
 }
 
 // Video Preview Widget

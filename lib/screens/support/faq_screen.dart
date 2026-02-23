@@ -108,11 +108,6 @@ class FAQScreen extends StatelessWidget {
                   answer:
                       'Roobyte can be traded on supported cryptocurrency exchanges, subject to local regulations.',
                 ),
-                _FAQItem(
-                  question: 'What is staking?',
-                  answer:
-                      'Staking locks ROO tokens to earn rewards and governance power.',
-                ),
               ],
             ),
 

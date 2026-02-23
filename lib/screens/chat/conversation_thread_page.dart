@@ -22,6 +22,7 @@ import '../profile/profile_screen.dart';
 import '../../widgets/story_viewer.dart';
 import '../../widgets/video_player_widget.dart';
 import '../../utils/verification_utils.dart';
+import '../../utils/snackbar_utils.dart';
 
 class ConversationThreadPage extends StatefulWidget {
   final Conversation conversation;
@@ -164,12 +165,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       });
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            chatProvider.error ?? 'Failed to send message. Please try again.',
-          ),
-        ),
+      SnackBarUtils.showErrorMessage(
+        context,
+        chatProvider.error ?? 'Failed to send message. Please try again.',
       );
     }
   }
@@ -186,17 +184,13 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
 
     final allStories = storyProvider.stories;
     if (allStories.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Story is no longer available.')),
-      );
+      SnackBarUtils.showInfo(context, 'Story is no longer available.');
       return;
     }
 
     final storyIndex = allStories.indexWhere((story) => story.id == storyId);
     if (storyIndex == -1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Story has expired or is unavailable.')),
-      );
+      SnackBarUtils.showInfo(context, 'Story has expired or is unavailable.');
       return;
     }
 
@@ -265,10 +259,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       if (result != null && result.files.single.path != null && mounted) {
         final sizeBytes = result.files.single.size;
         if (sizeBytes > 100 * 1024 * 1024) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Video too large. Max size is 100MB.'),
-            ),
+          SnackBarUtils.showWarning(
+            context,
+            'Video too large. Max size is 100MB.',
           );
           return;
         }
@@ -299,12 +292,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
     } catch (_) {
       if (mounted) {
         final chatProvider = context.read<ChatProvider>();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              chatProvider.error ?? 'Failed to send media. Please try again.',
-            ),
-          ),
+        SnackBarUtils.showErrorMessage(
+          context,
+          chatProvider.error ?? 'Failed to send media. Please try again.',
         );
       }
     } finally {
@@ -425,9 +415,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!launched && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Could not open link')));
+      SnackBarUtils.showErrorMessage(context, 'Could not open link');
     }
   }
 

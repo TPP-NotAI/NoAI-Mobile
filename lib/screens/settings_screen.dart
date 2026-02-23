@@ -86,7 +86,8 @@ class SettingsScreen extends StatelessWidget {
                 Text(
                   currentUser?.displayName.isNotEmpty == true
                       ? currentUser!.displayName
-                      : currentUser?.username ?? 'User',
+                      : currentUser?.username ??
+                          _localizedSettingsText(context, 'userFallback'),
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -94,7 +95,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '@${currentUser?.username ?? 'unknown'}',
+                  '@${currentUser?.username ?? _localizedSettingsText(context, 'unknownUsername')}',
                   style: TextStyle(
                     color: scheme.onSurface.withOpacity(0.6),
                     fontSize: 14,
@@ -128,7 +129,10 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
 
-          _buildSectionHeader(context, 'ACCOUNT'),
+          _buildSectionHeader(
+            context,
+            _localizedSettingsText(context, 'sectionAccount'),
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.person,
@@ -205,7 +209,10 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          _buildSectionHeader(context, 'ROOBYTE WALLET'),
+          _buildSectionHeader(
+            context,
+            _localizedSettingsText(context, 'sectionRoobyteWallet'),
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.history,
@@ -223,7 +230,10 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          _buildSectionHeader(context, 'PREFERENCES'),
+          _buildSectionHeader(
+            context,
+            _localizedSettingsText(context, 'sectionPreferences'),
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.notifications,
@@ -254,8 +264,8 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.block,
             iconColor: Colors.red,
-            title: 'Blocked Users',
-            subtitle: 'Manage users you have blocked',
+            title: _localizedSettingsText(context, 'blockedUsers'),
+            subtitle: _localizedSettingsText(context, 'blockedUsersSubtitle'),
             onTap: () {
               Navigator.push(
                 context,
@@ -299,13 +309,16 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          _buildSectionHeader(context, 'SUPPORT'),
+          _buildSectionHeader(
+            context,
+            _localizedSettingsText(context, 'sectionSupport'),
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.help_center,
             iconColor: Colors.teal,
             title: l10n.helpCenter,
-            subtitle: 'FAQ and contact support',
+            subtitle: _localizedSettingsText(context, 'helpCenterSubtitle'),
             onTap: () {
               Navigator.push(
                 context,
@@ -323,8 +336,11 @@ class SettingsScreen extends StatelessWidget {
                 context,
                 icon: Icons.confirmation_number,
                 iconColor: Colors.indigo,
-                title: 'Support Tickets (Admin)',
-                subtitle: 'Review submitted support tickets',
+                title: _localizedSettingsText(context, 'supportTicketsAdmin'),
+                subtitle: _localizedSettingsText(
+                  context,
+                  'supportTicketsAdminSubtitle',
+                ),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -340,8 +356,11 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.gavel,
             iconColor: Colors.deepOrange,
-            title: 'My Flagged Content',
-            subtitle: 'View, appeal or delete AI-flagged posts & comments',
+            title: _localizedSettingsText(context, 'myFlaggedContent'),
+            subtitle: _localizedSettingsText(
+              context,
+              'myFlaggedContentSubtitle',
+            ),
             onTap: () {
               Navigator.push(
                 context,
@@ -359,8 +378,11 @@ class SettingsScreen extends StatelessWidget {
                 context,
                 icon: Icons.admin_panel_settings,
                 iconColor: Colors.deepOrange,
-                title: 'Moderation Queue',
-                subtitle: 'Review AI-flagged content',
+                title: _localizedSettingsText(context, 'moderationQueue'),
+                subtitle: _localizedSettingsText(
+                  context,
+                  'moderationQueueSubtitle',
+                ),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -383,7 +405,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.system_update,
             iconColor: Colors.teal,
-            title: 'Check for Updates',
+            title: _localizedSettingsText(context, 'checkForUpdates'),
             onTap: () async {
               await AppUpdateService.instance.checkAndPromptForUpdate(
                 context,
@@ -394,7 +416,10 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          _buildSectionHeader(context, 'LEGAL'),
+          _buildSectionHeader(
+            context,
+            _localizedSettingsText(context, 'sectionLegal'),
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.description,
@@ -422,7 +447,10 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          _buildSectionHeader(context, 'DANGER ZONE'),
+          _buildSectionHeader(
+            context,
+            _localizedSettingsText(context, 'sectionDangerZone'),
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.delete_forever,
@@ -661,7 +689,7 @@ class SettingsScreen extends StatelessWidget {
             TextField(
               controller: controller,
               decoration: InputDecoration(
-                hintText: 'Type DELETE',
+                hintText: _localizedSettingsText(context, 'typeDeleteHint'),
                 filled: true,
                 fillColor: scheme.background,
                 border: OutlineInputBorder(
@@ -703,7 +731,282 @@ class SettingsScreen extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ).whenComplete(controller.dispose);
+  }
+
+  static String _localizedSettingsText(BuildContext context, String key) {
+    final code = Localizations.localeOf(context).languageCode;
+
+    const values = <String, Map<String, String>>{
+      'userFallback': {
+        'en': 'User',
+        'es': 'Usuario',
+        'fr': 'Utilisateur',
+        'de': 'Benutzer',
+        'it': 'Utente',
+        'pt': 'Usuario',
+        'ru': 'Пользователь',
+        'zh': '用户',
+        'ja': 'ユーザー',
+        'ko': '사용자',
+        'ar': 'مستخدم',
+        'hi': 'उपयोगकर्ता',
+      },
+      'unknownUsername': {
+        'en': 'unknown',
+        'es': 'desconocido',
+        'fr': 'inconnu',
+        'de': 'unbekannt',
+        'it': 'sconosciuto',
+        'pt': 'desconhecido',
+        'ru': 'неизвестно',
+        'zh': '未知',
+        'ja': '不明',
+        'ko': '알 수 없음',
+        'ar': 'غير معروف',
+        'hi': 'अज्ञात',
+      },
+      'sectionAccount': {
+        'en': 'ACCOUNT',
+        'es': 'CUENTA',
+        'fr': 'COMPTE',
+        'de': 'KONTO',
+        'it': 'ACCOUNT',
+        'pt': 'CONTA',
+        'ru': 'АККАУНТ',
+        'zh': '账户',
+        'ja': 'アカウント',
+        'ko': '계정',
+        'ar': 'الحساب',
+        'hi': 'खाता',
+      },
+      'sectionRoobyteWallet': {
+        'en': 'ROOBYTE WALLET',
+        'es': 'CARTERA ROOBYTE',
+        'fr': 'PORTEFEUILLE ROOBYTE',
+        'de': 'ROOBYTE-WALLET',
+        'it': 'PORTAFOGLIO ROOBYTE',
+        'pt': 'CARTEIRA ROOBYTE',
+        'ru': 'КОШЕЛЁК ROOBYTE',
+        'zh': 'ROOBYTE 钱包',
+        'ja': 'ROOBYTEウォレット',
+        'ko': 'ROOBYTE 지갑',
+        'ar': 'محفظة ROOBYTE',
+        'hi': 'ROOBYTE वॉलेट',
+      },
+      'sectionPreferences': {
+        'en': 'PREFERENCES',
+        'es': 'PREFERENCIAS',
+        'fr': 'PREFERENCES',
+        'de': 'EINSTELLUNGEN',
+        'it': 'PREFERENZE',
+        'pt': 'PREFERÊNCIAS',
+        'ru': 'ПРЕДПОЧТЕНИЯ',
+        'zh': '偏好设置',
+        'ja': '設定',
+        'ko': '환경설정',
+        'ar': 'التفضيلات',
+        'hi': 'प्राथमिकताएं',
+      },
+      'blockedUsers': {
+        'en': 'Blocked Users',
+        'es': 'Usuarios bloqueados',
+        'fr': 'Utilisateurs bloques',
+        'de': 'Blockierte Nutzer',
+        'it': 'Utenti bloccati',
+        'pt': 'Usuarios bloqueados',
+        'ru': 'Заблокированные пользователи',
+        'zh': '已屏蔽用户',
+        'ja': 'ブロックしたユーザー',
+        'ko': '차단된 사용자',
+        'ar': 'المستخدمون المحظورون',
+        'hi': 'ब्लॉक किए गए उपयोगकर्ता',
+      },
+      'blockedUsersSubtitle': {
+        'en': 'Manage users you have blocked',
+        'es': 'Administra los usuarios que has bloqueado',
+        'fr': 'Gerez les utilisateurs que vous avez bloques',
+        'de': 'Verwalte Nutzer, die du blockiert hast',
+        'it': 'Gestisci gli utenti che hai bloccato',
+        'pt': 'Gerencie os usuarios que voce bloqueou',
+        'ru': 'Управляйте пользователями, которых вы заблокировали',
+        'zh': '管理你已屏蔽的用户',
+        'ja': 'ブロックしたユーザーを管理',
+        'ko': '차단한 사용자를 관리합니다',
+        'ar': 'إدارة المستخدمين الذين قمت بحظرهم',
+        'hi': 'जिन उपयोगकर्ताओं को आपने ब्लॉक किया है उन्हें प्रबंधित करें',
+      },
+      'sectionSupport': {
+        'en': 'SUPPORT',
+        'es': 'SOPORTE',
+        'fr': 'ASSISTANCE',
+        'de': 'SUPPORT',
+        'it': 'SUPPORTO',
+        'pt': 'SUPORTE',
+        'ru': 'ПОДДЕРЖКА',
+        'zh': '支持',
+        'ja': 'サポート',
+        'ko': '지원',
+        'ar': 'الدعم',
+        'hi': 'सहायता',
+      },
+      'helpCenterSubtitle': {
+        'en': 'FAQ and contact support',
+        'es': 'Preguntas frecuentes y contacto con soporte',
+        'fr': 'FAQ et contact du support',
+        'de': 'FAQ und Support kontaktieren',
+        'it': 'FAQ e contatta il supporto',
+        'pt': 'FAQ e contato com o suporte',
+        'ru': 'FAQ и обращение в поддержку',
+        'zh': '常见问题与联系客服',
+        'ja': 'FAQとサポートへの連絡',
+        'ko': 'FAQ 및 지원팀 문의',
+        'ar': 'الأسئلة الشائعة والتواصل مع الدعم',
+        'hi': 'FAQ और सहायता से संपर्क',
+      },
+      'supportTicketsAdmin': {
+        'en': 'Support Tickets (Admin)',
+        'es': 'Tickets de soporte (Admin)',
+        'fr': 'Tickets de support (Admin)',
+        'de': 'Support-Tickets (Admin)',
+        'it': 'Ticket di supporto (Admin)',
+        'pt': 'Tickets de suporte (Admin)',
+        'ru': 'Тикеты поддержки (админ)',
+        'zh': '支持工单（管理员）',
+        'ja': 'サポートチケット（管理者）',
+        'ko': '지원 티켓(관리자)',
+        'ar': 'تذاكر الدعم (المسؤول)',
+        'hi': 'सपोर्ट टिकट (एडमिन)',
+      },
+      'supportTicketsAdminSubtitle': {
+        'en': 'Review submitted support tickets',
+        'es': 'Revisar tickets de soporte enviados',
+        'fr': 'Examiner les tickets de support soumis',
+        'de': 'Eingereichte Support-Tickets pruefen',
+        'it': 'Controlla i ticket di supporto inviati',
+        'pt': 'Revisar tickets de suporte enviados',
+        'ru': 'Проверка отправленных тикетов поддержки',
+        'zh': '查看已提交的支持工单',
+        'ja': '送信されたサポートチケットを確認',
+        'ko': '제출된 지원 티켓 검토',
+        'ar': 'مراجعة تذاكر الدعم المرسلة',
+        'hi': 'जमा किए गए सपोर्ट टिकट की समीक्षा करें',
+      },
+      'myFlaggedContent': {
+        'en': 'My Flagged Content',
+        'es': 'Mi contenido marcado',
+        'fr': 'Mon contenu signale',
+        'de': 'Meine markierten Inhalte',
+        'it': 'I miei contenuti segnalati',
+        'pt': 'Meu conteudo sinalizado',
+        'ru': 'Мой отмеченный контент',
+        'zh': '我被标记的内容',
+        'ja': '自分のフラグ付きコンテンツ',
+        'ko': '내가 표시된 콘텐츠',
+        'ar': 'المحتوى المعلّم الخاص بي',
+        'hi': 'मेरी चिन्हित सामग्री',
+      },
+      'myFlaggedContentSubtitle': {
+        'en': 'View, appeal or delete AI-flagged posts & comments',
+        'es': 'Ver, apelar o eliminar publicaciones y comentarios marcados por IA',
+        'fr': 'Voir, contester ou supprimer les publications et commentaires signales par IA',
+        'de': 'Von KI markierte Beitraege und Kommentare ansehen, anfechten oder loeschen',
+        'it': 'Visualizza, contesta o elimina post e commenti segnalati dall IA',
+        'pt': 'Ver, recorrer ou excluir posts e comentarios sinalizados por IA',
+        'ru': 'Просмотр, обжалование или удаление постов и комментариев, отмеченных ИИ',
+        'zh': '查看、申诉或删除被 AI 标记的帖子和评论',
+        'ja': 'AIにフラグされた投稿とコメントを表示・異議申し立て・削除',
+        'ko': 'AI가 표시한 게시물 및 댓글 보기, 이의제기 또는 삭제',
+        'ar': 'عرض أو الاعتراض على أو حذف المنشورات والتعليقات التي علّمها الذكاء الاصطناعي',
+        'hi': 'AI द्वारा चिन्हित पोस्ट और टिप्पणियाँ देखें, अपील करें या हटाएँ',
+      },
+      'moderationQueue': {
+        'en': 'Moderation Queue',
+        'es': 'Cola de moderacion',
+        'fr': 'File de moderation',
+        'de': 'Moderationswarteschlange',
+        'it': 'Coda di moderazione',
+        'pt': 'Fila de moderacao',
+        'ru': 'Очередь модерации',
+        'zh': '审核队列',
+        'ja': 'モデレーションキュー',
+        'ko': '검토 대기열',
+        'ar': 'قائمة الإشراف',
+        'hi': 'मॉडरेशन कतार',
+      },
+      'moderationQueueSubtitle': {
+        'en': 'Review AI-flagged content',
+        'es': 'Revisar contenido marcado por IA',
+        'fr': 'Examiner le contenu signale par IA',
+        'de': 'Von KI markierte Inhalte pruefen',
+        'it': 'Controlla i contenuti segnalati dall IA',
+        'pt': 'Revisar conteudo sinalizado por IA',
+        'ru': 'Проверка контента, отмеченного ИИ',
+        'zh': '审核被 AI 标记的内容',
+        'ja': 'AIにフラグされたコンテンツを確認',
+        'ko': 'AI가 표시한 콘텐츠 검토',
+        'ar': 'مراجعة المحتوى الذي علّمه الذكاء الاصطناعي',
+        'hi': 'AI द्वारा चिन्हित सामग्री की समीक्षा करें',
+      },
+      'checkForUpdates': {
+        'en': 'Check for Updates',
+        'es': 'Buscar actualizaciones',
+        'fr': 'Rechercher des mises a jour',
+        'de': 'Nach Updates suchen',
+        'it': 'Controlla aggiornamenti',
+        'pt': 'Verificar atualizacoes',
+        'ru': 'Проверить обновления',
+        'zh': '检查更新',
+        'ja': 'アップデートを確認',
+        'ko': '업데이트 확인',
+        'ar': 'التحقق من التحديثات',
+        'hi': 'अपडेट जांचें',
+      },
+      'sectionLegal': {
+        'en': 'LEGAL',
+        'es': 'LEGAL',
+        'fr': 'LEGAL',
+        'de': 'RECHTLICHES',
+        'it': 'LEGALE',
+        'pt': 'LEGAL',
+        'ru': 'ЮРИДИЧЕСКОЕ',
+        'zh': '法律',
+        'ja': '法的情報',
+        'ko': '법률',
+        'ar': 'قانوني',
+        'hi': 'कानूनी',
+      },
+      'sectionDangerZone': {
+        'en': 'DANGER ZONE',
+        'es': 'ZONA DE PELIGRO',
+        'fr': 'ZONE DE DANGER',
+        'de': 'GEFAHRENBEREICH',
+        'it': 'ZONA DI PERICOLO',
+        'pt': 'ZONA DE PERIGO',
+        'ru': 'ОПАСНАЯ ЗОНА',
+        'zh': '危险区域',
+        'ja': '危険ゾーン',
+        'ko': '위험 구역',
+        'ar': 'منطقة الخطر',
+        'hi': 'खतरे का क्षेत्र',
+      },
+      'typeDeleteHint': {
+        'en': 'Type DELETE',
+        'es': 'Escribe DELETE',
+        'fr': 'Tapez DELETE',
+        'de': 'DELETE eingeben',
+        'it': 'Digita DELETE',
+        'pt': 'Digite DELETE',
+        'ru': 'Введите DELETE',
+        'zh': '输入 DELETE',
+        'ja': 'DELETE と入力',
+        'ko': 'DELETE 입력',
+        'ar': 'اكتب DELETE',
+        'hi': 'DELETE टाइप करें',
+      },
+    };
+
+    return values[key]?[code] ?? values[key]?['en'] ?? key;
   }
 }
 

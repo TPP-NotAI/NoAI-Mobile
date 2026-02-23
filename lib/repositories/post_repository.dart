@@ -140,7 +140,7 @@ class PostRepository {
         .order('created_at', ascending: false)
         .range(offset, offset + fetchLimit - 1);
 
-    final results = await Future.wait([postResultsFuture, repostsFuture]);
+    final results = await Future.wait([postResultsFuture, repostsFuture], eagerError: false);
     final postData = results[0] as List<dynamic>;
     final repostData = results[1] as List<dynamic>;
 
@@ -427,7 +427,7 @@ class PostRepository {
         .order('created_at', ascending: false)
         .range(offset, offset + fetchLimit - 1);
 
-    final results = await Future.wait<dynamic>([postsFuture, repostsFuture]);
+    final results = await Future.wait<dynamic>([postsFuture, repostsFuture], eagerError: false);
     final postData = results[0] as List<dynamic>;
     final repostData = results[1] as List<dynamic>;
 
@@ -683,6 +683,87 @@ class PostRepository {
     }
   }
 
+  /// Publish a post that was held for ad payment (stored as `draft` in DB for
+  /// enum compatibility) after the user pays the advertising fee.
+  /// the advertising fee. Also broadcasts the sponsored-post notification.
+  Future<bool> publishPendingAdPost(
+    String postId, {
+    required String currentUserId,
+  }) async {
+    try {
+      final post = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('author_id, status, ai_metadata, authenticity_notes')
+          .eq('id', postId)
+          .maybeSingle();
+
+      if (post == null || post['author_id'] != currentUserId) {
+        debugPrint('PostRepository: Unauthorized or post not found');
+        return false;
+      }
+
+      final status = post['status'] as String?;
+      final existingNotes = post['authenticity_notes'] as String?;
+      final aiMetadata = post['ai_metadata'];
+      final bool isAwaitingAdPayment = status == 'draft' &&
+          (((existingNotes ?? '').toLowerCase().contains(
+                'awaiting ad fee payment',
+              )) ||
+              (aiMetadata is Map &&
+                  aiMetadata['advertisement'] is Map &&
+                  ((aiMetadata['advertisement'] as Map)['requires_payment'] ==
+                      true)));
+
+      if (!isAwaitingAdPayment) {
+        debugPrint(
+          'PostRepository: Post $postId is not awaiting ad payment '
+          '(status=${post["status"]})',
+        );
+        return false;
+      }
+
+      String? adType;
+      if (aiMetadata is Map<String, dynamic>) {
+        final ad = aiMetadata['advertisement'];
+        if (ad is Map<String, dynamic>) {
+          adType = ad['type'] as String?;
+        }
+      } else if (aiMetadata is Map) {
+        final ad = aiMetadata['advertisement'];
+        if (ad is Map) {
+          final raw = ad['type'];
+          if (raw is String) adType = raw;
+        }
+      }
+
+      final nextNotes = (existingNotes == null || existingNotes.isEmpty)
+          ? 'ADVERTISEMENT: ad fee paid'
+          : existingNotes.contains('ad fee paid')
+          ? existingNotes
+          : '$existingNotes | ad fee paid';
+
+      await _client
+          .from(SupabaseConfig.postsTable)
+          .update({
+            'status': 'published',
+            'authenticity_notes': nextNotes,
+            'published_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', postId);
+
+      await _broadcastSponsoredPostNotification(
+        postId: postId,
+        authorId: currentUserId,
+        adType: adType,
+      );
+
+      return true;
+    } catch (e) {
+      debugPrint('PostRepository: Error publishing pending ad post - $e');
+      return false;
+    }
+  }
+
   /// Fetch draft (unpublished) posts for a user.
   Future<List<Post>> getDraftsByUser(String userId) async {
     try {
@@ -878,12 +959,21 @@ class PostRepository {
             )
           ''')
           .eq('author_id', userId)
-          .inFilter('ai_score_status', ['flagged', 'review'])
+          .or('ai_score_status.in.(flagged,review),status.eq.draft')
           .order('created_at', ascending: false)
           .limit(limit) as List<dynamic>;
 
       return data
           .map((json) => Post.fromSupabase(json as Map<String, dynamic>))
+          .where(
+            (post) =>
+                post.aiScoreStatus == 'flagged' ||
+                post.aiScoreStatus == 'review' ||
+                (post.status == 'draft' &&
+                    (post.authenticityNotes ?? '')
+                        .toLowerCase()
+                        .contains('awaiting ad fee payment')),
+          )
           .toList();
     } catch (e) {
       debugPrint('PostRepository: Error fetching user flagged posts - $e');
@@ -1103,7 +1193,8 @@ class PostRepository {
   /// /detect/full endpoint (AI + Moderation + Advertisement in one call).
   ///
   /// When advertisement is detected with [action == 'require_payment'], the
-  /// post is held as 'pending_ad_payment' and [onAdFeeRequired] is called with
+  /// post is held as `draft` (DB enum-compatible ad-payment hold) and
+  /// [onAdFeeRequired] is called with
   /// the confidence percentage so the caller can prompt the user to pay.
   ///
   /// Returns the AI confidence score on success, or null on failure.
@@ -1118,6 +1209,7 @@ class PostRepository {
       final trimmedBody = body.trim();
       final hasText = trimmedBody.isNotEmpty;
       final hasMedia = mediaFiles != null && mediaFiles.isNotEmpty;
+      final detectionModels = hasMedia ? 'gpt-4.1' : 'gpt-5.2,o3';
 
       if (!hasText && !hasMedia) {
         debugPrint(
@@ -1125,11 +1217,16 @@ class PostRepository {
         );
         return null;
       }
+      debugPrint(
+        'PostRepository: Running AI detection with models=$detectionModels '
+        '(hasText=$hasText, hasMedia=$hasMedia)',
+      );
 
       // Single call — AI + Moderation + Advertisement in parallel
       final AiDetectionResult? result = await _aiDetectionService.detectFull(
         content: hasText ? trimmedBody : null,
         file: hasMedia ? mediaFiles.first : null,
+        models: detectionModels,
       );
 
       if (result != null) {
@@ -1191,44 +1288,60 @@ class PostRepository {
         // Only applies when content is not already blocked/under_review by
         // AI or moderation checks.
         final ad = result.advertisement;
-        if (postStatus == 'published' && ad != null && ad.requiresPayment) {
+        final requiresAdPayment =
+            (ad?.requiresPayment ?? false) ||
+            result.policyRequiresPayment ||
+            result.policyAction == 'require_payment';
+        final adFlaggedForReview =
+            (ad?.flaggedForReview ?? false) ||
+            result.policyAction == 'flag_for_review';
+        if (postStatus == 'published' && requiresAdPayment) {
           debugPrint(
-            'PostRepository: Advertisement detected — confidence=${ad.confidence}%, '
-            'type=${ad.type}, action=${ad.action}',
+            'PostRepository: Advertisement detected — confidence='
+            '${ad?.confidence ?? 0.0}%, type=${ad?.type ?? "advertisement"}, '
+            'action=${ad?.action ?? result.policyAction}',
           );
 
           // Hold the post until the user pays the ad fee.
+          // DB enum does not support `pending_ad_payment`, so use `draft`.
           await _client
               .from(SupabaseConfig.postsTable)
-              .update({'status': 'pending_ad_payment'})
+              .update({'status': 'draft'})
               .eq('id', postId);
+
+          final adConfidence = ad?.confidence ?? 0.0;
+          final adType = ad?.type ?? 'advertisement';
 
           // Notify the caller so they can show the payment dialog.
           bool feePaid = false;
           if (onAdFeeRequired != null) {
-            feePaid = await onAdFeeRequired(ad.confidence, ad.type);
+            feePaid = await onAdFeeRequired(adConfidence, adType);
           }
 
           if (feePaid) {
             // User paid — publish the post and record the spend.
             postStatus = 'published';
             authenticityNotes =
-                'ADVERTISEMENT: ${ad.confidence.toStringAsFixed(1)}% confidence '
-                '(${ad.type ?? "promotional content"}) — ad fee paid';
+                'ADVERTISEMENT: ${adConfidence.toStringAsFixed(1)}% confidence '
+                '($adType) — ad fee paid';
+            await _broadcastSponsoredPostNotification(
+              postId: postId,
+              authorId: authorId,
+              adType: adType,
+            );
           } else {
             // User declined — keep post held; they can pay later from their profile.
-            postStatus = 'pending_ad_payment';
+            postStatus = 'draft';
             authenticityNotes =
-                'ADVERTISEMENT: ${ad.confidence.toStringAsFixed(1)}% confidence '
-                '(${ad.type ?? "promotional content"}) — awaiting ad fee payment';
+                'ADVERTISEMENT: ${adConfidence.toStringAsFixed(1)}% confidence '
+                '($adType) — awaiting ad fee payment';
           }
-        } else if (postStatus == 'published' &&
-            ad != null &&
-            ad.flaggedForReview) {
+        } else if (postStatus == 'published' && adFlaggedForReview) {
           // 40-69% — possible ad, label it but still publish.
+          final adConfidence = ad?.confidence ?? 0.0;
           authenticityNotes =
               (authenticityNotes != null ? '$authenticityNotes | ' : '') +
-              'POSSIBLE ADVERTISEMENT: ${ad.confidence.toStringAsFixed(1)}% confidence';
+              'POSSIBLE ADVERTISEMENT: ${adConfidence.toStringAsFixed(1)}% confidence';
         }
 
         if (postStatus == 'published') {
@@ -1328,6 +1441,57 @@ class PostRepository {
     } catch (e) {
       debugPrint('PostRepository: AI detection failed for post $postId - $e');
       return null;
+    }
+  }
+
+  Future<void> _broadcastSponsoredPostNotification({
+    required String postId,
+    required String authorId,
+    String? adType,
+  }) async {
+    try {
+      final adLabel = (adType == null || adType.trim().isEmpty)
+          ? 'sponsored content'
+          : adType.replaceAll('_', ' ');
+      const int pageSize = 500;
+      int offset = 0;
+
+      while (true) {
+        final rows = await _client
+            .from(SupabaseConfig.profilesTable)
+            .select('user_id')
+            .neq('user_id', authorId)
+            .range(offset, offset + pageSize - 1);
+
+        final users = (rows as List)
+            .map((r) => r['user_id'] as String?)
+            .whereType<String>()
+            .toList();
+        if (users.isEmpty) break;
+
+        final payload = users
+            .map(
+              (uid) => {
+                'user_id': uid,
+                'type': 'mention',
+                'title': 'Sponsored Post',
+                'body': 'A new sponsored post is live ($adLabel).',
+                'actor_id': authorId,
+                'post_id': postId,
+                'is_read': false,
+              },
+            )
+            .toList();
+
+        await _client.from(SupabaseConfig.notificationsTable).insert(payload);
+
+        if (users.length < pageSize) break;
+        offset += pageSize;
+      }
+    } catch (e) {
+      debugPrint(
+        'PostRepository: Failed to broadcast sponsored post notification - $e',
+      );
     }
   }
 
@@ -1488,3 +1652,4 @@ class PostRepository {
     );
   }
 }
+

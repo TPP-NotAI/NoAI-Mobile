@@ -39,6 +39,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
   String? _selectedMediaType; // 'image' or 'video'
   bool _isLoading = true;
   bool _isUploading = false;
+  List<Comment>? _loadedComments;
 
   @override
   void initState() {
@@ -77,9 +78,17 @@ class _CommentsSheetState extends State<CommentsSheet> {
   }
 
   Future<void> _loadComments() async {
-    await context.read<FeedProvider>().loadCommentsForPost(widget.post.id);
+    final feedProvider = context.read<FeedProvider>();
+    await feedProvider.loadCommentsForPost(widget.post.id);
+
+    // Fallback for posts opened outside feedProvider.posts (e.g. profile grid).
+    final fetchedComments = await feedProvider.fetchCommentsForPost(widget.post.id);
+
     if (mounted) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _loadedComments = fetchedComments;
+        _isLoading = false;
+      });
     }
   }
 
@@ -243,7 +252,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
       );
     } on KycNotVerifiedException catch (e) {
       // Reload comments to clear the optimistic update
-      await context.read<FeedProvider>().loadCommentsForPost(widget.post.id);
+      await _loadComments();
       if (mounted) {
         setState(() => _isUploading = false);
         ScaffoldMessenger.of(context)
@@ -267,7 +276,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
       return;
     } on NotActivatedException catch (e) {
       // Reload comments to clear the optimistic update
-      await context.read<FeedProvider>().loadCommentsForPost(widget.post.id);
+      await _loadComments();
       if (mounted) {
         setState(() => _isUploading = false);
         ScaffoldMessenger.of(context)
@@ -863,7 +872,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                   (p) => p.id == widget.post.id,
                   orElse: () => widget.post,
                 );
-                final comments = currentPost.commentList;
+                final comments = currentPost.commentList ?? _loadedComments;
 
                 if (_isLoading) {
                   return const Center(child: CircularProgressIndicator());

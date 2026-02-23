@@ -10,6 +10,7 @@ import '../providers/wallet_provider.dart';
 import '../repositories/boost_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../services/push_notification_service.dart';
+import '../utils/snackbar_utils.dart';
 import 'post_card.dart' show PostBoostCache;
 
 /// Cost per user notified (in ROO).
@@ -242,13 +243,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red.shade600,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    SnackBarUtils.showErrorMessage(context, message);
   }
 
   @override

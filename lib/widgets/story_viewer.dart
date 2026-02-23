@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../providers/story_provider.dart';
 import 'video_player_widget.dart';
 import '../services/chat_service.dart';
+import '../utils/snackbar_utils.dart';
 
 class StoryViewer extends StatefulWidget {
   final List<Story> stories;
@@ -342,18 +343,15 @@ class _StoryViewerState extends State<StoryViewer>
       if (mounted) {
         _replyController.clear();
         _replyFocusNode.unfocus();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Reply sent!'),
-            duration: Duration(seconds: 2),
-          ),
+        SnackBarUtils.showSuccess(
+          context,
+          'Reply sent!',
+          duration: const Duration(seconds: 2),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to send reply: $e')));
+        SnackBarUtils.showErrorMessage(context, 'Failed to send reply: $e');
       }
     } finally {
       if (mounted) setState(() => _isSending = false);

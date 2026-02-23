@@ -38,11 +38,20 @@ class _CommentCardState extends State<CommentCard> {
   bool _isEditing = false;
   int _visibleRepliesCount = 3;
   late TextEditingController _editController;
+  Comment? _commentOverride;
 
   @override
   void initState() {
     super.initState();
     _editController = TextEditingController();
+  }
+
+  @override
+  void didUpdateWidget(covariant CommentCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.comment.id != widget.comment.id) {
+      _commentOverride = null;
+    }
   }
 
   @override
@@ -77,6 +86,19 @@ class _CommentCardState extends State<CommentCard> {
       }
     }
     return null;
+  }
+
+  void _applyLocalLikeToggle(Comment comment) {
+    final nextIsLiked = !comment.isLiked;
+    final nextLikes = nextIsLiked
+        ? comment.likes + 1
+        : (comment.likes - 1).clamp(0, 1 << 30);
+    setState(() {
+      _commentOverride = comment.copyWith(
+        isLiked: nextIsLiked,
+        likes: nextLikes,
+      );
+    });
   }
 
   bool _isAuthor(Comment comment) {
@@ -162,9 +184,14 @@ class _CommentCardState extends State<CommentCard> {
     final provider = context.watch<FeedProvider>();
 
     // Get the latest comment data from provider
-    final currentComment =
-        _findComment(provider, widget.postId, widget.comment.id) ??
-        widget.comment;
+    final providerComment = _findComment(provider, widget.postId, widget.comment.id);
+    final localOverride = _commentOverride;
+    final currentComment = localOverride != null
+        ? (providerComment ?? widget.comment).copyWith(
+            isLiked: localOverride.isLiked,
+            likes: localOverride.likes,
+          )
+        : (providerComment ?? widget.comment);
     final hasReplies =
         currentComment.replies != null && currentComment.replies!.isNotEmpty;
     final canRenderNestedReplies = widget.depth < 1; // Instagram-style depth
@@ -271,6 +298,8 @@ class _CommentCardState extends State<CommentCard> {
                               Flexible(
                                 child: _AiCheckBadge(
                                   aiScore: currentComment.aiScore,
+                                  aiScoreStatus: currentComment.aiScoreStatus,
+                                  commentStatus: currentComment.status,
                                   colors: colors,
                                 ),
                               ),
@@ -530,13 +559,19 @@ class _CommentCardState extends State<CommentCard> {
                           child: InkWell(
                             onTap: () async {
                               try {
-                                await context
-                                    .read<FeedProvider>()
-                                    .toggleCommentLike(
-                                      widget.postId,
-                                      currentComment.id,
-                                    );
+                                final feedProvider = context.read<FeedProvider>();
+                                if (mounted) {
+                                  _applyLocalLikeToggle(currentComment);
+                                }
+
+                                await feedProvider.toggleCommentLike(
+                                  widget.postId,
+                                  currentComment.id,
+                                );
                               } on KycNotVerifiedException catch (e) {
+                                if (mounted) {
+                                  _applyLocalLikeToggle(currentComment);
+                                }
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context)
                                     ..hideCurrentSnackBar()
@@ -560,6 +595,9 @@ class _CommentCardState extends State<CommentCard> {
                                     );
                                 }
                               } on NotActivatedException catch (e) {
+                                if (mounted) {
+                                  _applyLocalLikeToggle(currentComment);
+                                }
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context)
                                     ..hideCurrentSnackBar()
@@ -891,14 +929,34 @@ class _CommentCardState extends State<CommentCard> {
 
 class _AiCheckBadge extends StatelessWidget {
   final double? aiScore;
+  final String? aiScoreStatus;
+  final String? commentStatus;
   final ColorScheme colors;
 
-  const _AiCheckBadge({required this.aiScore, required this.colors});
+  const _AiCheckBadge({
+    required this.aiScore,
+    required this.aiScoreStatus,
+    required this.commentStatus,
+    required this.colors,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final bool needsReview = aiScore != null && aiScore! >= 50;
-    final bool isPassed = aiScore != null && aiScore! < 50;
+    final normalizedAiStatus = aiScoreStatus?.toLowerCase();
+    final normalizedCommentStatus = commentStatus?.toLowerCase();
+    final bool forcePending = normalizedCommentStatus == 'under_review' &&
+        normalizedAiStatus != 'review' &&
+        normalizedAiStatus != 'flagged';
+    final bool needsReview =
+        normalizedAiStatus == 'review' ||
+        normalizedAiStatus == 'flagged' ||
+        normalizedCommentStatus == 'deleted';
+    final bool isPassed =
+        normalizedAiStatus == 'pass' ||
+        (!forcePending &&
+            normalizedCommentStatus == 'published' &&
+            aiScore != null &&
+            aiScore! < 50);
 
     late final Color badgeColor;
     late final Color bgColor;

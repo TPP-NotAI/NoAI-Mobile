@@ -82,7 +82,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      final posts = await _postRepository.getPostsByUser(resolvedId);
+      // Pass current user ID for proper privacy filtering
+      // When viewing own profile, this ensures all posts are shown
+      // When viewing another's profile, respects their privacy settings
+      final posts = await _postRepository.getPostsByUser(
+        resolvedId,
+        currentUserId: authProvider.currentUser?.id,
+      );
       if (mounted) {
         setState(() {
           _profilePosts = posts;
@@ -112,6 +118,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           curve: Curves.easeInOut,
         );
       }
+    });
+  }
+
+  void _updateProfilePost(Post updatedPost) {
+    if (!mounted) return;
+    final index = _profilePosts.indexWhere((p) => p.id == updatedPost.id);
+    if (index == -1) return;
+
+    setState(() {
+      _profilePosts[index] = updatedPost;
     });
   }
 
@@ -193,7 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Profile Unavailable',
+                  _profileText(context, 'profileUnavailable'),
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -202,7 +218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'You cannot view this profile.',
+                  _profileText(context, 'cannotViewProfile'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
@@ -213,7 +229,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 OutlinedButton.icon(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.arrow_back),
-                  label: const Text('Go Back'),
+                  label: Text(_profileText(context, 'goBack')),
                 ),
               ],
             ),
@@ -222,23 +238,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    final posts =
-        _profilePosts
-            .where(
-              (p) =>
-                  p.status == 'published' &&
-                  ((p.aiScoreStatus?.toLowerCase() == 'pass') ||
-                      (p.detectionStatus?.toLowerCase() == 'pass')),
-            )
-            .toList()
-          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    final approvedPostsCount = posts
-        .where(
-          (p) =>
-              (p.aiScoreStatus?.toLowerCase() == 'pass') ||
-              (p.detectionStatus?.toLowerCase() == 'pass'),
-        )
-        .length;
+    final posts = _profilePosts.where((p) => p.status == 'published').toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    // "Approved Posts" should reflect posts that are actually live on profile,
+    // not only records with ai_score_status == pass (legacy/live posts may lack it).
+    final approvedPostsCount = posts.length;
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -252,7 +257,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPressed: () => Navigator.pop(context),
               ),
               title: Text(
-                isActuallyOwnProfile ? 'My Profile' : 'Profile Details',
+                isActuallyOwnProfile
+                    ? _profileText(context, 'myProfile')
+                    : _profileText(context, 'profileDetails'),
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: colors.onSurface,
@@ -354,20 +361,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 activities: userProvider.userActivities,
                 colors: colors,
               )
-            else if (_tabIndex == 1 || (_tabIndex == 0 && !isActuallyOwnProfile))
-              _Statistics(
-                user: user,
-                colors: colors,
-                isOwnProfile: isActuallyOwnProfile,
-                approvedPostsCount: approvedPostsCount,
-              )
+            else if (_tabIndex == 1 ||
+                (_tabIndex == 0 && !isActuallyOwnProfile))
+                _Statistics(
+                  user: user,
+                  colors: colors,
+                  isOwnProfile: isActuallyOwnProfile,
+                  approvedPostsCount: approvedPostsCount,
+                )
             else if (_tabIndex == 2)
               if (_isLoadingPosts)
                 const SliverFillRemaining(
                   child: Center(child: CircularProgressIndicator()),
                 )
               else
-                _PostsGrid(posts: posts, colors: colors)
+                _PostsGrid(
+                  posts: posts,
+                  colors: colors,
+                  onPostUpdated: _updateProfilePost,
+                )
             else if (_tabIndex == 3 && isActuallyOwnProfile)
               _DraftsGrid(
                 posts: feedProvider.draftPosts,
@@ -379,8 +391,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       SnackBar(
                         content: Text(
                           success
-                              ? 'Post republished'
-                              : 'Failed to republish post',
+                              ? _profileText(context, 'postRepublished')
+                              : _profileText(context, 'failedRepublishPost'),
                         ),
                       ),
                     );
@@ -411,10 +423,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Block User'),
+          title: Text(_profileText(context, 'blockUser')),
           content: Text(
-            'Are you sure you want to block @${user.username}? '
-            'They won\'t be able to see your posts or contact you.',
+            _profileText(context, 'blockUserConfirm', {
+              'username': user.username,
+            }),
           ),
           actions: [
             TextButton(
@@ -426,7 +439,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.error,
               ),
-              child: const Text('Block'),
+              child: Text(_profileText(context, 'block')),
             ),
           ],
         ),
@@ -442,9 +455,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           content: Text(
             success
                 ? (isBlocked
-                      ? 'Unblocked @${user.username}'
-                      : 'Blocked @${user.username}')
-                : userProvider.error ?? 'Something went wrong',
+                      ? _profileText(context, 'unblockedUser', {
+                          'username': user.username,
+                        })
+                      : _profileText(context, 'blockedUser', {
+                          'username': user.username,
+                        }))
+                : userProvider.error ?? _profileText(context, 'somethingWrong'),
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -482,7 +499,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            userProvider.error ?? 'Failed to submit report. Please try again.',
+            userProvider.error ?? _profileText(context, 'failedSubmitReport'),
           ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Theme.of(context).colorScheme.errorContainer,
@@ -835,8 +852,7 @@ class _RoobyteBalance extends StatelessWidget {
     if (!isVisible) return const SizedBox.shrink();
     // Prefer the blockchain-synced balance from WalletProvider (updates after
     // tips/transfers without requiring a full user profile refresh).
-    final walletBalance =
-        context.watch<WalletProvider>().wallet?.balanceRc;
+    final walletBalance = context.watch<WalletProvider>().wallet?.balanceRc;
     final displayBalance = walletBalance ?? (user.balance as double);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1031,7 +1047,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Human-Verified Posts',
+                      _profileText(context, 'humanVerifiedPosts'),
                       style: TextStyle(
                         fontSize: 13,
                         color: colors.onSurfaceVariant,
@@ -1067,7 +1083,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'AI Likelihood Score',
+                      _profileText(context, 'aiLikelihoodScore'),
                       style: TextStyle(
                         fontSize: 13,
                         color: colors.onSurfaceVariant,
@@ -1089,7 +1105,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 2, left: 6),
                           child: Text(
-                            'AI Prob.',
+                            _profileText(context, 'aiProb'),
                             style: TextStyle(
                               fontSize: 14,
                               color: colors.onSurfaceVariant,
@@ -1156,12 +1172,12 @@ class _ActionRow extends StatelessWidget {
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.edit_outlined, size: 18),
-              SizedBox(width: 8),
+            children: [
+              const Icon(Icons.edit_outlined, size: 18),
+              const SizedBox(width: 8),
               Text(
-                'Edit Profile',
-                style: TextStyle(fontWeight: FontWeight.w600),
+                _profileText(context, 'editProfile'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -1188,8 +1204,10 @@ class _ActionRow extends StatelessWidget {
                     fit: BoxFit.scaleDown,
                     child: Text(
                       isBlocked
-                          ? 'Blocked'
-                          : (isFollowing ? 'Following' : 'Follow'),
+                          ? _profileText(context, 'blocked')
+                          : (isFollowing
+                                ? _profileText(context, 'following')
+                                : _profileText(context, 'follow')),
                       maxLines: 1,
                       softWrap: false,
                     ),
@@ -1220,7 +1238,7 @@ class _ActionRow extends StatelessWidget {
                           SnackBar(
                             content: Text(
                               chatProvider.error ??
-                                  'You can only start chats with users you follow.',
+                                  _profileText(context, 'chatFollowOnly'),
                             ),
                           ),
                         );
@@ -1257,7 +1275,11 @@ class _ActionRow extends StatelessWidget {
                         color: isBlocked ? colors.primary : colors.error,
                       ),
                       const SizedBox(width: 12),
-                      Text(isBlocked ? 'Unblock' : 'Block'),
+                      Text(
+                        isBlocked
+                            ? _profileText(context, 'unblock')
+                            : _profileText(context, 'block'),
+                      ),
                     ],
                   ),
                 ),
@@ -1267,7 +1289,7 @@ class _ActionRow extends StatelessWidget {
                     children: [
                       Icon(Icons.flag_outlined, size: 20, color: colors.error),
                       const SizedBox(width: 12),
-                      const Text('Report'),
+                      Text(_profileText(context, 'report')),
                     ],
                   ),
                 ),
@@ -1290,7 +1312,7 @@ class _ActionRow extends StatelessWidget {
                 Icon(Icons.block, size: 16, color: colors.error),
                 const SizedBox(width: 8),
                 Text(
-                  'You have blocked this user',
+                  _profileText(context, 'youBlockedThisUser'),
                   style: TextStyle(
                     fontSize: 13,
                     color: colors.error,
@@ -1317,8 +1339,8 @@ class _ActivityLog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (activities.isEmpty) {
-      return const SliverFillRemaining(
-        child: Center(child: Text('No activity yet')),
+      return SliverFillRemaining(
+        child: Center(child: Text(_profileText(context, 'noActivityYet'))),
       );
     }
 
@@ -1513,7 +1535,7 @@ class _ActivityItem extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '$dateStr at $timeStr',
+                      '$dateStr ${_profileText(context, 'at')} $timeStr',
                       style: TextStyle(
                         fontSize: 11,
                         color: colors.onSurfaceVariant,
@@ -1552,13 +1574,13 @@ class _Statistics extends StatelessWidget {
       sliver: SliverList(
         delegate: SliverChildListDelegate([
           _StatItem(
-            label: 'Approved Posts',
+            label: _profileText(context, 'approvedPosts'),
             value: approvedPostsCount.toString(),
             colors: colors,
           ),
           const SizedBox(height: 12),
           _StatItem(
-            label: 'Total Followers',
+            label: _profileText(context, 'totalFollowers'),
             value: user.followersCount.toString(),
             colors: colors,
             onTap: () {
@@ -1575,7 +1597,7 @@ class _Statistics extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _StatItem(
-            label: 'Following',
+            label: _profileText(context, 'following'),
             value: user.followingCount.toString(),
             colors: colors,
             onTap: () {
@@ -1593,8 +1615,8 @@ class _Statistics extends StatelessWidget {
           if (isOwnProfile) ...[
             const SizedBox(height: 12),
             _StatItem(
-              label: 'AI Flagged Content',
-              value: 'View',
+              label: _profileText(context, 'aiFlaggedContent'),
+              value: _profileText(context, 'view'),
               colors: colors,
               onTap: () {
                 Navigator.push(
@@ -1608,38 +1630,38 @@ class _Statistics extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           _StatItem(
-            label: 'Trust Score',
+            label: _profileText(context, 'trustScore'),
             value: '${user.trustScore.toStringAsFixed(0)}/100',
             colors: colors,
           ),
           const SizedBox(height: 12),
           _StatItem(
-            label: 'AI Likelihood',
+            label: _profileText(context, 'aiLikelihood'),
             value: '${user.mlScore.toStringAsFixed(2)}%',
             colors: colors,
           ),
           const SizedBox(height: 12),
           if (isOwnProfile) ...[
             _StatItem(
-              label: 'Roobyte Balance',
+              label: _profileText(context, 'roobyteBalance'),
               value: user.balance.toStringAsFixed(1),
               colors: colors,
             ),
             const SizedBox(height: 12),
           ],
           _StatItem(
-            label: 'Verification Status',
+            label: _profileText(context, 'verificationStatus'),
             value: user.verifiedHuman == 'verified'
-                ? 'Verified'
+                ? _profileText(context, 'verified')
                 : user.verifiedHuman == 'pending'
-                ? 'Pending'
-                : 'Unverified',
+                ? _profileText(context, 'pending')
+                : _profileText(context, 'unverified'),
             colors: colors,
           ),
           if (user.achievements.isNotEmpty) ...[
             const SizedBox(height: 12),
             _StatItem(
-              label: 'Achievements',
+              label: _profileText(context, 'achievements'),
               value: user.achievements.length.toString(),
               colors: colors,
             ),
@@ -1742,8 +1764,8 @@ class _DraftsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (posts.isEmpty) {
-      return const SliverFillRemaining(
-        child: Center(child: Text('No drafts yet')),
+      return SliverFillRemaining(
+        child: Center(child: Text(_profileText(context, 'noDraftsYet'))),
       );
     }
 
@@ -1812,10 +1834,8 @@ class _DraftGridItem extends StatelessWidget {
         final confirm = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Republish Post?'),
-            content: const Text(
-              'This will make the post visible in the public feed again.',
-            ),
+            title: Text(_profileText(context, 'republishPostQuestion')),
+            content: Text(_profileText(context, 'republishPostDesc')),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -1823,7 +1843,7 @@ class _DraftGridItem extends StatelessWidget {
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Republish'),
+                child: Text(_profileText(context, 'republish')),
               ),
             ],
           ),
@@ -1919,7 +1939,7 @@ class _DraftGridItem extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'DRAFT',
+                    _profileText(context, 'draft'),
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
@@ -1940,14 +1960,19 @@ class _DraftGridItem extends StatelessWidget {
 class _PostsGrid extends StatelessWidget {
   final List posts;
   final ColorScheme colors;
+  final ValueChanged<Post>? onPostUpdated;
 
-  const _PostsGrid({required this.posts, required this.colors});
+  const _PostsGrid({
+    required this.posts,
+    required this.colors,
+    this.onPostUpdated,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (posts.isEmpty) {
-      return const SliverFillRemaining(
-        child: Center(child: Text('No posts yet')),
+      return SliverFillRemaining(
+        child: Center(child: Text(_profileText(context, 'noPostsYet'))),
       );
     }
 
@@ -1961,7 +1986,11 @@ class _PostsGrid extends StatelessWidget {
           childAspectRatio: 1,
         ),
         delegate: SliverChildBuilderDelegate(
-          (context, i) => _PostGridItem(post: posts[i], colors: colors),
+          (context, i) => _PostGridItem(
+            post: posts[i],
+            colors: colors,
+            onPostUpdated: onPostUpdated,
+          ),
           childCount: posts.length,
         ),
       ),
@@ -1974,8 +2003,13 @@ class _PostsGrid extends StatelessWidget {
 class _PostGridItem extends StatelessWidget {
   final dynamic post;
   final ColorScheme colors;
+  final ValueChanged<Post>? onPostUpdated;
 
-  const _PostGridItem({required this.post, required this.colors});
+  const _PostGridItem({
+    required this.post,
+    required this.colors,
+    this.onPostUpdated,
+  });
 
   bool _isVideo(dynamic post) {
     if (post.mediaList != null && (post.mediaList as List).isNotEmpty) {
@@ -1998,11 +2032,14 @@ class _PostGridItem extends StatelessWidget {
     final isVideo = _isVideo(post);
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
         );
+        if (result is Post) {
+          onPostUpdated?.call(result);
+        }
       },
       child: Container(
         decoration: BoxDecoration(
@@ -2209,6 +2246,117 @@ class _PostGridItem extends StatelessWidget {
   }
 }
 
+String _profileText(
+  BuildContext context,
+  String key, [
+  Map<String, String>? args,
+]) {
+  final code = Localizations.localeOf(context).languageCode;
+  final map = <String, Map<String, String>>{
+    'profileUnavailable': {
+      'en': 'Profile Unavailable',
+      'es': 'Perfil no disponible',
+      'fr': 'Profil indisponible',
+      'de': 'Profil nicht verfuegbar',
+      'it': 'Profilo non disponibile',
+      'pt': 'Perfil indisponivel',
+      'ru': 'Профиль недоступен',
+      'zh': '个人资料不可用',
+      'ja': 'プロフィールを表示できません',
+      'ko': '프로필을 볼 수 없습니다',
+      'ar': 'الملف الشخصي غير متاح',
+      'hi': 'प्रोफ़ाइल उपलब्ध नहीं है',
+    },
+    'cannotViewProfile': {
+      'en': 'You cannot view this profile.',
+      'es': 'No puedes ver este perfil.',
+      'fr': 'Vous ne pouvez pas voir ce profil.',
+      'de': 'Du kannst dieses Profil nicht ansehen.',
+      'it': 'Non puoi visualizzare questo profilo.',
+      'pt': 'Voce nao pode ver este perfil.',
+      'ru': 'Вы не можете просмотреть этот профиль.',
+      'zh': '你无法查看此个人资料。',
+      'ja': 'このプロフィールは表示できません。',
+      'ko': '이 프로필을 볼 수 없습니다.',
+      'ar': 'لا يمكنك عرض هذا الملف الشخصي.',
+      'hi': 'आप इस प्रोफ़ाइल को नहीं देख सकते।',
+    },
+    'goBack': {
+      'en': 'Go Back',
+      'es': 'Volver',
+      'fr': 'Retour',
+      'de': 'Zurueck',
+      'it': 'Indietro',
+      'pt': 'Voltar',
+      'ru': 'Назад',
+      'zh': '返回',
+      'ja': '戻る',
+      'ko': '뒤로',
+      'ar': 'رجوع',
+      'hi': 'वापस जाएं',
+    },
+    'myProfile': {'en': 'My Profile'},
+    'profileDetails': {'en': 'Profile Details'},
+    'postRepublished': {'en': 'Post republished'},
+    'failedRepublishPost': {'en': 'Failed to republish post'},
+    'blockUser': {'en': 'Block User'},
+    'blockUserConfirm': {
+      'en':
+          'Are you sure you want to block @{username}? They won\'t be able to see your posts or contact you.',
+    },
+    'block': {'en': 'Block'},
+    'blocked': {'en': 'Blocked'},
+    'unblock': {'en': 'Unblock'},
+    'follow': {'en': 'Follow'},
+    'following': {'en': 'Following'},
+    'blockedUser': {'en': 'Blocked @{username}'},
+    'unblockedUser': {'en': 'Unblocked @{username}'},
+    'somethingWrong': {'en': 'Something went wrong'},
+    'failedSubmitReport': {'en': 'Failed to submit report. Please try again.'},
+    'report': {'en': 'Report'},
+    'chatFollowOnly': {'en': 'You can only start chats with users you follow.'},
+    'youBlockedThisUser': {'en': 'You have blocked this user'},
+    'noActivityYet': {'en': 'No activity yet'},
+    'at': {'en': 'at'},
+    'approvedPosts': {'en': 'Approved Posts'},
+    'totalFollowers': {'en': 'Total Followers'},
+    'aiFlaggedContent': {'en': 'AI Flagged Content'},
+    'view': {'en': 'View'},
+    'trustScore': {'en': 'Trust Score'},
+    'aiLikelihood': {'en': 'AI Likelihood'},
+    'roobyteBalance': {'en': 'Roobyte Balance'},
+    'verificationStatus': {'en': 'Verification Status'},
+    'verified': {'en': 'Verified'},
+    'pending': {'en': 'Pending'},
+    'unverified': {'en': 'Unverified'},
+    'achievements': {'en': 'Achievements'},
+    'noDraftsYet': {'en': 'No drafts yet'},
+    'republishPostQuestion': {'en': 'Republish Post?'},
+    'republishPostDesc': {
+      'en': 'This will make the post visible in the public feed again.',
+    },
+    'republish': {'en': 'Republish'},
+    'draft': {'en': 'DRAFT'},
+    'noPostsYet': {'en': 'No posts yet'},
+    'activityLog': {'en': 'Activity Log'},
+    'statistics': {'en': 'Statistics'},
+    'posts': {'en': 'Posts'},
+    'drafts': {'en': 'Drafts'},
+    'humanVerifiedPosts': {'en': 'Human-Verified Posts'},
+    'aiLikelihoodScore': {'en': 'AI Likelihood Score'},
+    'aiProb': {'en': 'AI Prob.'},
+    'editProfile': {'en': 'Edit Profile'},
+  };
+
+  var value = map[key]?[code] ?? map[key]?['en'] ?? key;
+  if (args != null) {
+    args.forEach((k, v) {
+      value = value.replaceAll('{$k}', v);
+    });
+  }
+  return value;
+}
+
 /* ───────────────── STICKY TAB BAR ───────────────── */
 
 class _TabBar extends StatelessWidget {
@@ -2237,21 +2385,21 @@ class _TabBar extends StatelessWidget {
         children: [
           if (isOwnProfile)
             _TabButton(
-              label: 'Activity Log',
+              label: _profileText(context, 'activityLog'),
               index: 0,
               isSelected: currentIndex == 0,
               onTap: () => onTabChanged(0),
               colors: colors,
             ),
           _TabButton(
-            label: 'Statistics',
+            label: _profileText(context, 'statistics'),
             index: 1,
             isSelected: currentIndex == 1,
             onTap: () => onTabChanged(1),
             colors: colors,
           ),
           _TabButton(
-            label: 'Posts',
+            label: _profileText(context, 'posts'),
             index: 2,
             isSelected: currentIndex == 2,
             onTap: () => onTabChanged(2),
@@ -2259,7 +2407,7 @@ class _TabBar extends StatelessWidget {
           ),
           if (isOwnProfile)
             _TabButton(
-              label: 'Drafts',
+              label: _profileText(context, 'drafts'),
               index: 3,
               isSelected: currentIndex == 3,
               onTap: () => onTabChanged(3),
@@ -2345,5 +2493,3 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
     return child != oldDelegate.child;
   }
 }
-
-

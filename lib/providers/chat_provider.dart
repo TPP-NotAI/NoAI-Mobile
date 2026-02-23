@@ -142,8 +142,14 @@ class ChatProvider extends ChangeNotifier {
   void _handleNewMessage(Map<String, dynamic> messageData) {
     final threadId = messageData['thread_id'] as String?;
     final senderId = messageData['sender_id'] as String?;
+    final aiScoreStatus = messageData['ai_score_status'] as String?;
 
     if (threadId == null) return;
+    final isFromOther = senderId != _currentUserId;
+
+    // Never surface flagged messages, and keep review messages sender-only.
+    if (aiScoreStatus == 'flagged') return;
+    if (aiScoreStatus == 'review' && isFromOther) return;
 
     // Find the conversation
     final index = _conversations.indexWhere((c) => c.id == threadId);
@@ -151,7 +157,6 @@ class ChatProvider extends ChangeNotifier {
     if (index != -1) {
       final conversation = _conversations[index];
       final newMessage = Message.fromSupabase(messageData);
-      final isFromOther = senderId != _currentUserId;
 
       // Update the conversation with new message info
       final updatedConversation = conversation.copyWith(
@@ -415,6 +420,7 @@ class ChatProvider extends ChangeNotifier {
           content,
           mediaType: type,
           mediaUrl: mediaUrl,
+          localMediaPath: filePath,
         );
         await loadConversations();
         return true;

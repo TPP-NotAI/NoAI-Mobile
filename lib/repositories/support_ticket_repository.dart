@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
 import '../models/support_ticket.dart';
+import '../models/support_ticket_message.dart';
 import '../services/supabase_service.dart';
 
 class SupportTicketRepository {
@@ -53,14 +54,15 @@ class SupportTicketRepository {
 
       final ticketId = insertedTicket['id'] as String;
 
-      final enrichedMessage = [
+      final headerLines = <String>[
         if (requesterName != null && requesterName.trim().isNotEmpty)
           'Name: ${requesterName.trim()}',
         if (requesterEmail != null && requesterEmail.trim().isNotEmpty)
           'Email: ${requesterEmail.trim()}',
-        '',
-        message.trim(),
-      ].join('\n');
+      ];
+      final enrichedMessage = headerLines.isEmpty
+          ? message.trim()
+          : [...headerLines, '', message.trim()].join('\n');
 
       await _client.from(SupabaseConfig.supportTicketMessagesTable).insert({
         'ticket_id': ticketId,
@@ -73,6 +75,80 @@ class SupportTicketRepository {
     } catch (e) {
       debugPrint('SupportTicketRepository: Failed to create ticket - $e');
       return null;
+    }
+  }
+
+  Future<SupportTicket?> getLatestCurrentUserTicket() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return null;
+
+      final row = await _client
+          .from(SupabaseConfig.supportTicketsTable)
+          .select(
+            '''
+id,
+user_id,
+subject,
+category,
+priority,
+status,
+assigned_to,
+created_at,
+updated_at,
+resolved_at,
+profiles!support_tickets_user_id_fkey(username, display_name),
+support_ticket_messages(message, created_at)
+''',
+          )
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (row == null) return null;
+      return SupportTicket.fromSupabase(row);
+    } catch (e) {
+      debugPrint('SupportTicketRepository: Failed to fetch latest user ticket - $e');
+      return null;
+    }
+  }
+
+  Stream<List<SupportTicketMessage>> subscribeToTicketMessages(String ticketId) {
+    return _client
+        .from(SupabaseConfig.supportTicketMessagesTable)
+        .stream(primaryKey: ['id'])
+        .eq('ticket_id', ticketId)
+        .order('created_at', ascending: true)
+        .map(
+          (rows) => rows
+              .map((e) => SupportTicketMessage.fromSupabase(e))
+              .where((m) => m.message.isNotEmpty)
+              .toList(),
+        );
+  }
+
+  Future<bool> sendTicketMessage({
+    required String ticketId,
+    required String message,
+  }) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return false;
+      final trimmed = message.trim();
+      if (trimmed.isEmpty) return false;
+
+      await _client.from(SupabaseConfig.supportTicketMessagesTable).insert({
+        'ticket_id': ticketId,
+        'sender_id': userId,
+        'message': trimmed,
+        'is_staff': false,
+      });
+
+      return true;
+    } catch (e) {
+      debugPrint('SupportTicketRepository: Failed to send ticket message - $e');
+      return false;
     }
   }
 

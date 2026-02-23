@@ -8,6 +8,7 @@ import '../../models/post.dart';
 import '../../models/comment.dart';
 import '../../models/story.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../../repositories/post_repository.dart';
 import '../../repositories/comment_repository.dart';
 import '../../repositories/story_repository.dart';
@@ -34,6 +35,13 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
   List<Comment> _flaggedComments = [];
   List<Story> _flaggedStories = [];
   bool _loading = true;
+  final Set<String> _payingPostIds = <String>{};
+
+  bool _isAwaitingAdFee(Post post) =>
+      post.status == 'draft' &&
+      (post.authenticityNotes ?? '')
+          .toLowerCase()
+          .contains('awaiting ad fee payment');
 
   @override
   void initState() {
@@ -81,6 +89,71 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Post deleted.')),
       );
+    }
+  }
+
+  Future<void> _payAdFeeForPost(Post post) async {
+    if (!_isAwaitingAdFee(post)) return;
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId == null) return;
+    if (_payingPostIds.contains(post.id)) return;
+
+    const double adFeeRoo = 5.0;
+    final walletProvider = context.read<WalletProvider>();
+
+    setState(() => _payingPostIds.add(post.id));
+    try {
+      final paid = await walletProvider.spendRoo(
+        userId: userId,
+        amount: adFeeRoo,
+        activityType: 'AD_FEE',
+        metadata: {
+          'post_id': post.id,
+          'source': 'my_flagged_content',
+          'reason': 'ad_fee_publish',
+        },
+      );
+
+      if (!paid) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment failed. Check your ROO balance and try again.'),
+          ),
+        );
+        return;
+      }
+
+      final published = await _postRepo.publishPendingAdPost(
+        post.id,
+        currentUserId: userId,
+      );
+
+      if (!mounted) return;
+
+      if (!published) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Payment was completed, but the post could not be published yet.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      setState(() => _flaggedPosts.removeWhere((p) => p.id == post.id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Ad fee paid. Your sponsored post is now published and users were notified.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _payingPostIds.remove(post.id));
+      }
     }
   }
 
@@ -254,12 +327,15 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _PostTab(
-                        posts: _flaggedPosts,
-                        onAppeal: _appealPost,
-                        onDelete: _deletePost,
-                        onRefresh: _load,
-                      ),
+                       _PostTab(
+                         posts: _flaggedPosts,
+                         onAppeal: _appealPost,
+                         onPayAdFee: _payAdFeeForPost,
+                         isAwaitingAdFee: _isAwaitingAdFee,
+                         payingPostIds: _payingPostIds,
+                         onDelete: _deletePost,
+                         onRefresh: _load,
+                       ),
                       _CommentTab(
                         comments: _flaggedComments,
                         onAppeal: _appealComment,
@@ -288,12 +364,18 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
 class _PostTab extends StatelessWidget {
   final List<Post> posts;
   final void Function(Post) onAppeal;
+  final Future<void> Function(Post) onPayAdFee;
+  final bool Function(Post) isAwaitingAdFee;
+  final Set<String> payingPostIds;
   final void Function(Post) onDelete;
   final Future<void> Function() onRefresh;
 
   const _PostTab({
     required this.posts,
     required this.onAppeal,
+    required this.onPayAdFee,
+    required this.isAwaitingAdFee,
+    required this.payingPostIds,
     required this.onDelete,
     required this.onRefresh,
   });
@@ -303,8 +385,9 @@ class _PostTab extends StatelessWidget {
     if (posts.isEmpty) {
       return const _EmptyState(
         icon: Icons.check_circle_outline,
-        message: 'No AI-flagged posts',
-        sub: 'None of your posts have been flagged by our AI system.',
+        message: 'No held or AI-flagged posts',
+        sub:
+            'No posts are awaiting ad payment or flagged by our AI system.',
       );
     }
 
@@ -319,6 +402,10 @@ class _PostTab extends StatelessWidget {
           return _PostFlaggedCard(
             post: post,
             onAppeal: () => onAppeal(post),
+            onPayAdFee: isAwaitingAdFee(post)
+                ? () => onPayAdFee(post)
+                : null,
+            isPayingAdFee: payingPostIds.contains(post.id),
             onDelete: () => onDelete(post),
           );
         },
@@ -468,11 +555,15 @@ class _StoryFlaggedCard extends StatelessWidget {
 class _PostFlaggedCard extends StatelessWidget {
   final Post post;
   final VoidCallback onAppeal;
+  final Future<void> Function()? onPayAdFee;
+  final bool isPayingAdFee;
   final VoidCallback onDelete;
 
   const _PostFlaggedCard({
     required this.post,
     required this.onAppeal,
+    required this.onPayAdFee,
+    required this.isPayingAdFee,
     required this.onDelete,
   });
 
@@ -480,7 +571,13 @@ class _PostFlaggedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final score = post.aiConfidenceScore ?? post.aiScore;
     final isFlagged = score != null && score >= 75;
-    final scoreColor = isFlagged ? Colors.red : Colors.orange;
+    final isAdHold = post.status == 'draft' &&
+        (post.authenticityNotes ?? '')
+            .toLowerCase()
+            .contains('awaiting ad fee payment');
+    final scoreColor = isAdHold
+        ? const Color(0xFFFF8C00)
+        : (isFlagged ? Colors.red : Colors.orange);
 
     // Build media list from mediaList or single mediaUrl
     final mediaItems = <_MediaItem>[];
@@ -497,7 +594,7 @@ class _PostFlaggedCard extends StatelessWidget {
 
     return _FlaggedCardShell(
       label: 'POST',
-      isFlagged: isFlagged,
+      isFlagged: isAdHold ? true : isFlagged,
       scoreColor: scoreColor,
       timestamp: post.timestamp,
       aiScore: score,
@@ -506,6 +603,11 @@ class _PostFlaggedCard extends StatelessWidget {
       verificationMethod: post.verificationMethod,
       mediaItems: mediaItems,
       text: post.content,
+      primaryActionLabel: isAdHold ? 'Pay 5 ROO' : 'Appeal',
+      primaryActionIcon: isAdHold ? Icons.account_balance_wallet : Icons.gavel,
+      onPrimaryAction: isAdHold
+          ? (isPayingAdFee ? null : () => onPayAdFee?.call())
+          : onAppeal,
       onAppeal: onAppeal,
       onDelete: onDelete,
     );
@@ -585,6 +687,9 @@ class _FlaggedCardShell extends StatefulWidget {
   final String? verificationMethod;
   final List<_MediaItem> mediaItems;
   final String text;
+  final String primaryActionLabel;
+  final IconData primaryActionIcon;
+  final VoidCallback? onPrimaryAction;
   final VoidCallback onAppeal;
   final VoidCallback onDelete;
 
@@ -599,6 +704,9 @@ class _FlaggedCardShell extends StatefulWidget {
     required this.verificationMethod,
     required this.mediaItems,
     required this.text,
+    this.primaryActionLabel = 'Appeal',
+    this.primaryActionIcon = Icons.gavel,
+    this.onPrimaryAction,
     required this.onAppeal,
     required this.onDelete,
   });
@@ -614,7 +722,9 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
 
   bool get _isLong => widget.text.length > _threshold;
   String get _statusLabel =>
-      widget.isFlagged ? 'AI FLAGGED' : 'UNDER AI REVIEW';
+      widget.primaryActionLabel == 'Pay 5 ROO'
+      ? 'AD FEE REQUIRED'
+      : (widget.isFlagged ? 'AI FLAGGED' : 'UNDER AI REVIEW');
   Color get _borderColor =>
       widget.scoreColor.withValues(alpha: 0.4);
   Color get _headerBg =>
@@ -817,9 +927,9 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: widget.onAppeal,
-                    icon: const Icon(Icons.gavel, size: 16),
-                    label: const Text('Appeal'),
+                    onPressed: widget.onPrimaryAction ?? widget.onAppeal,
+                    icon: Icon(widget.primaryActionIcon, size: 16),
+                    label: Text(widget.primaryActionLabel),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       side: BorderSide(color: AppColors.primary),

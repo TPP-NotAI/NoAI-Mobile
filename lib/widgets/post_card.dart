@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:flutter/foundation.dart';
 import '../providers/user_provider.dart';
 import '../utils/responsive_extensions.dart';
 import '../config/app_spacing.dart';
@@ -15,6 +16,7 @@ import '../screens/bookmarks/bookmarks_screen.dart';
 import '../screens/create/edit_post_screen.dart';
 import '../screens/hashtag_feed_screen.dart';
 import '../screens/post_detail_screen.dart';
+import '../screens/ads/ad_insights_page.dart';
 import '../utils/time_utils.dart';
 import 'video_player_widget.dart';
 import 'full_screen_media_viewer.dart';
@@ -41,13 +43,18 @@ class PostBoostCache {
   PostBoostCache._();
 
   static final Set<String> _boostedPostIds = {};
+  static final ValueNotifier<int> _version = ValueNotifier<int>(0);
   static bool _loaded = false;
   static Future<void>? _loadFuture;
 
   static bool isBoosted(String postId) => _boostedPostIds.contains(postId);
+  static ValueListenable<int> get changes => _version;
 
   static void markBoosted(String postId) {
-    _boostedPostIds.add(postId);
+    final inserted = _boostedPostIds.add(postId);
+    if (inserted) {
+      _version.value++;
+    }
     _loaded = true;
   }
 
@@ -60,7 +67,11 @@ class PostBoostCache {
   static Future<void> _fetch(String userId) async {
     try {
       final ids = await BoostRepository().getBoostedPostIds(userId);
+      final before = _boostedPostIds.length;
       _boostedPostIds.addAll(ids);
+      if (_boostedPostIds.length != before) {
+        _version.value++;
+      }
       _loaded = true;
     } catch (_) {
       // Silently fail — badge just won't show
@@ -311,11 +322,30 @@ class _HeaderState extends State<_Header> {
   final List<String> _resolvedMentionUsernames = [];
   final MentionRepository _mentionRepository = MentionRepository();
 
-  // Cache for geocoded locations to avoid repeated API calls
+  // Bounded caches (max 500 entries) for geocoded locations and mention usernames.
   static final Map<String, String> _locationCache = {};
   static final Map<String, String> _mentionUsernameCache = {};
+  static const int _maxCacheSize = 500;
+
+  static void _addToCache(Map<String, String> cache, String key, String value) {
+    if (cache.length >= _maxCacheSize) {
+      cache.remove(cache.keys.first);
+    }
+    cache[key] = value;
+  }
 
   bool _isBoosted = false;
+
+  bool _isAdvertPost(Post post) {
+    final notes = (post.authenticityNotes ?? '').toLowerCase();
+    if (notes.contains('advertisement:')) return true;
+    final ad = post.aiMetadata?['advertisement'];
+    if (ad is Map) {
+      return ad['requires_payment'] == true ||
+          (ad['confidence'] is num && (ad['confidence'] as num) >= 40);
+    }
+    return false;
+  }
 
   @override
   void initState() {
@@ -323,6 +353,23 @@ class _HeaderState extends State<_Header> {
     _initLocation();
     _resolveMentionUsernames();
     _ensureBoostCacheLoaded();
+    PostBoostCache.changes.addListener(_handleBoostCacheChanged);
+  }
+
+  @override
+  void dispose() {
+    PostBoostCache.changes.removeListener(_handleBoostCacheChanged);
+    super.dispose();
+  }
+
+  void _handleBoostCacheChanged() {
+    if (!mounted) return;
+    final boosted = PostBoostCache.isBoosted(widget.post.id);
+    if (boosted != _isBoosted) {
+      setState(() {
+        _isBoosted = boosted;
+      });
+    }
   }
 
   void _ensureBoostCacheLoaded() {
@@ -345,6 +392,9 @@ class _HeaderState extends State<_Header> {
   @override
   void didUpdateWidget(covariant _Header oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.id != widget.post.id) {
+      _isBoosted = PostBoostCache.isBoosted(widget.post.id);
+    }
     if (oldWidget.post.id != widget.post.id ||
         oldWidget.post.mentionedUserIds != widget.post.mentionedUserIds ||
         oldWidget.post.content != widget.post.content) {
@@ -423,7 +473,7 @@ class _HeaderState extends State<_Header> {
             : coordinates;
 
         // Cache the result
-        _locationCache[coordinates] = humanReadable;
+        _addToCache(_locationCache, coordinates, humanReadable);
 
         setState(() {
           _displayLocation = humanReadable;
@@ -457,7 +507,7 @@ class _HeaderState extends State<_Header> {
         unresolvedIds,
       );
       for (final entry in resolved.entries) {
-        _mentionUsernameCache[entry.key] = entry.value;
+        _addToCache(_mentionUsernameCache, entry.key, entry.value);
       }
     }
 
@@ -654,6 +704,12 @@ class _HeaderState extends State<_Header> {
                             score: post.aiConfidenceScore,
                             isModerated: post.status == 'under_review',
                           ),
+                          if (_isAdvertPost(post)) ...[
+                            SizedBox(
+                              width: AppSpacing.small.responsive(context),
+                            ),
+                            const _AdBadge(),
+                          ],
                           if (_isBoosted) ...[
                             SizedBox(
                               width: AppSpacing.small.responsive(context),
@@ -735,7 +791,7 @@ class _HeaderState extends State<_Header> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => _PostMenu(post: widget.post),
+      builder: (_) => _PostMenu(post: widget.post, isBoosted: _isBoosted),
     );
   }
 }
@@ -811,6 +867,33 @@ class _SponsoredBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AdBadge extends StatelessWidget {
+  const _AdBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF8C00).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: const Color(0xFFFF8C00).withValues(alpha: 0.5),
+        ),
+      ),
+      child: const Text(
+        'AD',
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFFFF8C00),
+          letterSpacing: 0.3,
+        ),
       ),
     );
   }
@@ -1417,7 +1500,7 @@ class _MediaTile extends StatelessWidget {
 
 /* ───────────────── ACTIONS ───────────────── */
 
-class _Actions extends StatelessWidget {
+class _Actions extends StatefulWidget {
   final Post post;
   final VoidCallback? onCommentTap;
   final VoidCallback? onTipTap;
@@ -1425,8 +1508,50 @@ class _Actions extends StatelessWidget {
   const _Actions({required this.post, this.onCommentTap, this.onTipTap});
 
   @override
+  State<_Actions> createState() => _ActionsState();
+}
+
+class _ActionsState extends State<_Actions> {
+  Post? _postOverride;
+
+  Post _resolvedPost(FeedProvider feedProvider) {
+    final index = feedProvider.posts.indexWhere((p) => p.id == widget.post.id);
+    final providerPost = index != -1 ? feedProvider.posts[index] : null;
+    final localOverride = _postOverride;
+
+    if (localOverride != null) {
+      final base = providerPost ?? widget.post;
+      return base.copyWith(
+        isLiked: localOverride.isLiked,
+        likes: localOverride.likes,
+      );
+    }
+
+    return providerPost ?? widget.post;
+  }
+
+  @override
+  void didUpdateWidget(covariant _Actions oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.id != widget.post.id) {
+      _postOverride = null;
+    }
+  }
+
+  void _applyLocalPostLikeToggle(Post post) {
+    final nextIsLiked = !post.isLiked;
+    final nextLikes = nextIsLiked
+        ? post.likes + 1
+        : (post.likes - 1).clamp(0, 1 << 30);
+    setState(() {
+      _postOverride = post.copyWith(isLiked: nextIsLiked, likes: nextLikes);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final feedProvider = context.watch<FeedProvider>();
+    final post = _resolvedPost(feedProvider);
     final currentUserId = context.read<AuthProvider>().currentUser?.id;
     final isBookmarked = feedProvider.isBookmarked(post.id);
     final isReposted = feedProvider.isReposted(post.id);
@@ -1441,13 +1566,13 @@ class _Actions extends StatelessWidget {
             icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
             label: _format(post.likes),
             isLiked: post.isLiked,
-            onTap: () => _handleLike(context, feedProvider),
+            onTap: () => _handleLike(context, feedProvider, post),
           ),
           const SizedBox(width: 4),
           _ActionButton(
             icon: Icons.chat_bubble_outline,
             label: _format(post.comments),
-            onTap: onCommentTap,
+            onTap: widget.onCommentTap,
           ),
           const SizedBox(width: 4),
           _ActionButton(
@@ -1461,7 +1586,7 @@ class _Actions extends StatelessWidget {
             _ActionButton(
               icon: Icons.toll,
               label: post.tips > 0 ? '${_format(post.tips.toInt())} ROO' : null,
-              onTap: onTipTap ?? () => _handleTip(context),
+              onTap: widget.onTipTap ?? () => _handleTip(context),
             ),
           ],
           const Spacer(),
@@ -1483,10 +1608,19 @@ class _Actions extends StatelessWidget {
   Future<void> _handleLike(
     BuildContext context,
     FeedProvider feedProvider,
+    Post currentPost,
   ) async {
+    // Always apply local toggle first for immediate UI feedback
+    if (mounted) {
+      _applyLocalPostLikeToggle(currentPost);
+    }
     try {
-      await feedProvider.toggleLike(post.id);
+      await feedProvider.toggleLike(currentPost.id);
     } on KycNotVerifiedException catch (e) {
+      // Revert the toggle if there's an error
+      if (mounted) {
+        _applyLocalPostLikeToggle(_resolvedPost(feedProvider));
+      }
       if (context.mounted) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
@@ -1508,6 +1642,10 @@ class _Actions extends StatelessWidget {
           );
       }
     } on NotActivatedException catch (e) {
+      // Revert the toggle if there's an error
+      if (mounted) {
+        _applyLocalPostLikeToggle(_resolvedPost(feedProvider));
+      }
       if (context.mounted) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
@@ -1574,7 +1712,7 @@ class _Actions extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => TipModal(post: post),
+      builder: (context) => TipModal(post: widget.post),
     );
   }
 
@@ -1583,8 +1721,8 @@ class _Actions extends StatelessWidget {
     FeedProvider feedProvider,
   ) async {
     try {
-      final wasReposted = feedProvider.isReposted(post.id);
-      await feedProvider.toggleRepost(post.id);
+      final wasReposted = feedProvider.isReposted(widget.post.id);
+      await feedProvider.toggleRepost(widget.post.id);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context)
@@ -1652,7 +1790,7 @@ class _Actions extends StatelessWidget {
     FeedProvider feedProvider,
     bool wasBookmarked,
   ) {
-    feedProvider.toggleBookmark(post.id);
+    feedProvider.toggleBookmark(widget.post.id);
 
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
@@ -1689,14 +1827,14 @@ class _Actions extends StatelessWidget {
       final currentUserId = context.read<AuthProvider>().currentUser?.id;
 
       // Create share text
-      final shareText = post.title != null && post.title!.isNotEmpty
-          ? '${post.title}\n\n${post.content}\n\nShared from ROOVERSE'
-          : '${post.content}\n\nShared from ROOVERSE';
+      final shareText = widget.post.title != null && widget.post.title!.isNotEmpty
+          ? '${widget.post.title}\n\n${widget.post.content}\n\nShared from ROOVERSE'
+          : '${widget.post.content}\n\nShared from ROOVERSE';
 
       // Share using native share dialog
       await Share.share(
         shareText,
-        subject: post.title ?? 'Check out this post on ROOVERSE',
+        subject: widget.post.title ?? 'Check out this post on ROOVERSE',
       );
 
       // Award 5 ROO to the user who shared the post
@@ -1706,7 +1844,7 @@ class _Actions extends StatelessWidget {
           await walletRepo.earnRoo(
             userId: currentUserId,
             activityType: RookenActivityType.postShare,
-            referencePostId: post.id,
+            referencePostId: widget.post.id,
           );
         } catch (e) {
           debugPrint('Error awarding share ROOK: $e');
@@ -1805,8 +1943,20 @@ class _ActionButton extends StatelessWidget {
 
 class _PostMenu extends StatelessWidget {
   final Post post;
+  final bool isBoosted;
 
-  const _PostMenu({required this.post});
+  const _PostMenu({required this.post, this.isBoosted = false});
+
+  bool get _isAdvertPost {
+    final notes = (post.authenticityNotes ?? '').toLowerCase();
+    if (notes.contains('advertisement:')) return true;
+    final ad = post.aiMetadata?['advertisement'];
+    if (ad is Map) {
+      return ad['requires_payment'] == true ||
+          (ad['confidence'] is num && (ad['confidence'] as num) >= 40);
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1847,11 +1997,18 @@ class _PostMenu extends StatelessWidget {
                 label: 'Boost Post',
                 onTap: () => _handleBoost(context),
               ),
-              _MenuOption(
-                icon: Icons.bar_chart,
-                label: 'View Boost Analytics',
-                onTap: () => _handleBoostAnalytics(context),
-              ),
+              if (isBoosted)
+                _MenuOption(
+                  icon: Icons.bar_chart,
+                  label: 'View Boost Analytics',
+                  onTap: () => _handleBoostAnalytics(context),
+                ),
+              if (_isAdvertPost)
+                _MenuOption(
+                  icon: Icons.insights_outlined,
+                  label: 'Ad Insights',
+                  onTap: () => _handleAdInsights(context),
+                ),
               _MenuOption(
                 icon: Icons.edit,
                 label: 'Edit Post',
@@ -1955,6 +2112,14 @@ class _PostMenu extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => BoostAnalyticsPage(post: post)),
+    );
+  }
+
+  void _handleAdInsights(BuildContext context) {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => AdInsightsPage(post: post)),
     );
   }
 
@@ -2113,5 +2278,3 @@ class _MenuOption extends StatelessWidget {
     );
   }
 }
-
-

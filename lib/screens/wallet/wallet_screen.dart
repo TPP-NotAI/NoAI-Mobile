@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
@@ -267,6 +266,7 @@ class _WalletScreenState extends State<WalletScreen> {
       builder: (modalContext) {
         bool isCreatingCheckout = false;
         int customRooAmount = 0;
+        const int maxCustomRooAmount = 10000;
 
         return StatefulBuilder(
           builder: (modalContext, setModalState) {
@@ -382,20 +382,24 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                       onChanged: (value) {
                         setModalState(() {
-                          customRooAmount = int.tryParse(value.trim()) ?? 0;
+                          final parsed = int.tryParse(value.trim()) ?? 0;
+                          customRooAmount = parsed.clamp(0, maxCustomRooAmount);
                         });
                       },
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      customRooAmount > 0
+                      customRooAmount > maxCustomRooAmount
+                          ? 'Maximum is $maxCustomRooAmount ROO'
+                          : customRooAmount > 0
                           ? 'You will pay: \$${(customRooAmount * rooToUsdRate).toStringAsFixed(2)}'
                           : 'Enter at least 1 ROO',
                       style: TextStyle(
-                        color:
-                            customRooAmount > 0
-                                ? colors.onSurfaceVariant
-                                : AppColors.error,
+                        color: customRooAmount > maxCustomRooAmount
+                            ? AppColors.error
+                            : customRooAmount > 0
+                            ? colors.onSurfaceVariant
+                            : AppColors.error,
                         fontSize: 12,
                       ),
                     ),
@@ -404,7 +408,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed:
-                            (isCreatingCheckout || customRooAmount <= 0)
+                            (isCreatingCheckout || customRooAmount <= 0 || customRooAmount > maxCustomRooAmount)
                                 ? null
                                 : () => startCheckout(customRooAmount),
                         style: OutlinedButton.styleFrom(
@@ -840,10 +844,16 @@ class _WalletScreenState extends State<WalletScreen> {
                         metadata: metadata,
                       );
                       final balanceBefore = _parseBalanceValue(
-                        metadata['balanceBeforeRc'],
+                        isReceived
+                            ? (metadata['receiverBalanceBeforeRc'] ??
+                                  metadata['balanceBeforeRc'])
+                            : metadata['balanceBeforeRc'],
                       );
                       final balanceAfter = _parseBalanceValue(
-                        metadata['balanceAfterRc'],
+                        isReceived
+                            ? (metadata['receiverBalanceAfterRc'] ??
+                                  metadata['balanceAfterRc'])
+                            : metadata['balanceAfterRc'],
                       );
 
                       String label;
@@ -857,13 +867,14 @@ class _WalletScreenState extends State<WalletScreen> {
                       } else if (tx.txType == 'fee') {
                         if (activityType == 'post_boost') {
                           label = 'Post Boost';
+                        } else if (activityType == 'ad_fee') {
+                          label = 'Advert Fee';
                         } else {
                           label = 'Platform Fee';
                         }
                         subtitle = tx.memo ?? 'Fee charged';
                       } else if (tx.txType == 'engagement_reward' ||
                           tx.txType == 'post_reward' ||
-                          tx.txType == 'staking_reward' ||
                           tx.txType == 'daily_bonus' ||
                           tx.txType == 'signup_bonus') {
                         label = _rewardLabel(activityType, tx.txType);
@@ -971,7 +982,6 @@ class _WalletScreenState extends State<WalletScreen> {
                                         'Type',
                                         tx.txType == 'engagement_reward' ||
                                                 tx.txType == 'post_reward' ||
-                                                tx.txType == 'staking_reward' ||
                                                 tx.txType == 'daily_bonus' ||
                                                 tx.txType == 'signup_bonus'
                                             ? _rewardLabel(
@@ -1564,8 +1574,6 @@ class _WalletScreenState extends State<WalletScreen> {
     switch (txType) {
       case 'post_reward':
         return 'Post Reward';
-      case 'staking_reward':
-        return 'Staking Reward';
       case 'daily_bonus':
         return 'Daily Login';
       case 'signup_bonus':

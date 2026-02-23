@@ -58,10 +58,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Future<void> _loadComments() async {
     final feedProvider = context.read<FeedProvider>();
     final comments = await feedProvider.fetchCommentsForPost(_post.id);
+    int visibleCount = 0;
+    for (final comment in comments) {
+      visibleCount++;
+      visibleCount += comment.replies?.length ?? 0;
+    }
     if (mounted) {
       setState(() {
         _comments = comments;
         _loadingComments = false;
+        _post = _post.copyWith(comments: visibleCount);
       });
     }
   }
@@ -234,8 +240,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final colors = Theme.of(context).colorScheme;
     final totalCommentCount = _countCommentsWithReplies(_comments);
 
-    return Scaffold(
-      appBar: AppBar(
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pop(context, _post);
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
         title: const Text('Post Details'),
         actions: [
           if (isAuthor)
@@ -298,7 +309,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             ),
         ],
       ),
-      body: Column(
+        body: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
@@ -834,7 +845,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             ),
           ),
           // Comment Input
-          if (authProvider.currentUser?.isVerified == true)
+          if (authProvider.currentUser?.isActivated == true)
             Container(
               decoration: BoxDecoration(
                 color: colors.surface,
@@ -908,6 +919,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               ),
             ),
         ],
+        ),
       ),
     );
   }
@@ -954,5 +966,4 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     return total;
   }
 }
-
 

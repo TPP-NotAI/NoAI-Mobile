@@ -337,8 +337,6 @@ class _TransactionItem extends StatelessWidget {
     switch (txType) {
       case 'post_reward':
         return 'Post Reward';
-      case 'staking_reward':
-        return 'Staking Reward';
       case 'daily_bonus':
         return 'Daily Login';
       case 'signup_bonus':
@@ -381,8 +379,14 @@ class _TransactionItem extends StatelessWidget {
     );
 
     final receiver = _resolveReceiverLabel(tx: tx, metadata: metadata);
-    final balanceBefore = _parseBalanceValue(metadata['balanceBeforeRc']);
-    final balanceAfter = _parseBalanceValue(metadata['balanceAfterRc']);
+    final balanceBefore = isReceived
+        ? _parseBalanceValue(metadata['receiverBalanceBeforeRc']) ??
+              _parseBalanceValue(metadata['balanceBeforeRc'])
+        : _parseBalanceValue(metadata['balanceBeforeRc']);
+    final balanceAfter = isReceived
+        ? _parseBalanceValue(metadata['receiverBalanceAfterRc']) ??
+              _parseBalanceValue(metadata['balanceAfterRc'])
+        : _parseBalanceValue(metadata['balanceAfterRc']);
 
     IconData icon;
     Color iconColor;
@@ -407,7 +411,6 @@ class _TransactionItem extends StatelessWidget {
       }
     } else if (txType == 'engagement_reward' ||
         txType == 'post_reward' ||
-        txType == 'staking_reward' ||
         txType == 'daily_bonus' ||
         txType == 'signup_bonus') {
       icon = Icons.card_giftcard;
@@ -421,7 +424,13 @@ class _TransactionItem extends StatelessWidget {
           ? Icons.rocket_launch
           : Icons.receipt;
       iconColor = Colors.orange;
-      title = activityType == 'post_boost' ? 'Post Boost' : 'Platform Fee';
+      if (activityType == 'post_boost') {
+        title = 'Post Boost';
+      } else if (activityType == 'ad_fee') {
+        title = 'Advert Fee';
+      } else {
+        title = 'Platform Fee';
+      }
       subtitle = memo ?? 'Fee charged';
       amountStr = '-${amountRc.toStringAsFixed(2)}';
       amountColor = Colors.red;
@@ -481,7 +490,6 @@ class _TransactionItem extends StatelessWidget {
             memo: memo,
             txType: txType == 'engagement_reward' ||
                     txType == 'post_reward' ||
-                    txType == 'staking_reward' ||
                     txType == 'daily_bonus' ||
                     txType == 'signup_bonus'
                 ? _rewardLabel(activityType, txType)
@@ -726,5 +734,3 @@ class _TransactionDetailsSheet extends StatelessWidget {
     );
   }
 }
-
-

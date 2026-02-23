@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
 import '../../config/app_spacing.dart';
 import '../../config/app_typography.dart';
+import '../../constants/country_calling_codes.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_extensions.dart';
 
@@ -32,18 +33,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   int _resendCooldown = 0;
   String _selectedCountryCode = '+1';
 
-  final List<Map<String, String>> _countryCodes = [
-    {'code': '+1', 'country': 'US/CA'},
-    {'code': '+44', 'country': 'UK'},
-    {'code': '+61', 'country': 'AU'},
-    {'code': '+91', 'country': 'IN'},
-    {'code': '+49', 'country': 'DE'},
-    {'code': '+33', 'country': 'FR'},
-    {'code': '+81', 'country': 'JP'},
-    {'code': '+86', 'country': 'CN'},
-    {'code': '+55', 'country': 'BR'},
-    {'code': '+52', 'country': 'MX'},
-  ];
+  final List<Map<String, String>> _countryCodes = kCountryCallingCodes;
 
   @override
   void dispose() {

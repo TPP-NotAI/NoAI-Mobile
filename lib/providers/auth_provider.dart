@@ -280,6 +280,32 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// Start Google OAuth sign-in via Supabase.
+  ///
+  /// The auth state listener will complete profile loading after the OAuth
+  /// callback returns to the app.
+  Future<bool> signInWithGoogle() async {
+    _error = null;
+    _status = AuthStatus.loading;
+    notifyListeners();
+
+    try {
+      final launched = await _authService.signInWithOAuth(OAuthProvider.google);
+      if (!launched) {
+        _status = AuthStatus.unauthenticated;
+        _error = 'Unable to start Google sign-in';
+        notifyListeners();
+      }
+      return launched;
+    } catch (e, stack) {
+      final appException = ErrorMapper.map(e, stack);
+      _error = appException.userMessage;
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+      throw appException;
+    }
+  }
+
   /// Sign up a new user.
   Future<void> signUp(String email, String password, String username) async {
     final normalizedEmail = Validators.normalizeEmail(email);

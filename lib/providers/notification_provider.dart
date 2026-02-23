@@ -75,7 +75,7 @@ class NotificationProvider with ChangeNotifier {
               },
             );
 
-            _showInAppAiStatusSnackBar(
+            _showInAppNotificationSnackBar(
               type: type,
               title: title,
               body: body,
@@ -133,45 +133,47 @@ class NotificationProvider with ChangeNotifier {
                 title.startsWith('Story ')));
   }
 
-  void _showInAppAiStatusSnackBar({
+  void _showInAppNotificationSnackBar({
     required String type,
     required String title,
     required String body,
   }) {
-    if (!_isAiStatusType(type, title)) return;
-
     final messenger = rootScaffoldMessengerKey.currentState;
     if (messenger == null) return;
 
-    final lowerTitle = title.toLowerCase();
-    final lowerBody = body.toLowerCase();
+    Color? backgroundColor;
+    if (_isAiStatusType(type, title)) {
+      final lowerTitle = title.toLowerCase();
+      final lowerBody = body.toLowerCase();
 
-    Color backgroundColor = Colors.blue;
-    // Important: evaluate flagged/rejected first so "Not Published" is never mistaken as success.
-    final isFlagged =
-        type.endsWith('_flagged') ||
-        lowerTitle.contains('not published') ||
-        lowerTitle.contains('flagged') ||
-        lowerTitle.contains('rejected') ||
-        lowerBody.contains('flagged') ||
-        lowerBody.contains('ai-generated') ||
-        lowerBody.contains('potentially ai');
+      // Important: evaluate flagged/rejected first so "Not Published" is never mistaken as success.
+      final isFlagged =
+          type.endsWith('_flagged') ||
+          lowerTitle.contains('not published') ||
+          lowerTitle.contains('flagged') ||
+          lowerTitle.contains('rejected') ||
+          lowerBody.contains('flagged') ||
+          lowerBody.contains('ai-generated') ||
+          lowerBody.contains('potentially ai');
 
-    final isPublished =
-        type.endsWith('_published') ||
-        (lowerTitle.endsWith('published') &&
-            !lowerTitle.contains('not published')) ||
-        lowerTitle.contains('success');
+      final isPublished =
+          type.endsWith('_published') ||
+          (lowerTitle.endsWith('published') &&
+              !lowerTitle.contains('not published')) ||
+          lowerTitle.contains('success');
 
-    final isUnderReview =
-        type.endsWith('_review') || lowerTitle.endsWith('under review');
+      final isUnderReview =
+          type.endsWith('_review') || lowerTitle.endsWith('under review');
 
-    if (isFlagged) {
-      backgroundColor = Colors.red;
-    } else if (isPublished) {
-      backgroundColor = Colors.green;
-    } else if (isUnderReview) {
-      backgroundColor = Colors.amber.shade700;
+      if (isFlagged) {
+        backgroundColor = Colors.red;
+      } else if (isPublished) {
+        backgroundColor = Colors.green;
+      } else if (isUnderReview) {
+        backgroundColor = Colors.amber.shade700;
+      } else {
+        backgroundColor = Colors.blue;
+      }
     }
 
     messenger

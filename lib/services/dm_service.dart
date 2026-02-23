@@ -215,14 +215,20 @@ class DmService {
   /// Run AI detection on a DM message.
   Future<void> runAiDetection(DmMessage message) async {
     try {
-      final result = await _aiService.detectText(message.body);
+      final text = message.body.trim();
+      if (text.isEmpty) return;
+      final result = await _aiService.detectFull(
+        content: text,
+        models: 'gpt-5.2,o3',
+      );
       if (result == null) return;
 
-      final bool isAiResult = result.result.contains('AI');
-
-      final double aiProbability = isAiResult
-          ? result.confidence
-          : 100 - result.confidence;
+      final normalizedResult = result.result.trim().toUpperCase();
+      final isAiResult =
+          normalizedResult == 'AI-GENERATED' ||
+          normalizedResult == 'LIKELY AI-GENERATED';
+      final labelConfidence = result.confidence.clamp(0, 100);
+      final aiProbability = isAiResult ? labelConfidence : 100 - labelConfidence;
 
       // Update message in DB (assuming columns exist, or fail silently if not)
       try {
@@ -231,6 +237,17 @@ class DmService {
             .update({
               'ai_score': aiProbability,
               'status': aiProbability >= 50 ? 'flagged' : 'sent',
+              'verification_session_id': result.analysisId,
+              'ai_metadata': {
+                'analysis_id': result.analysisId,
+                'rationale': result.rationale,
+                'combined_evidence': result.combinedEvidence,
+                'consensus_strength': result.consensusStrength,
+                'moderation': result.moderation?.toJson(),
+                'safety_score': result.safetyScore,
+                if (result.advertisement != null)
+                  'advertisement': result.advertisement!.toJson(),
+              },
             })
             .eq('id', message.id);
       } catch (e) {

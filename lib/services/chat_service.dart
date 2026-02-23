@@ -26,6 +26,7 @@ class ChatService {
   static const double _aiReviewThreshold = 50;
   static const double _aiFlagThreshold = 75;
   static const Duration _signedUrlTtl = Duration(hours: 6);
+  static const Duration _sharedUploadSignedUrlTtl = Duration(days: 7);
   final Map<String, _SignedUrlCacheEntry> _signedUrlCache = {};
 
   /// Fetch all conversations for the current user.
@@ -319,6 +320,7 @@ class ChatService {
     String content, {
     String? mediaUrl,
     String? mediaType,
+    String? localMediaPath,
     String? replyToId,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
@@ -327,7 +329,14 @@ class ChatService {
       content: content,
       mediaUrl: mediaUrl,
       mediaType: mediaType,
+      localMediaPath: localMediaPath,
     );
+
+    if (precheck == null) {
+      throw Exception(
+        'Message blocked: AI verification did not complete. Please try again.',
+      );
+    }
 
     if (precheck != null && precheck.aiScoreStatus == 'flagged') {
       throw Exception(
@@ -344,12 +353,10 @@ class ChatService {
     if (mediaUrl != null) insertData['media_url'] = mediaUrl;
     if (mediaType != null) insertData['media_type'] = mediaType;
     if (replyToId != null) insertData['reply_to_id'] = replyToId;
-    if (precheck != null) {
-      insertData['ai_score'] = precheck.aiScore;
-      insertData['ai_score_status'] = precheck.aiScoreStatus;
-      insertData['ai_metadata'] = precheck.aiMetadata;
-      insertData['verification_session_id'] = precheck.analysisId;
-    }
+    insertData['ai_score'] = precheck.aiScore;
+    insertData['ai_score_status'] = precheck.aiScoreStatus;
+    insertData['ai_metadata'] = precheck.aiMetadata;
+    insertData['verification_session_id'] = precheck.analysisId;
 
     final response = await _supabase
         .from('dm_messages')
@@ -372,19 +379,14 @@ class ChatService {
 
     final message = Message.fromSupabase(response);
 
-    if (precheck == null) {
-      // Fallback for detector/API failures.
-      unawaited(runAiDetection(message));
-    } else {
-      await _createModerationCaseIfNeeded(
-        messageId: message.id,
-        senderId: message.senderId,
-        aiScore: precheck.aiScore,
-        aiMetadata: precheck.aiMetadata,
-        rationale: precheck.rationale,
-        combinedEvidence: precheck.combinedEvidence,
-      );
-    }
+    await _createModerationCaseIfNeeded(
+      messageId: message.id,
+      senderId: message.senderId,
+      aiScore: precheck.aiScore,
+      aiMetadata: precheck.aiMetadata,
+      rationale: precheck.rationale,
+      combinedEvidence: precheck.combinedEvidence,
+    );
 
     return message;
   }
@@ -396,46 +398,44 @@ class ChatService {
       final hasText = textContent.isNotEmpty && textContent != '[Media]';
       final mediaType = message.mediaType?.toLowerCase();
       final hasMedia = message.mediaUrl != null && message.mediaUrl!.isNotEmpty;
-      final canScanMedia = hasMedia && _aiScannableMediaTypes.contains(mediaType);
+      final canScanMedia =
+          hasMedia && _aiScannableMediaTypes.contains(mediaType);
 
       if (!hasText && !hasMedia) return;
 
       AiDetectionResult? result;
-
-      if (hasText && canScanMedia) {
-        // Mixed detection (text + image/video)
-        File? mediaFile = await _downloadMedia(
-          message.mediaUrl!,
-          mediaType: mediaType,
-        );
-        if (mediaFile != null) {
-          result = await _aiService.detectMixed(textContent, mediaFile);
-          _cleanupFile(mediaFile);
-        } else {
-          result = await _aiService.detectText(textContent);
+      File? mediaFile;
+      try {
+        if (canScanMedia) {
+          mediaFile = await _downloadMedia(
+            message.mediaUrl!,
+            mediaType: mediaType,
+          );
+          if (mediaFile == null && !hasText) return;
         }
-      } else if (hasText) {
-        // Text-only or unsupported media fallback (audio/doc/contact)
-        result = await _aiService.detectText(textContent);
-      } else if (canScanMedia) {
-        // Image/video only
-        File? mediaFile = await _downloadMedia(
-          message.mediaUrl!,
-          mediaType: mediaType,
+        final detectionModels = canScanMedia ? 'gpt-4.1' : 'gpt-5.2,o3';
+        result = await _aiService.detectFull(
+          content: hasText ? textContent : null,
+          file: mediaFile,
+          models: detectionModels,
         );
+      } finally {
         if (mediaFile != null) {
-          result = await _aiService.detectImage(mediaFile);
           _cleanupFile(mediaFile);
         }
       }
 
       if (result == null) return;
 
-      final bool isAiResult = result.result.contains('AI');
-      final double aiProbability = isAiResult
-          ? result.confidence
-          : 100 - result.confidence;
-      final status = _resolveAiScoreStatus(aiProbability);
+      final normalizedResult = result.result.trim().toUpperCase();
+      final isAiResult =
+          normalizedResult == 'AI-GENERATED' ||
+          normalizedResult == 'LIKELY AI-GENERATED';
+      final labelConfidence = result.confidence.clamp(0, 100);
+      final aiProbability = isAiResult
+          ? labelConfidence
+          : 100 - labelConfidence;
+      final status = _resolveAiScoreStatus(aiProbability.toDouble());
       final aiMetadata = _buildAiMetadata(result);
 
       // Update message in DB
@@ -456,7 +456,7 @@ class ChatService {
       await _createModerationCaseIfNeeded(
         messageId: message.id,
         senderId: message.senderId,
-        aiScore: aiProbability,
+        aiScore: aiProbability.toDouble(),
         aiMetadata: aiMetadata,
         rationale: result.rationale,
         combinedEvidence: result.combinedEvidence,
@@ -494,15 +494,20 @@ class ChatService {
 
       await _supabase.storage
           .from(SupabaseConfig.chatMediaBucket)
-          .upload(
-            path,
-            file,
-            fileOptions: FileOptions(contentType: mimeType),
-          );
+          .upload(path, file, fileOptions: FileOptions(contentType: mimeType));
 
-      return _supabase.storage
-          .from(SupabaseConfig.chatMediaBucket)
-          .getPublicUrl(path);
+      // Prefer storing a signed URL so recipients can render the attachment
+      // even when storage policies prevent them from generating signed URLs.
+      try {
+        return await _supabase.storage
+            .from(SupabaseConfig.chatMediaBucket)
+            .createSignedUrl(path, _sharedUploadSignedUrlTtl.inSeconds);
+      } catch (e) {
+        debugPrint('ChatService: createSignedUrl after upload failed - $e');
+        return _supabase.storage
+            .from(SupabaseConfig.chatMediaBucket)
+            .getPublicUrl(path);
+      }
     } catch (e) {
       debugPrint('Error uploading media: $e');
       return null;
@@ -526,8 +531,9 @@ class ChatService {
             .eq('user_id', currentUserId ?? '')
             .maybeSingle();
         final leftAtStr = participant?['left_at'] as String?;
-        _leftAtCache[threadId] =
-            leftAtStr != null ? DateTime.parse(leftAtStr) : null;
+        _leftAtCache[threadId] = leftAtStr != null
+            ? DateTime.parse(leftAtStr)
+            : null;
       } catch (_) {
         _leftAtCache[threadId] = null;
       }
@@ -541,14 +547,17 @@ class ChatService {
         .asyncMap((data) async {
           await _primeLeftAt();
           final leftAt = _leftAtCache[threadId];
-          final baseMessages =
-              data.map((m) => Message.fromSupabase(m)).toList();
+          final baseMessages = data
+              .map((m) => Message.fromSupabase(m))
+              .toList();
           final allMessages = await Future.wait(
             baseMessages.map(_hydrateMessageMediaUrl),
           );
           return allMessages.where((m) {
             if (leftAt != null && m.createdAt.isBefore(leftAt)) return false;
             if (m.aiScoreStatus == 'flagged') return false;
+            final isMine = m.senderId == currentUserId;
+            if (!isMine && m.aiScoreStatus == 'review') return false;
             return true;
           }).toList();
         });
@@ -558,49 +567,54 @@ class ChatService {
     required String content,
     String? mediaUrl,
     String? mediaType,
+    String? localMediaPath,
   }) async {
     try {
       final textContent = Message.stripStoryReferenceFromContent(content);
       final hasText = textContent.isNotEmpty && textContent != '[Media]';
       final normalizedMediaType = mediaType?.toLowerCase();
-      final hasMedia = mediaUrl != null && mediaUrl.isNotEmpty;
+      final hasMedia =
+          (mediaUrl != null && mediaUrl.isNotEmpty) ||
+          (localMediaPath != null && localMediaPath.isNotEmpty);
       final canScanMedia =
           hasMedia && _aiScannableMediaTypes.contains(normalizedMediaType);
 
       if (!hasText && !hasMedia) return null;
 
       AiDetectionResult? result;
-      if (hasText && canScanMedia) {
-        final mediaFile = await _downloadMedia(
-          mediaUrl!,
-          mediaType: normalizedMediaType,
-        );
-        if (mediaFile != null) {
-          result = await _aiService.detectMixed(textContent, mediaFile);
-          _cleanupFile(mediaFile);
-        } else {
-          result = await _aiService.detectText(textContent);
+      _PrecheckMediaFile? mediaAsset;
+      try {
+        if (canScanMedia) {
+          mediaAsset = await _resolvePrecheckMediaFile(
+            localMediaPath: localMediaPath,
+            mediaUrl: mediaUrl,
+            mediaType: normalizedMediaType,
+          );
+          if (mediaAsset == null && !hasText) return null;
         }
-      } else if (hasText) {
-        result = await _aiService.detectText(textContent);
-      } else if (canScanMedia) {
-        final mediaFile = await _downloadMedia(
-          mediaUrl!,
-          mediaType: normalizedMediaType,
+        final detectionModels = canScanMedia ? 'gpt-4.1' : 'gpt-5.2,o3';
+        result = await _aiService.detectFull(
+          content: hasText ? textContent : null,
+          file: mediaAsset?.file,
+          models: detectionModels,
         );
-        if (mediaFile != null) {
-          result = await _aiService.detectImage(mediaFile);
-          _cleanupFile(mediaFile);
+      } finally {
+        if (mediaAsset?.shouldCleanup == true) {
+          _cleanupFile(mediaAsset!.file);
         }
       }
 
       if (result == null) return null;
 
-      final isAiResult = result.result.contains('AI');
-      final aiScore = isAiResult ? result.confidence : 100 - result.confidence;
+      final normalizedResult = result.result.trim().toUpperCase();
+      final isAiResult =
+          normalizedResult == 'AI-GENERATED' ||
+          normalizedResult == 'LIKELY AI-GENERATED';
+      final labelConfidence = result.confidence.clamp(0, 100);
+      final aiScore = isAiResult ? labelConfidence : 100 - labelConfidence;
       return _AiPrecheckResult(
-        aiScore: aiScore,
-        aiScoreStatus: _resolveAiScoreStatus(aiScore),
+        aiScore: aiScore.toDouble(),
+        aiScoreStatus: _resolveAiScoreStatus(aiScore.toDouble()),
         aiMetadata: _buildAiMetadata(result),
         analysisId: result.analysisId,
         rationale: result.rationale,
@@ -610,6 +624,25 @@ class ChatService {
       debugPrint('ChatService: Pre-send AI detection failed - $e');
       return null;
     }
+  }
+
+  Future<_PrecheckMediaFile?> _resolvePrecheckMediaFile({
+    String? localMediaPath,
+    String? mediaUrl,
+    String? mediaType,
+  }) async {
+    if (localMediaPath != null && localMediaPath.isNotEmpty) {
+      final localFile = File(localMediaPath);
+      if (await localFile.exists()) {
+        return _PrecheckMediaFile(file: localFile, shouldCleanup: false);
+      }
+    }
+    if (mediaUrl != null && mediaUrl.isNotEmpty) {
+      final downloaded = await _downloadMedia(mediaUrl, mediaType: mediaType);
+      if (downloaded == null) return null;
+      return _PrecheckMediaFile(file: downloaded, shouldCleanup: true);
+    }
+    return null;
   }
 
   String _resolveAiScoreStatus(double aiScore) {
@@ -624,6 +657,10 @@ class ChatService {
       'rationale': result.rationale,
       'combined_evidence': result.combinedEvidence,
       'consensus_strength': result.consensusStrength,
+      'moderation': result.moderation?.toJson(),
+      'safety_score': result.safetyScore,
+      if (result.advertisement != null)
+        'advertisement': result.advertisement!.toJson(),
     };
   }
 
@@ -690,9 +727,9 @@ class ChatService {
           .from(SupabaseConfig.chatMediaBucket)
           .createSignedUrl(path, _signedUrlTtl.inSeconds);
 
-      final expiresAt = now.add(_signedUrlTtl).subtract(
-        const Duration(minutes: 5),
-      );
+      final expiresAt = now
+          .add(_signedUrlTtl)
+          .subtract(const Duration(minutes: 5));
       _signedUrlCache[path] = _SignedUrlCacheEntry(
         url: signedUrl,
         expiresAt: expiresAt,
@@ -860,16 +897,16 @@ class ChatService {
       {'mp3', 'm4a', 'aac', 'wav', 'ogg'}.contains(extension);
 
   bool _isDocumentExtension(String extension) => {
-        'pdf',
-        'doc',
-        'docx',
-        'ppt',
-        'pptx',
-        'xls',
-        'xlsx',
-        'txt',
-        'csv',
-      }.contains(extension);
+    'pdf',
+    'doc',
+    'docx',
+    'ppt',
+    'pptx',
+    'xls',
+    'xlsx',
+    'txt',
+    'csv',
+  }.contains(extension);
 
   String _inferExtensionFromUrl(String url, {String? mediaType}) {
     try {
@@ -913,4 +950,11 @@ class _AiPrecheckResult {
     this.rationale,
     this.combinedEvidence,
   });
+}
+
+class _PrecheckMediaFile {
+  final File file;
+  final bool shouldCleanup;
+
+  const _PrecheckMediaFile({required this.file, required this.shouldCleanup});
 }

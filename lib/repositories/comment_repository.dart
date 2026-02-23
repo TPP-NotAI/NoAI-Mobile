@@ -51,7 +51,6 @@ class CommentRepository {
           )
         ''')
         .eq('post_id', postId)
-        .eq('status', 'published')
         .isFilter('parent_comment_id', null) // Only top-level comments
         .order('created_at', ascending: false);
 
@@ -68,6 +67,15 @@ class CommentRepository {
       final authorId = json['author_id'] as String?;
       final profile = json['profiles'] as Map<String, dynamic>?;
       final commentsVisibility = profile?['comments_visibility'] as String?;
+      final status = json['status'] as String?;
+
+      if (!_canViewCommentStatus(
+        status: status,
+        authorId: authorId,
+        currentUserId: currentUserId,
+      )) {
+        continue;
+      }
 
       // Skip comments from blocked users or users who blocked the current user OR muted users
       if (authorId != null &&
@@ -136,6 +144,19 @@ class CommentRepository {
     }
   }
 
+  /// Backward compatible visibility by moderation status.
+  bool _canViewCommentStatus({
+    required String? status,
+    required String? authorId,
+    required String? currentUserId,
+  }) {
+    if (status == null || status == 'published' || status == 'under_review') {
+      return true;
+    }
+
+    return false;
+  }
+
   /// Get list of user IDs that the current user follows.
   Future<Set<String>> _getFollowingIds(String userId) async {
     try {
@@ -180,7 +201,6 @@ class CommentRepository {
           )
         ''')
         .eq('parent_comment_id', parentCommentId)
-        .eq('status', 'published')
         .order('created_at', ascending: false);
 
     // Filter out replies from blocked users
@@ -189,6 +209,15 @@ class CommentRepository {
       final authorId = json['author_id'] as String?;
       final profile = json['profiles'] as Map<String, dynamic>?;
       final commentsVisibility = profile?['comments_visibility'] as String?;
+      final status = json['status'] as String?;
+
+      if (!_canViewCommentStatus(
+        status: status,
+        authorId: authorId,
+        currentUserId: currentUserId,
+      )) {
+        continue;
+      }
 
       // Skip replies from blocked users or users who blocked the current user OR muted users
       if (authorId != null &&
@@ -502,9 +531,10 @@ class CommentRepository {
     int limit = 50,
   }) async {
     try {
-      final data = await _client
-          .from(SupabaseConfig.commentsTable)
-          .select('''
+      final data =
+          await _client
+                  .from(SupabaseConfig.commentsTable)
+                  .select('''
             *,
             profiles!comments_author_id_fkey (
               user_id,
@@ -514,10 +544,11 @@ class CommentRepository {
               verified_human
             )
           ''')
-          .eq('author_id', userId)
-          .inFilter('ai_score_status', ['flagged', 'review'])
-          .order('created_at', ascending: false)
-          .limit(limit) as List<dynamic>;
+                  .eq('author_id', userId)
+                  .inFilter('ai_score_status', ['flagged', 'review'])
+                  .order('created_at', ascending: false)
+                  .limit(limit)
+              as List<dynamic>;
 
       return data
           .map((json) => Comment.fromSupabase(json as Map<String, dynamic>))
@@ -629,41 +660,32 @@ class CommentRepository {
 
     try {
       AiDetectionResult? result;
-
-      if (hasText && hasMedia && mediaType == 'image') {
-        // Mixed detection (text + image)
-        File? mediaFile = await _downloadMedia(mediaUrl!);
-        if (mediaFile != null) {
-          result = await _aiDetectionService.detectMixed(
-            trimmedBody,
-            mediaFile,
-          );
-          _cleanupFile(mediaFile);
-        } else {
-          // Fallback to text detection if download fails
-          result = await _aiDetectionService.detectText(trimmedBody);
+      File? mediaFile;
+      try {
+        if (hasMedia) {
+          mediaFile = await _downloadMedia(mediaUrl!);
         }
-      } else if (hasText && !hasMedia) {
-        // Text only (handles any length now)
-        result = await _aiDetectionService.detectText(trimmedBody);
-      } else if (hasMedia && mediaType == 'image') {
-        // Image only
-        File? mediaFile = await _downloadMedia(mediaUrl!);
+        final detectionModels = hasMedia ? 'gpt-4.1' : 'gpt-5.2,o3';
+        result = await _aiDetectionService.detectFull(
+          content: hasText ? trimmedBody : null,
+          file: mediaFile,
+          models: detectionModels,
+        );
+      } finally {
         if (mediaFile != null) {
-          result = await _aiDetectionService.detectImage(mediaFile);
           _cleanupFile(mediaFile);
         }
-      } else if (hasText) {
-        // Final fallback (e.g. video with caption -> check text)
-        result = await _aiDetectionService.detectText(trimmedBody);
       }
 
       if (result != null) {
-        // Result label is normalized to UPPER CASE in fromJson
-        final bool isAiResult = result.result.contains('AI');
-        final double aiProbability = isAiResult
-            ? result.confidence
-            : 100 - result.confidence;
+        final normalizedResult = result.result.trim().toUpperCase();
+        final isAiResult =
+            normalizedResult == 'AI-GENERATED' ||
+            normalizedResult == 'LIKELY AI-GENERATED';
+        final labelConfidence = result.confidence.clamp(0, 100);
+        final aiProbability = isAiResult
+            ? labelConfidence
+            : 100 - labelConfidence;
 
         // Determine new status based on AI probability (aligned with API docs ✅)
         String newStatus;
@@ -674,6 +696,7 @@ class CommentRepository {
         final mod = result.moderation;
         final bool isModerationFlagged = mod?.flagged ?? false;
 
+        final ad = result.advertisement;
         if (isModerationFlagged) {
           scoreStatus = 'flagged';
           // Follow recommended action
@@ -685,13 +708,13 @@ class CommentRepository {
           }
           authenticityNotes =
               'CONTENT MODERATION: ${mod?.details ?? "Harmful content detected"}';
-        } else if (aiProbability >= 95) {
+        } else if (isAiResult && labelConfidence >= 95) {
           newStatus = 'deleted'; // Auto-block
           scoreStatus = 'flagged';
-        } else if (aiProbability >= 75) {
+        } else if (isAiResult && labelConfidence >= 75) {
           newStatus = 'under_review'; // Flag for review
           scoreStatus = 'flagged';
-        } else if (aiProbability >= 60) {
+        } else if (isAiResult && labelConfidence >= 60) {
           newStatus = 'published'; // Label for transparency
           scoreStatus = 'review';
           authenticityNotes =
@@ -699,6 +722,12 @@ class CommentRepository {
         } else {
           newStatus = 'published'; // Auto-publish
           scoreStatus = 'pass';
+        }
+        if (newStatus == 'published' &&
+            ad != null &&
+            (ad.requiresPayment || ad.flaggedForReview)) {
+          newStatus = 'under_review';
+          scoreStatus = 'review';
         }
 
         // Update comment with AI score and status
@@ -715,6 +744,8 @@ class CommentRepository {
                 'rationale': result.rationale,
                 'moderation': result.moderation?.toJson(),
                 'safety_score': result.safetyScore,
+                if (result.advertisement != null)
+                  'advertisement': result.advertisement!.toJson(),
               },
             })
             .eq('id', commentId);
@@ -729,17 +760,18 @@ class CommentRepository {
           userId: authorId,
           commentId: commentId,
           commentStatus: newStatus,
-          aiProbability: aiProbability,
+          aiProbability: aiProbability.toDouble(),
         );
 
         // Create moderation case if flagged or review required
         if (scoreStatus == 'flagged' ||
             scoreStatus == 'review' ||
-            isModerationFlagged) {
+            isModerationFlagged ||
+            (ad != null && (ad.requiresPayment || ad.flaggedForReview))) {
           await _createModerationCase(
             commentId: commentId,
             authorId: authorId,
-            aiConfidence: aiProbability,
+            aiConfidence: aiProbability.toDouble(),
             aiModel: result.analysisId,
             aiMetadata: {
               'consensus_strength': result.consensusStrength,
@@ -752,7 +784,7 @@ class CommentRepository {
           );
         }
 
-        return aiProbability;
+        return aiProbability.toDouble();
       } else {
         debugPrint(
           'CommentRepository: AI detection returned null for comment $commentId',

@@ -65,6 +65,8 @@ class AiDetectionResult {
   final ModerationResult? moderation;
   final double? safetyScore;
   final AdvertisementResult? advertisement;
+  final String? policyAction;
+  final bool policyRequiresPayment;
 
   AiDetectionResult({
     required this.analysisId,
@@ -79,20 +81,29 @@ class AiDetectionResult {
     this.moderation,
     this.safetyScore,
     this.advertisement,
+    this.policyAction,
+    this.policyRequiresPayment = false,
   });
 
   factory AiDetectionResult.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> aiPayload =
+        json['ai_detection'] is Map<String, dynamic>
+        ? json['ai_detection'] as Map<String, dynamic>
+        : json;
+
     // API might return 'result' or 'final_result'
     final String rawResult =
-        (json['final_result'] as String? ??
-                json['result'] as String? ??
+        (aiPayload['final_result'] as String? ??
+                aiPayload['result'] as String? ??
                 'HUMAN-GENERATED')
             .trim()
             .toUpperCase();
 
     // API might return 'confidence' or 'final_confidence'
     final double rawConf =
-        (json['final_confidence'] as num? ?? json['confidence'] as num? ?? 0.0)
+        (aiPayload['final_confidence'] as num? ??
+                aiPayload['confidence'] as num? ??
+                0.0)
             .toDouble();
 
     // Some models return 0.0-1.0, some 0-100. Normalize to 0-100.
@@ -101,39 +112,93 @@ class AiDetectionResult {
         ? rawConf * 100
         : rawConf;
 
+    final adPayload = _extractAdvertisementPayload(json);
+
     return AiDetectionResult(
-      analysisId: json['analysis_id'] as String? ?? '',
+      analysisId:
+          aiPayload['analysis_id'] as String? ??
+          json['analysis_id'] as String? ??
+          '',
       result: rawResult,
       confidence: normalizedConf,
-      contentType: json['content_type'] as String? ?? '',
-      consensusStrength: json['consensus_strength'] as String?,
+      contentType:
+          aiPayload['content_type'] as String? ??
+          json['content_type'] as String? ??
+          '',
+      consensusStrength:
+          aiPayload['consensus_strength'] as String? ??
+          json['consensus_strength'] as String?,
       rationale:
-          json['rationale'] as String? ?? json['final_rationale'] as String?,
-      combinedEvidence: (json['combined_evidence'] as List<dynamic>?)
+          aiPayload['rationale'] as String? ??
+          aiPayload['final_rationale'] as String? ??
+          json['rationale'] as String? ??
+          json['final_rationale'] as String?,
+      combinedEvidence: ((aiPayload['combined_evidence'] as List<dynamic>?) ??
+              (json['combined_evidence'] as List<dynamic>?))
           ?.map((e) => e.toString())
           .toList(),
-      metadataAnalysis: json['metadata_analysis'] != null
+      metadataAnalysis:
+          (aiPayload['metadata_analysis'] ?? json['metadata_analysis']) != null
           ? MetadataAnalysis.fromJson(
-              json['metadata_analysis'] as Map<String, dynamic>,
+              (aiPayload['metadata_analysis'] ?? json['metadata_analysis'])
+                  as Map<String, dynamic>,
             )
           : null,
-      modelResults:
-          ((json['model_results'] as List<dynamic>?) ??
-                  (json['model_analyses'] as List<dynamic>?))
+      modelResults: (((aiPayload['model_results'] as List<dynamic>?) ??
+                  (aiPayload['model_analyses'] as List<dynamic>?) ??
+                  (json['model_results'] as List<dynamic>?) ??
+                  (json['model_analyses'] as List<dynamic>?)))
               ?.map((e) => ModelResult.fromJson(e as Map<String, dynamic>))
               .toList(),
-      moderation: json['moderation'] != null
+      moderation: (json['moderation'] ?? aiPayload['moderation']) != null
           ? ModerationResult.fromJson(
-              json['moderation'] as Map<String, dynamic>,
+              (json['moderation'] ?? aiPayload['moderation'])
+                  as Map<String, dynamic>,
             )
           : null,
-      safetyScore: (json['safety_score'] as num?)?.toDouble(),
-      advertisement: json['advertisement'] != null
-          ? AdvertisementResult.fromJson(
-              json['advertisement'] as Map<String, dynamic>,
-            )
+      safetyScore:
+          ((json['safety_score'] ?? aiPayload['safety_score']) as num?)
+              ?.toDouble(),
+      advertisement: adPayload != null
+          ? AdvertisementResult.fromJson(adPayload)
           : null,
+      policyAction: (json['action'] as String?)?.toLowerCase(),
+      policyRequiresPayment: json['requires_payment'] as bool? ?? false,
     );
+  }
+
+  static Map<String, dynamic>? _extractAdvertisementPayload(
+    Map<String, dynamic> json,
+  ) {
+    if (json['advertisement'] is Map<String, dynamic>) {
+      return json['advertisement'] as Map<String, dynamic>;
+    }
+
+    final String action = (json['action'] as String? ?? 'allow').toLowerCase();
+    final bool requiresPayment = json['requires_payment'] as bool? ?? false;
+    final String reason = (json['reason'] as String? ?? '').toLowerCase();
+    final String? details = json['action_details'] as String?;
+
+    final bool looksLikeAd =
+        requiresPayment || action == 'require_payment' || reason == 'advertisement';
+    if (!looksLikeAd) return null;
+
+    final confidence = _extractConfidenceFromDetails(details);
+    return {
+      'detected': true,
+      'confidence': confidence,
+      'type': json['advertisement_type'] as String? ?? reason,
+      'evidence': const <String>[],
+      'rationale': details,
+      'action': action,
+    };
+  }
+
+  static double _extractConfidenceFromDetails(String? details) {
+    if (details == null || details.isEmpty) return 0.0;
+    final match = RegExp(r'(\d+(?:\.\d+)?)%').firstMatch(details);
+    if (match == null) return 0.0;
+    return double.tryParse(match.group(1)!) ?? 0.0;
   }
 
   Map<String, dynamic> toJson() {
@@ -150,6 +215,8 @@ class AiDetectionResult {
       'moderation': moderation?.toJson(),
       'safety_score': safetyScore,
       'advertisement': advertisement?.toJson(),
+      'policy_action': policyAction,
+      'policy_requires_payment': policyRequiresPayment,
     };
   }
 }

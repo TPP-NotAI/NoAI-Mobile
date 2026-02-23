@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/wallet_provider.dart';
+import '../services/kyc_verification_service.dart';
 
 class VerificationUtils {
   /// Checks if the current user is a verified human.
@@ -71,11 +72,35 @@ class VerificationUtils {
       return checkVerification(context);
     }
 
-    // Gate 2: Must have purchased at least 1 ROO
-    final balance = context.read<WalletProvider>().wallet?.balanceRc ?? 0.0;
+    // Gate 2: Must have purchased at least 1 ROO.
+    // Try current wallet first, then refresh once to avoid stale false negatives.
+    final walletProvider = context.read<WalletProvider>();
+    double balance = walletProvider.wallet?.balanceRc ?? user.balance;
     if (balance <= 0) {
-      await _showBuyRooDialog(context);
-      return false;
+      try {
+        await walletProvider.refreshWallet(user.id);
+        balance = walletProvider.wallet?.balanceRc ?? user.balance;
+      } catch (_) {
+        // Ignore refresh failure and continue with current value.
+      }
+    }
+    if (balance <= 0) {
+      try {
+        // Final source-of-truth check (wallets.balance_rc) to avoid false prompts
+        // when local provider state is stale.
+        await KycVerificationService().requireActivation(currentBalance: balance);
+        return true;
+      } on NotActivatedException {
+        await _showBuyRooDialog(context);
+        return false;
+      } on KycNotVerifiedException {
+        final refreshedUser = context.read<AuthProvider>().currentUser;
+        if (refreshedUser?.isVerificationPending == true) {
+          await _showPendingDialog(context);
+          return false;
+        }
+        return checkVerification(context);
+      }
     }
 
     return true;

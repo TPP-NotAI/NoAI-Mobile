@@ -25,6 +25,8 @@ class PushNotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+  bool _localNotificationsReady = false;
+  bool _channelsReady = false;
 
   // Notification channels for Android
   static const AndroidNotificationChannel _socialChannel =
@@ -163,10 +165,12 @@ class PushNotificationService {
       initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
+    _localNotificationsReady = true;
   }
 
   /// Create Android notification channels
   Future<void> _createNotificationChannels() async {
+    if (_channelsReady) return;
     if (Platform.isAndroid) {
       final androidPlugin = _localNotifications
           .resolvePlatformSpecificImplementation<
@@ -177,7 +181,10 @@ class PushNotificationService {
         await androidPlugin.createNotificationChannel(_socialChannel);
         await androidPlugin.createNotificationChannel(_messageChannel);
         await androidPlugin.createNotificationChannel(_walletChannel);
+        _channelsReady = true;
       }
+    } else {
+      _channelsReady = true;
     }
   }
 
@@ -220,17 +227,56 @@ class PushNotificationService {
 
   /// Get notification channel based on type
   AndroidNotificationChannel _getChannelForType(String type) {
-    switch (type) {
+    final normalized = type.toLowerCase();
+    switch (normalized) {
       case 'message':
       case 'dm':
       case 'chat':
+      case 'support_chat':
         return _messageChannel;
       case 'transaction':
       case 'reward':
       case 'wallet':
+      case 'roo_received':
+      case 'roo_sent':
+      case 'tip_received':
+      case 'tip_sent':
+      case 'purchase':
         return _walletChannel;
+      case 'mention':
+      case 'tag':
+      case 'boost':
+      case 'story':
+      case 'story_reply':
+      case 'story_mention':
+      case 'post':
+      case 'comment':
+      case 'follow':
+      case 'like':
       default:
         return _socialChannel;
+    }
+  }
+
+  Future<void> _ensureLocalNotificationsReady() async {
+    if (kIsWeb) return;
+    if (!_localNotificationsReady) {
+      try {
+        await _initializeLocalNotifications();
+      } catch (e) {
+        debugPrint(
+          'PushNotificationService: Local notifications init failed - $e',
+        );
+      }
+    }
+    if (_localNotificationsReady && !_channelsReady) {
+      try {
+        await _createNotificationChannels();
+      } catch (e) {
+        debugPrint(
+          'PushNotificationService: Notification channel setup failed - $e',
+        );
+      }
     }
   }
 
@@ -316,32 +362,37 @@ class PushNotificationService {
   }) async {
     // flutter_local_notifications does not support web
     if (kIsWeb) return;
+    await _ensureLocalNotificationsReady();
+    if (!_localNotificationsReady) return;
 
     final channel = _getChannelForType(type);
-
-    await _localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      title,
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          channel.id,
-          channel.name,
-          channelDescription: channel.description,
-          importance: channel.importance,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-          icon: '@mipmap/ic_launcher',
+    try {
+      await _localNotifications.show(
+        DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channel.id,
+            channel.name,
+            channelDescription: channel.description,
+            importance: channel.importance,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      payload: data != null ? jsonEncode(data) : null,
-    );
+        payload: data != null ? jsonEncode(data) : null,
+      );
+    } catch (e) {
+      debugPrint('PushNotificationService: Failed to show local notification - $e');
+    }
   }
 
   /// Subscribe to a topic

@@ -12,6 +12,7 @@ import '../auth/human_verification_screen.dart';
 import '../auth/phone_verification_screen.dart';
 import '../support/appeal_profile_screen.dart';
 import '../../services/profile_reward_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -226,7 +227,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _bioController.text = user.bio ?? '';
           _emailController.text = email ?? '';
           _phoneController.text = user.phone ?? '';
-          _countryController.text = user.countryOfResidence ?? user.location ?? '';
+          _countryController.text =
+              user.countryOfResidence ?? user.location ?? '';
           _selectedBirthDate = user.birthDate;
         });
 
@@ -346,7 +348,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Change Profile Picture',
+                _editProfileText(context, 'changeProfilePicture'),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -363,8 +365,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   child: Icon(Icons.camera_alt, color: colors.primary),
                 ),
-                title: const Text('Take a Photo'),
-                subtitle: const Text('Use your camera'),
+                title: Text(_editProfileText(context, 'takePhoto')),
+                subtitle: Text(_editProfileText(context, 'useCamera')),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.camera);
@@ -380,8 +382,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   child: Icon(Icons.photo_library, color: colors.secondary),
                 ),
-                title: const Text('Choose from Gallery'),
-                subtitle: const Text('Select an existing photo'),
+                title: Text(_editProfileText(context, 'chooseFromGallery')),
+                subtitle: Text(
+                  _editProfileText(context, 'selectExistingPhoto'),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.gallery);
@@ -398,8 +402,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     child: Icon(Icons.delete, color: colors.error),
                   ),
-                  title: const Text('Remove Photo'),
-                  subtitle: const Text('Delete current selection'),
+                  title: Text(_editProfileText(context, 'removePhoto')),
+                  subtitle: Text(
+                    _editProfileText(context, 'deleteCurrentSelection'),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
                     setState(() {
@@ -438,19 +444,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } on PlatformException catch (e) {
       debugPrint('Image picker error: $e');
       if (mounted) {
-        String message =
-            'Failed to access ${source == ImageSource.camera ? 'camera' : 'photos'}';
+        String message = _editProfileText(
+          context,
+          source == ImageSource.camera
+              ? 'failedAccessCamera'
+              : 'failedAccessPhotos',
+        );
         if (e.code == 'camera_access_denied' ||
             e.code == 'photo_access_denied') {
-          message =
-              'Permission denied. Please enable ${source == ImageSource.camera ? 'camera' : 'photos'} access in your device settings.';
+          message = _editProfileText(
+            context,
+            source == ImageSource.camera
+                ? 'permissionDeniedCamera'
+                : 'permissionDeniedPhotos',
+          );
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
             backgroundColor: Theme.of(context).colorScheme.error,
             action: SnackBarAction(
-              label: 'Settings',
+              label: _editProfileText(context, 'settings'),
               textColor: Colors.white,
               onPressed: () {
                 // User can manually open settings
@@ -465,7 +479,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Failed to pick image: ${e.toString().replaceAll('Exception: ', '')}',
+              '${_editProfileText(context, 'failedPickImage')}: ${e.toString().replaceAll('Exception: ', '')}',
             ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
@@ -511,7 +525,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to upload image: $e'),
+            content: Text(
+              '${_editProfileText(context, 'failedUploadImage')}: $e',
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -574,8 +590,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
           if (newlyRewarded && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Profile complete! Earned 20 ROO 🎉'),
+              SnackBar(
+                content: Text(
+                  _editProfileText(context, 'profileCompleteReward'),
+                ),
                 backgroundColor: Colors.green,
                 behavior: SnackBarBehavior.floating,
               ),
@@ -591,13 +609,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() => _isLoading = false);
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!')),
+          SnackBar(
+            content: Text(
+              _editProfileText(context, 'profileUpdatedSuccessfully'),
+            ),
+          ),
         );
         Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(userProvider.error ?? 'Failed to update profile'),
+            content: Text(
+              userProvider.error ??
+                  _editProfileText(context, 'failedUpdateProfile'),
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -617,7 +642,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Edit Profile'),
+        title: Text(_editProfileText(context, 'editProfile')),
         centerTitle: true,
         actions: [
           if (_isLoading)
@@ -635,7 +660,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             TextButton(
               onPressed: _saveProfile,
               child: Text(
-                'Save',
+                _editProfileText(context, 'save'),
                 style: TextStyle(
                   color: colors.primary,
                   fontSize: 16,
@@ -739,8 +764,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 12),
                   Text(
                     _selectedImage != null
-                        ? 'New photo selected'
-                        : 'Tap to change profile picture',
+                        ? _editProfileText(context, 'newPhotoSelected')
+                        : _editProfileText(context, 'tapChangeProfilePicture'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: _selectedImage != null ? colors.primary : null,
                     ),
@@ -750,15 +775,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   // Fields
                   _buildInputField(
                     context,
-                    label: 'Display Name',
+                    label: _editProfileText(context, 'displayName'),
                     controller: _displayNameController,
                     icon: Icons.person,
-                    hint: 'Your display name',
+                    hint: _editProfileText(context, 'yourDisplayName'),
                   ),
                   const SizedBox(height: 20),
                   _buildInputField(
                     context,
-                    label: 'Username',
+                    label: _editProfileText(context, 'username'),
                     controller: _usernameController,
                     icon: Icons.alternate_email,
                     hint: 'username',
@@ -768,7 +793,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 20),
                   _buildInputField(
                     context,
-                    label: 'Bio',
+                    label: _editProfileText(context, 'bio'),
                     controller: _bioController,
                     icon: Icons.info_outline,
                     hint: 'Tell us about yourself...',
@@ -778,7 +803,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 20),
                   _buildInputField(
                     context,
-                    label: 'Email',
+                    label: _editProfileText(context, 'email'),
                     controller: _emailController,
                     icon: Icons.email,
                     hint: 'your@email.com',
@@ -787,7 +812,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 20),
                   _buildInputField(
                     context,
-                    label: 'Phone (Optional)',
+                    label: _editProfileText(context, 'phoneOptional'),
                     controller: _phoneController,
                     icon: Icons.phone,
                     hint: '+1 (555) 123-4567',
@@ -797,7 +822,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 20),
                   _buildDateField(
                     context,
-                    label: 'Date of Birth',
+                    label: _editProfileText(context, 'dateOfBirth'),
                     icon: Icons.cake_outlined,
                   ),
                   const SizedBox(height: 32),
@@ -815,10 +840,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         _buildOptionTile(
                           context,
                           icon: Icons.verified_user,
-                          title: 'Verification Status',
+                          title: _editProfileText(
+                            context,
+                            'verificationStatus',
+                          ),
                           subtitle: user.isVerified
-                              ? 'Verified Human'
-                              : 'Not Verified',
+                              ? _editProfileText(context, 'verifiedHuman')
+                              : _editProfileText(context, 'notVerified'),
                           onTap: () {
                             Navigator.push(
                               context,
@@ -854,8 +882,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         _buildOptionTile(
                           context,
                           icon: Icons.gavel,
-                          title: 'Appeal Status',
-                          subtitle: 'Dispute restrictions or rejections',
+                          title: _editProfileText(context, 'appealStatus'),
+                          subtitle: _editProfileText(
+                            context,
+                            'appealStatusSubtitle',
+                          ),
                           onTap: () {
                             Navigator.push(
                               context,
@@ -873,8 +904,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         _buildOptionTile(
                           context,
                           icon: Icons.link,
-                          title: 'Social Links',
-                          subtitle: 'Connect your social media',
+                          title: _editProfileText(context, 'socialLinks'),
+                          subtitle: _editProfileText(
+                            context,
+                            'connectSocialMedia',
+                          ),
                           onTap: () => _showSocialLinksSheet(),
                           trailing: Icon(
                             Icons.chevron_right,
@@ -957,7 +991,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     TextField(
                       autofocus: true,
                       decoration: InputDecoration(
-                        hintText: 'Search country...',
+                        hintText: _editProfileText(context, 'searchCountry'),
                         prefixIcon: const Icon(Icons.search),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -968,7 +1002,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         setSheetState(() {
                           filteredCountries = _countries
                               .where(
-                                (country) => country.toLowerCase().contains(query),
+                                (country) =>
+                                    country.toLowerCase().contains(query),
                               )
                               .toList();
                         });
@@ -1013,7 +1048,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text('Country of Residence', style: theme.textTheme.labelMedium),
+          child: Text(
+            _editProfileText(context, 'countryOfResidence'),
+            style: theme.textTheme.labelMedium,
+          ),
         ),
         InkWell(
           onTap: _showCountryPicker,
@@ -1032,7 +1070,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 Expanded(
                   child: Text(
                     _countryController.text.isEmpty
-                        ? 'Select country'
+                        ? _editProfileText(context, 'selectCountry')
                         : _countryController.text,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: _countryController.text.isEmpty
@@ -1045,7 +1083,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   IconButton(
                     icon: const Icon(Icons.close, size: 18),
                     onPressed: () => setState(() => _countryController.clear()),
-                    tooltip: 'Clear country',
+                    tooltip: _editProfileText(context, 'clearCountry'),
                   ),
                 const Icon(Icons.expand_more),
               ],
@@ -1088,7 +1126,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 Expanded(
                   child: Text(
                     _selectedBirthDate == null
-                        ? 'Select your date of birth'
+                        ? _editProfileText(context, 'selectDateOfBirth')
                         : _formatDateForDisplay(_selectedBirthDate!),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: _selectedBirthDate == null
@@ -1101,7 +1139,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   IconButton(
                     icon: const Icon(Icons.close, size: 18),
                     onPressed: () => setState(() => _selectedBirthDate = null),
-                    tooltip: 'Clear date',
+                    tooltip: _editProfileText(context, 'clearDate'),
                   ),
               ],
             ),
@@ -1145,34 +1183,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Social Links',
+              _editProfileText(context, 'socialLinks'),
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              'Add your social media profiles to your bio.',
+              _editProfileText(context, 'socialLinksDescription'),
               style: TextStyle(color: colors.onSurfaceVariant),
             ),
             const SizedBox(height: 24),
             _buildLinkInput(
               Icons.link,
-              'Website',
+              _editProfileText(context, 'website'),
               'https://yourwebsite.com',
               _websiteController,
             ),
             const SizedBox(height: 16),
             _buildLinkInput(
               Icons.alternate_email,
-              'Twitter / X',
+              _editProfileText(context, 'twitterX'),
               '@username',
               _twitterController,
             ),
             const SizedBox(height: 16),
             _buildLinkInput(
               Icons.camera_alt_outlined,
-              'Instagram',
+              _editProfileText(context, 'instagram'),
               'username',
               _instagramController,
             ),
@@ -1189,9 +1227,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Text(
-                  'Save Links',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                child: Text(
+                  _editProfileText(context, 'saveLinks'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -1333,5 +1371,105 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
       ),
     );
+  }
+
+  String _editProfileText(BuildContext context, String key) {
+    final l10n = AppLocalizations.of(context);
+    switch (key) {
+      case 'editProfile':
+        return l10n?.editProfile ?? 'Edit Profile';
+      case 'notVerified':
+        return l10n?.notVerified ?? 'Not Verified';
+      case 'verificationStatus':
+        return 'Verification Status';
+      case 'settings':
+        return 'Settings';
+      case 'save':
+        return 'Save';
+      case 'changeProfilePicture':
+        return 'Change Profile Picture';
+      case 'takePhoto':
+        return 'Take a Photo';
+      case 'useCamera':
+        return 'Use your camera';
+      case 'chooseFromGallery':
+        return 'Choose from Gallery';
+      case 'selectExistingPhoto':
+        return 'Select an existing photo';
+      case 'removePhoto':
+        return 'Remove Photo';
+      case 'deleteCurrentSelection':
+        return 'Delete current selection';
+      case 'failedAccessCamera':
+        return 'Failed to access camera';
+      case 'failedAccessPhotos':
+        return 'Failed to access photos';
+      case 'permissionDeniedCamera':
+        return 'Permission denied. Please enable camera access in your device settings.';
+      case 'permissionDeniedPhotos':
+        return 'Permission denied. Please enable photos access in your device settings.';
+      case 'failedPickImage':
+        return 'Failed to pick image';
+      case 'failedUploadImage':
+        return 'Failed to upload image';
+      case 'profileCompleteReward':
+        return 'Profile complete! Earned 20 ROO';
+      case 'profileUpdatedSuccessfully':
+        return 'Profile updated successfully!';
+      case 'failedUpdateProfile':
+        return 'Failed to update profile';
+      case 'newPhotoSelected':
+        return 'New photo selected';
+      case 'tapChangeProfilePicture':
+        return 'Tap to change profile picture';
+      case 'displayName':
+        return 'Display Name';
+      case 'username':
+        return 'Username';
+      case 'bio':
+        return 'Bio';
+      case 'email':
+        return 'Email';
+      case 'yourDisplayName':
+        return 'Your display name';
+      case 'phoneOptional':
+        return 'Phone (Optional)';
+      case 'dateOfBirth':
+        return 'Date of Birth';
+      case 'verifiedHuman':
+        return 'Verified Human';
+      case 'appealStatus':
+        return 'Appeal Status';
+      case 'appealStatusSubtitle':
+        return 'Dispute restrictions or rejections';
+      case 'socialLinks':
+        return 'Social Links';
+      case 'connectSocialMedia':
+        return 'Connect your social media';
+      case 'searchCountry':
+        return 'Search country...';
+      case 'countryOfResidence':
+        return 'Country of Residence';
+      case 'selectCountry':
+        return 'Select country';
+      case 'clearCountry':
+        return 'Clear country';
+      case 'selectDateOfBirth':
+        return 'Select your date of birth';
+      case 'clearDate':
+        return 'Clear date';
+      case 'socialLinksDescription':
+        return 'Add your social media profiles to your bio.';
+      case 'website':
+        return 'Website';
+      case 'twitterX':
+        return 'Twitter / X';
+      case 'instagram':
+        return 'Instagram';
+      case 'saveLinks':
+        return 'Save Links';
+      default:
+        return key;
+    }
   }
 }

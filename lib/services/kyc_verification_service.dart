@@ -106,6 +106,7 @@ class KycVerificationService {
   /// Throws [NotActivatedException] if verified but balance is 0.
   Future<void> requireActivation({double currentBalance = 0.0}) async {
     final status = await _getCurrentVerifiedHumanStatus();
+    final userId = _supabase.auth.currentUser?.id;
 
     if (status == 'pending') {
       throw const KycNotVerifiedException(
@@ -120,7 +121,24 @@ class KycVerificationService {
     }
 
     // Verified — now check balance
-    if (currentBalance <= 0) {
+    double effectiveBalance = currentBalance;
+    if (effectiveBalance <= 0 && userId != null) {
+      try {
+        final walletRow = await _supabase
+            .from('wallets')
+            .select('balance_rc')
+            .eq('user_id', userId)
+            .maybeSingle();
+        final dbBalance = (walletRow?['balance_rc'] as num?)?.toDouble() ?? 0.0;
+        if (dbBalance > effectiveBalance) {
+          effectiveBalance = dbBalance;
+        }
+      } catch (e) {
+        debugPrint('KycVerificationService: Failed wallet balance recheck - $e');
+      }
+    }
+
+    if (effectiveBalance <= 0) {
       throw const NotActivatedException();
     }
   }

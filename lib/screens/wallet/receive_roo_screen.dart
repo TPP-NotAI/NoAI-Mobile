@@ -6,20 +6,14 @@ import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/wallet_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../utils/snackbar_utils.dart';
 
 class ReceiveRooScreen extends StatelessWidget {
   const ReceiveRooScreen({super.key});
 
   void _copyToClipboard(BuildContext context, String text) {
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Copied to clipboard!'),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    SnackBarUtils.showSuccess(context, 'Copied to clipboard!');
   }
 
   @override
@@ -404,17 +398,9 @@ class ReceiveRooScreen extends StatelessWidget {
                             'Save QR Code',
                             () {
                               Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text(
-                                    'QR Code saved to gallery',
-                                  ),
-                                  backgroundColor: AppColors.success,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
+                              SnackBarUtils.showSuccess(
+                                context,
+                                'QR Code saved to gallery',
                               );
                             },
                             textPrimaryColor,

@@ -245,6 +245,39 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
+  Future<void> _handleGoogleSignup() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _signupError = null;
+      _isLoading = true;
+    });
+
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final launched = await authProvider.signInWithGoogle();
+
+      if (!mounted) return;
+
+      if (!launched) {
+        setState(() {
+          _signupError = authProvider.error ?? 'Unable to start Google sign-in';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // OAuth completes asynchronously after the app callback/auth state update.
+      setState(() => _isLoading = false);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _signupError = context.read<AuthProvider>().error ?? 'Google signup failed';
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -594,21 +627,22 @@ class _SignupScreenState extends State<SignupScreen> {
               // Social buttons
               Row(
                 children: [
-                  Expanded(
-                    child: _buildSocialButton(
-                      context,
-                      label: 'Apple',
-                      icon: Icons.apple,
-                      onPressed: () {},
-                    ),
-                  ),
-                  SizedBox(width: AppSpacing.standard.responsive(context)),
+                  // Apple login/signup temporarily disabled.
+                  // Expanded(
+                  //   child: _buildSocialButton(
+                  //     context,
+                  //     label: 'Apple',
+                  //     icon: Icons.apple,
+                  //     onPressed: () {},
+                  //   ),
+                  // ),
+                  // SizedBox(width: AppSpacing.standard.responsive(context)),
                   Expanded(
                     child: _buildSocialButton(
                       context,
                       label: 'Google',
                       icon: Icons.g_mobiledata_rounded,
-                      onPressed: () {},
+                      onPressed: _isLoading ? null : _handleGoogleSignup,
                     ),
                   ),
                 ],
@@ -918,7 +952,7 @@ class _SignupScreenState extends State<SignupScreen> {
     BuildContext context, {
     required String label,
     required IconData icon,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
     final scheme = Theme.of(context).colorScheme;
 

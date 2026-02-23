@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../config/global_keys.dart';
 import '../core/errors/app_exception.dart';
 import '../core/errors/error_mapper.dart';
 
@@ -110,32 +111,49 @@ class SnackBarUtils {
     SnackBarAction? action,
   }) {
     // Ensure context is still valid
-    if (!context.mounted) return;
+    final messenger = _resolveMessenger(context);
+    if (messenger == null) return;
 
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.white),
+    try {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          backgroundColor: backgroundColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          duration: duration,
+          action: action,
         ),
-        backgroundColor: backgroundColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        duration: duration,
-        action: action,
-      ),
-    );
+      );
+    } catch (_) {
+      // Avoid crashing UI flows if snackbar dispatch happens during route changes.
+    }
+  }
+
+  static ScaffoldMessengerState? _resolveMessenger(BuildContext context) {
+    if (context.mounted) {
+      try {
+        return ScaffoldMessenger.maybeOf(context) ??
+            rootScaffoldMessengerKey.currentState;
+      } catch (_) {
+        return rootScaffoldMessengerKey.currentState;
+      }
+    }
+    return rootScaffoldMessengerKey.currentState;
   }
 
   /// Convenience method to handle try-catch with automatic SnackBar display.

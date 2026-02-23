@@ -887,6 +887,8 @@ class WalletRepository {
     try {
       String? recipientDisplayName;
       String? recipientUsername;
+      double? recipientBalanceBefore;
+      double? recipientBalanceAfter;
       if (recipientUserId != null) {
         try {
           final recipientProfile = await _supabase
@@ -898,6 +900,18 @@ class WalletRepository {
           recipientUsername = recipientProfile?['username'] as String?;
         } catch (_) {
           // Non-critical; fallback labels still apply in UI.
+        }
+        try {
+          final recipientWallet = await _supabase
+              .from('wallets')
+              .select('balance_rc')
+              .eq('user_id', recipientUserId)
+              .maybeSingle();
+          recipientBalanceBefore =
+              _parseDouble(recipientWallet?['balance_rc']) ?? 0.0;
+          recipientBalanceAfter = recipientBalanceBefore + amount;
+        } catch (_) {
+          // Non-critical; receiver balance details can be omitted in UI.
         }
       }
 
@@ -929,6 +943,8 @@ class WalletRepository {
           'recipientUsername': recipientUsername,
           'balanceBeforeRc': senderBalanceBefore,
           'balanceAfterRc': senderBalanceAfter,
+          'receiverBalanceBeforeRc': recipientBalanceBefore,
+          'receiverBalanceAfterRc': recipientBalanceAfter,
           ...?metadata,
         },
         'completed_at': DateTime.now().toIso8601String(),

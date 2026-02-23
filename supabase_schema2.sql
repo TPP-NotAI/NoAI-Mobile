@@ -29,6 +29,23 @@ CREATE TABLE public.admin_users (
   CONSTRAINT admin_users_pkey PRIMARY KEY (user_id),
   CONSTRAINT admin_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.advertisements (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  content_type text NOT NULL CHECK (content_type = ANY (ARRAY['post'::text, 'story'::text])),
+  content_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'pending_payment'::text CHECK (status = ANY (ARRAY['pending_payment'::text, 'paid'::text, 'rejected'::text, 'cancelled'::text])),
+  amount_paid numeric NOT NULL DEFAULT 0,
+  transaction_hash text,
+  detection_confidence numeric NOT NULL DEFAULT 0,
+  detection_evidence jsonb DEFAULT '[]'::jsonb,
+  detection_type text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  paid_at timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  CONSTRAINT advertisements_pkey PRIMARY KEY (id),
+  CONSTRAINT advertisements_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.appeals (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -359,6 +376,8 @@ CREATE TABLE public.dm_messages (
   verification_session_id text,
   delivered_at timestamp with time zone,
   read_at timestamp with time zone,
+  notification_sent boolean DEFAULT false,
+  notification_sent_at timestamp with time zone,
   CONSTRAINT dm_messages_pkey PRIMARY KEY (id),
   CONSTRAINT dm_messages_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.dm_threads(id),
   CONSTRAINT dm_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.profiles(user_id),
@@ -706,6 +725,36 @@ CREATE TABLE public.polls (
   CONSTRAINT polls_pkey PRIMARY KEY (id),
   CONSTRAINT polls_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id)
 );
+CREATE TABLE public.post_boost_recipients (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  boost_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  match_score numeric NOT NULL DEFAULT 0,
+  selection_reason text CHECK (selection_reason = ANY (ARRAY['interest_match'::text, 'follower'::text, 'engagement'::text, 'verified'::text])),
+  notified_at timestamp with time zone,
+  clicked_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT post_boost_recipients_pkey PRIMARY KEY (id),
+  CONSTRAINT post_boost_recipients_boost_id_fkey FOREIGN KEY (boost_id) REFERENCES public.post_boosts(id),
+  CONSTRAINT post_boost_recipients_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.post_boosts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL,
+  author_id uuid NOT NULL,
+  target_user_count integer NOT NULL CHECK (target_user_count >= 10 AND target_user_count <= 1000),
+  actual_reached_count integer NOT NULL DEFAULT 0,
+  cost_rc numeric NOT NULL CHECK (cost_rc >= 1::numeric),
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'active'::text, 'completed'::text, 'failed'::text, 'cancelled'::text])),
+  started_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  failed_reason text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT post_boosts_pkey PRIMARY KEY (id),
+  CONSTRAINT post_boosts_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
+  CONSTRAINT post_boosts_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.profiles(user_id)
+);
 CREATE TABLE public.post_drafts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -791,6 +840,7 @@ CREATE TABLE public.posts (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   location text,
   ai_metadata jsonb DEFAULT '{}'::jsonb,
+  is_advertisement boolean DEFAULT false,
   CONSTRAINT posts_pkey PRIMARY KEY (id),
   CONSTRAINT posts_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.profiles(user_id)
 );
@@ -841,6 +891,9 @@ CREATE TABLE public.profiles (
   birth_date date,
   avatar_ai_checked boolean DEFAULT false,
   avatar_ai_score numeric CHECK (avatar_ai_score >= 0::numeric AND avatar_ai_score <= 100::numeric),
+  country_code character varying,
+  onboarding_completed boolean DEFAULT false,
+  country character varying,
   CONSTRAINT profiles_pkey PRIMARY KEY (user_id),
   CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
@@ -1055,6 +1108,7 @@ CREATE TABLE public.stories (
   verification_session_id text,
   ai_metadata jsonb DEFAULT '{}'::jsonb,
   ai_score_status text CHECK (ai_score_status = ANY (ARRAY['pass'::text, 'review'::text, 'flagged'::text])),
+  is_advertisement boolean DEFAULT false,
   CONSTRAINT stories_pkey PRIMARY KEY (id),
   CONSTRAINT stories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
 );

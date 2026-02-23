@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../repositories/wallet_repository.dart';
 import '../services/rooken_service.dart';
@@ -221,23 +222,38 @@ class ReferralService {
 
       final codeId = codeRow['id'] as String;
       final rewardAmount = (codeRow['reward_amount'] as num?)?.toDouble() ?? 10.0;
+      // Use server-stored current_uses for total count rather than fetching all rows.
+      final total = (codeRow['current_uses'] as num?)?.toInt() ?? 0;
 
-      final referrals = await _client
+      // Fetch counts and reward amounts using parallel server-side queries.
+      final countResults = await Future.wait([
+        _client
+            .from('referrals')
+            .select('id')
+            .eq('referral_code_id', codeId)
+            .eq('status', 'rewarded')
+            .count(CountOption.exact),
+        _client
+            .from('referrals')
+            .select('id')
+            .eq('referral_code_id', codeId)
+            .eq('status', 'pending')
+            .count(CountOption.exact),
+      ]);
+      final rewardedRows = await _client
           .from('referrals')
-          .select('status, referrer_reward_amount')
-          .eq('referral_code_id', codeId);
+          .select('referrer_reward_amount')
+          .eq('referral_code_id', codeId)
+          .eq('status', 'rewarded');
 
-      final list = referrals as List;
-      final total = list.length;
-      final completed = list.where((r) => r['status'] == 'rewarded').length;
-      final pending = list.where((r) => r['status'] == 'pending').length;
-      final totalEarned = list
-          .where((r) => r['status'] == 'rewarded')
-          .fold<double>(
-            0.0,
-            (sum, r) =>
-                sum + ((r['referrer_reward_amount'] as num?)?.toDouble() ?? rewardAmount),
-          );
+      final completed = countResults[0].count;
+      final pending = countResults[1].count;
+      final totalEarned = rewardedRows.fold<double>(
+        0.0,
+        (sum, r) =>
+            sum +
+            ((r['referrer_reward_amount'] as num?)?.toDouble() ?? rewardAmount),
+      );
 
       return {
         'total_referrals': total,

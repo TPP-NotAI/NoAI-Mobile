@@ -427,78 +427,60 @@ class StoryRepository {
       }
 
       AiDetectionResult? result;
-
-      if (hasText && hasMedia && mediaType == 'image') {
-        // Mixed detection (caption + image)
-        try {
-          final tempDir = await getTemporaryDirectory();
-          final fileName = 'story_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          final filePath = '${tempDir.path}/$fileName';
-
-          final response = await http.get(Uri.parse(_resolveUrl(mediaUrl)));
-          if (response.statusCode == 200) {
-            final file = File(filePath);
-            await file.writeAsBytes(response.bodyBytes);
-            result = await _aiDetectionService.detectMixed(
-              trimmedCaption,
-              file,
-            );
-            try {
-              await file.delete();
-            } catch (e) {
-              debugPrint('StoryRepository: Failed to clean up temp file - $e');
-            }
-          } else {
-            // Fallback to text if download fails
-            result = await _aiDetectionService.detectText(trimmedCaption);
-          }
-        } catch (e) {
-          debugPrint('StoryRepository: Error in mixed detection - $e');
-          result = await _aiDetectionService.detectText(trimmedCaption);
+      File? mediaFile;
+      try {
+        if (hasMedia) {
+          mediaFile = await _downloadStoryMediaToTempFile(
+            mediaUrl: mediaUrl,
+            mediaType: mediaType,
+          );
         }
-      } else if (hasText && !hasMedia) {
-        // Text only
-        result = await _aiDetectionService.detectText(trimmedCaption);
-      } else if (hasMedia && (mediaType == 'image' || mediaType == 'video')) {
-        // Media-only story (image or video)
-        final file = await _downloadStoryMediaToTempFile(
-          mediaUrl: mediaUrl,
-          mediaType: mediaType,
+        final detectionModels = hasMedia ? 'gpt-4.1' : 'gpt-5.2,o3';
+        result = await _aiDetectionService.detectFull(
+          content: hasText ? trimmedCaption : null,
+          file: mediaFile,
+          models: detectionModels,
         );
-        if (file != null) {
-          result = await _aiDetectionService.detectImage(file);
+      } finally {
+        if (mediaFile != null) {
           try {
-            await file.delete();
+            await mediaFile.delete();
           } catch (e) {
             debugPrint('StoryRepository: Failed to clean up temp file - $e');
           }
         }
-      } else if (hasText) {
-        // Final fallback (e.g. video script)
-        result = await _aiDetectionService.detectText(trimmedCaption);
       }
 
       if (result != null) {
-        final bool isAi = result.result.contains('AI');
-        final double aiProbability = isAi
-            ? result.confidence
-            : 100 - result.confidence;
+        final normalizedResult = result.result.trim().toUpperCase();
+        final isAi =
+            normalizedResult == 'AI-GENERATED' ||
+            normalizedResult == 'LIKELY AI-GENERATED';
+        final labelConfidence = result.confidence.clamp(0, 100);
+        final aiProbability = isAi ? labelConfidence : 100 - labelConfidence;
+        final mod = result.moderation;
+        final ad = result.advertisement;
+        final isModerationFlagged = mod?.flagged ?? false;
 
-        // Determine status based on AI probability
-        final String status;
-        if (aiProbability >= 95) {
+        String status;
+        if (isModerationFlagged) {
           status = 'flagged';
-        } else if (aiProbability >= 75) {
+        } else if (isAi && labelConfidence >= 75) {
           status = 'flagged';
-        } else if (aiProbability >= 60) {
+        } else if (isAi && labelConfidence >= 60) {
           status = 'review';
         } else {
           status = 'pass';
         }
+        if (status == 'pass' &&
+            ad != null &&
+            (ad.requiresPayment || ad.flaggedForReview)) {
+          status = 'review';
+        }
 
         await _updateAiScore(
           storyId: storyId,
-          confidence: aiProbability,
+          confidence: aiProbability.toDouble(),
           status: status,
           analysisId: result.analysisId,
           aiMetadata: {
@@ -508,6 +490,8 @@ class StoryRepository {
             'classification': result.result,
             'moderation': result.moderation?.toJson(),
             'safety_score': result.safetyScore,
+            if (result.advertisement != null)
+              'advertisement': result.advertisement!.toJson(),
           },
         );
 
@@ -516,21 +500,27 @@ class StoryRepository {
           userId: authorId,
           storyId: storyId,
           storyStatus: status,
-          aiProbability: aiProbability,
+          aiProbability: aiProbability.toDouble(),
         );
 
         // Create moderation case if flagged or review required
-        if (status == 'flagged' || status == 'review') {
+        if (status == 'flagged' ||
+            status == 'review' ||
+            isModerationFlagged ||
+            (ad != null && (ad.requiresPayment || ad.flaggedForReview))) {
           await _createModerationCase(
             storyId: storyId,
             authorId: authorId,
-            aiConfidence: aiProbability,
+            aiConfidence: aiProbability.toDouble(),
             aiModel: result.analysisId,
             aiMetadata: {
               'consensus_strength': result.consensusStrength,
               'rationale': result.rationale,
               'combined_evidence': result.combinedEvidence,
               'classification': result.result,
+              'moderation': result.moderation?.toJson(),
+              if (result.advertisement != null)
+                'advertisement': result.advertisement!.toJson(),
             },
           );
         }
@@ -569,7 +559,11 @@ class StoryRepository {
           'StoryRepository: AI detection still timing out for story $storyId; keeping status under review',
         );
 
-        await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'review');
+        await _updateAiScore(
+          storyId: storyId,
+          confidence: 0.0,
+          status: 'review',
+        );
         await _notificationRepository.createNotification(
           userId: authorId,
           type: 'story_review',
@@ -647,9 +641,10 @@ class StoryRepository {
     int limit = 50,
   }) async {
     try {
-      final data = await _client
-          .from(SupabaseConfig.storiesTable)
-          .select('''
+      final data =
+          await _client
+                  .from(SupabaseConfig.storiesTable)
+                  .select('''
             *,
             profiles!stories_user_id_fkey (
               user_id,
@@ -659,16 +654,19 @@ class StoryRepository {
               verified_human
             )
           ''')
-          .eq('user_id', userId)
-          .inFilter('status', ['flagged', 'review'])
-          .order('created_at', ascending: false)
-          .limit(limit) as List<dynamic>;
+                  .eq('user_id', userId)
+                  .inFilter('status', ['flagged', 'review'])
+                  .order('created_at', ascending: false)
+                  .limit(limit)
+              as List<dynamic>;
 
       return data
-          .map((json) => Story.fromSupabase(
-                json as Map<String, dynamic>,
-                currentUserId: userId,
-              ))
+          .map(
+            (json) => Story.fromSupabase(
+              json as Map<String, dynamic>,
+              currentUserId: userId,
+            ),
+          )
           .toList();
     } catch (e) {
       debugPrint('StoryRepository: Error fetching user flagged stories - $e');
