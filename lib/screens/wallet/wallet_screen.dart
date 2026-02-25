@@ -18,6 +18,7 @@ import '../../services/referral_service.dart';
 import '../../services/roo_purchase_service.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
 
@@ -96,26 +97,24 @@ class _WalletScreenState extends State<WalletScreen> {
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 const Icon(
                   Icons.card_giftcard,
                   size: 48,
                   color: Color(0xFF4A00E0),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Invite Friends',
+                SizedBox(height: 16),
+                Text('Invite Friends'.tr(context),
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Share your referral code and earn 50 ROO!\nFriend must complete human verification.',
+                SizedBox(height: 8),
+                Text('Share your referral code and earn 50 ROO!\nFriend must complete human verification.'.tr(context),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: colors.onSurfaceVariant),
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: 32),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
@@ -132,16 +131,15 @@ class _WalletScreenState extends State<WalletScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'YOUR REFERRAL CODE',
+                            Text('YOUR REFERRAL CODE'.tr(context),
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: colors.onSurfaceVariant,
                                 letterSpacing: 1,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            SizedBox(height: 4),
                             _isLoadingCode
-                                ? const SizedBox(
+                                ? SizedBox(
                                     height: 20,
                                     width: 20,
                                     child: CircularProgressIndicator(
@@ -168,8 +166,8 @@ class _WalletScreenState extends State<WalletScreen> {
                                   ClipboardData(text: _referralCode!),
                                 );
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Code copied to clipboard!'),
+                                  SnackBar(
+                                    content: Text('Code copied to clipboard!'.tr(context)),
                                   ),
                                 );
                               },
@@ -177,7 +175,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
                   height: 56,
@@ -191,7 +189,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             );
                           },
                     icon: const Icon(Icons.share),
-                    label: const Text('Share Code'),
+                    label: Text('Share Code'.tr(context)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4A00E0),
                       foregroundColor: Colors.white,
@@ -215,9 +213,8 @@ class _WalletScreenState extends State<WalletScreen> {
 
     if (user.isVerificationPending) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Your verification is pending review. This feature unlocks once approved.',
+        SnackBar(
+          content: Text('Your verification is pending review. This feature unlocks once approved.'.tr(context),
           ),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
@@ -229,8 +226,7 @@ class _WalletScreenState extends State<WalletScreen> {
     if (!user.isVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            'Please complete identity verification to use this feature.',
+          content: Text('Please complete identity verification to use this feature.'.tr(context),
           ),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
@@ -287,9 +283,8 @@ class _WalletScreenState extends State<WalletScreen> {
                 if (!mounted) return;
                 Navigator.pop(modalContext);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Complete payment in Stripe. ROO will be credited after confirmation.',
+                  SnackBar(
+                    content: Text('Complete payment in Stripe. ROO will be credited after confirmation.'.tr(context),
                     ),
                     behavior: SnackBarBehavior.floating,
                   ),
@@ -299,7 +294,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Could not start Stripe checkout: $e'),
+                    content: Text('Could not start Stripe checkout: $e'.tr(context)),
                     backgroundColor: AppColors.error,
                     behavior: SnackBarBehavior.floating,
                   ),
@@ -318,18 +313,16 @@ class _WalletScreenState extends State<WalletScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Buy ROO',
+                    Text('Buy ROO'.tr(context),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Choose a package or enter a custom amount.',
+                    SizedBox(height: 8),
+                    Text('Choose a package or enter a custom amount.'.tr(context),
                       style: TextStyle(color: colors.onSurfaceVariant),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     ...packages.map((rooAmount) {
                       final usdAmount = rooAmount * rooToUsdRate;
                       return Padding(
@@ -349,8 +342,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: Text(
-                              '$rooAmount ROO  |  \$${usdAmount.toStringAsFixed(2)}',
+                            child: Text('$rooAmount ROO  |  \$${usdAmount.toStringAsFixed(2)}'.tr(context),
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -359,15 +351,14 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                       );
                     }),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Custom amount',
+                    SizedBox(height: 10),
+                    Text('Custom amount'.tr(context),
                       style: TextStyle(
                         color: colors.onSurface,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     TextField(
                       controller: customAmountController,
                       enabled: !isCreatingCheckout,
@@ -387,7 +378,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text(
                       customRooAmount > maxCustomRooAmount
                           ? 'Maximum is $maxCustomRooAmount ROO'
@@ -403,7 +394,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         fontSize: 12,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
@@ -428,7 +419,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                     ),
                     if (isCreatingCheckout)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(top: 8),
                         child: Center(
                           child: CircularProgressIndicator(strokeWidth: 2),
@@ -495,8 +486,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Wallet Overview',
+                            Text('Wallet Overview'.tr(context),
                               style: TextStyle(
                                 color: colors.onSurface,
                                 fontSize: AppTypography.responsiveFontSize(
@@ -509,8 +499,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             SizedBox(
                               height: AppSpacing.extraSmall.responsive(context),
                             ),
-                            Text(
-                              'Manage your Roobyte assets and track yield performance.',
+                            Text('Manage your Roobyte assets and track yield performance.'.tr(context),
                               style: TextStyle(
                                 color: colors.onSurfaceVariant,
                                 fontSize: AppTypography.responsiveFontSize(
@@ -677,7 +666,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
                             Icon(
                               Icons.card_giftcard,
@@ -685,8 +674,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               size: 24,
                             ),
                             SizedBox(width: 12),
-                            Text(
-                              'Refer & Earn 50 ROO',
+                            Text('Refer & Earn 50 ROO'.tr(context),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
@@ -695,15 +683,14 @@ class _WalletScreenState extends State<WalletScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Invite your friends to ROOVERSE and earn extra Roobyte for every verified human you refer!',
+                        SizedBox(height: 12),
+                        Text('Invite your friends to ROOVERSE and earn extra Roobyte for every verified human you refer!'.tr(context),
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 13,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -717,8 +704,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               ),
                               elevation: 0,
                             ),
-                            child: const Text(
-                              'Invite Friends',
+                            child: Text('Invite Friends'.tr(context),
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -739,8 +725,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     ),
                     child: Row(
                       children: [
-                        Text(
-                          'Recent Activity',
+                        Text('Recent Activity'.tr(context),
                           style: TextStyle(
                             color: colors.onSurface,
                             fontSize: AppTypography.responsiveFontSize(
@@ -750,7 +735,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const Spacer(),
+                        Spacer(),
                         TextButton(
                           onPressed: () {
                             Navigator.push(
@@ -761,8 +746,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               ),
                             );
                           },
-                          child: const Text(
-                            'View All',
+                          child: Text('View All'.tr(context),
                             style: TextStyle(
                               color: _rooOrange,
                               fontWeight: FontWeight.w600,
@@ -805,8 +789,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           SizedBox(
                             height: AppSpacing.largePlus.responsive(context),
                           ),
-                          Text(
-                            'No recent activity',
+                          Text('No recent activity'.tr(context),
                             style: TextStyle(
                               color: colors.onSurfaceVariant,
                               fontSize: AppTypography.responsiveFontSize(
@@ -959,7 +942,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 12),
+                                      SizedBox(height: 12),
                                       _detailsRow(
                                         context,
                                         'Amount',
@@ -1027,7 +1010,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                           'Comment Ref',
                                           tx.referenceCommentId!,
                                         ),
-                                      const SizedBox(height: 8),
+                                      SizedBox(height: 8),
                                       SizedBox(
                                         width: double.infinity,
                                         child: ElevatedButton(
@@ -1103,7 +1086,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
+                                    SizedBox(height: 2),
                                     Text(
                                       subtitle,
                                       style: TextStyle(
@@ -1111,7 +1094,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                         fontSize: 12,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
+                                    SizedBox(height: 2),
                                     Text(
                                       date,
                                       style: TextStyle(
@@ -1125,8 +1108,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  Text(
-                                    '${isSent ? '-' : '+'}${_currencyFormat.format(amount)} ROO',
+                                  Text('${isSent ? '.tr(context)-' : '+'}${_currencyFormat.format(amount)} ROO',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: isSent
@@ -1134,7 +1116,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                           : AppColors.success,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  SizedBox(height: 4),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
@@ -1162,7 +1144,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     }, childCount: transactions.length),
                   ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                SliverToBoxAdapter(child: SizedBox(height: 24)),
               ],
             ],
           ),
@@ -1195,8 +1177,7 @@ class _WalletScreenState extends State<WalletScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'TOTAL BALANCE',
+              Text('TOTAL BALANCE'.tr(context),
                 style: TextStyle(
                   color: colors.onSurfaceVariant,
                   fontSize: 12,
@@ -1218,7 +1199,7 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -1232,11 +1213,10 @@ class _WalletScreenState extends State<WalletScreen> {
                   height: 1,
                 ),
               ),
-              const SizedBox(width: 8),
-              const Padding(
+              SizedBox(width: 8),
+              Padding(
                 padding: EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'ROO',
+                child: Text('ROO'.tr(context),
                   style: TextStyle(
                     color: _rooGold,
                     fontSize: 20,
@@ -1246,12 +1226,11 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            '≈ \$${usdValue.toStringAsFixed(2)} USD',
+          SizedBox(height: 4),
+          Text('≈ \$${usdValue.toStringAsFixed(2)} USD'.tr(context),
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           // Action Buttons
           Row(
@@ -1268,9 +1247,8 @@ class _WalletScreenState extends State<WalletScreen> {
 
                   if (user.isVerificationPending) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Your verification is pending. You can buy ROO once approved.',
+                      SnackBar(
+                        content: Text('Your verification is pending. You can buy ROO once approved.'.tr(context),
                         ),
                         backgroundColor: Colors.orange,
                       ),
@@ -1281,8 +1259,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   if (!user.isVerified) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text(
-                          'Please complete identity verification before purchasing ROO.',
+                        content: Text('Please complete identity verification before purchasing ROO.'.tr(context),
                         ),
                         backgroundColor: Colors.orange,
                         action: SnackBarAction(
@@ -1302,7 +1279,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   _showBuyRooSheet(context, userId);
                 },
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               _buildActionButton('Send', Icons.send, null, false, colors, () {
                 if (!_ensureVerifiedForWalletActions(context)) return;
                 if (wallet != null) {
@@ -1315,7 +1292,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   );
                 }
               }),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               _buildActionButton(
                 'Receive',
                 Icons.qr_code,
@@ -1330,7 +1307,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   );
                 },
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               _buildActionButton(
                 'Withdraw',
                 Icons.account_balance,
@@ -1352,15 +1329,14 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           // Network Status
           Row(
             children: [
               const Icon(Icons.circle, color: AppColors.success, size: 8),
-              const SizedBox(width: 8),
-              Text(
-                'Connected to Sepolia Testnet',
+              SizedBox(width: 8),
+              Text('Connected to Sepolia Testnet'.tr(context),
                 style: TextStyle(color: AppColors.success, fontSize: 12),
               ),
             ],
@@ -1388,19 +1364,17 @@ class _WalletScreenState extends State<WalletScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Activate Your Wallet',
+          Text('Activate Your Wallet'.tr(context),
             style: TextStyle(
               color: colors.onSurface,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Activate to receive tips and transfers. This creates your on-chain address.',
+          SizedBox(height: 6),
+          Text('Activate to receive tips and transfers. This creates your on-chain address.'.tr(context),
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -1429,7 +1403,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
               ),
               child: walletProvider.isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 16,
                       width: 16,
                       child: CircularProgressIndicator(
@@ -1437,7 +1411,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Activate Wallet'),
+                  : Text('Activate Wallet'.tr(context)),
             ),
           ),
         ],
@@ -1472,7 +1446,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 color: isPrimary ? Colors.white : buttonColor,
                 size: 18,
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
@@ -1508,8 +1482,7 @@ class _WalletScreenState extends State<WalletScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'CURRENT APY',
+              Text('CURRENT APY'.tr(context),
                 style: TextStyle(
                   color: colors.onSurfaceVariant,
                   fontSize: 11,
@@ -1520,15 +1493,14 @@ class _WalletScreenState extends State<WalletScreen> {
               Icon(Icons.trending_up, color: AppColors.success, size: 16),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  '8.5%',
+                Text('8.5%'.tr(context),
                   style: const TextStyle(
                     color: _rooGold,
                     fontSize: 28,
@@ -1536,11 +1508,10 @@ class _WalletScreenState extends State<WalletScreen> {
                     fontFamily: 'monospace',
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    '+0.05%',
+                  child: Text('+0.05%'.tr(context),
                     style: TextStyle(
                       color: AppColors.success,
                       fontSize: 12,
@@ -1696,7 +1667,7 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               value,
@@ -1728,8 +1699,7 @@ class _WalletScreenState extends State<WalletScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'TOTAL EARNED',
+              Text('TOTAL EARNED'.tr(context),
                 style: TextStyle(
                   color: colors.onSurfaceVariant,
                   fontSize: 11,
@@ -1740,12 +1710,11 @@ class _WalletScreenState extends State<WalletScreen> {
               Icon(Icons.monetization_on, color: AppColors.success, size: 16),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(
-              '${totalEarned.toStringAsFixed(0)}',
+            child: Text('${totalEarned.toStringAsFixed(0)}'.tr(context),
               style: TextStyle(
                 color: colors.onSurface,
                 fontSize: 28,
@@ -1754,13 +1723,11 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ),
           ),
-          Text(
-            'ROO',
+          Text('ROO'.tr(context),
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
           ),
-          const SizedBox(height: 4),
-          Text(
-            '+0 this month',
+          SizedBox(height: 4),
+          Text('+0 this month'.tr(context),
             style: TextStyle(color: AppColors.success, fontSize: 11),
           ),
         ],
@@ -1797,7 +1764,7 @@ class _WalletScreenState extends State<WalletScreen> {
               letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -1815,7 +1782,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     fontFamily: 'monospace',
                   ),
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: 4),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2),
                   child: Text(

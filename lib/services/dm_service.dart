@@ -6,7 +6,7 @@ import '../config/supabase_config.dart';
 import '../models/dm_thread.dart';
 import '../models/dm_message.dart';
 import '../models/user.dart';
-import '../models/ai_detection_result.dart';
+import '../repositories/notification_repository.dart';
 import 'ai_detection_service.dart';
 
 class DmService {
@@ -16,6 +16,7 @@ class DmService {
 
   final _supabase = SupabaseService().client;
   final _aiService = AiDetectionService();
+  final NotificationRepository _notificationRepository = NotificationRepository();
 
   /// Fetch all DM threads for the current user.
   Future<List<DmThread>> getThreads() async {
@@ -187,14 +188,75 @@ class DmService {
     );
   }
 
+  static const double _aiReviewThreshold = 50;
+  static const double _aiFlagThreshold = 75;
+
   /// Send a message in a DM thread.
-  Future<DmMessage> sendMessage(String threadId, String body) async {
+  /// Runs AI detection pre-check before inserting; blocks flagged content.
+  Future<DmMessage> sendMessage(
+    String threadId,
+    String body, {
+    String? replyToId,
+    String? replyContent,
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
+  }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
 
+    final text = body.trim();
+
+    // Run AI detection before inserting the message
+    final precheck = await _runAiPrecheckText(text);
+
+    if (precheck == null) {
+      throw Exception(
+        'Message blocked: AI verification did not complete. Please try again.',
+      );
+    }
+
+    if (precheck.aiScoreStatus == 'flagged') {
+      throw Exception(
+        'Message blocked: content detected as likely AI-generated.',
+      );
+    }
+
+    bool adFeePaid = false;
+    if (precheck.isAdvertisement) {
+      if (precheck.requiresPayment) {
+        final adMeta = precheck.aiMetadata['advertisement'];
+        final adConfidence =
+            adMeta is Map ? (adMeta['confidence'] as num?)?.toDouble() ?? 0.0 : 0.0;
+        final adType = adMeta is Map ? adMeta['type'] as String? : null;
+        adFeePaid =
+            onAdFeeRequired != null &&
+            await onAdFeeRequired(adConfidence, adType);
+        if (!adFeePaid) {
+          throw Exception(
+            'Advertisement detected. Message was not sent because the ad fee was not paid.',
+          );
+        }
+      }
+      if (!precheck.requiresPayment) {
+        throw Exception(
+          'Message blocked: advertisement content is not allowed in chats.',
+        );
+      }
+    }
+
+    final insertData = <String, dynamic>{
+      'thread_id': threadId,
+      'sender_id': userId,
+      'body': body,
+      'ai_score': precheck.aiScore,
+      'ai_score_status': precheck.aiScoreStatus,
+      'ai_metadata': precheck.aiMetadata,
+      'verification_session_id': precheck.analysisId,
+      if (replyToId != null) 'reply_to_id': replyToId,
+    };
+
     final response = await _supabase
         .from(SupabaseConfig.dmMessagesTable)
-        .insert({'thread_id': threadId, 'sender_id': userId, 'body': body})
+        .insert(insertData)
         .select()
         .single();
 
@@ -206,71 +268,162 @@ class DmService {
 
     final dmMessage = DmMessage.fromSupabase(response);
 
-    // Trigger AI Detection asynchronously
-    unawaited(runAiDetection(dmMessage));
+    // Create moderation case if score warrants review
+    await _createModerationCaseIfNeeded(
+      messageId: dmMessage.id,
+      senderId: dmMessage.senderId,
+      aiScore: precheck.aiScore,
+      aiMetadata: precheck.aiMetadata,
+    );
+
+    // Notify thread recipients on normal pass, or when advert fee was paid
+    // (advert messages go only to the conversation recipient, not broadcast to all)
+    if (precheck.aiScoreStatus.toLowerCase() == 'pass' || adFeePaid) {
+      await _notifyThreadRecipients(
+        threadId: threadId,
+        senderId: userId,
+        previewContent: text,
+      );
+    }
 
     return dmMessage;
   }
 
-  /// Run AI detection on a DM message.
-  Future<void> runAiDetection(DmMessage message) async {
+  Future<void> _notifyThreadRecipients({
+    required String threadId,
+    required String senderId,
+    required String previewContent,
+  }) async {
     try {
-      final text = message.body.trim();
-      if (text.isEmpty) return;
+      final participantRows = await _supabase
+          .from(SupabaseConfig.dmParticipantsTable)
+          .select('user_id')
+          .eq('thread_id', threadId)
+          .neq('user_id', senderId);
+
+      final recipients = (participantRows as List<dynamic>)
+          .map((e) => e['user_id'] as String?)
+          .whereType<String>()
+          .toSet();
+      if (recipients.isEmpty) return;
+
+      final senderProfile = await _supabase
+          .from(SupabaseConfig.profilesTable)
+          .select('username, display_name')
+          .eq('user_id', senderId)
+          .maybeSingle();
+      final senderName =
+          (senderProfile?['display_name'] as String?)?.trim().isNotEmpty == true
+          ? (senderProfile!['display_name'] as String).trim()
+          : ((senderProfile?['username'] as String?) ?? 'Someone');
+
+      final body = previewContent.trim().isEmpty
+          ? 'You received a new message.'
+          : (previewContent.length > 120
+              ? '${previewContent.substring(0, 120)}...'
+              : previewContent);
+
+      for (final recipientId in recipients) {
+        await _notificationRepository.createNotification(
+          userId: recipientId,
+          type: 'chat',
+          title: senderName,
+          body: body,
+          actorId: null,
+        );
+      }
+    } catch (e) {
+      debugPrint('DmService: Failed to create message notification - $e');
+    }
+  }
+
+  Future<_DmPrecheckResult?> _runAiPrecheckText(String text) async {
+    try {
+      if (text.isEmpty) return null;
       final result = await _aiService.detectFull(
         content: text,
         models: 'gpt-5.2,o3',
       );
-      if (result == null) return;
+      if (result == null) return null;
 
       final normalizedResult = result.result.trim().toUpperCase();
       final isAiResult =
           normalizedResult == 'AI-GENERATED' ||
           normalizedResult == 'LIKELY AI-GENERATED';
       final labelConfidence = result.confidence.clamp(0, 100);
-      final aiProbability = isAiResult ? labelConfidence : 100 - labelConfidence;
+      final aiScore = isAiResult
+          ? labelConfidence.toDouble()
+          : (100 - labelConfidence).toDouble();
+      final aiScoreStatus = _resolveAiScoreStatus(aiScore);
+      final aiMetadata = <String, dynamic>{
+        'analysis_id': result.analysisId,
+        'rationale': result.rationale,
+        'combined_evidence': result.combinedEvidence,
+        'consensus_strength': result.consensusStrength,
+        'moderation': result.moderation?.toJson(),
+        'safety_score': result.safetyScore,
+        if (result.advertisement != null)
+          'advertisement': result.advertisement!.toJson(),
+      };
+      final ad = result.advertisement;
+      final isAd = ad != null && ad.detected;
+      final adRequiresPayment =
+          isAd &&
+          (ad.requiresPayment ||
+              ad.action == 'require_payment' ||
+              result.policyRequiresPayment);
 
-      // Update message in DB (assuming columns exist, or fail silently if not)
-      try {
-        await _supabase
-            .from(SupabaseConfig.dmMessagesTable)
-            .update({
-              'ai_score': aiProbability,
-              'status': aiProbability >= 50 ? 'flagged' : 'sent',
-              'verification_session_id': result.analysisId,
-              'ai_metadata': {
-                'analysis_id': result.analysisId,
-                'rationale': result.rationale,
-                'combined_evidence': result.combinedEvidence,
-                'consensus_strength': result.consensusStrength,
-                'moderation': result.moderation?.toJson(),
-                'safety_score': result.safetyScore,
-                if (result.advertisement != null)
-                  'advertisement': result.advertisement!.toJson(),
-              },
-            })
-            .eq('id', message.id);
-      } catch (e) {
-        debugPrint('DmService: Failed to update AI fields in DB - $e');
-      }
-
-      // Create moderation case if flagged
-      if (aiProbability >= 75) {
-        await _supabase.from('moderation_cases').insert({
-          'message_id': message.id,
-          'user_id': message.senderId,
-          'violation_type': 'ai_generation',
-          'ai_confidence': aiProbability,
-          'status': 'pending',
-          'ai_metadata': {
-            'analysis_id': result.analysisId,
-            'rationale': result.rationale,
-            'combined_evidence': result.combinedEvidence,
-          },
-        });
-      }
+      return _DmPrecheckResult(
+        aiScore: aiScore,
+        aiScoreStatus: aiScoreStatus,
+        aiMetadata: aiMetadata,
+        analysisId: result.analysisId,
+        isAdvertisement: isAd,
+        requiresPayment: adRequiresPayment,
+      );
     } catch (e) {
-      debugPrint('DmService: Error in runAiDetection - $e');
+      debugPrint('DmService: Pre-send AI detection failed - $e');
+      return null;
+    }
+  }
+
+  String _resolveAiScoreStatus(double aiScore) {
+    if (aiScore >= _aiFlagThreshold) return 'flagged';
+    if (aiScore >= _aiReviewThreshold) return 'review';
+    return 'pass';
+  }
+
+  Future<void> _createModerationCaseIfNeeded({
+    required String messageId,
+    required String senderId,
+    required double aiScore,
+    required Map<String, dynamic> aiMetadata,
+  }) async {
+    if (aiScore < _aiReviewThreshold) return;
+    try {
+      final existing = await _supabase
+          .from('moderation_cases')
+          .select('id')
+          .eq('message_id', messageId)
+          .maybeSingle();
+
+      if (existing != null) return;
+
+      await _supabase.from('moderation_cases').insert({
+        'message_id': messageId,
+        'reported_user_id': senderId,
+        'reason': 'ai_generated',
+        'source': 'ai',
+        'ai_confidence': aiScore,
+        'status': 'pending',
+        'priority': 'normal',
+        'description':
+            'Automated AI detection flagged this DM with ${aiScore.toStringAsFixed(1)}% confidence.',
+        'ai_metadata': aiMetadata,
+      });
+      debugPrint('DmService: Created moderation case for message $messageId');
+    } catch (e) {
+      debugPrint('DmService: Failed to create moderation case - $e');
     }
   }
 
@@ -287,13 +440,28 @@ class DmService {
   }
 
   /// Stream messages for a DM thread (real-time).
+  /// Filters out flagged messages entirely; review messages are only visible
+  /// to the sender.
   Stream<List<DmMessage>> subscribeToMessages(String threadId) {
+    final currentUserId = _supabase.auth.currentUser?.id;
     return _supabase
         .from(SupabaseConfig.dmMessagesTable)
         .stream(primaryKey: ['id'])
         .eq('thread_id', threadId)
         .order('created_at', ascending: false)
-        .map((data) => data.map((m) => DmMessage.fromSupabase(m)).toList());
+        .map((data) {
+          return data
+              .map((m) => DmMessage.fromSupabase(m))
+              .where((m) {
+                if (m.aiScoreStatus == 'flagged') return false;
+                if (m.aiScoreStatus == 'review' &&
+                    m.senderId != currentUserId) {
+                  return false;
+                }
+                return true;
+              })
+              .toList();
+        });
   }
 
   /// Delete a message.
@@ -338,4 +506,22 @@ class DmService {
 
     return response?['muted'] as bool? ?? false;
   }
+}
+
+class _DmPrecheckResult {
+  final double aiScore;
+  final String aiScoreStatus;
+  final Map<String, dynamic> aiMetadata;
+  final String analysisId;
+  final bool isAdvertisement;
+  final bool requiresPayment;
+
+  const _DmPrecheckResult({
+    required this.aiScore,
+    required this.aiScoreStatus,
+    required this.aiMetadata,
+    required this.analysisId,
+    this.isAdvertisement = false,
+    this.requiresPayment = false,
+  });
 }

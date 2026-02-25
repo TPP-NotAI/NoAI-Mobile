@@ -6,6 +6,7 @@ import '../../widgets/comments_sheet.dart';
 import '../../widgets/tip_modal.dart';
 import '../profile/profile_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class BookmarksScreen extends StatelessWidget {
   const BookmarksScreen({super.key});
 
@@ -33,7 +34,7 @@ class BookmarksScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bookmarks'),
+        title: Text('Bookmarks'.tr(context)),
         centerTitle: false,
         backgroundColor: colors.surface,
         surfaceTintColor: Colors.transparent,
@@ -65,8 +66,7 @@ class BookmarksScreen extends StatelessWidget {
                         color: colors.onSurfaceVariant.withValues(alpha: 0.4),
                       ),
                       const SizedBox(height: 16),
-                      Text(
-                        'No bookmarks yet',
+                      Text('No bookmarks yet'.tr(context),
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -74,8 +74,7 @@ class BookmarksScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        'Save posts to view them later',
+                      Text('Save posts to view them later'.tr(context),
                         style: TextStyle(
                           fontSize: 14,
                           color: colors.onSurfaceVariant,

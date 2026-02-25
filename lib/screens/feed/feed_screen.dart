@@ -15,6 +15,7 @@ import '../../widgets/shimmer_loading.dart';
 import '../../widgets/stories_carousel.dart';
 import '../profile/profile_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
 
@@ -138,8 +139,7 @@ class _FeedScreenState extends State<FeedScreen> {
                             SizedBox(
                               height: AppSpacing.largePlus.responsive(context),
                             ),
-                            Text(
-                              'No posts yet',
+                            Text('No posts yet'.tr(context),
                               style: TextStyle(
                                 fontSize: AppTypography.responsiveFontSize(
                                   context,
@@ -308,8 +308,7 @@ class CreatePostCard extends StatelessWidget {
                       borderRadius: AppSpacing.responsiveRadius(context, 24),
                       border: Border.all(color: colors.outlineVariant),
                     ),
-                    child: Text(
-                      'Share your verified insights...',
+                    child: Text('Share your verified insights...'.tr(context),
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
                           context,

@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../utils/responsive_extensions.dart';
 import '../../utils/validators.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class RecoveryScreen extends StatefulWidget {
   final VoidCallback onBack;
 
@@ -174,8 +175,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                         backgroundColor: scheme.onBackground.withOpacity(0.08),
                       ),
                     ),
-                    Text(
-                      'RECOVERY',
+                    Text('RECOVERY'.tr(context),
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(context, 10),
                         fontWeight: FontWeight.bold,
@@ -311,8 +311,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         Center(
           child: TextButton(
             onPressed: widget.onBack,
-            child: Text(
-              'Remember your password? Log In',
+            child: Text('Remember your password? Log In'.tr(context),
               style: TextStyle(
                 fontSize: AppTypography.responsiveFontSize(
                   context,
@@ -336,8 +335,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       children: [
         _buildTitleSection('Verify Code'),
         SizedBox(height: AppSpacing.largePlus.responsive(context)),
-        Text(
-          'We\'ve sent a 6-digit verification code to ${authProvider.pendingEmail ?? 'your email'}. Please enter it below to proceed.',
+        Text('We\'ve sent a 6-digit verification code to ${authProvider.pendingEmail ?? '.tr(context)your email'}. Please enter it below to proceed.',
           style: TextStyle(
             fontSize: AppTypography.responsiveFontSize(
               context,
@@ -368,8 +366,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         Center(
           child: TextButton(
             onPressed: _handleSendEmail,
-            child: Text(
-              'Resend Code',
+            child: Text('Resend Code'.tr(context),
               style: TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.bold,
@@ -393,8 +390,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       children: [
         _buildTitleSection('New Password'),
         SizedBox(height: AppSpacing.largePlus.responsive(context)),
-        Text(
-          'Verification successful! Create a strong new password for your account.',
+        Text('Verification successful! Create a strong new password for your account.'.tr(context),
           style: TextStyle(
             fontSize: AppTypography.responsiveFontSize(
               context,
@@ -475,8 +471,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'ROOKEN PROTECTED',
+                Text('ROOKEN PROTECTED'.tr(context),
                   style: TextStyle(
                     fontSize: AppTypography.responsiveFontSize(context, 10),
                     fontWeight: FontWeight.bold,
@@ -485,8 +480,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                   ),
                 ),
                 SizedBox(height: AppSpacing.extraSmall.responsive(context)),
-                Text(
-                  'End-to-end encrypted credential reset.',
+                Text('End-to-end encrypted credential reset.'.tr(context),
                   style: TextStyle(
                     fontSize: AppTypography.responsiveFontSize(context, 10),
                     color: scheme.onBackground.withOpacity(0.6),
@@ -518,8 +512,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           ),
         ),
         SizedBox(height: AppSpacing.double_.responsive(context)),
-        Text(
-          'Password Reset!',
+        Text('Password Reset!'.tr(context),
           style: TextStyle(
             fontSize: AppTypography.responsiveFontSize(
               context,
@@ -529,8 +522,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           ),
         ),
         SizedBox(height: AppSpacing.largePlus.responsive(context)),
-        Text(
-          'Your password has been successfully reset. You can now use your new password to log in.',
+        Text('Your password has been successfully reset. You can now use your new password to log in.'.tr(context),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: AppTypography.responsiveFontSize(
@@ -566,8 +558,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
               color: AppColors.primary,
             ),
             SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
-            Text(
-              'SECURE RECOVERY',
+            Text('SECURE RECOVERY'.tr(context),
               style: TextStyle(
                 fontSize: AppTypography.responsiveFontSize(context, 10),
                 fontWeight: FontWeight.bold,

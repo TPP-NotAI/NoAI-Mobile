@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -5,9 +6,11 @@ import 'package:intl/intl.dart';
 import '../../providers/dm_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/dm_thread.dart';
+import '../../models/user.dart';
 import '../../widgets/shimmer_loading.dart';
 import 'dm_thread_page.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class DmListScreen extends StatefulWidget {
   const DmListScreen({super.key});
 
@@ -16,12 +19,24 @@ class DmListScreen extends StatefulWidget {
 }
 
 class _DmListScreenState extends State<DmListScreen> {
+  Timer? _refreshTimer;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<DmProvider>().loadThreads();
     });
+    // Refresh every 60s so online dots and unread counts stay current
+    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (mounted) context.read<DmProvider>().loadThreads();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -32,8 +47,7 @@ class _DmListScreenState extends State<DmListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Direct Messages',
+        title: Text('Direct Messages'.tr(context),
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: colors.surface,
@@ -78,17 +92,15 @@ class _DmListScreenState extends State<DmListScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.mail_outline, size: 64, color: colors.outline),
-          const SizedBox(height: 16),
-          Text(
-            'No direct messages yet',
+          SizedBox(height: 16),
+          Text('No direct messages yet'.tr(context),
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: colors.onSurface,
                   fontWeight: FontWeight.bold,
                 ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Start a DM from someone\'s profile!',
+          SizedBox(height: 8),
+          Text('Start a DM from someone\'s profile!'.tr(context),
             style: TextStyle(color: Colors.grey),
           ),
         ],
@@ -118,11 +130,10 @@ class _DmThreadTile extends StatelessWidget {
         color: Colors.red.withOpacity(0.8),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Text(
-              'Delete',
+            Text('Delete'.tr(context),
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -137,9 +148,8 @@ class _DmThreadTile extends StatelessWidget {
         return await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Delete DM Thread'),
-            content: const Text(
-              'Are you sure you want to delete this conversation? This action cannot be undone.',
+            title: Text('Delete DM Thread'.tr(context)),
+            content: Text('Are you sure you want to delete this conversation? This action cannot be undone.'.tr(context),
             ),
             actions: [
               TextButton(
@@ -158,7 +168,7 @@ class _DmThreadTile extends StatelessWidget {
       onDismissed: (_) {
         context.read<DmProvider>().deleteThread(thread.id);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('DM thread deleted')),
+          SnackBar(content: Text('DM thread deleted'.tr(context))),
         );
       },
       child: ListTile(
@@ -174,19 +184,13 @@ class _DmThreadTile extends StatelessWidget {
           }
         },
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          radius: 28,
-          backgroundColor: colors.surfaceContainerHighest,
-          backgroundImage:
-              otherUser.avatar != null ? NetworkImage(otherUser.avatar!) : null,
-          child: otherUser.avatar == null
-              ? Icon(Icons.person, color: colors.onSurfaceVariant)
-              : null,
-        ),
+        leading: _buildAvatar(otherUser, colors),
         title: Text(
           otherUser.displayName,
           style: TextStyle(
-            fontWeight: FontWeight.w600,
+            fontWeight: thread.unreadCount > 0
+                ? FontWeight.bold
+                : FontWeight.w600,
             fontSize: 16,
             color: colors.onSurface,
           ),
@@ -198,19 +202,88 @@ class _DmThreadTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: colors.onSurfaceVariant,
+              color: thread.unreadCount > 0
+                  ? colors.onSurface
+                  : colors.onSurfaceVariant,
               fontSize: 14,
+              fontWeight: thread.unreadCount > 0
+                  ? FontWeight.w500
+                  : FontWeight.normal,
             ),
           ),
         ),
-        trailing: Text(
-          _formatDateTime(thread.lastMessageAt ?? thread.createdAt),
-          style: TextStyle(
-            fontSize: 12,
-            color: colors.onSurfaceVariant.withOpacity(0.7),
-          ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              _formatDateTime(thread.lastMessageAt ?? thread.createdAt),
+              style: TextStyle(
+                fontSize: 12,
+                color: thread.unreadCount > 0
+                    ? colors.primary
+                    : colors.onSurfaceVariant.withValues(alpha: 0.7),
+                fontWeight: thread.unreadCount > 0
+                    ? FontWeight.bold
+                    : FontWeight.normal,
+              ),
+            ),
+            if (thread.unreadCount > 0) ...[
+              SizedBox(height: 4),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('${thread.unreadCount}'.tr(context),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAvatar(User otherUser, ColorScheme colors) {
+    final now = DateTime.now();
+    final isOnline = otherUser.lastSeen != null &&
+        now.difference(otherUser.lastSeen!).inMinutes < 5;
+
+    return Stack(
+      children: [
+        CircleAvatar(
+          radius: 28,
+          backgroundColor: colors.surfaceContainerHighest,
+          backgroundImage: otherUser.avatar != null
+              ? NetworkImage(otherUser.avatar!)
+              : null,
+          child: otherUser.avatar == null
+              ? Icon(Icons.person, color: colors.onSurfaceVariant)
+              : null,
+        ),
+        if (isOnline)
+          Positioned(
+            right: 2,
+            bottom: 2,
+            child: Container(
+              width: 11,
+              height: 11,
+              decoration: BoxDecoration(
+                color: Colors.green,
+                shape: BoxShape.circle,
+                border: Border.all(color: colors.surface, width: 2),
+              ),
+            ),
+          ),
+      ],
     );
   }
 

@@ -25,6 +25,7 @@ import '../services/app_update_service.dart';
 import '../repositories/support_ticket_repository.dart';
 import '../l10n/app_localizations.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -54,8 +55,7 @@ class SettingsScreen extends StatelessWidget {
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(
-                '${currentUser?.balance.toStringAsFixed(0) ?? '0'} ROO',
+              child: Text('${currentUser?.balance.toStringAsFixed(0) ?? '.tr(context)0'} ROO',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -94,8 +94,7 @@ class SettingsScreen extends StatelessWidget {
                     color: scheme.onBackground,
                   ),
                 ),
-                Text(
-                  '@${currentUser?.username ?? _localizedSettingsText(context, 'unknownUsername')}',
+                Text('@${currentUser?.username ?? _localizedSettingsText(context, '.tr(context)unknownUsername')}',
                   style: TextStyle(
                     color: scheme.onSurface.withOpacity(0.6),
                     fontSize: 14,

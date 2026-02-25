@@ -5,7 +5,9 @@ class DmMessage {
   final String body;
   final DateTime createdAt;
   final double? aiScore;
+  final String? aiScoreStatus;
   final String? status;
+  final String? replyToId;
 
   DmMessage({
     required this.id,
@@ -14,7 +16,9 @@ class DmMessage {
     required this.body,
     required this.createdAt,
     this.aiScore,
+    this.aiScoreStatus,
     this.status,
+    this.replyToId,
   });
 
   factory DmMessage.fromSupabase(Map<String, dynamic> data) {
@@ -25,7 +29,9 @@ class DmMessage {
       body: data['body'] as String,
       createdAt: DateTime.parse(data['created_at'] as String),
       aiScore: (data['ai_score'] as num?)?.toDouble(),
+      aiScoreStatus: data['ai_score_status'] as String?,
       status: data['status'] as String?,
+      replyToId: data['reply_to_id'] as String?,
     );
   }
 
@@ -39,6 +45,10 @@ class DmMessage {
     String? senderId,
     String? body,
     DateTime? createdAt,
+    double? aiScore,
+    String? aiScoreStatus,
+    String? status,
+    String? replyToId,
   }) {
     return DmMessage(
       id: id ?? this.id,
@@ -47,7 +57,9 @@ class DmMessage {
       body: body ?? this.body,
       createdAt: createdAt ?? this.createdAt,
       aiScore: aiScore ?? this.aiScore,
+      aiScoreStatus: aiScoreStatus ?? this.aiScoreStatus,
       status: status ?? this.status,
+      replyToId: replyToId ?? this.replyToId,
     );
   }
 }

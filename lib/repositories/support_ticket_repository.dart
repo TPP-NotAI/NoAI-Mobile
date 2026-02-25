@@ -3,9 +3,11 @@ import '../config/supabase_config.dart';
 import '../models/support_ticket.dart';
 import '../models/support_ticket_message.dart';
 import '../services/supabase_service.dart';
+import 'notification_repository.dart';
 
 class SupportTicketRepository {
   final _client = SupabaseService().client;
+  final NotificationRepository _notificationRepository = NotificationRepository();
 
   Future<bool> isCurrentUserAdmin() async {
     try {
@@ -70,6 +72,13 @@ class SupportTicketRepository {
         'message': enrichedMessage,
         'is_staff': false,
       });
+
+      await _notifyAdminsOfSupportMessage(
+        senderId: userId,
+        subject: subject.trim(),
+        messagePreview: message.trim(),
+        isNewTicket: true,
+      );
 
       return ticketId;
     } catch (e) {
@@ -145,6 +154,19 @@ support_ticket_messages(message, created_at)
         'is_staff': false,
       });
 
+      final ticketRow = await _client
+          .from(SupabaseConfig.supportTicketsTable)
+          .select('subject')
+          .eq('id', ticketId)
+          .maybeSingle();
+
+      await _notifyAdminsOfSupportMessage(
+        senderId: userId,
+        subject: (ticketRow?['subject'] as String?)?.trim(),
+        messagePreview: trimmed,
+        isNewTicket: false,
+      );
+
       return true;
     } catch (e) {
       debugPrint('SupportTicketRepository: Failed to send ticket message - $e');
@@ -217,6 +239,59 @@ support_ticket_messages(message, created_at)
       case 'medium':
       default:
         return 'medium';
+    }
+  }
+
+  Future<void> _notifyAdminsOfSupportMessage({
+    required String senderId,
+    String? subject,
+    required String messagePreview,
+    required bool isNewTicket,
+  }) async {
+    try {
+      final adminRows = await _client
+          .from(SupabaseConfig.adminUsersTable)
+          .select('user_id');
+      final adminIds = (adminRows as List<dynamic>)
+          .map((e) => e['user_id'] as String?)
+          .whereType<String>()
+          .where((id) => id != senderId)
+          .toSet();
+      if (adminIds.isEmpty) return;
+
+      final senderProfile = await _client
+          .from(SupabaseConfig.profilesTable)
+          .select('username, display_name')
+          .eq('user_id', senderId)
+          .maybeSingle();
+      final senderName =
+          (senderProfile?['display_name'] as String?)?.trim().isNotEmpty == true
+          ? (senderProfile!['display_name'] as String).trim()
+          : ((senderProfile?['username'] as String?) ?? 'User');
+
+      final safePreview = messagePreview.length > 140
+          ? '${messagePreview.substring(0, 140)}...'
+          : messagePreview;
+      final title = isNewTicket ? 'New Support Ticket' : 'Support Chat Message';
+      final ticketLabel =
+          (subject != null && subject.isNotEmpty) ? subject : 'Support request';
+      final body = isNewTicket
+          ? '$senderName opened "$ticketLabel": $safePreview'
+          : '$senderName replied in "$ticketLabel": $safePreview';
+
+      for (final adminId in adminIds) {
+        await _notificationRepository.createNotification(
+          userId: adminId,
+          type: 'support_chat',
+          title: title,
+          body: body,
+          actorId: null,
+        );
+      }
+    } catch (e) {
+      debugPrint(
+        'SupportTicketRepository: Failed to create support chat notifications - $e',
+      );
     }
   }
 }

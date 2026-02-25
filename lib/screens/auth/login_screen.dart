@@ -11,6 +11,7 @@ import '../../utils/responsive_extensions.dart';
 import '../../utils/snackbar_utils.dart';
 import 'phone_login_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
   final VoidCallback onSignup;
@@ -224,8 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               SizedBox(height: AppSpacing.largePlus.responsive(context)),
 
-              Text(
-                'ROOVERSE',
+              Text('ROOVERSE'.tr(context),
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(
                     context,
@@ -238,8 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
 
-              Text(
-                'Authentic Human Connection',
+              Text('Authentic Human Connection'.tr(context),
                 style: TextStyle(
                   color: scheme.onBackground.withOpacity(0.7),
                   fontSize: AppTypography.responsiveFontSize(
@@ -328,8 +327,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         SizedBox(
                           width: AppSpacing.mediumSmall.responsive(context),
                         ),
-                        Text(
-                          'Remember me',
+                        Text('Remember me'.tr(context),
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
                               context,
@@ -350,8 +348,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Text(
-                      'Forgot Password?',
+                    child: Text('Forgot Password?'.tr(context),
                       style: TextStyle(
                         color: AppColors.primary,
                         fontSize: AppTypography.responsiveFontSize(
@@ -393,8 +390,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         )
-                      : Text(
-                          'Login',
+                      : Text('Login'.tr(context),
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
                               context,
@@ -416,8 +412,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     padding: EdgeInsets.symmetric(
                       horizontal: AppSpacing.largePlus.responsive(context),
                     ),
-                    child: Text(
-                      'Or continue with',
+                    child: Text('Or continue with'.tr(context),
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
                           context,
@@ -469,8 +464,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: scheme.onSurface,
                     size: AppTypography.responsiveIconSize(context, 24),
                   ),
-                  label: Text(
-                    'Login with phone number',
+                  label: Text('Login with phone number'.tr(context),
                     style: TextStyle(
                       color: scheme.onSurface,
                       fontSize: AppTypography.responsiveFontSize(
@@ -492,8 +486,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
 
-              Text(
-                'Phone login also satisfies the human-verification step.',
+              Text('Phone login also satisfies the human-verification step.'.tr(context),
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(
                     context,
@@ -510,8 +503,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'New here? ',
+                  Text('New here? '.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                         context,
@@ -527,8 +519,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Text(
-                      'Create an Account',
+                    child: Text('Create an Account'.tr(context),
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
                           context,
@@ -593,8 +584,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 if (isRateLimited) ...[
                   SizedBox(height: AppSpacing.extraSmall.responsive(context)),
-                  Text(
-                    'Please wait a few minutes before trying again.',
+                  Text('Please wait a few minutes before trying again.'.tr(context),
                     style: TextStyle(
                       color: errorColor.withOpacity(0.8),
                       fontSize: AppTypography.responsiveFontSize(

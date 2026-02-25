@@ -13,6 +13,7 @@ import 'video_player_widget.dart';
 import 'full_screen_media_viewer.dart';
 import 'mention_rich_text.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class CommentCard extends StatefulWidget {
   final Comment comment;
   final String postId;
@@ -136,7 +137,7 @@ class _CommentCardState extends State<CommentCard> {
       setState(() => _isEditing = false);
       if (!success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update comment')),
+          SnackBar(content: Text('Failed to update comment'.tr(context))),
         );
       }
     }
@@ -146,9 +147,8 @@ class _CommentCardState extends State<CommentCard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Comment'),
-        content: const Text(
-          'Are you sure you want to delete this comment? This cannot be undone.',
+        title: Text('Delete Comment'.tr(context)),
+        content: Text('Are you sure you want to delete this comment? This cannot be undone.'.tr(context),
         ),
         actions: [
           TextButton(
@@ -171,7 +171,7 @@ class _CommentCardState extends State<CommentCard> {
       final success = await provider.deleteComment(widget.postId, commentId);
       if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to delete comment')),
+          SnackBar(content: Text('Failed to delete comment'.tr(context))),
         );
       }
     }
@@ -348,7 +348,7 @@ class _CommentCardState extends State<CommentCard> {
                                         width: AppSpacing.mediumSmall
                                             .responsive(context),
                                       ),
-                                      const Text('Edit'),
+                                      Text('Edit'.tr(context)),
                                     ],
                                   ),
                                 ),
@@ -368,8 +368,7 @@ class _CommentCardState extends State<CommentCard> {
                                         width: AppSpacing.mediumSmall
                                             .responsive(context),
                                       ),
-                                      Text(
-                                        'Delete',
+                                      Text('Delete'.tr(context),
                                         style: TextStyle(color: colors.error),
                                       ),
                                     ],
@@ -657,8 +656,7 @@ class _CommentCardState extends State<CommentCard> {
                                         context,
                                       ),
                                     ),
-                                    Text(
-                                      '${currentComment.likes}',
+                                    Text('${currentComment.likes}'.tr(context),
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
                                             fontSize:
@@ -718,8 +716,7 @@ class _CommentCardState extends State<CommentCard> {
                                       context,
                                     ),
                                   ),
-                                  Text(
-                                    'Reply',
+                                  Text('Reply'.tr(context),
                                     style: theme.textTheme.labelSmall?.copyWith(
                                       fontSize:
                                           AppTypography.responsiveFontSize(
@@ -814,8 +811,7 @@ class _CommentCardState extends State<CommentCard> {
                   _visibleRepliesCount += 3;
                 });
               },
-              child: Text(
-                'View previous replies ($remainingReplies)',
+              child: Text('View previous replies ($remainingReplies)'.tr(context),
                 style: theme.textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: colors.primary,
@@ -886,8 +882,7 @@ class _CommentCardState extends State<CommentCard> {
                     horizontal: AppSpacing.standard.responsive(context),
                   ),
                 ),
-                child: Text(
-                  'Cancel',
+                child: Text('Cancel'.tr(context),
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontSize: AppTypography.responsiveFontSize(
                       context,
@@ -908,8 +903,7 @@ class _CommentCardState extends State<CommentCard> {
                     horizontal: AppSpacing.standard.responsive(context),
                   ),
                 ),
-                child: Text(
-                  'Save',
+                child: Text('Save'.tr(context),
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontSize: AppTypography.responsiveFontSize(
                       context,

@@ -6,13 +6,14 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_extensions.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SuspendedScreen extends StatelessWidget {
   const SuspendedScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Account Suspended')),
+      appBar: AppBar(title: Text('Account Suspended'.tr(context))),
       body: Center(
         child: Padding(
           padding: AppSpacing.responsiveAll(context, AppSpacing.largePlus),
@@ -25,8 +26,7 @@ class SuspendedScreen extends StatelessWidget {
                 color: Colors.red,
               ),
               SizedBox(height: AppSpacing.standard.responsive(context)),
-              Text(
-                'Your account has been suspended.',
+              Text('Your account has been suspended.'.tr(context),
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(
                     context,
@@ -48,8 +48,7 @@ class SuspendedScreen extends StatelessWidget {
                       ),
                     );
                   },
-                  child: Text(
-                    'Contact Support',
+                  child: Text('Contact Support'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                         context,
@@ -72,8 +71,7 @@ class SuspendedScreen extends StatelessWidget {
                     side: const BorderSide(color: Colors.orange),
                     foregroundColor: Colors.orange,
                   ),
-                  child: Text(
-                    'Log Out',
+                  child: Text('Log Out'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                         context,

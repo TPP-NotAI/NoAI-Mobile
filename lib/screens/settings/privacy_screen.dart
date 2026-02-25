@@ -4,6 +4,7 @@ import '../../providers/user_provider.dart';
 import '../../config/app_colors.dart';
 import 'blocked_muted_users_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class PrivacyScreen extends StatefulWidget {
   const PrivacyScreen({super.key});
 
@@ -44,8 +45,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
       backgroundColor: scheme.background,
       appBar: AppBar(
         backgroundColor: scheme.surface,
-        title: Text(
-          'Privacy Settings',
+        title: Text('Privacy Settings'.tr(context),
           style: TextStyle(color: scheme.onSurface),
         ),
         centerTitle: true,
@@ -61,7 +61,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
             onChanged: (value) => setState(() => _postsVisibility = value),
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
 
           _buildSectionHeader('COMMENTS'),
           _buildVisibilitySelector(
@@ -70,7 +70,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
             onChanged: (value) => setState(() => _commentsVisibility = value),
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
 
           _buildVisibilitySelector(
             title: 'Who can send me messages?',
@@ -78,7 +78,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
             onChanged: (value) => setState(() => _messagesVisibility = value),
           ),
 
-          const SizedBox(height: 32),
+          SizedBox(height: 32),
 
           _buildSectionHeader('SAFETY'),
           _buildSettingsLink(
@@ -93,7 +93,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
             ),
           ),
 
-          const SizedBox(height: 48),
+          SizedBox(height: 48),
 
           ElevatedButton(
             onPressed: _isSaving ? null : _saveSettings,
@@ -153,7 +153,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
               color: scheme.onSurface,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _buildRadioOption('Everyone', 'everyone', value, onChanged),
           _buildRadioOption('Followers only', 'followers', value, onChanged),
           _buildRadioOption('Private (only me)', 'private', value, onChanged),
@@ -184,7 +184,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
               onChanged: (value) => onChanged(value!),
               activeColor: AppColors.primary,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Text(
                 label,
@@ -206,8 +206,8 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
 
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('User not logged in.'),
+        SnackBar(
+          content: Text('User not logged in.'.tr(context)),
           backgroundColor: Colors.red,
         ),
       );
@@ -262,7 +262,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
         child: Row(
           children: [
             Icon(icon, color: Colors.redAccent, size: 24),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

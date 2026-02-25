@@ -40,13 +40,22 @@ class DmProvider extends ChangeNotifier {
   }
 
   /// Send a message and refresh the thread list.
-  Future<void> sendMessage(String threadId, String body) async {
-    try {
-      await _dmService.sendMessage(threadId, body);
-      await loadThreads();
-    } catch (e) {
-      debugPrint('Error sending DM: $e');
-    }
+  /// Throws on AI block or advertisement detection so the UI can display the error.
+  Future<void> sendMessage(
+    String threadId,
+    String body, {
+    String? replyToId,
+    String? replyContent,
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
+  }) async {
+    await _dmService.sendMessage(
+      threadId,
+      body,
+      replyToId: replyToId,
+      replyContent: replyContent,
+      onAdFeeRequired: onAdFeeRequired,
+    );
+    loadThreads();
   }
 
   /// Delete a message.

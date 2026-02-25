@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class ErrorDisplayWidget extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
@@ -24,8 +25,7 @@ class ErrorDisplayWidget extends StatelessWidget {
               color: Theme.of(context).colorScheme.error,
             ),
             const SizedBox(height: 16),
-            Text(
-              'Oops! Something went wrong',
+            Text('Oops! Something went wrong'.tr(context),
               style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
@@ -42,7 +42,7 @@ class ErrorDisplayWidget extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Text('Retry'.tr(context)),
               ),
             ],
           ],

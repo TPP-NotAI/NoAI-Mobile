@@ -6,6 +6,7 @@ import '../../widgets/error_widget.dart';
 import '../../widgets/user_card.dart';
 import '../../models/user.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class BlockedMutedUsersScreen extends StatefulWidget {
   // initialIndex kept for API compatibility
   final int initialIndex;
@@ -69,8 +70,7 @@ class _BlockedMutedUsersScreenState extends State<BlockedMutedUsersScreen> {
       backgroundColor: scheme.surface,
       appBar: AppBar(
         backgroundColor: scheme.surface,
-        title: Text(
-          'Blocked Users',
+        title: Text('Blocked Users'.tr(context),
           style: TextStyle(color: scheme.onSurface),
         ),
         centerTitle: true,
@@ -98,8 +98,7 @@ class _BlockedMutedUsersScreenState extends State<BlockedMutedUsersScreen> {
               color: scheme.onSurface.withValues(alpha: 0.2),
             ),
             const SizedBox(height: 16),
-            Text(
-              'No blocked users',
+            Text('No blocked users'.tr(context),
               style: TextStyle(
                 color: scheme.onSurface.withValues(alpha: 0.6),
                 fontSize: 16,
@@ -120,7 +119,7 @@ class _BlockedMutedUsersScreenState extends State<BlockedMutedUsersScreen> {
           onTap: () {},
           trailing: TextButton(
             onPressed: () => _unblock(user),
-            child: const Text('Unblock', style: TextStyle(color: Colors.red)),
+            child: Text('Unblock'.tr(context), style: TextStyle(color: Colors.red)),
           ),
         );
       },
@@ -133,7 +132,7 @@ class _BlockedMutedUsersScreenState extends State<BlockedMutedUsersScreen> {
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${user.username} unblocked.')),
+        SnackBar(content: Text('${user.username} unblocked.'.tr(context))),
       );
       _loadData();
     }

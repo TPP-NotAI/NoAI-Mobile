@@ -7,6 +7,7 @@ import '../../providers/user_provider.dart';
 import '../../models/post.dart';
 import '../../config/supabase_config.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class EditPostScreen extends StatefulWidget {
   final Post post;
 
@@ -73,7 +74,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e'.tr(context))));
     }
   }
 
@@ -97,7 +98,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
     if (text.isEmpty && _existingMedia.isEmpty && _newMediaFiles.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Post cannot be empty')));
+      ).showSnackBar(SnackBar(content: Text('Post cannot be empty'.tr(context))));
       return;
     }
 
@@ -120,18 +121,18 @@ class _EditPostScreenState extends State<EditPostScreen> {
       if (success && mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post updated successfully')),
+          SnackBar(content: Text('Post updated successfully'.tr(context))),
         );
       } else if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to update post')));
+        ).showSnackBar(SnackBar(content: Text('Failed to update post'.tr(context))));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error: $e'.tr(context))));
       }
     } finally {
       if (mounted) {
@@ -148,7 +149,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Post'),
+        title: Text('Edit Post'.tr(context)),
         actions: [
           FilledButton(
             onPressed: _isSaving ? null : _saveChanges,
@@ -161,7 +162,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
                       color: Colors.white,
                     ),
                   )
-                : const Text('Save'),
+                : Text('Save'.tr(context)),
           ),
           const SizedBox(width: 16),
         ],
@@ -337,13 +338,13 @@ class _EditPostScreenState extends State<EditPostScreen> {
                   onPressed: () =>
                       _pickMedia(fromCamera: false, isVideo: false),
                   icon: const Icon(Icons.photo),
-                  label: const Text('Add Photo'),
+                  label: Text('Add Photo'.tr(context)),
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
                   onPressed: () => _pickMedia(fromCamera: false, isVideo: true),
                   icon: const Icon(Icons.videocam),
-                  label: const Text('Add Video'),
+                  label: Text('Add Video'.tr(context)),
                 ),
               ],
             ),

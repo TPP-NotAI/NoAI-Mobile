@@ -411,6 +411,7 @@ class StoryRepository {
     required String mediaUrl,
     required String mediaType,
     String? caption,
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
     int retryAttempt = 0,
     bool allowDeferredRetry = true,
   }) async {
@@ -461,6 +462,14 @@ class StoryRepository {
         final mod = result.moderation;
         final ad = result.advertisement;
         final isModerationFlagged = mod?.flagged ?? false;
+        final requiresAdPayment =
+            (ad?.requiresPayment ?? false) ||
+            result.policyRequiresPayment ||
+            result.policyAction == 'require_payment';
+        final adFlaggedForReview =
+            (ad?.flaggedForReview ?? false) ||
+            result.policyAction == 'flag_for_review';
+        bool adFeePaid = false;
 
         String status;
         if (isModerationFlagged) {
@@ -472,10 +481,27 @@ class StoryRepository {
         } else {
           status = 'pass';
         }
-        if (status == 'pass' &&
-            ad != null &&
-            (ad.requiresPayment || ad.flaggedForReview)) {
+        if (status == 'pass' && requiresAdPayment) {
+          final adConfidence = ad?.confidence ?? 0.0;
+          final adType = ad?.type ?? 'advertisement';
+
+          if (onAdFeeRequired != null) {
+            adFeePaid = await onAdFeeRequired(adConfidence, adType);
+          }
+
+          if (!adFeePaid) {
+            status = 'review';
+          }
+        } else if (status == 'pass' && adFlaggedForReview) {
           status = 'review';
+        }
+
+        if (status == 'pass' && adFeePaid) {
+          await _broadcastSponsoredStoryNotification(
+            storyId: storyId,
+            authorId: authorId,
+            adType: ad?.type,
+          );
         }
 
         await _updateAiScore(
@@ -490,6 +516,10 @@ class StoryRepository {
             'classification': result.result,
             'moderation': result.moderation?.toJson(),
             'safety_score': result.safetyScore,
+            if (requiresAdPayment) 'ad_fee_required': true,
+            if (requiresAdPayment) 'ad_fee_paid': adFeePaid,
+            if (result.policyAction != null) 'policy_action': result.policyAction,
+            'policy_requires_payment': result.policyRequiresPayment,
             if (result.advertisement != null)
               'advertisement': result.advertisement!.toJson(),
           },
@@ -501,6 +531,9 @@ class StoryRepository {
           storyId: storyId,
           storyStatus: status,
           aiProbability: aiProbability.toDouble(),
+          isAdPaymentRequired: requiresAdPayment && !adFeePaid,
+          adFeePaid: adFeePaid,
+          adType: ad?.type,
         );
 
         // Create moderation case if flagged or review required
@@ -550,6 +583,7 @@ class StoryRepository {
             mediaUrl: mediaUrl,
             mediaType: mediaType,
             caption: caption,
+            onAdFeeRequired: onAdFeeRequired,
             retryAttempt: retryAttempt + 1,
             allowDeferredRetry: allowDeferredRetry,
           );
@@ -761,6 +795,9 @@ class StoryRepository {
     required String storyId,
     required String storyStatus,
     required double aiProbability,
+    bool isAdPaymentRequired = false,
+    bool adFeePaid = false,
+    String? adType,
   }) async {
     try {
       String title;
@@ -770,13 +807,25 @@ class StoryRepository {
       switch (storyStatus) {
         case 'pass':
           title = 'Story Published';
-          body = 'Your story passed verification and is now live!';
+          if (adFeePaid) {
+            final adLabel = (adType == null || adType.trim().isEmpty)
+                ? 'advertisement'
+                : adType.replaceAll('_', ' ');
+            body = 'Your sponsored story is now live ($adLabel).';
+          } else {
+            body = 'Your story passed verification and is now live!';
+          }
           type = 'story_published';
           break;
         case 'review':
           title = 'Story Under Review';
-          body =
-              'Your story is being checked for AI. You\'ll be notified soon.';
+          if (isAdPaymentRequired) {
+            body =
+                'Advertisement detected in your story. Pay the ad fee to publish it.';
+          } else {
+            body =
+                'Your story is being checked for AI. You\'ll be notified soon.';
+          }
           type = 'story_review';
           break;
         case 'flagged':
@@ -808,6 +857,57 @@ class StoryRepository {
       }
     } catch (e) {
       debugPrint('StoryRepository: Error sending AI result notification - $e');
+    }
+  }
+
+  Future<void> _broadcastSponsoredStoryNotification({
+    required String storyId,
+    required String authorId,
+    String? adType,
+  }) async {
+    try {
+      final adLabel = (adType == null || adType.trim().isEmpty)
+          ? 'sponsored content'
+          : adType.replaceAll('_', ' ');
+      const int pageSize = 500;
+      int offset = 0;
+
+      while (true) {
+        final rows = await _client
+            .from(SupabaseConfig.profilesTable)
+            .select('user_id')
+            .neq('user_id', authorId)
+            .range(offset, offset + pageSize - 1);
+
+        final users = (rows as List)
+            .map((r) => r['user_id'] as String?)
+            .whereType<String>()
+            .toList();
+        if (users.isEmpty) break;
+
+        final payload = users
+            .map(
+              (uid) => {
+                'user_id': uid,
+                'type': 'mention',
+                'title': 'Sponsored Story',
+                'body': 'A new sponsored story is live ($adLabel).',
+                'actor_id': authorId,
+                'story_id': storyId,
+                'is_read': false,
+              },
+            )
+            .toList();
+
+        await _client.from(SupabaseConfig.notificationsTable).insert(payload);
+
+        if (users.length < pageSize) break;
+        offset += pageSize;
+      }
+    } catch (e) {
+      debugPrint(
+        'StoryRepository: Failed to broadcast sponsored story notification - $e',
+      );
     }
   }
 }

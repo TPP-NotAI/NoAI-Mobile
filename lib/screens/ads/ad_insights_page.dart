@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class AdInsightsPage extends StatelessWidget {
   final Post post;
 
@@ -32,7 +33,7 @@ class AdInsightsPage extends StatelessWidget {
     final adAction = ad?['action'] as String?;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ad Insights')),
+      appBar: AppBar(title: Text('Ad Insights'.tr(context))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -45,12 +46,11 @@ class AdInsightsPage extends StatelessWidget {
                   Row(
                     children: [
                       const Icon(Icons.campaign, color: Color(0xFFFF8C00)),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Advertisement',
+                      SizedBox(width: 8),
+                      Text('Advertisement'.tr(context),
                         style: TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Chip(
                         label: Text(_isAdvert ? 'AD' : 'NOT AD'),
                         backgroundColor: _isAdvert
@@ -65,14 +65,14 @@ class AdInsightsPage extends StatelessWidget {
                     ],
                   ),
                   if (post.title?.trim().isNotEmpty == true) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text(
                       post.title!.trim(),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ],
                   if (post.content.trim().isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Text(
                       post.content,
                       maxLines: 3,
@@ -83,7 +83,7 @@ class AdInsightsPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _MetricGrid(
             items: [
               _MetricItem('Views', post.views.toString(), Icons.visibility_outlined),
@@ -94,18 +94,17 @@ class AdInsightsPage extends StatelessWidget {
               _MetricItem('Tips (ROO)', post.tips.toStringAsFixed(2), Icons.toll_outlined),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Ad Detection Details',
+                  Text('Ad Detection Details'.tr(context),
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   _kv('Type', adType ?? 'Unknown'),
                   _kv(
                     'Confidence',
@@ -117,20 +116,18 @@ class AdInsightsPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Click-Based Analytics',
+                children: [
+                  Text('Click-Based Analytics'.tr(context),
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   SizedBox(height: 8),
-                  Text(
-                    'Click/impression tracking is not yet stored for adverts in the current app schema. '
+                  const Text('Click/impression tracking is not yet stored for adverts in the current app schema. '
                     'This page shows live engagement metrics available now (views, likes, comments, shares, reposts, tips).',
                   ),
                 ],
@@ -183,7 +180,7 @@ class _MetricGrid extends StatelessWidget {
             child: Row(
               children: [
                 Icon(item.icon),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,

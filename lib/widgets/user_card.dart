@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class UserCard extends StatelessWidget {
   final User user;
   final VoidCallback? onTap;
@@ -62,8 +63,7 @@ class UserCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '@${user.username}',
+                    Text('@${user.username}'.tr(context),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),

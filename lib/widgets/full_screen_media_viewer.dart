@@ -9,6 +9,7 @@ import '../utils/time_utils.dart';
 import 'comments_sheet.dart';
 import 'video_player_widget.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class FullScreenMediaViewer extends StatefulWidget {
   final Post post;
   final String mediaUrl;
@@ -196,8 +197,7 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
                   color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Text(
-                  '${_currentIndex + 1} / $mediaCount',
+                child: Text('${_currentIndex + 1} / $mediaCount'.tr(context),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -272,8 +272,7 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '@${author.username} · $timestampLabel',
+                    Text('@${author.username} · $timestampLabel'.tr(context),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,

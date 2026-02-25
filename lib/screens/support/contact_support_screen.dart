@@ -5,6 +5,7 @@ import 'package:rooverse/l10n/app_localizations.dart';
 import '../../config/app_colors.dart';
 import '../../repositories/support_ticket_repository.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class ContactSupportScreen extends StatefulWidget {
   const ContactSupportScreen({super.key});
 
@@ -41,8 +42,8 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
         _subjectController.text.trim().isEmpty ||
         _messageController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
+        SnackBar(
+          content: Text('Please fill in all required fields'.tr(context)),
           backgroundColor: Color(0xFFEF4444),
         ),
       );
@@ -65,8 +66,8 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
 
     if (ticketId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to submit ticket. Please try again.'),
+        SnackBar(
+          content: Text('Failed to submit ticket. Please try again.'.tr(context)),
           backgroundColor: Color(0xFFEF4444),
         ),
       );
@@ -86,21 +87,18 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
         final scheme = Theme.of(dialogContext).colorScheme;
         return AlertDialog(
           backgroundColor: scheme.surface,
-          title: Text(
-            'Ticket Submitted',
+          title: Text('Ticket Submitted'.tr(context),
             style: TextStyle(color: scheme.onSurface),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'We received your request and will respond within 24 hours.',
+              Text('We received your request and will respond within 24 hours.'.tr(context),
                 style: TextStyle(color: scheme.onSurface.withOpacity(0.7)),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Ticket reference: $ticketReference',
+              SizedBox(height: 12),
+              Text('Ticket reference: $ticketReference'.tr(context),
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   color: scheme.primary,
@@ -159,8 +157,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
           icon: Icon(Icons.arrow_back, color: scheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Contact Support',
+        title: Text('Contact Support'.tr(context),
           style: TextStyle(color: scheme.onSurface),
         ),
         centerTitle: true,
@@ -190,19 +187,18 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.headset_mic,
                       color: Colors.white,
                       size: 32,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  const Expanded(
+                  SizedBox(width: 16),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'We\'re Here to Help',
+                        Text('We\'re Here to Help'.tr(context),
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -210,8 +206,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                           ),
                         ),
                         SizedBox(height: 4),
-                        Text(
-                          'Average response time: 2-4 hours',
+                        Text('Average response time: 2-4 hours'.tr(context),
                           style: TextStyle(fontSize: 13, color: Colors.white70),
                         ),
                       ],
@@ -221,7 +216,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
               ),
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
 
             _buildInputField(
               label: 'Name',
@@ -230,7 +225,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
               hint: 'Your full name',
               scheme: scheme,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             _buildInputField(
               label: 'Email',
               controller: _emailController,
@@ -240,52 +235,51 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
               scheme: scheme,
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
 
             // Category
             _buildDropdown(
               label: 'Category',
               value: _selectedCategory,
-              items: const [
+              items: [
                 DropdownMenuItem(
                   value: 'general',
-                  child: Text('General Inquiry'),
+                  child: Text('General Inquiry'.tr(context)),
                 ),
                 DropdownMenuItem(
                   value: 'account',
-                  child: Text('Account Issue'),
+                  child: Text('Account Issue'.tr(context)),
                 ),
                 DropdownMenuItem(
                   value: 'moderation',
-                  child: Text('Moderation Appeal'),
+                  child: Text('Moderation Appeal'.tr(context)),
                 ),
                 DropdownMenuItem(
                   value: 'roocoin',
-                  child: Text('Roobyte / Wallet'),
+                  child: Text('Roobyte / Wallet'.tr(context)),
                 ),
                 DropdownMenuItem(
                   value: 'technical',
-                  child: Text('Technical Problem'),
+                  child: Text('Technical Problem'.tr(context)),
                 ),
-                DropdownMenuItem(value: 'report', child: Text('Report Abuse')),
-                DropdownMenuItem(value: 'other', child: Text('Other')),
+                DropdownMenuItem(value: 'report', child: Text('Report Abuse'.tr(context))),
+                DropdownMenuItem(value: 'other', child: Text('Other'.tr(context))),
               ],
               onChanged: (v) => setState(() => _selectedCategory = v),
               scheme: scheme,
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
 
             // Priority
-            Text(
-              'Priority',
+            Text('Priority'.tr(context),
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: scheme.onBackground,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -296,7 +290,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                     scheme,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: _buildPriorityOption(
                     'Normal',
@@ -305,7 +299,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                     scheme,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: _buildPriorityOption(
                     'High',
@@ -317,7 +311,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
               ],
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
 
             _buildInputField(
               label: 'Subject',
@@ -326,7 +320,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
               hint: 'Brief description of your issue',
               scheme: scheme,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             _buildInputField(
               label: 'Message',
               controller: _messageController,
@@ -337,7 +331,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
               scheme: scheme,
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
 
             // Submit
             SizedBox(
@@ -357,7 +351,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (_isSubmitting)
-                      const SizedBox(
+                      SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
@@ -366,8 +360,8 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                         ),
                       )
                     else
-                      const Icon(Icons.send, size: 20),
-                    const SizedBox(width: 8),
+                      Icon(Icons.send, size: 20),
+                    SizedBox(width: 8),
                     Text(
                       _isSubmitting ? 'Submitting...' : 'Submit Ticket',
                       style: const TextStyle(
@@ -406,7 +400,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
             color: scheme.onBackground,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
             color: scheme.surface,
@@ -453,7 +447,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
             color: scheme.onBackground,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(

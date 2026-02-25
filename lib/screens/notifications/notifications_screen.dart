@@ -10,6 +10,7 @@ import '../profile/profile_screen.dart';
 import '../../providers/feed_provider.dart';
 import '../../models/notification_model.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -41,8 +42,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
-        title: Text(
-          'Notifications',
+        title: Text('Notifications'.tr(context),
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -58,7 +58,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   );
                 }
               },
-              child: const Text('Mark all read'),
+              child: Text('Mark all read'.tr(context)),
             ),
         ],
       ),
@@ -94,7 +94,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   provider.refreshNotifications(authProvider.currentUser!.id);
                 }
               },
-              child: const Text('Retry'),
+              child: Text('Retry'.tr(context)),
             ),
           ],
         ),
@@ -114,8 +114,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ).colorScheme.onSurfaceVariant.withOpacity(0.3),
             ),
             const SizedBox(height: 16),
-            Text(
-              'No notifications yet',
+            Text('No notifications yet'.tr(context),
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: Theme.of(
                   context,
@@ -145,9 +144,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             return await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: const Text('Delete Notification'),
-                    content: const Text(
-                      'Are you sure you want to delete this notification?',
+                    title: Text('Delete Notification'.tr(context)),
+                    content: Text('Are you sure you want to delete this notification?'.tr(context),
                     ),
                     actions: [
                       TextButton(
@@ -156,8 +154,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text(
-                          'Delete',
+                        child: Text('Delete'.tr(context),
                           style: TextStyle(color: Colors.red),
                         ),
                       ),
@@ -169,7 +166,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           onDismissed: (direction) {
             provider.deleteNotification(notification.id);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Notification deleted')),
+              SnackBar(content: Text('Notification deleted'.tr(context))),
             );
           },
           child: NotificationTile(
@@ -201,7 +198,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Post not found or unavailable'),
+            content: Text('Post not found or unavailable'.tr(context)),
             backgroundColor: colors.error,
           ),
         );

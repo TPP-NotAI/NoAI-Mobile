@@ -8,6 +8,7 @@ import '../../constants/country_calling_codes.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_extensions.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class PhoneVerificationScreen extends StatefulWidget {
   final VoidCallback onVerify;
   final VoidCallback onBack;
@@ -412,8 +413,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          "Didn't receive the code? ",
+                        Text("Didn't receive the code? ".tr(context),
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
                                 context, AppTypography.base),
@@ -422,8 +422,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                         ),
                         GestureDetector(
                           onTap: _resendCooldown > 0 ? null : _resendCode,
-                          child: Text(
-                            'Resend',
+                          child: Text('Resend'.tr(context),
                             style: TextStyle(
                               fontSize: AppTypography.responsiveFontSize(
                                   context, AppTypography.base),
@@ -438,8 +437,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                           ),
                         ),
                         if (_resendCooldown > 0)
-                          Text(
-                            ' (${_resendCooldown}s)',
+                          Text(' (${_resendCooldown}s)'.tr(context),
                             style: TextStyle(
                               fontSize: AppTypography.responsiveFontSize(
                                   context, AppTypography.base),
@@ -459,8 +457,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                           c.clear();
                         }
                       }),
-                      child: Text(
-                        'CHANGE PHONE NUMBER',
+                      child: Text('CHANGE PHONE NUMBER'.tr(context),
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(context, 10),
                           fontWeight: FontWeight.bold,
@@ -507,8 +504,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                 items: _countryCodes.map((country) {
                   return DropdownMenuItem(
                     value: country['code'],
-                    child: Text(
-                      '${country['code']} ${country['country']}',
+                    child: Text('${country['.tr(context)code']} ${country['country']}',
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
                             context, AppTypography.base),

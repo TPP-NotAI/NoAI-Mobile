@@ -153,6 +153,8 @@ class StoryProvider extends ChangeNotifier {
     String? backgroundColor,
     String? textOverlay,
     Map<String, dynamic>? textPosition,
+    bool waitForAi = false,
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
   }) async {
     final userId = _supabase.currentUser?.id;
     if (userId == null) return [];
@@ -187,12 +189,16 @@ class StoryProvider extends ChangeNotifier {
           final mediaType = i < mediaItems.length
               ? mediaItems[i].mediaType
               : 'text';
-          _triggerAiDetection(
+          final detectionFuture = _triggerAiDetection(
             story,
             mediaUrl,
             mediaType,
             caption ?? textOverlay,
+            onAdFeeRequired: onAdFeeRequired,
           );
+          if (waitForAi) {
+            await detectionFuture;
+          }
         }
       }
 
@@ -227,6 +233,9 @@ class StoryProvider extends ChangeNotifier {
     String mediaUrl,
     String mediaType,
     String? caption,
+    {
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
+  }
   ) async {
     try {
       final result = await _storyRepository.runAiDetection(
@@ -235,6 +244,7 @@ class StoryProvider extends ChangeNotifier {
         mediaUrl: mediaUrl,
         mediaType: mediaType,
         caption: caption,
+        onAdFeeRequired: onAdFeeRequired,
       );
 
       if (result != null) {

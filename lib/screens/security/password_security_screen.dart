@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/auth_service.dart';
 import '../../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class PasswordSecurityScreen extends StatefulWidget {
   const PasswordSecurityScreen({super.key});
 
@@ -27,8 +28,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
           icon: Icon(Icons.arrow_back, color: colors.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Password & Security',
+        title: Text('Password & Security'.tr(context),
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: colors.onSurface,
@@ -51,7 +51,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
             subtitle: 'Update your account password',
             onTap: () => _showChangePasswordDialog(context),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           _buildSectionHeader(context, 'ACCOUNT RECOVERY'),
           _buildSettingsTile(
             context,
@@ -61,7 +61,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
             subtitle: 'Send a password reset link to your email',
             onTap: () => _showResetPasswordDialog(context),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           _buildSectionHeader(context, 'TWO-FACTOR AUTHENTICATION'),
           _buildSettingsTile(
             context,
@@ -71,7 +71,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
             subtitle: 'Add an extra layer of security with email-based 2FA',
             onTap: () => _show2FASetupDialog(context),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           _buildSectionHeader(context, 'SECURITY'),
           _buildInfoTile(
             context,
@@ -182,7 +182,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                 ),
                 child: Icon(icon, color: iconColor, size: 24),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text(
                 title,
                 style: TextStyle(
@@ -193,7 +193,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             content,
             style: TextStyle(
@@ -222,8 +222,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
         builder: (context, setDialogState) {
           return AlertDialog(
             backgroundColor: colors.surface,
-            title: Text(
-              'Two-Factor Authentication',
+            title: Text('Two-Factor Authentication'.tr(context),
               style: TextStyle(color: colors.onSurface),
             ),
             content: SingleChildScrollView(
@@ -242,10 +241,9 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                       child: Row(
                         children: [
                           const Icon(Icons.shield, color: Colors.green, size: 28),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              'Protect your account by requiring a verification code when you sign in.',
+                            child: Text('Protect your account by requiring a verification code when you sign in.'.tr(context),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: colors.onSurface.withValues(alpha: 0.8),
@@ -255,28 +253,26 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'How it works:',
+                    SizedBox(height: 16),
+                    Text('How it works:'.tr(context),
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: colors.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     _build2FAStep(colors, '1', 'Click "Enable 2FA" below'),
                     _build2FAStep(colors, '2', 'We\'ll send a code to $userEmail'),
                     _build2FAStep(colors, '3', 'Enter the code to confirm'),
                     _build2FAStep(colors, '4', 'Future logins will require a code'),
                   ] else if (codeSent && !is2FAEnabled) ...[
-                    Text(
-                      'Enter the 6-digit code sent to:',
+                    Text('Enter the 6-digit code sent to:'.tr(context),
                       style: TextStyle(
                         color: colors.onSurface.withValues(alpha: 0.7),
                         fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       userEmail,
                       style: TextStyle(
@@ -284,7 +280,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                         color: colors.primary,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     TextField(
                       controller: codeController,
                       keyboardType: TextInputType.number,
@@ -305,7 +301,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Center(
                       child: TextButton(
                         onPressed: isLoading
@@ -319,8 +315,8 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                                   );
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('New code sent!'),
+                                      SnackBar(
+                                        content: Text('New code sent!'.tr(context)),
                                         backgroundColor: Colors.green,
                                       ),
                                     );
@@ -329,7 +325,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Failed to resend: ${e.toString()}'),
+                                        content: Text('Failed to resend: ${e.toString()}'.tr(context)),
                                         backgroundColor: Colors.red,
                                       ),
                                     );
@@ -337,7 +333,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                                 }
                                 setDialogState(() => isLoading = false);
                               },
-                        child: const Text('Resend Code'),
+                        child: Text('Resend Code'.tr(context)),
                       ),
                     ),
                   ] else if (is2FAEnabled) ...[
@@ -356,18 +352,16 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                               size: 48,
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            '2FA Enabled!',
+                          SizedBox(height: 16),
+                          Text('2FA Enabled!'.tr(context),
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: colors.onSurface,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Your account is now protected with two-factor authentication.',
+                          SizedBox(height: 8),
+                          Text('Your account is now protected with two-factor authentication.'.tr(context),
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: colors.onSurface.withValues(alpha: 0.7),
@@ -404,7 +398,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Failed to send code: ${e.toString()}'),
+                                  content: Text('Failed to send code: ${e.toString()}'.tr(context)),
                                   backgroundColor: Colors.red,
                                 ),
                               );
@@ -412,12 +406,12 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                           }
                         },
                   child: isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Enable 2FA'),
+                      : Text('Enable 2FA'.tr(context)),
                 )
               else if (codeSent && !is2FAEnabled)
                 FilledButton(
@@ -427,7 +421,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                           final code = codeController.text.trim();
                           if (code.length != 6) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please enter a 6-digit code')),
+                              SnackBar(content: Text('Please enter a 6-digit code'.tr(context))),
                             );
                             return;
                           }
@@ -447,7 +441,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Invalid code: ${e.toString()}'),
+                                  content: Text('Invalid code: ${e.toString()}'.tr(context)),
                                   backgroundColor: Colors.red,
                                 ),
                               );
@@ -455,17 +449,17 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                           }
                         },
                   child: isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Verify'),
+                      : Text('Verify'.tr(context)),
                 )
               else
                 FilledButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Done'),
+                  child: Text('Done'.tr(context)),
                 ),
             ],
           );
@@ -498,7 +492,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
@@ -526,8 +520,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: colors.surface,
-          title: Text(
-            'Change Password',
+          title: Text('Change Password'.tr(context),
             style: TextStyle(color: colors.onSurface),
           ),
           content: SingleChildScrollView(
@@ -554,7 +547,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 TextField(
                   controller: confirmPasswordController,
                   obscureText: obscureConfirm,
@@ -577,9 +570,8 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Password must be at least 6 characters',
+                SizedBox(height: 8),
+                Text('Password must be at least 6 characters'.tr(context),
                   style: TextStyle(
                     fontSize: 12,
                     color: colors.onSurfaceVariant,
@@ -602,9 +594,8 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
 
                       if (newPassword.length < 6) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                'Password must be at least 6 characters'),
+                          SnackBar(
+                            content: Text('Password must be at least 6 characters'.tr(context)),
                           ),
                         );
                         return;
@@ -612,8 +603,8 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
 
                       if (newPassword != confirmPassword) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Passwords do not match'),
+                          SnackBar(
+                            content: Text('Passwords do not match'.tr(context)),
                           ),
                         );
                         return;
@@ -628,8 +619,8 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                         }
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Password updated successfully'),
+                            SnackBar(
+                              content: Text('Password updated successfully'.tr(context)),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -648,8 +639,8 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                         setDialogState(() => isLoading = false);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to update password'),
+                            SnackBar(
+                              content: Text('Failed to update password'.tr(context)),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -657,12 +648,12 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                       }
                     },
               child: isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Update'),
+                  : Text('Update'.tr(context)),
             ),
           ],
         ),
@@ -680,22 +671,20 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: colors.surface,
-          title: Text(
-            'Reset Password',
+          title: Text('Reset Password'.tr(context),
             style: TextStyle(color: colors.onSurface),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Enter your email address and we\'ll send you a link to reset your password.',
+              Text('Enter your email address and we\'ll send you a link to reset your password.'.tr(context),
                 style: TextStyle(
                   color: colors.onSurface.withValues(alpha: 0.7),
                   fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               TextField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -723,8 +712,8 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
 
                       if (email.isEmpty || !email.contains('@')) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Please enter a valid email address'),
+                          SnackBar(
+                            content: Text('Please enter a valid email address'.tr(context)),
                           ),
                         );
                         return;
@@ -739,9 +728,8 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                         }
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'Password reset email sent. Check your inbox.'),
+                            SnackBar(
+                              content: Text('Password reset email sent. Check your inbox.'.tr(context)),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -750,8 +738,8 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                         setDialogState(() => isLoading = false);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to send reset email'),
+                            SnackBar(
+                              content: Text('Failed to send reset email'.tr(context)),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -759,12 +747,12 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                       }
                     },
               child: isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Send Reset Link'),
+                  : Text('Send Reset Link'.tr(context)),
             ),
           ],
         ),

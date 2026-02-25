@@ -7,6 +7,7 @@ import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_extensions.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class VerificationScreen extends StatefulWidget {
   final VoidCallback onVerify;
   final VoidCallback? onBack;
@@ -131,7 +132,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     if (success) {
       _startResendCooldown();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Verification code resent!')),
+        SnackBar(content: Text('Verification code resent!'.tr(context))),
       );
     } else {
       setState(() => _error = authProvider.error ?? 'Failed to resend code');
@@ -219,8 +220,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               SizedBox(
                                   width:
                                       AppSpacing.extraSmall.responsive(context)),
-                              Text(
-                                'EARN ROO',
+                              Text('EARN ROO'.tr(context),
                                 style: TextStyle(
                                   fontSize: AppTypography.responsiveFontSize(
                                       context, 10),
@@ -303,8 +303,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   SizedBox(height: 40.responsive(context, min: 32, max: 48)),
 
                   // Title
-                  Text(
-                    'Check your email',
+                  Text('Check your email'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                           context, AppTypography.extraLargeHeading),
@@ -475,8 +474,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  'Verify Account',
+                                Text('Verify Account'.tr(context),
                                   style: TextStyle(
                                     fontSize: AppTypography.responsiveFontSize(
                                         context, AppTypography.smallHeading),
@@ -502,8 +500,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            "Didn't receive the code? ",
+                          Text("Didn't receive the code? ".tr(context),
                             style: TextStyle(
                               fontSize: AppTypography.responsiveFontSize(
                                   context, AppTypography.base),
@@ -520,8 +517,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           else
                             GestureDetector(
                               onTap: _resendCooldown > 0 ? null : _handleResend,
-                              child: Text(
-                                'Resend Email',
+                              child: Text('Resend Email'.tr(context),
                                 style: TextStyle(
                                   fontSize: AppTypography.responsiveFontSize(
                                       context, AppTypography.base),
@@ -536,8 +532,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               ),
                             ),
                           if (_resendCooldown > 0)
-                            Text(
-                              ' (${_resendCooldown ~/ 60}:${(_resendCooldown % 60).toString().padLeft(2, '0')})',
+                            Text(' (${_resendCooldown ~/ 60}:${(_resendCooldown % 60).toString().padLeft(2, '.tr(context)0')})',
                               style: TextStyle(
                                 fontSize: AppTypography.responsiveFontSize(
                                     context, AppTypography.base),
@@ -552,8 +547,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                             widget.onChangeEmail ??
                             widget.onBack ??
                             () => Navigator.maybePop(context),
-                        child: Text(
-                          'CHANGE EMAIL ADDRESS',
+                        child: Text('CHANGE EMAIL ADDRESS'.tr(context),
                           style: TextStyle(
                             fontSize:
                                 AppTypography.responsiveFontSize(context, 10),

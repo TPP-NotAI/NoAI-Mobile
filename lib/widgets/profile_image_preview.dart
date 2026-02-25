@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class ProfileImagePreview extends StatelessWidget {
   final String imageUrl;
 
@@ -30,16 +31,15 @@ class ProfileImagePreview extends StatelessWidget {
                 fit: BoxFit.contain,
                 width: double.infinity,
                 height: double.infinity,
-                placeholder: (context, url) => const Center(
+                placeholder: (context, url) => Center(
                   child: CircularProgressIndicator(color: Colors.white),
                 ),
-                errorWidget: (context, url, error) => const Column(
+                errorWidget: (context, url, error) => Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.error_outline, color: Colors.white, size: 48),
                     SizedBox(height: 16),
-                    Text(
-                      'Failed to load image',
+                    Text('Failed to load image'.tr(context),
                       style: TextStyle(color: Colors.white),
                     ),
                   ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 import 'contact_support_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class FAQScreen extends StatelessWidget {
   const FAQScreen({super.key});
 
@@ -17,7 +18,7 @@ class FAQScreen extends StatelessWidget {
           icon: Icon(Icons.arrow_back, color: scheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('Help Center', style: TextStyle(color: scheme.onSurface)),
+        title: Text('Help Center'.tr(context), style: TextStyle(color: scheme.onSurface)),
         centerTitle: true,
         elevation: 0,
       ),
@@ -51,8 +52,7 @@ class FAQScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            Text(
-              'Popular Topics',
+            Text('Popular Topics'.tr(context),
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -158,8 +158,7 @@ class FAQScreen extends StatelessWidget {
                     size: 48,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Still need help?',
+                  Text('Still need help?'.tr(context),
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -167,8 +166,7 @@ class FAQScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Our support team is here 24/7',
+                  Text('Our support team is here 24/7'.tr(context),
                     style: TextStyle(fontSize: 14, color: Colors.white70),
                   ),
                   const SizedBox(height: 16),
@@ -192,8 +190,7 @@ class FAQScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(24),
                       ),
                     ),
-                    child: const Text(
-                      'Contact Support',
+                    child: Text('Contact Support'.tr(context),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

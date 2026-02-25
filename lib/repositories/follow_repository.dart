@@ -41,8 +41,6 @@ class FollowRepository {
         await _notificationRepository.createNotification(
           userId: followingId,
           type: 'follow',
-          title: 'New Follower',
-          body: 'Started following you',
           actorId: followerId,
         );
       } catch (e) {

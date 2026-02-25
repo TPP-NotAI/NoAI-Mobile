@@ -145,6 +145,9 @@ class NotificationModel {
         return 'Received Roobyte';
       case 'roocoin_sent':
         return 'Sent Roobyte';
+      case 'chat':
+      case 'message':
+        return 'New Message';
       case 'mention':
         if (actor != null) {
           final actorName = actor!.displayName.isNotEmpty
@@ -153,6 +156,8 @@ class NotificationModel {
           return '$actorName mentioned you';
         }
         return title ?? 'Mention';
+      case 'repost':
+        return '$actorName reposted your post';
       case 'follow':
         return '$actorName started following you';
       // AI Check notification types

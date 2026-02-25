@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class TermsOfServiceScreen extends StatelessWidget {
   const TermsOfServiceScreen({super.key});
 
@@ -16,8 +17,7 @@ class TermsOfServiceScreen extends StatelessWidget {
           icon: Icon(Icons.arrow_back, color: scheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Terms of Service',
+        title: Text('Terms of Service'.tr(context),
           style: TextStyle(color: scheme.onSurface),
         ),
         centerTitle: true,
@@ -28,8 +28,7 @@ class TermsOfServiceScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Last Updated: January 6, 2026',
+            Text('Last Updated: January 6, 2026'.tr(context),
               style: TextStyle(
                 fontSize: 14,
                 color: scheme.onSurface.withOpacity(0.6),
@@ -38,8 +37,7 @@ class TermsOfServiceScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            Text(
-              'Welcome to ROOVERSE',
+            Text('Welcome to ROOVERSE'.tr(context),
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -206,8 +204,7 @@ class TermsOfServiceScreen extends StatelessWidget {
                         size: 20,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Questions?',
+                      Text('Questions?'.tr(context),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -217,8 +214,7 @@ class TermsOfServiceScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Contact us at legal@rooverse.social',
+                  Text('Contact us at legal@rooverse.social'.tr(context),
                     style: TextStyle(
                       fontSize: 14,
                       color: scheme.onSurface.withOpacity(0.7),

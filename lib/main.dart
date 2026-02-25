@@ -55,6 +55,8 @@ import 'widgets/connectivity_overlay.dart';
 import 'widgets/welcome_dialog.dart';
 import 'utils/responsive_utils.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 void main() async {
   runZonedGuarded(
     () async {
@@ -85,7 +87,7 @@ void main() async {
                 children: [
                   const Icon(Icons.error_outline, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Oops! Something went wrong',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
@@ -252,7 +254,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Oops! Something went wrong',
+                  'Oops! Something went wrong'.tr(context),
                   style: Theme.of(context).textTheme.titleLarge,
                   textAlign: TextAlign.center,
                 ),
@@ -272,7 +274,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                       _errorMessage = null;
                     });
                   },
-                  child: const Text('Retry'),
+                  child: Text('Retry'.tr(context)),
                 ),
               ],
             ),
@@ -544,9 +546,9 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     // Check and award daily login reward
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkWelcomeBonus();
-      _checkForAppUpdate();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _checkWelcomeBonus();
+      await _checkForAppUpdate();
     });
   }
 
@@ -562,11 +564,11 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  void _checkWelcomeBonus() {
+  Future<void> _checkWelcomeBonus() async {
     final walletProvider = context.read<WalletProvider>();
     if (walletProvider.wasWelcomeBonusAwarded && mounted) {
       walletProvider.consumeWelcomeBonus();
-      WelcomeDialog.show(
+      await WelcomeDialog.show(
         context,
         onViewWallet: () {
           setState(() => _index = 2);
@@ -677,10 +679,11 @@ class _ActivationBanner extends StatelessWidget {
         children: [
           const Icon(Icons.lock_open, color: Colors.white, size: 16),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text(
-              "Buy ROO to unlock posting, commenting, and all platform features.",
-              style: TextStyle(
+              "Buy ROO to unlock posting, commenting, and all platform features."
+                  .tr(context),
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -694,8 +697,8 @@ class _ActivationBanner extends StatelessWidget {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text(
-              'Buy ROO',
+            child: Text(
+              'Buy ROO'.tr(context),
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -730,7 +733,7 @@ class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
       titleSpacing: isCompact ? 8 : 16,
       title: Row(
         children: [
-          const Text('🛡️', style: TextStyle(fontSize: 22)),
+          Text('🛡️'.tr(context), style: TextStyle(fontSize: 22)),
           SizedBox(width: isCompact ? 4 : 8),
           Text(
             isCompact ? 'ROO' : 'ROOVERSE',
@@ -1017,7 +1020,7 @@ void _showProfileSheet(BuildContext parentContext) {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '@${user.username}',
+                              '@${user.username}'.tr(parentContext),
                               style: TextStyle(
                                 fontSize: 14,
                                 color: colors.onSurfaceVariant,

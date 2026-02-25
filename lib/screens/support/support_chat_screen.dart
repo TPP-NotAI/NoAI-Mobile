@@ -7,6 +7,7 @@ import '../../models/support_ticket_message.dart';
 import '../../repositories/support_ticket_repository.dart';
 import '../../services/supabase_service.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SupportChatScreen extends StatefulWidget {
   const SupportChatScreen({super.key});
 
@@ -171,7 +172,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Support Chat'),
+            Text('Support Chat'.tr(context)),
             if (_ticket != null)
               Text(
                 _ticket!.subject,
@@ -198,7 +199,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                       const SizedBox(height: 12),
                       ElevatedButton(
                         onPressed: _initialize,
-                        child: const Text('Retry'),
+                        child: Text('Retry'.tr(context)),
                       ),
                     ],
                   ),
@@ -261,8 +262,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                             if (!isMine && msg.isStaff)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
-                                child: Text(
-                                  'Support',
+                                child: Text('Support'.tr(context),
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,

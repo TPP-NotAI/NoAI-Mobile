@@ -5,6 +5,7 @@ import 'package:rooverse/models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/follow_repository.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class UserSearchSheet extends StatefulWidget {
   const UserSearchSheet({super.key});
 
@@ -93,8 +94,7 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
         children: [
           Row(
             children: [
-              Text(
-                'New Message',
+              Text('New Message'.tr(context),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -135,8 +135,7 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
                       color: colors.onSurfaceVariant,
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      'Follow people to start a chat',
+                    Text('Follow people to start a chat'.tr(context),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colors.onSurfaceVariant,
                       ),
@@ -148,8 +147,7 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
           else if (_filtered.isEmpty)
             Expanded(
               child: Center(
-                child: Text(
-                  'No matching users',
+                child: Text('No matching users'.tr(context),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -183,7 +181,7 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
                       name,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: Text('@${user.username}'),
+                    subtitle: Text('@${user.username}'.tr(context)),
                     onTap: () => Navigator.pop(context, user),
                   );
                 },

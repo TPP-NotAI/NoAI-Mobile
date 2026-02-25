@@ -13,6 +13,7 @@ import '../services/push_notification_service.dart';
 import '../utils/snackbar_utils.dart';
 import 'post_card.dart' show PostBoostCache;
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 /// Cost per user notified (in ROO).
 const double _kRooPerUser = 0.1;
 
@@ -88,8 +89,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
 
     rootScaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
-        content: Text(
-          'Boosting post to ${_targetUsers.toInt()} users… confirming payment.',
+        content: Text('Boosting post to ${_targetUsers.toInt()} users… confirming payment.'.tr(context),
         ),
         backgroundColor: Colors.blue.shade700,
         behavior: SnackBarBehavior.floating,
@@ -183,14 +183,13 @@ class _BoostPostModalState extends State<BoostPostModal> {
           context: ctx,
           builder: (_) => AlertDialog(
             icon: const Icon(Icons.rocket_launch, color: Color(0xFFF97316), size: 36),
-            title: const Text('Boost Successful!'),
-            content: Text(
-              'Your post was successfully boosted to $targetUsers users.',
+            title: Text('Boost Successful!'.tr(context)),
+            content: Text('Your post was successfully boosted to $targetUsers users.'.tr(context),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Great!'),
+                child: Text('Great!'.tr(context)),
               ),
             ],
           ),
@@ -203,7 +202,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
       );
       rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
-          content: Text('Boost failed: ${e.toString()}'),
+          content: Text('Boost failed: ${e.toString()}'.tr(context)),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
         ),
@@ -322,16 +321,14 @@ class _BoostPostModalState extends State<BoostPostModal> {
                     ),
                     const SizedBox(height: 16),
 
-                    Text(
-                      'Boost Post',
+                    Text('Boost Post'.tr(context),
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: colors.onSurface,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      'Notify users across ROOVERSE about your post',
+                    Text('Notify users across ROOVERSE about your post'.tr(context),
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
@@ -359,8 +356,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Your Balance',
+                      Text('Your Balance'.tr(context),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.onSurfaceVariant,
                         ),
@@ -377,8 +373,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            'ROO',
+                          Text('ROO'.tr(context),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colors.onSurfaceVariant,
                             ),
@@ -398,8 +393,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'REACH',
+                    Text('REACH'.tr(context),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colors.onSurfaceVariant,
                         letterSpacing: 1.5,
@@ -454,14 +448,12 @@ class _BoostPostModalState extends State<BoostPostModal> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '${_kMinUsers.toInt()}',
+                        Text('${_kMinUsers.toInt()}'.tr(context),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colors.onSurfaceVariant,
                           ),
                         ),
-                        Text(
-                          '${_kMaxUsers.toInt()}',
+                        Text('${_kMaxUsers.toInt()}'.tr(context),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colors.onSurfaceVariant,
                           ),
@@ -510,8 +502,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
                       ),
                       if (!canAfford) ...[
                         const SizedBox(height: 6),
-                        Text(
-                          'Insufficient balance — reduce reach or top up your wallet.',
+                        Text('Insufficient balance — reduce reach or top up your wallet.'.tr(context),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: Colors.red.shade400,
                           ),
@@ -556,8 +547,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
                             children: [
                               const Icon(Icons.rocket_launch, size: 20),
                               const SizedBox(width: 10),
-                              Text(
-                                'Boost for ${_cost.toStringAsFixed(0)} ROO',
+                              Text('Boost for ${_cost.toStringAsFixed(0)} ROO'.tr(context),
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
@@ -571,8 +561,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
 
               const SizedBox(height: 12),
 
-              Text(
-                '${(_kRooPerUser * 100).toStringAsFixed(0)} ROO per 10 users · Random selection across ROOVERSE',
+              Text('${(_kRooPerUser * 100).toStringAsFixed(0)} ROO per 10 users · Random selection across ROOVERSE'.tr(context),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colors.onSurfaceVariant,
                 ),

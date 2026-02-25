@@ -26,6 +26,7 @@ import '../../providers/wallet_provider.dart';
 import '../wallet/send_roo_screen.dart';
 import '../moderation/my_flagged_content_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class ProfileScreen extends StatefulWidget {
   final String? userId;
   final bool showAppBar;
@@ -184,8 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: Icon(Icons.arrow_back, color: colors.onSurface),
                   onPressed: () => Navigator.pop(context),
                 ),
-                title: Text(
-                  '@${user.username}',
+                title: Text('@${user.username}'.tr(context),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: colors.onSurface,
@@ -207,7 +207,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: Icon(Icons.block, size: 48, color: colors.error),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 Text(
                   _profileText(context, 'profileUnavailable'),
                   style: TextStyle(
@@ -216,7 +216,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: colors.onSurface,
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Text(
                   _profileText(context, 'cannotViewProfile'),
                   textAlign: TextAlign.center,
@@ -225,7 +225,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: colors.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: 32),
                 OutlinedButton.icon(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.arrow_back),
@@ -309,7 +309,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           colors: colors,
                           isVisible: isActuallyOwnProfile,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                         _ActionRow(
                           isOwn: isActuallyOwnProfile,
                           isFollowing: isFollowing,
@@ -371,7 +371,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 )
             else if (_tabIndex == 2)
               if (_isLoadingPosts)
-                const SliverFillRemaining(
+                SliverFillRemaining(
                   child: Center(child: CircularProgressIndicator()),
                 )
               else
@@ -610,8 +610,7 @@ class _ProfileHeader extends StatelessWidget {
         if (user.displayName.isNotEmpty &&
             user.displayName.toLowerCase() != user.username.toLowerCase()) ...[
           SizedBox(height: AppSpacing.extraSmall.responsive(context)),
-          Text(
-            '@${user.username}',
+          Text('@${user.username}'.tr(context),
             style: theme.textTheme.titleMedium?.copyWith(
               fontSize: AppTypography.responsiveFontSize(
                 context,
@@ -644,7 +643,7 @@ class _ProfileHeader extends StatelessWidget {
                 user.countryOfResidence!.isNotEmpty ||
             user.birthDate != null ||
             user.websiteUrl != null && user.websiteUrl!.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Wrap(
             alignment: WrapAlignment.center,
             spacing: 12,
@@ -660,7 +659,7 @@ class _ProfileHeader extends StatelessWidget {
                       size: 14,
                       color: colors.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                     Text(
                       user.countryOfResidence!,
                       style: TextStyle(
@@ -679,7 +678,7 @@ class _ProfileHeader extends StatelessWidget {
                       size: 14,
                       color: colors.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                     Text(
                       DateFormat('MMM d, yyyy').format(user.birthDate!),
                       style: TextStyle(
@@ -694,7 +693,7 @@ class _ProfileHeader extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.link, size: 14, color: colors.primary),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                     Text(
                       user.websiteUrl!.replaceFirst(RegExp(r'^https?://'), ''),
                       style: TextStyle(fontSize: 12, color: colors.primary),
@@ -704,7 +703,7 @@ class _ProfileHeader extends StatelessWidget {
             ],
           ),
         ],
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         // Badges: verified human status + achievements from DB
         if (user.verifiedHuman == 'verified' || user.achievements.isNotEmpty)
           Wrap(
@@ -725,11 +724,10 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
+                    children: [
                       Icon(Icons.verified, size: 14, color: Color(0xFF10B981)),
                       SizedBox(width: 6),
-                      Text(
-                        'Verified Human',
+                      Text('Verified Human'.tr(context),
                         style: TextStyle(
                           fontSize: 11,
                           color: Color(0xFF10B981),
@@ -744,7 +742,7 @@ class _ProfileHeader extends StatelessWidget {
             ],
           ),
         if (user.bio != null && user.bio!.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             user.bio!,
             textAlign: TextAlign.center,
@@ -778,7 +776,7 @@ class _AchievementBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(_getIconData(achievement.icon), size: 14, color: tierColors.$2),
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           Text(
             achievement.name,
             style: TextStyle(
@@ -857,9 +855,8 @@ class _RoobyteBalance extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 16),
-        Text(
-          'Roobyte Balance',
+        SizedBox(height: 16),
+        Text('Roobyte Balance'.tr(context),
           style: TextStyle(
             fontSize: 13,
             color: colors.onSurfaceVariant,
@@ -867,7 +864,7 @@ class _RoobyteBalance extends StatelessWidget {
           ),
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Row(
           children: [
             Flexible(
@@ -881,9 +878,8 @@ class _RoobyteBalance extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 6),
-            Text(
-              'R00',
+            SizedBox(width: 6),
+            Text('R00'.tr(context),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -892,7 +888,7 @@ class _RoobyteBalance extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: LinearProgressIndicator(
@@ -935,8 +931,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                'HUMANITY METRICS',
+              Text('HUMANITY METRICS'.tr(context),
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(context, 11),
                   fontWeight: FontWeight.w700,
@@ -944,7 +939,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
                   color: colors.onSurfaceVariant,
                 ),
               ),
-              const Spacer(),
+              Spacer(),
               Icon(
                 Icons.info_outline,
                 size: AppTypography.responsiveIconSize(context, 18),
@@ -960,19 +955,17 @@ class _HumanityMetricsCompact extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Trust Score',
+                    Text('Trust Score'.tr(context),
                       style: TextStyle(
                         fontSize: 13,
                         color: colors.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          '${user.trustScore.toStringAsFixed(0)}',
+                        Text('${user.trustScore.toStringAsFixed(0)}'.tr(context),
                           style: TextStyle(
                             fontSize: 36,
                             fontWeight: FontWeight.bold,
@@ -982,8 +975,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
                         ),
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4, left: 2),
-                          child: Text(
-                            '/100',
+                          child: Text('/100'.tr(context),
                             style: TextStyle(
                               fontSize: 16,
                               color: colors.onSurfaceVariant,
@@ -1037,7 +1029,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
             ],
           ),
           SizedBox(height: AppSpacing.extraLarge.responsive(context)),
-          const Divider(height: 1),
+          Divider(height: 1),
           SizedBox(height: AppSpacing.largePlus.responsive(context)),
           // Human-Verified Posts
           Row(
@@ -1053,9 +1045,8 @@ class _HumanityMetricsCompact extends StatelessWidget {
                         color: colors.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${user.humanVerifiedPostsCount}',
+                    SizedBox(height: 6),
+                    Text('${user.humanVerifiedPostsCount}'.tr(context),
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -1072,9 +1063,9 @@ class _HumanityMetricsCompact extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
+          SizedBox(height: 20),
+          Divider(height: 1),
+          SizedBox(height: 16),
           // Reputation Score
           Row(
             children: [
@@ -1089,12 +1080,11 @@ class _HumanityMetricsCompact extends StatelessWidget {
                         color: colors.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          '${user.mlScore.toStringAsFixed(2)}%',
+                        Text('${user.mlScore.toStringAsFixed(2)}%'.tr(context),
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
@@ -1174,7 +1164,7 @@ class _ActionRow extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.edit_outlined, size: 18),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 _profileText(context, 'editProfile'),
                 style: const TextStyle(fontWeight: FontWeight.w600),
@@ -1215,7 +1205,7 @@ class _ActionRow extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             OutlinedButton(
               onPressed: isBlocked
                   ? null
@@ -1246,12 +1236,12 @@ class _ActionRow extends StatelessWidget {
                     },
               child: const Icon(Icons.mail_outline),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             OutlinedButton(
               onPressed: isBlocked ? null : onSend,
               child: const Icon(Icons.toll_outlined),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             PopupMenuButton<String>(
               icon: Icon(Icons.more_vert, color: colors.onSurfaceVariant),
               shape: RoundedRectangleBorder(
@@ -1274,7 +1264,7 @@ class _ActionRow extends StatelessWidget {
                         size: 20,
                         color: isBlocked ? colors.primary : colors.error,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Text(
                         isBlocked
                             ? _profileText(context, 'unblock')
@@ -1288,7 +1278,7 @@ class _ActionRow extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(Icons.flag_outlined, size: 20, color: colors.error),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Text(_profileText(context, 'report')),
                     ],
                   ),
@@ -1298,7 +1288,7 @@ class _ActionRow extends StatelessWidget {
           ],
         ),
         if (isBlocked) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -1310,7 +1300,7 @@ class _ActionRow extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.block, size: 16, color: colors.error),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(
                   _profileText(context, 'youBlockedThisUser'),
                   style: TextStyle(
@@ -1475,7 +1465,7 @@ class _ActivityItem extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 // Preview content if available
                 if (activity.previewContent != null) ...[
                   Text(
@@ -1488,7 +1478,7 @@ class _ActivityItem extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                 ],
                 // Target user info for follow activities
                 if (activity.type == UserActivityType.userFollowed &&
@@ -1512,9 +1502,8 @@ class _ActivityItem extends StatelessWidget {
                             color: colors.onSurfaceVariant,
                           ),
                         ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '@${activity.targetUsername}',
+                      SizedBox(width: 6),
+                      Text('@${activity.targetUsername}'.tr(context),
                         style: TextStyle(
                           fontSize: 12,
                           color: colors.primary,
@@ -1523,7 +1512,7 @@ class _ActivityItem extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                 ],
                 // Timestamp
                 Row(
@@ -1533,9 +1522,8 @@ class _ActivityItem extends StatelessWidget {
                       size: 12,
                       color: colors.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$dateStr ${_profileText(context, 'at')} $timeStr',
+                    SizedBox(width: 4),
+                    Text('$dateStr ${_profileText(context, '.tr(context)at')} $timeStr',
                       style: TextStyle(
                         fontSize: 11,
                         color: colors.onSurfaceVariant,
@@ -1578,7 +1566,7 @@ class _Statistics extends StatelessWidget {
             value: approvedPostsCount.toString(),
             colors: colors,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _StatItem(
             label: _profileText(context, 'totalFollowers'),
             value: user.followersCount.toString(),
@@ -1595,7 +1583,7 @@ class _Statistics extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _StatItem(
             label: _profileText(context, 'following'),
             value: user.followingCount.toString(),
@@ -1613,7 +1601,7 @@ class _Statistics extends StatelessWidget {
             },
           ),
           if (isOwnProfile) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _StatItem(
               label: _profileText(context, 'aiFlaggedContent'),
               value: _profileText(context, 'view'),
@@ -1628,26 +1616,26 @@ class _Statistics extends StatelessWidget {
               },
             ),
           ],
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _StatItem(
             label: _profileText(context, 'trustScore'),
             value: '${user.trustScore.toStringAsFixed(0)}/100',
             colors: colors,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _StatItem(
             label: _profileText(context, 'aiLikelihood'),
             value: '${user.mlScore.toStringAsFixed(2)}%',
             colors: colors,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           if (isOwnProfile) ...[
             _StatItem(
               label: _profileText(context, 'roobyteBalance'),
               value: user.balance.toStringAsFixed(1),
               colors: colors,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
           ],
           _StatItem(
             label: _profileText(context, 'verificationStatus'),
@@ -1659,7 +1647,7 @@ class _Statistics extends StatelessWidget {
             colors: colors,
           ),
           if (user.achievements.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _StatItem(
               label: _profileText(context, 'achievements'),
               value: user.achievements.length.toString(),
@@ -1722,7 +1710,7 @@ class _StatItem extends StatelessWidget {
                 ),
               ),
               if (onTap != null) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Icon(
                   Icons.arrow_forward_ios,
                   size: 14,
@@ -2151,7 +2139,7 @@ class _PostGridItem extends StatelessWidget {
                             size: 12,
                             color: Colors.white,
                           ),
-                          const SizedBox(width: 3),
+                          SizedBox(width: 3),
                           Text(
                             post.likes > 999
                                 ? '${(post.likes / 1000).toStringAsFixed(1)}k'
@@ -2173,7 +2161,7 @@ class _PostGridItem extends StatelessWidget {
                             size: 12,
                             color: Colors.white,
                           ),
-                          const SizedBox(width: 3),
+                          SizedBox(width: 3),
                           Text(
                             post.comments > 999
                                 ? '${(post.comments / 1000).toStringAsFixed(1)}k'

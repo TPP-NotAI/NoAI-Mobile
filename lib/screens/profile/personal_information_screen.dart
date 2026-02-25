@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class PersonalInformationScreen extends StatefulWidget {
   const PersonalInformationScreen({super.key});
 
@@ -79,7 +80,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
             _isLoading = false;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Personal information updated')),
+            SnackBar(content: Text('Personal information updated'.tr(context))),
           );
         }
       } else {
@@ -89,7 +90,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating information: $e')),
+          SnackBar(content: Text('Error updating information: $e'.tr(context))),
         );
       }
     }
@@ -105,8 +106,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       backgroundColor: scheme.background,
       appBar: AppBar(
         backgroundColor: scheme.surface,
-        title: Text(
-          'Personal Information',
+        title: Text('Personal Information'.tr(context),
           style: TextStyle(color: scheme.onSurface),
         ),
         centerTitle: true,
@@ -115,8 +115,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
           if (!_isEditing)
             TextButton(
               onPressed: () => setState(() => _isEditing = true),
-              child: Text(
-                'Edit',
+              child: Text('Edit'.tr(context),
                 style: TextStyle(color: AppColors.primary, fontSize: 16),
               ),
             ),
@@ -226,7 +225,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                               ),
                             ),
                           )
-                        : const Text('Save Changes'),
+                        : Text('Save Changes'.tr(context)),
                   ),
                 ),
               ],

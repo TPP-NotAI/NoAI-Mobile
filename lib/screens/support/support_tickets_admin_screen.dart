@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/support_ticket.dart';
 import '../../repositories/support_ticket_repository.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SupportTicketsAdminScreen extends StatefulWidget {
   const SupportTicketsAdminScreen({super.key});
 
@@ -53,7 +54,7 @@ class _SupportTicketsAdminScreenState extends State<SupportTicketsAdminScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Support Tickets'),
+        title: Text('Support Tickets'.tr(context)),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
@@ -64,8 +65,7 @@ class _SupportTicketsAdminScreenState extends State<SupportTicketsAdminScreen> {
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Admin access required to view support tickets.',
+                child: Text('Admin access required to view support tickets.'.tr(context),
                   style: Theme.of(context).textTheme.bodyLarge,
                   textAlign: TextAlign.center,
                 ),
@@ -73,8 +73,7 @@ class _SupportTicketsAdminScreenState extends State<SupportTicketsAdminScreen> {
             )
           : _tickets.isEmpty
           ? Center(
-              child: Text(
-                'No support tickets yet.',
+              child: Text('No support tickets yet.'.tr(context),
                 style: Theme.of(
                   context,
                 ).textTheme.bodyLarge?.copyWith(color: colors.onSurfaceVariant),
@@ -131,8 +130,7 @@ class _SupportTicketsAdminScreenState extends State<SupportTicketsAdminScreen> {
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            '@${ticket.requesterUsername ?? ticket.userId.substring(0, 6)} • ${ticket.category} • ${ticket.status}',
+                          Text('@${ticket.requesterUsername ?? ticket.userId.substring(0, 6)} • ${ticket.category} • ${ticket.status}'.tr(context),
                             style: TextStyle(
                               color: colors.onSurfaceVariant,
                               fontSize: 12,

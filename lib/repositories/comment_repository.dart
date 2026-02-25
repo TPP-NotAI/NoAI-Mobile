@@ -301,13 +301,14 @@ class CommentRepository {
         final postTitle = post['title'] as String?;
         final postBody = post['body'] as String?;
         final notificationBody = postTitle != null && postTitle.isNotEmpty
-            ? 'Someone commented on your post: "$postTitle"'
-            : 'Someone commented on your post: "${postBody?.substring(0, (postBody.length > 50 ? 50 : postBody.length)) ?? ''}..."';
+            ? '"$postTitle"'
+            : postBody != null && postBody.isNotEmpty
+                ? '"${postBody.substring(0, postBody.length > 50 ? 50 : postBody.length)}..."'
+                : null;
 
         await _notificationRepository.createNotification(
           userId: postAuthorId,
-          type: 'comment', // Using generic 'comment' type for post comments too
-          title: 'New Comment',
+          type: 'comment',
           body: notificationBody,
           actorId: authorId,
           postId: postId,
@@ -325,15 +326,14 @@ class CommentRepository {
 
         final parentAuthorId = parentComment['author_id'] as String;
 
-        // Only notify if parent author is not the commenter AND not the post author (avoid double notification if they are same)
-        // Actually, some platforms notify for both. Let's notify unless it's self.
         if (parentAuthorId != authorId && parentAuthorId != postAuthorId) {
+          final replyBody = parentComment['body'] as String?;
           await _notificationRepository.createNotification(
             userId: parentAuthorId,
             type: 'reply',
-            title: 'New Reply',
-            body:
-                'Someone replied to your comment: "${parentComment['body'] ?? ''}"',
+            body: replyBody != null && replyBody.isNotEmpty
+                ? '"${replyBody.substring(0, replyBody.length > 60 ? 60 : replyBody.length)}"'
+                : null,
             actorId: authorId,
             postId: postId,
             commentId: comment.id,

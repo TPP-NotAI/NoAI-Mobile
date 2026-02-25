@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/user.dart';
 import '../repositories/mention_repository.dart';
 import '../screens/user_detail_screen.dart';
@@ -56,6 +57,10 @@ class MentionRichText extends StatefulWidget {
 
 class _MentionRichTextState extends State<MentionRichText> {
   final List<TapGestureRecognizer> _recognizers = [];
+  static final RegExp _urlRegex = RegExp(
+    r'((?:https?:\/\/|www\.)[^\s<]+)',
+    caseSensitive: false,
+  );
 
   @override
   void dispose() {
@@ -90,35 +95,120 @@ class _MentionRichTextState extends State<MentionRichText> {
           color: Theme.of(context).colorScheme.primary,
           fontWeight: FontWeight.w600,
         );
+    final defaultLinkStyle = widget.style?.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+          decoration: TextDecoration.underline,
+        ) ??
+        TextStyle(
+          color: Theme.of(context).colorScheme.primary,
+          decoration: TextDecoration.underline,
+        );
 
-    final spans = segments.map((seg) {
+    final spans = <InlineSpan>[];
+    for (final seg in segments) {
       if (seg.isMention && widget.onMentionTap != null) {
         final recognizer = TapGestureRecognizer()
           ..onTap = () => widget.onMentionTap!(seg.username!);
         _recognizers.add(recognizer);
-        return TextSpan(
+        spans.add(TextSpan(
           text: seg.text,
           style: widget.mentionStyle ?? defaultMentionStyle,
           recognizer: recognizer,
-        );
+        ));
+        continue;
       }
       if (seg.isHashtag && widget.onHashtagTap != null) {
         final recognizer = TapGestureRecognizer()
           ..onTap = () => widget.onHashtagTap!(seg.hashtag!);
         _recognizers.add(recognizer);
-        return TextSpan(
+        spans.add(TextSpan(
           text: seg.text,
           style: widget.hashtagStyle ?? defaultHashtagStyle,
           recognizer: recognizer,
-        );
+        ));
+        continue;
       }
-      return TextSpan(text: seg.text, style: widget.style);
-    }).toList();
+      spans.addAll(
+        _buildTextAndUrlSpans(
+          seg.text,
+          baseStyle: widget.style,
+          linkStyle: defaultLinkStyle,
+        ),
+      );
+    }
 
     return Text.rich(
       TextSpan(children: spans),
       maxLines: widget.maxLines,
       overflow: widget.overflow ?? TextOverflow.clip,
     );
+  }
+
+  List<InlineSpan> _buildTextAndUrlSpans(
+    String text, {
+    TextStyle? baseStyle,
+    required TextStyle linkStyle,
+  }) {
+    if (text.isEmpty) return const [];
+
+    final spans = <InlineSpan>[];
+    int lastEnd = 0;
+
+    for (final match in _urlRegex.allMatches(text)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(text: text.substring(lastEnd, match.start), style: baseStyle));
+      }
+
+      final rawUrl = match.group(0)!;
+      final cleaned = _trimTrailingPunctuation(rawUrl);
+      final trailing = rawUrl.substring(cleaned.length);
+
+      final recognizer = TapGestureRecognizer()
+        ..onTap = () => _openUrl(cleaned);
+      _recognizers.add(recognizer);
+
+      spans.add(
+        TextSpan(
+          text: cleaned,
+          style: linkStyle,
+          recognizer: recognizer,
+        ),
+      );
+
+      if (trailing.isNotEmpty) {
+        spans.add(TextSpan(text: trailing, style: baseStyle));
+      }
+
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastEnd), style: baseStyle));
+    }
+
+    return spans;
+  }
+
+  String _trimTrailingPunctuation(String input) {
+    var value = input;
+    while (value.isNotEmpty &&
+        RegExp(r'[)\].,!?:;]+$').hasMatch(value)) {
+      value = value.substring(0, value.length - 1);
+    }
+    return value;
+  }
+
+  Future<void> _openUrl(String rawUrl) async {
+    final normalized = rawUrl.toLowerCase().startsWith('http')
+        ? rawUrl
+        : 'https://$rawUrl';
+    final uri = Uri.tryParse(normalized);
+    if (uri == null) return;
+
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Fail silently to avoid breaking text rendering interactions.
+    }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
 
@@ -16,8 +17,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
           icon: Icon(Icons.arrow_back, color: scheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Privacy Policy',
+        title: Text('Privacy Policy'.tr(context),
           style: TextStyle(color: scheme.onSurface),
         ),
         centerTitle: true,
@@ -28,8 +28,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Last Updated: January 6, 2026',
+            Text('Last Updated: January 6, 2026'.tr(context),
               style: TextStyle(
                 fontSize: 14,
                 color: scheme.onSurface.withOpacity(0.6),
@@ -38,8 +37,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            Text(
-              'Your Privacy Matters',
+            Text('Your Privacy Matters'.tr(context),
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -275,8 +273,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     children: [
                       Icon(Icons.security, color: AppColors.primary, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        'Privacy Questions?',
+                      Text('Privacy Questions?'.tr(context),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -286,16 +283,14 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Email: privacy@rooverse.social',
+                  Text('Email: privacy@rooverse.social'.tr(context),
                     style: TextStyle(
                       fontSize: 14,
                       color: scheme.onSurface.withOpacity(0.7),
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Data Protection Officer: dpo@rooverse.social',
+                  Text('Data Protection Officer: dpo@rooverse.social'.tr(context),
                     style: TextStyle(
                       fontSize: 14,
                       color: scheme.onSurface.withOpacity(0.7),

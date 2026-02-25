@@ -15,6 +15,7 @@ import '../models/story.dart';
 import '../models/story_media_input.dart';
 import '../providers/auth_provider.dart';
 import '../providers/story_provider.dart';
+import '../providers/wallet_provider.dart';
 import '../utils/file_upload_utils.dart';
 import '../utils/verification_utils.dart';
 import '../services/supabase_service.dart';
@@ -38,6 +39,118 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
   // Video editing flags
   final Map<int, bool> _videoMuteFlags = {};
   final Map<int, int> _videoRotationFlags = {};
+
+  Future<bool> _showAdFeeDialog(double adConfidence, String? adType) async {
+    const double adFeeRoo = 5.0;
+    if (!mounted) return false;
+
+    final walletProvider = context.read<WalletProvider>();
+    final userId = SupabaseService().currentUser?.id;
+    if (userId == null) return false;
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.campaign_outlined, color: Color(0xFFFF8C00)),
+            SizedBox(width: 8),
+            Text('Advertisement Detected'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Our system detected this story as promotional content '
+              '(${adConfidence.toStringAsFixed(0)}% confidence'
+              '${adType != null ? " · ${adType.replaceAll('_', ' ')}" : ""}).',
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'To publish it, an advertising fee is required.',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF8C00).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Ad fee'),
+                  Text(
+                    '${adFeeRoo.toStringAsFixed(0)} ROO',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFFF8C00),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'If you decline, your story will remain unpublished.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF8C00),
+            ),
+            child: Text('Pay ${adFeeRoo.toStringAsFixed(0)} ROO'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return false;
+
+    try {
+      final success = await walletProvider.spendRoo(
+        userId: userId,
+        amount: adFeeRoo,
+        activityType: 'AD_FEE',
+        metadata: {
+          'content_type': 'story',
+          'ad_confidence': adConfidence,
+          'ad_type': adType,
+        },
+      );
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Insufficient ROO balance to pay the advertising fee.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return success;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -633,6 +746,8 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                           backgroundColor: mediaInputs.isEmpty
                               ? '#000000'
                               : null,
+                          waitForAi: true,
+                          onAdFeeRequired: _showAdFeeDialog,
                         );
                         if (!mounted) return;
                         Navigator.of(dialogContext).pop();

@@ -17,6 +17,7 @@ import '../../widgets/video_player_widget.dart';
 import 'appeal_form_screen.dart';
 import 'my_appeals_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class MyFlaggedContentScreen extends StatefulWidget {
   const MyFlaggedContentScreen({super.key});
 
@@ -87,7 +88,7 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
     setState(() => _flaggedPosts.removeWhere((p) => p.id == post.id));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Post deleted.')),
+        SnackBar(content: Text('Post deleted.'.tr(context))),
       );
     }
   }
@@ -117,8 +118,8 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
       if (!paid) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Payment failed. Check your ROO balance and try again.'),
+          SnackBar(
+            content: Text('Payment failed. Check your ROO balance and try again.'.tr(context)),
           ),
         );
         return;
@@ -133,9 +134,8 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
 
       if (!published) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Payment was completed, but the post could not be published yet.',
+          SnackBar(
+            content: Text('Payment was completed, but the post could not be published yet.'.tr(context),
             ),
           ),
         );
@@ -144,9 +144,8 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
 
       setState(() => _flaggedPosts.removeWhere((p) => p.id == post.id));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Ad fee paid. Your sponsored post is now published and users were notified.',
+        SnackBar(
+          content: Text('Ad fee paid. Your sponsored post is now published and users were notified.'.tr(context),
           ),
         ),
       );
@@ -167,7 +166,7 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
     setState(() => _flaggedComments.removeWhere((c) => c.id == comment.id));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Comment deleted.')),
+        SnackBar(content: Text('Comment deleted.'.tr(context))),
       );
     }
   }
@@ -179,7 +178,7 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
     setState(() => _flaggedStories.removeWhere((s) => s.id == story.id));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Story deleted.')),
+        SnackBar(content: Text('Story deleted.'.tr(context))),
       );
     }
   }
@@ -188,9 +187,8 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
     return await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            title: Text('Delete $type?'),
-            content: Text(
-              'This will permanently delete this $type. You cannot undo this.',
+            title: Text('Delete $type?'.tr(context)),
+            content: Text('This will permanently delete this $type. You cannot undo this.'.tr(context),
             ),
             actions: [
               TextButton(
@@ -252,8 +250,7 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
       appBar: AppBar(
         backgroundColor: scheme.surface,
         elevation: 0,
-        title: Text(
-          'My Flagged Content',
+        title: Text('My Flagged Content'.tr(context),
           style: TextStyle(color: scheme.onSurface),
         ),
         centerTitle: true,
@@ -289,7 +286,7 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 // Info banner
@@ -307,10 +304,9 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
                         size: 16,
                         color: Colors.orange,
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          'Content below was flagged by our AI system as '
+                        child: Text('Content below was flagged by our AI system as '
                           'potentially AI-generated. You can appeal if you '
                           'believe this is a mistake, or delete the content.',
                           style: TextStyle(
@@ -396,7 +392,7 @@ class _PostTab extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: posts.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => SizedBox(height: 12),
         itemBuilder: (context, i) {
           final post = posts[i];
           return _PostFlaggedCard(
@@ -446,7 +442,7 @@ class _CommentTab extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: comments.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => SizedBox(height: 12),
         itemBuilder: (context, i) {
           final comment = comments[i];
           return _CommentFlaggedCard(
@@ -492,7 +488,7 @@ class _StoryTab extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: stories.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => SizedBox(height: 12),
         itemBuilder: (context, i) {
           final story = stories[i];
           return _StoryFlaggedCard(
@@ -763,9 +759,8 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
               children: [
                 Icon(Icons.smart_toy_outlined,
                     color: widget.scoreColor, size: 15),
-                const SizedBox(width: 6),
-                Text(
-                  '${widget.label}  ·  $_statusLabel',
+                SizedBox(width: 6),
+                Text('${widget.label}  ·  $_statusLabel'.tr(context),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -773,7 +768,7 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
                     letterSpacing: 0.5,
                   ),
                 ),
-                const Spacer(),
+                Spacer(),
                 Text(
                   DateFormat('MMM d, yyyy').format(
                     DateTime.tryParse(widget.timestamp) ?? DateTime.now(),
@@ -789,7 +784,7 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
 
           // ── Media ────────────────────────────────────────────────
           if (widget.mediaItems.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             _buildMedia(),
           ],
 
@@ -827,8 +822,7 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
           ] else if (widget.mediaItems.isEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-              child: Text(
-                '[No content]',
+              child: Text('[No content]'.tr(context),
                 style: TextStyle(
                   fontSize: 14,
                   color: scheme.onSurface.withValues(alpha: 0.45),
@@ -837,7 +831,7 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
               ),
             ),
 
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
           // ── AI score badge ───────────────────────────────────────
           if (widget.aiScore != null)
@@ -847,9 +841,8 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
                 children: [
                   Icon(Icons.bar_chart_rounded,
                       size: 13, color: widget.scoreColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    'AI-generated probability: '
+                  SizedBox(width: 4),
+                  Text('AI-generated probability: '
                     '${widget.aiScore!.toStringAsFixed(1)}%',
                     style: TextStyle(
                       fontSize: 12,
@@ -863,7 +856,7 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
 
           // ── Detection metadata box ───────────────────────────────
           if (_hasMetadata) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Container(
@@ -892,9 +885,8 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
                         children: [
                           Icon(Icons.policy_outlined,
                               size: 13, color: widget.scoreColor),
-                          const SizedBox(width: 5),
-                          Text(
-                            'Detection Details',
+                          SizedBox(width: 5),
+                          Text('Detection Details'.tr(context),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -918,7 +910,7 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
             ),
           ],
 
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // ── Action buttons ───────────────────────────────────────
           Padding(
@@ -941,7 +933,7 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: widget.onDelete,
@@ -1058,8 +1050,7 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
     }
 
     if (rows.isEmpty) {
-      rows.add(Text(
-        'No detailed information available.',
+      rows.add(Text('No detailed information available.'.tr(context),
         style: TextStyle(
           fontSize: 12,
           color: scheme.onSurface.withValues(alpha: 0.5),
@@ -1072,7 +1063,7 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
     final spaced = <Widget>[];
     for (int i = 0; i < rows.length; i++) {
       spaced.add(rows[i]);
-      if (i < rows.length - 1) spaced.add(const SizedBox(height: 6));
+      if (i < rows.length - 1) spaced.add(SizedBox(height: 6));
     }
     return spaced;
   }
@@ -1094,7 +1085,7 @@ class _FlaggedCardShellState extends State<_FlaggedCardShell> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => SizedBox(width: 8),
         itemBuilder: (_, i) => SizedBox(
           width: 180,
           child: _MediaTile(item: items[i], height: 180),
@@ -1133,7 +1124,7 @@ class _MetaRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 13, color: color),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         Expanded(
           child: RichText(
             text: TextSpan(
@@ -1195,7 +1186,7 @@ class _ExpandableMetaRowState extends State<_ExpandableMetaRow> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(widget.icon, size: 14, color: widget.color),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1274,14 +1265,14 @@ class _MediaTile extends StatelessWidget {
         placeholder: (_, __) => Container(
           height: height,
           color: Colors.grey.withValues(alpha: 0.15),
-          child: const Center(
+          child: Center(
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
         ),
         errorWidget: (_, __, ___) => Container(
           height: height,
           color: Colors.grey.withValues(alpha: 0.1),
-          child: const Center(
+          child: Center(
             child: Icon(
               Icons.broken_image_outlined,
               size: 40,
@@ -1317,7 +1308,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 64, color: Colors.green.withValues(alpha: 0.6)),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Text(
             message,
             style: TextStyle(
@@ -1326,7 +1317,7 @@ class _EmptyState extends StatelessWidget {
               color: scheme.onSurface,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             sub,
             textAlign: TextAlign.center,

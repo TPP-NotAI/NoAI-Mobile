@@ -32,6 +32,7 @@ import '../../config/global_keys.dart';
 import '../post_detail_screen.dart';
 import '../profile/edit_profile_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class CreatePostScreen extends StatefulWidget {
   final String? initialPostType;
   final VoidCallback? onPostCreated;
@@ -168,9 +169,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted && !_postCostLoadFailed) {
         _postCostLoadFailed = true;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Could not refresh ROO posting fee. Using cached value.',
+          SnackBar(
+            content: Text('Could not refresh ROO posting fee. Using cached value.'.tr(context),
             ),
           ),
         );
@@ -344,7 +344,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e'.tr(context))));
     }
   }
 
@@ -369,8 +369,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _moderateMedia(File file, String type) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Checking content safety...'),
+      SnackBar(
+        content: Text('Checking content safety...'.tr(context)),
         duration: Duration(seconds: 1),
       ),
     );
@@ -385,21 +385,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.warning, color: Colors.red),
                 SizedBox(width: 8),
-                Text('Content Warning'),
+                Text('Content Warning'.tr(context)),
               ],
             ),
-            content: Text(
-              'Our AI detected potentially harmful content in your ${type}: ${res.details ?? "violation detected"}.\n\n'
+            content: Text('Our AI detected potentially harmful content in your ${type}: ${res.details ?? "violation detected"}.\n\n'
               'If you post this, it may be hidden or your account could be flagged.',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('I Understand'),
+                child: Text('I Understand'.tr(context)),
               ),
               FilledButton(
                 onPressed: () {
@@ -409,7 +408,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     _removeMedia(index);
                   }
                 },
-                child: const Text('Remove Media'),
+                child: Text('Remove Media'.tr(context)),
               ),
             ],
           ),
@@ -497,7 +496,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to get location: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to get location: $e'.tr(context))));
     } finally {
       if (mounted) {
         setState(() => _isLoadingLocation = false);
@@ -670,8 +669,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (missingCount > 0 && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '$missingCount draft media file(s) could not be restored and were skipped.',
+            content: Text('$missingCount draft media file(s) could not be restored and were skipped.'.tr(context),
             ),
           ),
         );
@@ -796,18 +794,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final shouldLoad = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Load another draft?'),
-        content: const Text(
-          'This will replace your current unsaved changes. Save your current work as a draft first if you want to keep it.',
+        title: Text('Load another draft?'.tr(context)),
+        content: Text('This will replace your current unsaved changes. Save your current work as a draft first if you want to keep it.'.tr(context),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel'.tr(context)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Load Draft'),
+            child: Text('Load Draft'.tr(context)),
           ),
         ],
       ),
@@ -832,15 +829,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const ListTile(
-              title: Text(
-                'Draft Options',
+            ListTile(
+              title: Text('Draft Options'.tr(context),
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
             ListTile(
               leading: const Icon(Icons.save_outlined),
-              title: const Text('Save Draft'),
+              title: Text('Save Draft'.tr(context)),
               enabled: hasCurrentDraftContent,
               onTap: !hasCurrentDraftContent
                   ? null
@@ -867,8 +863,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             if (canDeleteLoadedDraft)
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text(
-                  'Delete Loaded Draft',
+                title: Text('Delete Loaded Draft'.tr(context),
                   style: TextStyle(color: Colors.red),
                 ),
                 onTap: () async {
@@ -876,19 +871,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: const Text('Delete draft?'),
-                      content: const Text(
-                        'This removes the currently loaded draft from your saved drafts list.',
+                      title: Text('Delete draft?'.tr(context)),
+                      content: Text('This removes the currently loaded draft from your saved drafts list.'.tr(context),
                       ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Cancel'),
+                          child: Text('Cancel'.tr(context)),
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(context, true),
-                          child: const Text(
-                            'Delete',
+                          child: Text('Delete'.tr(context),
                             style: TextStyle(color: Colors.red),
                           ),
                         ),
@@ -900,20 +893,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     if (!mounted) return;
                     setState(_resetComposer);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Draft deleted')),
+                      SnackBar(content: Text('Draft deleted'.tr(context))),
                     );
                   }
                 },
               ),
             ListTile(
               leading: const Icon(Icons.clear_all_outlined),
-              title: const Text('Discard Current Changes'),
+              title: Text('Discard Current Changes'.tr(context)),
               onTap: () async {
                 Navigator.pop(sheetContext);
                 await _discardDraft();
               },
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
           ],
         ),
       ),
@@ -929,19 +922,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           final colors = Theme.of(context).colorScheme;
           return AlertDialog(
             backgroundColor: colors.surface,
-            title: Text(
-              'Discard changes?',
+            title: Text('Discard changes?'.tr(context),
               style: TextStyle(color: colors.onSurface),
             ),
-            content: Text(
-              'You have unsaved changes. Do you want to save as draft, discard, or continue editing?',
+            content: Text('You have unsaved changes. Do you want to save as draft, discard, or continue editing?'.tr(context),
               style: TextStyle(color: colors.onSurfaceVariant),
             ),
             actions: [
               TextButton(
                 onPressed: () =>
                     Navigator.pop(context, false), // Continue editing
-                child: const Text('Continue Editing'),
+                child: Text('Continue Editing'.tr(context)),
               ),
               TextButton(
                 onPressed: () async {
@@ -949,7 +940,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     Navigator.pop(context, true); // Discard
                   }
                 },
-                child: const Text('Discard'),
+                child: Text('Discard'.tr(context)),
               ),
               FilledButton(
                 onPressed: () async {
@@ -958,7 +949,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     Navigator.pop(context, true); // Save and close
                   }
                 },
-                child: const Text('Save Draft'),
+                child: Text('Save Draft'.tr(context)),
               ),
             ],
           );
@@ -1031,7 +1022,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Preview Post'),
+        title: Text('Preview Post'.tr(context)),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
@@ -1075,7 +1066,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                     )
                                   : null,
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1092,7 +1083,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                         ),
                                       ),
                                       if (currentUser.isVerified) ...[
-                                        const SizedBox(width: 4),
+                                        SizedBox(width: 4),
                                         Icon(
                                           Icons.verified,
                                           size: 14,
@@ -1103,8 +1094,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                       ],
                                     ],
                                   ),
-                                  Text(
-                                    'Posting to Public Feed',
+                                  Text('Posting to Public Feed'.tr(context),
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Theme.of(
@@ -1142,8 +1132,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             spacing: 8,
                             runSpacing: 4,
                             children: previewPost.tags!.map((tag) {
-                              return Text(
-                                '#${tag.name}',
+                              return Text('#${tag.name}'.tr(context),
                                 style: TextStyle(
                                   color: Theme.of(context).colorScheme.primary,
                                   fontWeight: FontWeight.bold,
@@ -1172,9 +1161,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                 context,
                               ).colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '0',
+                            SizedBox(width: 6),
+                            Text('0'.tr(context),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Theme.of(
@@ -1182,7 +1170,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                 ).colorScheme.onSurfaceVariant,
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            SizedBox(width: 16),
                             Icon(
                               Icons.chat_bubble_outline,
                               size: 18,
@@ -1190,9 +1178,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                 context,
                               ).colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '0',
+                            SizedBox(width: 6),
+                            Text('0'.tr(context),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Theme.of(
@@ -1213,14 +1200,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Edit'),
+            child: Text('Edit'.tr(context)),
           ),
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
               _createPost();
             },
-            child: const Text('Post'),
+            child: Text('Post'.tr(context)),
           ),
         ],
       ),
@@ -1281,28 +1268,26 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.campaign_outlined, color: Color(0xFFFF8C00)),
             SizedBox(width: 8),
-            Text('Advertisement Detected'),
+            Text('Advertisement Detected'.tr(context)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Our system detected this post as promotional content '
+            Text('Our system detected this post as promotional content '
               '(${adConfidence.toStringAsFixed(0)}% confidence'
               '${adType != null ? " · ${adType.replaceAll('_', ' ')}" : ""}).',
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'To publish it, an advertising fee is required.',
+            SizedBox(height: 12),
+            Text('To publish it, an advertising fee is required.'.tr(context),
               style: TextStyle(fontWeight: FontWeight.w500),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -1312,9 +1297,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Ad fee'),
-                  Text(
-                    '${adFeeRoo.toStringAsFixed(0)} ROO',
+                  Text('Ad fee'.tr(context)),
+                  Text('${adFeeRoo.toStringAsFixed(0)} ROO'.tr(context),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Color(0xFFFF8C00),
@@ -1323,9 +1307,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'If you decline, your post will be held and you can pay later from your profile.',
+            SizedBox(height: 8),
+            Text('If you decline, your post will be held and you can pay later from your profile.'.tr(context),
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
@@ -1333,14 +1316,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Not now'),
+            child: Text('Not now'.tr(context)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFFF8C00),
             ),
-            child: Text('Pay ${adFeeRoo.toStringAsFixed(0)} ROO'),
+            child: Text('Pay ${adFeeRoo.toStringAsFixed(0)} ROO'.tr(context)),
           ),
         ],
       ),
@@ -1360,8 +1343,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       );
       if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Insufficient ROO balance to pay the advertising fee.'),
+          SnackBar(
+            content: Text('Insufficient ROO balance to pay the advertising fee.'.tr(context)),
             backgroundColor: Colors.red,
           ),
         );
@@ -1371,7 +1354,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Payment failed: ${e.toString()}'),
+            content: Text('Payment failed: ${e.toString()}'.tr(context)),
             backgroundColor: Colors.red,
           ),
         );
@@ -1602,8 +1585,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       } else {
         // Keep user on create screen if creation failed.
         rootScaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(
-            content: Text('Failed to create post. Please try again.'),
+          SnackBar(
+            content: Text('Failed to create post. Please try again.'.tr(context)),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 7),
           ),
@@ -1658,7 +1641,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Failed to create post: $e')));
+          ).showSnackBar(SnackBar(content: Text('Failed to create post: $e'.tr(context))));
         }
       }
     }
@@ -1712,14 +1695,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Complete Your Profile'),
-        content: Text(
-          'Finish your profile before creating a post.\n\nRequired: $missingText',
+        title: Text('Complete Your Profile'.tr(context)),
+        content: Text('Finish your profile before creating a post.\n\nRequired: $missingText'.tr(context),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: Text('Cancel'.tr(context)),
           ),
           FilledButton(
             onPressed: () {
@@ -1729,7 +1711,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 MaterialPageRoute(builder: (_) => const EditProfileScreen()),
               );
             },
-            child: const Text('Finish Profile'),
+            child: Text('Finish Profile'.tr(context)),
           ),
         ],
       ),
@@ -1773,14 +1755,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Flexible(
-                          child: Text(
-                            'New Post',
+                          child: Text('New Post'.tr(context),
                             style: theme.textTheme.titleMedium,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (_isDraftLoaded) ...[
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
@@ -1790,8 +1771,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               color: colors.primaryContainer,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Text(
-                              'Draft',
+                            child: Text('Draft'.tr(context),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colors.onPrimaryContainer,
                                 fontWeight: FontWeight.bold,
@@ -1802,7 +1782,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       ],
                     ),
                   ),
-                  const Spacer(),
+                  Spacer(),
                   IconButton(
                     tooltip: _savedDraftCount > 0
                         ? 'Open drafts ($_savedDraftCount)'
@@ -1850,7 +1830,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     onPressed: _showDraftActionsSheet,
                     icon: const Icon(Icons.more_vert),
                   ),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   Builder(
                     builder: (context) {
                       final postButton = FilledButton(
@@ -1859,7 +1839,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             ? null
                             : _showPreviewDialog,
                         child: _isPosting
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
@@ -1867,7 +1847,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text('Post'),
+                            : Text('Post'.tr(context)),
                       );
 
                       if (_postCostRoo > 0) {
@@ -1890,9 +1870,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               child: Row(
                 children: [
                   _buildPostTypeTab(context, 'Text'),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   _buildPostTypeTab(context, 'Photo'),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   _buildPostTypeTab(context, 'Video'),
                 ],
               ),
@@ -1946,7 +1926,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                       ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 12),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -1959,7 +1939,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                             fontWeight: FontWeight.bold,
                                           ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: 8),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
@@ -1969,8 +1949,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                         color: Colors.green.withOpacity(0.15),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
-                                      child: const Text(
-                                        'HUMAN',
+                                      child: Text('HUMAN'.tr(context),
                                         style: TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold,
@@ -1980,8 +1959,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                     ),
                                   ],
                                 ),
-                                Text(
-                                  'Posting to Public Feed',
+                                Text('Posting to Public Feed'.tr(context),
                                   style: theme.textTheme.bodySmall,
                                 ),
                               ],
@@ -1991,7 +1969,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       },
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
 
                     // Optional title
                     TextField(
@@ -2060,10 +2038,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               color: Colors.red,
                               size: 20,
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 12),
                             Expanded(
-                              child: Text(
-                                'Warning: ${_textModerationResult!.details ?? "Content contains potential policy violations."}',
+                              child: Text('Warning: ${_textModerationResult!.details ?? "Content contains potential policy violations."}'.tr(context),
                                 style: const TextStyle(
                                   color: Colors.red,
                                   fontSize: 13,
@@ -2076,7 +2053,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       ),
 
                     if (_isModeratingText)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(top: 8),
                         child: Row(
                           children: [
@@ -2086,8 +2063,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                             SizedBox(width: 8),
-                            Text(
-                              'Checking content safety...',
+                            Text('Checking content safety...'.tr(context),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontStyle: FontStyle.italic,
@@ -2100,8 +2076,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     // Character count
                     Align(
                       alignment: Alignment.centerRight,
-                      child: Text(
-                        '${_contentController.text.length}/$_maxCharacterLimit',
+                      child: Text('${_contentController.text.length}/$_maxCharacterLimit'.tr(context),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color:
                               _contentController.text.length >
@@ -2116,8 +2091,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Tip: Add hashtags like #travel or #flutter in your post.',
+                      child: Text('Tip: Add hashtags like #travel or #flutter in your post.'.tr(context),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.onSurfaceVariant,
                         ),
@@ -2125,7 +2099,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ),
 
                     // Human-generated content certification
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     CheckboxListTile(
                       value: _certifyHumanGenerated,
                       onChanged: (value) {
@@ -2133,8 +2107,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           _certifyHumanGenerated = value ?? false;
                         });
                       },
-                      title: Text(
-                        'I certify this content is human-generated.',
+                      title: Text('I certify this content is human-generated.'.tr(context),
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.w500,
                         ),
@@ -2147,17 +2120,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
                     // Media attachment section (only for Photo/Video)
                     if (_postType != 'Text') ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       _buildMediaAttachmentSection(context),
                     ],
 
                     // Media preview
                     if (_selectedMediaFiles.isNotEmpty) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       _buildMediaPreview(context),
                     ],
 
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24),
 
                     // Selected tags preview
                     if (_selectedTags.isNotEmpty) ...[
@@ -2166,7 +2139,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         runSpacing: 8,
                         children: _selectedTags.map((tag) {
                           return Chip(
-                            label: Text('#$tag'),
+                            label: Text('#$tag'.tr(context)),
                             deleteIcon: const Icon(Icons.close, size: 16),
                             onDeleted: () {
                               setState(() => _selectedTags.remove(tag));
@@ -2174,7 +2147,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                     ],
 
                     // Selected location preview
@@ -2187,7 +2160,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           setState(() => _selectedLocation = null);
                         },
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                     ],
 
                     // Tagged people preview
@@ -2198,7 +2171,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         children: _taggedPeople.map((person) {
                           return Chip(
                             avatar: const Icon(Icons.person, size: 16),
-                            label: Text('@${person['username']}'),
+                            label: Text('@${person['.tr(context)username']}'),
                             deleteIcon: const Icon(Icons.close, size: 16),
                             onDeleted: () {
                               setState(() => _taggedPeople.remove(person));
@@ -2206,7 +2179,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                     ],
 
                     // Option cards
@@ -2219,7 +2192,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           : null,
                       onTap: _showTagPeoplePicker,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     _optionCard(
                       context,
                       icon: Icons.location_on,
@@ -2227,7 +2200,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       subtitle: _selectedLocation,
                       onTap: _showLocationPicker,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     _optionCard(
                       context,
                       icon: Icons.tag,
@@ -2301,7 +2274,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               ),
               child: Icon(icon, color: colors.primary),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2349,16 +2322,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           Row(
             children: [
               Icon(Icons.perm_media, color: colors.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Add Media',
+              SizedBox(width: 8),
+              Text('Add Media'.tr(context),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -2369,7 +2341,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   onTap: () => _pickMedia(fromCamera: false),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: _mediaOptionButton(
                   context,
@@ -2408,7 +2380,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         child: Column(
           children: [
             Icon(icon, color: colors.primary, size: 32),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               label,
               style: TextStyle(
@@ -2579,7 +2551,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to apply filter: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to apply filter: $e'.tr(context))));
       }
     }
   }
@@ -2600,13 +2572,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Edit Image',
+              Text('Edit Image'.tr(context),
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -2656,7 +2627,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         child: Column(
           children: [
             Icon(icon, color: colors.primary, size: 24),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
@@ -2688,13 +2659,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Edit Video',
+              Text('Edit Video'.tr(context),
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -2737,7 +2707,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         context: context,
         builder: (context) => StatefulBuilder(
           builder: (context, setState) => AlertDialog(
-            title: const Text('Trim Video'),
+            title: Text('Trim Video'.tr(context)),
             content: SizedBox(
               width: double.maxFinite,
               height: 400,
@@ -2749,7 +2719,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       child: VideoPlayer(controller),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   // Play/Pause button
                   IconButton(
                     icon: Icon(
@@ -2765,12 +2735,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       });
                     },
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   // Trim sliders
                   Column(
                     children: [
-                      Text(
-                        'Start: ${(startTrim / 1000).toStringAsFixed(1)}s',
+                      Text('Start: ${(startTrim / 1000).toStringAsFixed(1)}s'.tr(context),
                         style: const TextStyle(fontSize: 12),
                       ),
                       Slider(
@@ -2791,8 +2760,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           });
                         },
                       ),
-                      Text(
-                        'End: ${(endTrim / 1000).toStringAsFixed(1)}s',
+                      Text('End: ${(endTrim / 1000).toStringAsFixed(1)}s'.tr(context),
                         style: const TextStyle(fontSize: 12),
                       ),
                       Slider(
@@ -2811,9 +2779,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Duration: ${((endTrim - startTrim) / 1000).toStringAsFixed(1)}s',
+                  SizedBox(height: 16),
+                  Text('Duration: ${((endTrim - startTrim) / 1000).toStringAsFixed(1)}s'.tr(context),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -2829,7 +2796,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   Navigator.pop(context);
                   await _applyVideoTrim(index, startTrim, endTrim);
                 },
-                child: const Text('Apply Trim'),
+                child: Text('Apply Trim'.tr(context)),
               ),
             ],
           ),
@@ -2839,7 +2806,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e'.tr(context))));
       }
     } finally {
       controller?.dispose();
@@ -2852,9 +2819,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Video trimming simulation complete! (Full implementation requires FFmpeg)',
+      SnackBar(
+        content: Text('Video trimming simulation complete! (Full implementation requires FFmpeg)'.tr(context),
         ),
         duration: Duration(seconds: 3),
       ),
@@ -2886,7 +2852,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         context: context,
         builder: (context) => StatefulBuilder(
           builder: (context, setState) => AlertDialog(
-            title: const Text('Mute Video'),
+            title: Text('Mute Video'.tr(context)),
             content: SizedBox(
               width: double.maxFinite,
               height: 300,
@@ -2898,7 +2864,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       child: VideoPlayer(controller),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -2916,7 +2882,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           });
                         },
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: 16),
                       FilledButton.icon(
                         onPressed: () {
                           setState(() {
@@ -2947,14 +2913,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   Navigator.pop(context);
                   if (isMuted && mounted) {
                     ScaffoldMessenger.of(this.context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Video will be muted when posted'),
+                      SnackBar(
+                        content: Text('Video will be muted when posted'.tr(context)),
                         duration: Duration(seconds: 2),
                       ),
                     );
                   }
                 },
-                child: const Text('Apply'),
+                child: Text('Apply'.tr(context)),
               ),
             ],
           ),
@@ -2964,7 +2930,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e'.tr(context))));
       }
     } finally {
       controller?.dispose();
@@ -2989,7 +2955,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         context: context,
         builder: (context) => StatefulBuilder(
           builder: (context, setState) => AlertDialog(
-            title: const Text('Rotate Video'),
+            title: Text('Rotate Video'.tr(context)),
             content: SizedBox(
               width: double.maxFinite,
               height: 350,
@@ -3006,7 +2972,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -3026,7 +2992,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -3037,7 +3003,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           });
                         },
                         icon: const Icon(Icons.rotate_left),
-                        label: const Text('Left'),
+                        label: Text('Left'.tr(context)),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -3050,8 +3016,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           ).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(
-                          '${rotationDegrees % 360}°',
+                        child: Text('${rotationDegrees % 360}°'.tr(context),
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -3062,7 +3027,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           });
                         },
                         icon: const Icon(Icons.rotate_right),
-                        label: const Text('Right'),
+                        label: Text('Right'.tr(context)),
                       ),
                     ],
                   ),
@@ -3080,15 +3045,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   if (rotationDegrees != 0 && mounted) {
                     ScaffoldMessenger.of(this.context).showSnackBar(
                       SnackBar(
-                        content: Text(
-                          'Video will be rotated ${rotationDegrees % 360}° when posted',
+                        content: Text('Video will be rotated ${rotationDegrees % 360}° when posted'.tr(context),
                         ),
                         duration: const Duration(seconds: 2),
                       ),
                     );
                   }
                 },
-                child: const Text('Apply'),
+                child: Text('Apply'.tr(context)),
               ),
             ],
           ),
@@ -3098,7 +3062,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e'.tr(context))));
       }
     } finally {
       controller?.dispose();
@@ -3137,7 +3101,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       setState(() => _savedDraftCount = 0);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('No saved drafts')));
+      ).showSnackBar(SnackBar(content: Text('No saved drafts'.tr(context))));
       return;
     }
 
@@ -3162,11 +3126,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: const Text(
-                    'My Drafts',
+                  title: Text('My Drafts'.tr(context),
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  subtitle: Text('${drafts.length} saved drafts'),
+                  subtitle: Text('${drafts.length} saved drafts'.tr(context)),
                 ),
                 ConstrainedBox(
                   constraints: BoxConstraints(
@@ -3280,12 +3243,12 @@ class _VideoPreviewWidgetState extends State<_VideoPreviewWidget> {
       ),
       placeholder: Container(
         color: Colors.black,
-        child: const Center(child: CircularProgressIndicator()),
+        child: Center(child: CircularProgressIndicator()),
       ),
       errorBuilder: (context, errorMessage) {
         return Container(
           color: Colors.black,
-          child: const Center(child: Icon(Icons.error, color: Colors.white)),
+          child: Center(child: Icon(Icons.error, color: Colors.white)),
         );
       },
     );
@@ -3308,7 +3271,7 @@ class _VideoPreviewWidgetState extends State<_VideoPreviewWidget> {
   Widget build(BuildContext context) {
     final fallback = Container(
       color: Colors.black,
-      child: const Center(child: CircularProgressIndicator()),
+      child: Center(child: CircularProgressIndicator()),
     );
 
     if (!_isInitialized || _chewieController == null) {
@@ -3380,13 +3343,12 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Add Location',
+            Text('Add Location'.tr(context),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             TextField(
               controller: _controller,
               decoration: InputDecoration(
@@ -3402,28 +3364,28 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                 }
               },
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             ListTile(
               leading: widget.isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : Icon(Icons.my_location, color: colors.primary),
-              title: const Text('Use current location'),
+              title: Text('Use current location'.tr(context)),
               onTap: widget.isLoading ? null : widget.onGetCurrentLocation,
             ),
-            const Divider(),
+            Divider(),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 if (widget.currentLocation != null)
                   TextButton(
                     onPressed: widget.onClear,
-                    child: const Text('Clear'),
+                    child: Text('Clear'.tr(context)),
                   ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 FilledButton(
                   onPressed: () {
                     if (_controller.text.trim().isNotEmpty) {
@@ -3432,7 +3394,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                       Navigator.pop(context);
                     }
                   },
-                  child: const Text('Done'),
+                  child: Text('Done'.tr(context)),
                 ),
               ],
             ),
@@ -3548,18 +3510,16 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Add Topics',
+              Text('Add Topics'.tr(context),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Topics help people discover your post',
+              SizedBox(height: 8),
+              Text('Topics help people discover your post'.tr(context),
                 style: theme.textTheme.bodySmall,
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               TextField(
                 controller: _controller,
                 decoration: InputDecoration(
@@ -3578,7 +3538,7 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                 onChanged: _searchTags,
                 onSubmitted: _addTag,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // Selected tags
               if (_tags.isNotEmpty) ...[
@@ -3587,15 +3547,15 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                   runSpacing: 8,
                   children: _tags.map((tag) {
                     return Chip(
-                      label: Text('#$tag'),
+                      label: Text('#$tag'.tr(context)),
                       deleteIcon: const Icon(Icons.close, size: 16),
                       onDeleted: () => _removeTag(tag),
                       backgroundColor: colors.primaryContainer,
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 16),
-                const Divider(),
+                SizedBox(height: 16),
+                Divider(),
               ],
 
               // Suggestions or popular topics
@@ -3604,17 +3564,17 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                   controller: scrollController,
                   children: [
                     if (_isLoading)
-                      const Center(child: CircularProgressIndicator())
+                      Center(child: CircularProgressIndicator())
                     else if (_suggestions.isNotEmpty) ...[
-                      Text('Suggestions', style: theme.textTheme.titleSmall),
-                      const SizedBox(height: 8),
+                      Text('Suggestions'.tr(context), style: theme.textTheme.titleSmall),
+                      SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: _suggestions.map((suggestion) {
                           final isSelected = _tags.contains(suggestion.name);
                           return ActionChip(
-                            label: Text('#${suggestion.name}'),
+                            label: Text('#${suggestion.name}'.tr(context)),
                             onPressed: isSelected
                                 ? null
                                 : () => _addTag(suggestion.name),
@@ -3625,15 +3585,15 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                         }).toList(),
                       ),
                     ] else ...[
-                      Text('Popular Topics', style: theme.textTheme.titleSmall),
-                      const SizedBox(height: 8),
+                      Text('Popular Topics'.tr(context), style: theme.textTheme.titleSmall),
+                      SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: _popularTopics.map((topic) {
                           final isSelected = _tags.contains(topic);
                           return ActionChip(
-                            label: Text('#$topic'),
+                            label: Text('#$topic'.tr(context)),
                             onPressed: isSelected ? null : () => _addTag(topic),
                             backgroundColor: isSelected
                                 ? colors.primaryContainer
@@ -3645,7 +3605,7 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -3653,13 +3613,13 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                     onPressed: () => Navigator.pop(context),
                     child: Text(AppLocalizations.of(context)!.cancel),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   FilledButton(
                     onPressed: () {
                       widget.onTagsChanged(_tags);
                       Navigator.pop(context);
                     },
-                    child: const Text('Done'),
+                    child: Text('Done'.tr(context)),
                   ),
                 ],
               ),
@@ -3769,13 +3729,12 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Tag People',
+              Text('Tag People'.tr(context),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               TextField(
                 controller: _controller,
                 decoration: InputDecoration(
@@ -3787,7 +3746,7 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
                 ),
                 onChanged: _searchUsers,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // Tagged people
               if (_people.isNotEmpty) ...[
@@ -3804,21 +3763,21 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
                             ? const Icon(Icons.person, size: 16)
                             : null,
                       ),
-                      label: Text('@${person['username']}'),
+                      label: Text('@${person['.tr(context)username']}'),
                       deleteIcon: const Icon(Icons.close, size: 16),
                       onDeleted: () => _removePerson(person),
                       backgroundColor: colors.primaryContainer,
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 16),
-                const Divider(),
+                SizedBox(height: 16),
+                Divider(),
               ],
 
               // Search results
               Expanded(
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? Center(child: CircularProgressIndicator())
                     : _suggestions.isEmpty
                     ? Center(
                         child: Text(
@@ -3850,7 +3809,7 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
                             title: Text(
                               user['display_name'] ?? user['username'],
                             ),
-                            subtitle: Text('@${user['username']}'),
+                            subtitle: Text('@${user['.tr(context)username']}'),
                             trailing: isSelected
                                 ? Icon(Icons.check, color: colors.primary)
                                 : null,
@@ -3859,7 +3818,7 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
                         },
                       ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -3867,13 +3826,13 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
                     onPressed: () => Navigator.pop(context),
                     child: Text(AppLocalizations.of(context)!.cancel),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   FilledButton(
                     onPressed: () {
                       widget.onPeopleChanged(_people);
                       Navigator.pop(context);
                     },
-                    child: const Text('Done'),
+                    child: Text('Done'.tr(context)),
                   ),
                 ],
               ),

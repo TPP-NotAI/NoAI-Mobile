@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class AppealProfileScreen extends StatefulWidget {
   const AppealProfileScreen({super.key});
 
@@ -35,8 +36,8 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
   Future<void> _submitAppeal() async {
     if (_reasonController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please provide a reason for your appeal.'),
+        SnackBar(
+          content: Text('Please provide a reason for your appeal.'.tr(context)),
         ),
       );
       return;
@@ -55,9 +56,8 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
           context: context,
           barrierDismissible: false,
           builder: (context) => AlertDialog(
-            title: const Text('Appeal Submitted'),
-            content: const Text(
-              'Your appeal has been received and is under review. Our moderation team will get back to you via the Support Chat or Email within 48 hours.',
+            title: Text('Appeal Submitted'.tr(context)),
+            content: Text('Your appeal has been received and is under review. Our moderation team will get back to you via the Support Chat or Email within 48 hours.'.tr(context),
             ),
             actions: [
               TextButton(
@@ -65,7 +65,7 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
                   Navigator.pop(context); // Close dialog
                   Navigator.pop(context); // Go back to previous screen
                 },
-                child: const Text('OK'),
+                child: Text('OK'.tr(context)),
               ),
             ],
           ),
@@ -75,7 +75,7 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to submit appeal: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to submit appeal: $e'.tr(context))));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -91,7 +91,7 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
-        title: const Text('Appeal Profile Status'),
+        title: Text('Appeal Profile Status'.tr(context)),
         backgroundColor: colors.surface,
         elevation: 0,
       ),
@@ -111,13 +111,12 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
               child: Row(
                 children: [
                   const Icon(Icons.info_outline, color: AppColors.primary),
-                  const SizedBox(width: 16),
+                  SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Current Humanity Status',
+                        Text('Current Humanity Status'.tr(context),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -139,15 +138,14 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
               ),
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
 
-            Text(
-              'What are you appealing?',
+            Text('What are you appealing?'.tr(context),
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
@@ -167,15 +165,14 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
 
-            Text(
-              'Reason for Appeal',
+            Text('Reason for Appeal'.tr(context),
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             TextField(
               controller: _reasonController,
               decoration: InputDecoration(
@@ -188,15 +185,14 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
 
-            Text(
-              'Additional Details (Optional)',
+            Text('Additional Details (Optional)'.tr(context),
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             TextField(
               controller: _detailsController,
               maxLines: 5,
@@ -211,7 +207,7 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
               ),
             ),
 
-            const SizedBox(height: 40),
+            SizedBox(height: 40),
 
             SizedBox(
               width: double.infinity,
@@ -226,9 +222,8 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
                   ),
                 ),
                 child: _isSubmitting
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Submit Appeal',
+                    ? CircularProgressIndicator(color: Colors.white)
+                    : Text('Submit Appeal'.tr(context),
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -237,10 +232,9 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
               ),
             ),
 
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Center(
-              child: Text(
-                'Submission requires a 0.5 ROO fee (waived for first-time appeals)',
+              child: Text('Submission requires a 0.5 ROO fee (waived for first-time appeals)'.tr(context),
                 style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
               ),
             ),

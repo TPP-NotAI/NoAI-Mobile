@@ -3,6 +3,7 @@ import '../config/app_colors.dart';
 import '../config/app_spacing.dart';
 import '../config/app_typography.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 /// Trust score widget with gradient progress bar matching web design
 class TrustScoreWidget extends StatelessWidget {
   final double score; // 0-100
@@ -33,15 +34,13 @@ class TrustScoreWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Trust Score',
+              Text('Trust Score'.tr(context),
                 style: const TextStyle(
                   fontSize: AppTypography.small,
                   fontWeight: AppTypography.semiBold,
                 ).copyWith(color: colors.onSurface),
               ),
-              Text(
-                '${score.toInt()}/100',
+              Text('${score.toInt()}/100'.tr(context),
                 style: const TextStyle(
                   fontSize: AppTypography.small,
                   fontWeight: AppTypography.bold,
@@ -111,8 +110,7 @@ class TrustScoreBadge extends StatelessWidget {
         children: [
           Icon(Icons.verified_user, size: 12, color: _getScoreColor()),
           const SizedBox(width: 4),
-          Text(
-            '${score.toInt()}',
+          Text('${score.toInt()}'.tr(context),
             style: TextStyle(
               fontSize: AppTypography.extraSmall,
               fontWeight: AppTypography.bold,

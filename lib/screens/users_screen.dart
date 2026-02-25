@@ -7,6 +7,7 @@ import '../widgets/user_card.dart';
 import 'user_detail_screen.dart';
 import 'profile/profile_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});
 
@@ -25,7 +26,7 @@ class _UsersScreenState extends State<UsersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Users'),
+        title: Text('Users'.tr(context)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -50,7 +51,7 @@ class _UsersScreenState extends State<UsersScreen> {
           final displayUsers = userProvider.filteredUsers;
 
           if (displayUsers.isEmpty) {
-            return const Center(child: Text('No users available'));
+            return Center(child: Text('No users available'.tr(context)));
           }
 
           return RefreshIndicator(

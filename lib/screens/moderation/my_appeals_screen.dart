@@ -7,6 +7,7 @@ import '../../config/supabase_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/supabase_service.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 /// A record representing one appeal submitted by the user.
 class _AppealRecord {
   final String appealId;
@@ -167,8 +168,7 @@ class _MyAppealsScreenState extends State<MyAppealsScreen> {
       appBar: AppBar(
         backgroundColor: scheme.surface,
         elevation: 0,
-        title: Text(
-          'My Appeals',
+        title: Text('My Appeals'.tr(context),
           style: TextStyle(color: scheme.onSurface),
         ),
         centerTitle: true,
@@ -213,7 +213,7 @@ class _MyAppealsScreenState extends State<MyAppealsScreen> {
               style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 16),
-            OutlinedButton(onPressed: _load, child: const Text('Retry')),
+            OutlinedButton(onPressed: _load, child: Text('Retry'.tr(context))),
           ],
         ),
       ),
@@ -231,8 +231,7 @@ class _MyAppealsScreenState extends State<MyAppealsScreen> {
                 size: 64,
                 color: AppColors.primary.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            Text(
-              'No Appeals Yet',
+            Text('No Appeals Yet'.tr(context),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -240,8 +239,7 @@ class _MyAppealsScreenState extends State<MyAppealsScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Appeals you submit for flagged content will appear here '
+            Text('Appeals you submit for flagged content will appear here '
               'along with their review status.',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -347,8 +345,7 @@ class _AppealCard extends StatelessWidget {
                     color: statusColor, size: 15),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text(
-                    '${_contentTypeLabel(record.contentType)}  ·  '
+                  child: Text('${_contentTypeLabel(record.contentType)}  ·  '
                     '${_statusLabel(record.appealStatus)}',
                     style: TextStyle(
                       fontSize: 11,
@@ -377,8 +374,7 @@ class _AppealCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'ORIGINAL CONTENT',
+                  Text('ORIGINAL CONTENT'.tr(context),
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -424,8 +420,7 @@ class _AppealCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'YOUR STATEMENT',
+                  Text('YOUR STATEMENT'.tr(context),
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,

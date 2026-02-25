@@ -14,6 +14,7 @@ import '../services/kyc_verification_service.dart';
 import 'comment_card.dart';
 import 'mention_autocomplete_field.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class CommentsSheet extends StatefulWidget {
   final Post post;
 
@@ -133,7 +134,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e'.tr(context))));
       }
     }
   }
@@ -149,28 +150,27 @@ class _CommentsSheetState extends State<CommentsSheet> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.warning, color: Colors.orange),
                 SizedBox(width: 8),
-                Text('Content Warning'),
+                Text('Content Warning'.tr(context)),
               ],
             ),
-            content: Text(
-              'Our AI detected potentially harmful content in your ${type}: ${res.details ?? "violation detected"}.\n\n'
+            content: Text('Our AI detected potentially harmful content in your ${type}: ${res.details ?? "violation detected"}.\n\n'
               'If you post this, it may be hidden or your account could be flagged.',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('I Understand'),
+                child: Text('I Understand'.tr(context)),
               ),
               FilledButton(
                 onPressed: () {
                   Navigator.pop(context);
                   _clearSelectedMedia();
                 },
-                child: const Text('Remove Media'),
+                child: Text('Remove Media'.tr(context)),
               ),
             ],
           ),
@@ -213,7 +213,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
         setState(() => _isUploading = false);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to upload media')));
+        ).showSnackBar(SnackBar(content: Text('Failed to upload media'.tr(context))));
         return;
       }
     }
@@ -331,14 +331,13 @@ class _CommentsSheetState extends State<CommentsSheet> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text(
-                'Add Media',
+              SizedBox(height: 20),
+              Text('Add Media'.tr(context),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(10),
@@ -348,14 +347,14 @@ class _CommentsSheetState extends State<CommentsSheet> {
                   ),
                   child: Icon(Icons.photo_library, color: colors.primary),
                 ),
-                title: const Text('Photo from Gallery'),
-                subtitle: const Text('Choose an existing photo'),
+                title: Text('Photo from Gallery'.tr(context)),
+                subtitle: Text('Choose an existing photo'.tr(context)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickMedia(ImageSource.gallery);
                 },
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(10),
@@ -365,14 +364,14 @@ class _CommentsSheetState extends State<CommentsSheet> {
                   ),
                   child: Icon(Icons.camera_alt, color: colors.secondary),
                 ),
-                title: const Text('Take a Photo'),
-                subtitle: const Text('Use your camera'),
+                title: Text('Take a Photo'.tr(context)),
+                subtitle: Text('Use your camera'.tr(context)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickMedia(ImageSource.camera);
                 },
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(10),
@@ -382,14 +381,14 @@ class _CommentsSheetState extends State<CommentsSheet> {
                   ),
                   child: Icon(Icons.videocam, color: colors.tertiary),
                 ),
-                title: const Text('Video from Gallery'),
-                subtitle: const Text('Choose an existing video'),
+                title: Text('Video from Gallery'.tr(context)),
+                subtitle: Text('Choose an existing video'.tr(context)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickMedia(ImageSource.gallery, isVideo: true);
                 },
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(10),
@@ -399,8 +398,8 @@ class _CommentsSheetState extends State<CommentsSheet> {
                   ),
                   child: Icon(Icons.fiber_manual_record, color: colors.error),
                 ),
-                title: const Text('Record Video'),
-                subtitle: const Text('Record with your camera'),
+                title: Text('Record Video'.tr(context)),
+                subtitle: Text('Record with your camera'.tr(context)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickMedia(ImageSource.camera, isVideo: true);
@@ -465,7 +464,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to pick media: $e')),
+                    SnackBar(content: Text('Failed to pick media: $e'.tr(context))),
                   );
                 }
               }
@@ -496,7 +495,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                   setSheetState(() => isReplyUploading = false);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Failed to upload media')),
+                      SnackBar(content: Text('Failed to upload media'.tr(context))),
                     );
                   }
                   return;
@@ -615,14 +614,13 @@ class _CommentsSheetState extends State<CommentsSheet> {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            'Reply to',
+                          Text('Reply to'.tr(context),
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: colors.onSurface,
                             ),
                           ),
-                          const Spacer(),
+                          Spacer(),
                           IconButton(
                             icon: Icon(
                               Icons.close,
@@ -632,7 +630,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
 
                       // Parent comment preview
                       Container(
@@ -657,7 +655,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                                     )
                                   : null,
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -669,7 +667,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                                       color: colors.onSurface,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  SizedBox(height: 4),
                                   Text(
                                     parentComment.text,
                                     maxLines: 2,
@@ -684,7 +682,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
 
                       // Media preview for reply
                       if (replyMediaFile != null) ...[
@@ -703,7 +701,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                                     ? Container(
                                         width: double.infinity,
                                         color: Colors.black,
-                                        child: const Center(
+                                        child: Center(
                                           child: Icon(
                                             Icons.videocam,
                                             color: Colors.white,
@@ -734,7 +732,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                                         alpha: 0.6,
                                       ),
                                     ),
-                                    child: const Icon(
+                                    child: Icon(
                                       Icons.close,
                                       color: Colors.white,
                                       size: 16,
@@ -743,11 +741,10 @@ class _CommentsSheetState extends State<CommentsSheet> {
                                 ),
                               ),
                               if (replyMediaType == 'video')
-                                const Positioned(
+                                Positioned(
                                   bottom: 8,
                                   left: 8,
-                                  child: Text(
-                                    'Video selected',
+                                  child: Text('Video selected'.tr(context),
                                     style: TextStyle(color: Colors.white),
                                   ),
                                 ),
@@ -789,7 +786,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
 
                       // Reply button
                       SizedBox(
@@ -797,14 +794,14 @@ class _CommentsSheetState extends State<CommentsSheet> {
                         child: ElevatedButton(
                           onPressed: isReplyUploading ? null : submitReply,
                           child: isReplyUploading
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text('Reply'),
+                              : Text('Reply'.tr(context)),
                         ),
                       ),
                     ],
@@ -840,21 +837,19 @@ class _CommentsSheetState extends State<CommentsSheet> {
             ),
             child: Row(
               children: [
-                Text(
-                  'Comments',
+                Text('Comments'.tr(context),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: colors.onSurface,
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  '${widget.post.comments}',
+                Spacer(),
+                Text('${widget.post.comments}'.tr(context),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 IconButton(
                   icon: Icon(Icons.close, color: colors.onSurfaceVariant),
                   onPressed: () => Navigator.pop(context),
@@ -875,7 +870,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                 final comments = currentPost.commentList ?? _loadedComments;
 
                 if (_isLoading) {
-                  return const Center(child: CircularProgressIndicator());
+                  return Center(child: CircularProgressIndicator());
                 }
 
                 if (comments == null || comments.isEmpty) {
@@ -888,16 +883,14 @@ class _CommentsSheetState extends State<CommentsSheet> {
                           size: 64,
                           color: colors.onSurfaceVariant.withValues(alpha: 0.3),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No comments yet',
+                        SizedBox(height: 16),
+                        Text('No comments yet'.tr(context),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: colors.onSurfaceVariant,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Be the first to comment!',
+                        SizedBox(height: 8),
+                        Text('Be the first to comment!'.tr(context),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colors.onSurfaceVariant,
                           ),
@@ -958,7 +951,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                               ? Container(
                                   width: double.infinity,
                                   color: Colors.black,
-                                  child: const Center(
+                                  child: Center(
                                     child: Icon(
                                       Icons.videocam,
                                       color: Colors.white,
@@ -984,7 +977,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                                 shape: BoxShape.circle,
                                 color: Colors.black.withValues(alpha: 0.6),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.close,
                                 color: Colors.white,
                                 size: 16,
@@ -993,11 +986,10 @@ class _CommentsSheetState extends State<CommentsSheet> {
                           ),
                         ),
                         if (_selectedMediaType == 'video')
-                          const Positioned(
+                          Positioned(
                             bottom: 8,
                             left: 8,
-                            child: Text(
-                              'Video selected',
+                            child: Text('Video selected'.tr(context),
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
@@ -1016,12 +1008,12 @@ class _CommentsSheetState extends State<CommentsSheet> {
                               ? NetworkImage(user!.avatar!)
                               : null,
                           child: user?.avatar == null
-                              ? const Icon(Icons.person, size: 16)
+                              ? Icon(Icons.person, size: 16)
                               : null,
                         );
                       },
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -1059,8 +1051,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                               _textModerationResult!.flagged)
                             Padding(
                               padding: const EdgeInsets.only(top: 4, left: 8),
-                              child: Text(
-                                '⚠️ Potential policy violation: ${_textModerationResult!.details ?? "Check content"}',
+                              child: Text('⚠️ Potential policy violation: ${_textModerationResult!.details ?? "Check content"}'.tr(context),
                                 style: const TextStyle(
                                   color: Colors.red,
                                   fontSize: 10,
@@ -1069,10 +1060,9 @@ class _CommentsSheetState extends State<CommentsSheet> {
                               ),
                             ),
                           if (_isModeratingText)
-                            const Padding(
+                            Padding(
                               padding: EdgeInsets.only(top: 4, left: 8),
-                              child: Text(
-                                'Checking safety...',
+                              child: Text('Checking safety...'.tr(context),
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontStyle: FontStyle.italic,

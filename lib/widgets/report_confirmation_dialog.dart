@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 /// A confirmation dialog shown after successfully submitting a report.
 class ReportConfirmationDialog extends StatelessWidget {
   final String type; // 'post' or 'profile'
@@ -56,8 +57,7 @@ class ReportConfirmationDialog extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           // Title
-          Text(
-            'Report Submitted',
+          Text('Report Submitted'.tr(context),
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -91,8 +91,7 @@ class ReportConfirmationDialog extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
-                'Got it',
+              child: Text('Got it'.tr(context),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,

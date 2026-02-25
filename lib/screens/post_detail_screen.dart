@@ -17,7 +17,12 @@ import '../utils/verification_utils.dart';
 import '../widgets/verification_required_widget.dart';
 import '../services/viral_content_service.dart';
 import '../widgets/comment_card.dart';
+import '../widgets/boost_post_modal.dart';
+import '../screens/boost/boost_analytics_page.dart';
+import '../screens/ads/ad_insights_page.dart';
+import '../repositories/boost_repository.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class PostDetailScreen extends StatefulWidget {
   final Post post;
   final String? heroTag;
@@ -36,6 +41,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   bool _loadingComments = true;
   bool _submittingComment = false;
   bool _isTextExpanded = false;
+  bool _isBoosted = false;
 
   static const int _maxLinesCollapsed = 4;
 
@@ -46,6 +52,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     _editController = TextEditingController(text: _post.content);
     _loadComments();
     _checkViralReward();
+    _loadBoostStatus();
   }
 
   @override
@@ -81,6 +88,31 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
+  Future<void> _loadBoostStatus() async {
+    final currentUserId = context.read<AuthProvider>().currentUser?.id;
+    if (currentUserId == null || currentUserId != _post.authorId) return;
+    try {
+      final boostedIds = await BoostRepository().getBoostedPostIds(currentUserId);
+      if (!mounted) return;
+      setState(() {
+        _isBoosted = boostedIds.contains(_post.id);
+      });
+    } catch (e) {
+      debugPrint('PostDetailScreen: Error loading boost status - $e');
+    }
+  }
+
+  bool get _isAdvertPost {
+    final notes = (_post.authenticityNotes ?? '').toLowerCase();
+    if (notes.contains('advertisement:')) return true;
+    final ad = _post.aiMetadata?['advertisement'];
+    if (ad is Map) {
+      return ad['requires_payment'] == true ||
+          (ad['confidence'] is num && (ad['confidence'] as num) >= 40);
+    }
+    return false;
+  }
+
   void _openHashtagFeed(String hashtag) {
     Navigator.push(
       context,
@@ -111,11 +143,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         });
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Comment posted!')));
+        ).showSnackBar(SnackBar(content: Text('Comment posted!'.tr(context))));
       } else {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to post comment')));
+        ).showSnackBar(SnackBar(content: Text('Failed to post comment'.tr(context))));
       }
     }
   }
@@ -147,9 +179,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Unpublish Post?'),
-        content: const Text(
-          'This will remove the post from the public feed. You can republish it later (not implemented yet).',
+        title: Text('Unpublish Post?'.tr(context)),
+        content: Text('This will remove the post from the public feed. You can republish it later (not implemented yet).'.tr(context),
         ),
         actions: [
           TextButton(
@@ -158,7 +189,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Unpublish'),
+            child: Text('Unpublish'.tr(context)),
           ),
         ],
       ),
@@ -172,12 +203,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           Navigator.pop(context); // Go back to feed/profile
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Post unpublished')));
+          ).showSnackBar(SnackBar(content: Text('Post unpublished'.tr(context))));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Failed to unpublish post. You can only unpublish your own posts.',
+            SnackBar(
+              content: Text('Failed to unpublish post. You can only unpublish your own posts.'.tr(context),
               ),
             ),
           );
@@ -190,9 +220,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Post?'),
-        content: const Text(
-          'Are you sure you want to delete this post? This action cannot be undone.',
+        title: Text('Delete Post?'.tr(context)),
+        content: Text('Are you sure you want to delete this post? This action cannot be undone.'.tr(context),
         ),
         actions: [
           TextButton(
@@ -218,18 +247,41 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           Navigator.pop(context); // Go back
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Post deleted')));
+          ).showSnackBar(SnackBar(content: Text('Post deleted'.tr(context))));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Failed to delete post. You can only delete your own posts.',
+            SnackBar(
+              content: Text('Failed to delete post. You can only delete your own posts.'.tr(context),
               ),
             ),
           );
         }
       }
     }
+  }
+
+  Future<void> _handleBoost() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BoostPostModal(post: _post),
+    );
+    await _loadBoostStatus();
+  }
+
+  void _handleBoostAnalytics() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => BoostAnalyticsPage(post: _post)),
+    );
+  }
+
+  void _handleAdInsights() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => AdInsightsPage(post: _post)),
+    );
   }
 
   @override
@@ -247,7 +299,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-        title: const Text('Post Details'),
+        title: Text('Post Details'.tr(context)),
         actions: [
           if (isAuthor)
             PopupMenuButton<String>(
@@ -255,6 +307,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 switch (value) {
                   case 'edit':
                     _handleEdit();
+                    break;
+                  case 'boost':
+                    _handleBoost();
+                    break;
+                  case 'boost_analytics':
+                    _handleBoostAnalytics();
+                    break;
+                  case 'ad_insights':
+                    _handleAdInsights();
                     break;
                   case 'unpublish':
                     _handleUnpublish();
@@ -265,27 +326,59 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 }
               },
               itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(
+                PopupMenuItem(
+                  value: 'boost',
+                  child: Row(
+                    children: [
+                      Icon(Icons.rocket_launch, size: 20),
+                      SizedBox(width: 12),
+                      Text('Boost Post'.tr(context)),
+                    ],
+                  ),
+                ),
+                if (_isBoosted)
+                  PopupMenuItem(
+                    value: 'boost_analytics',
+                    child: Row(
+                      children: [
+                        Icon(Icons.bar_chart, size: 20),
+                        SizedBox(width: 12),
+                        Text('View Boost Analytics'.tr(context)),
+                      ],
+                    ),
+                  ),
+                if (_isAdvertPost)
+                  PopupMenuItem(
+                    value: 'ad_insights',
+                    child: Row(
+                      children: [
+                        Icon(Icons.insights_outlined, size: 20),
+                        SizedBox(width: 12),
+                        Text('Ad Insights'.tr(context)),
+                      ],
+                    ),
+                  ),
+                PopupMenuDivider(),
+                PopupMenuItem(
                   value: 'edit',
                   child: Row(
                     children: [
                       Icon(Icons.edit, size: 20),
                       SizedBox(width: 12),
-                      Text('Edit Post'),
+                      Text('Edit Post'.tr(context)),
                     ],
                   ),
                 ),
-                const PopupMenuItem<String>(
+                PopupMenuItem(
                   value: 'unpublish',
                   child: Row(
                     children: [
                       Icon(Icons.visibility_off, size: 20),
                       SizedBox(width: 12),
-                      Text('Unpublish'),
+                      Text('Unpublish'.tr(context)),
                     ],
                   ),
                 ),
-                const PopupMenuDivider(),
                 PopupMenuItem<String>(
                   value: 'delete',
                   child: Row(
@@ -295,9 +388,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         size: 20,
                         color: Theme.of(context).colorScheme.error,
                       ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Delete',
+                      SizedBox(width: 12),
+                      Text('Delete'.tr(context),
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
                         ),
@@ -338,7 +430,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                       )
                                     : null,
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,7 +447,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                               ),
                                         ),
                                         if (_post.author.isVerified) ...[
-                                          const SizedBox(width: 4),
+                                          SizedBox(width: 4),
                                           Icon(
                                             Icons.verified,
                                             size: 14,
@@ -364,8 +456,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                         ],
                                       ],
                                     ),
-                                    Text(
-                                      '@${_post.author.username}',
+                                    Text('@${_post.author.username}'.tr(context),
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
@@ -383,7 +474,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16),
                           // Moderation Alert for Author
                           if (isAuthor &&
                               (_post.status == 'deleted' ||
@@ -418,7 +509,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                         ? colors.error
                                         : colors.tertiary,
                                   ),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -446,8 +537,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                             ),
                                           ),
                                         if (_post.aiScoreStatus != null)
-                                          Text(
-                                            'Status: ${_post.aiScoreStatus}',
+                                          Text('Status: ${_post.aiScoreStatus}'.tr(context),
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontStyle: FontStyle.italic,
@@ -482,14 +572,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     Icons.warning_amber_rounded,
                                     color: colors.error,
                                   ),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          'Sensitive Content',
+                                        Text('Sensitive Content'.tr(context),
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             color: colors.error,
@@ -511,12 +600,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             ),
                           if (_post.title != null &&
                               _post.title!.isNotEmpty) ...[
-                            Text(
-                              _post.title!,
+                            MentionRichText(
+                              text: _post.title!,
                               style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(fontWeight: FontWeight.bold),
+                              onMentionTap: (username) =>
+                                  navigateToMentionedUser(context, username),
+                              onHashtagTap: _openHashtagFeed,
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: 8),
                           ],
                           LayoutBuilder(
                             builder: (context, constraints) {
@@ -576,7 +668,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               );
                             },
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16),
                           if (_post.location != null &&
                               _post.location!.isNotEmpty) ...[
                             Row(
@@ -586,7 +678,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   size: 16,
                                   color: colors.onSurfaceVariant,
                                 ),
-                                const SizedBox(width: 4),
+                                SizedBox(width: 4),
                                 Text(
                                   _post.location!,
                                   style: Theme.of(context).textTheme.bodyMedium
@@ -596,7 +688,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: 16),
                           ],
                           if (_post.tags != null && _post.tags!.isNotEmpty) ...[
                             Wrap(
@@ -605,8 +697,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               children: _post.tags!.map((tag) {
                                 return GestureDetector(
                                   onTap: () => _openHashtagFeed(tag.name),
-                                  child: Text(
-                                    '#${tag.name}',
+                                  child: Text('#${tag.name}'.tr(context),
                                     style: TextStyle(
                                       color: colors.primary,
                                       fontWeight: FontWeight.bold,
@@ -615,7 +706,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 );
                               }).toList(),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: 16),
                           ],
                           if (_post.primaryMediaUrl != null) ...[
                             GestureDetector(
@@ -669,9 +760,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                       ),
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: 16),
                           ],
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16),
                           Row(
                             children: [
                               // Like button
@@ -702,22 +793,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                             ? Colors.red
                                             : colors.onSurfaceVariant,
                                       ),
-                                      const SizedBox(width: 4),
-                                      Text('${_post.likes}'),
+                                      SizedBox(width: 4),
+                                      Text('${_post.likes}'.tr(context)),
                                     ],
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              SizedBox(width: 16),
                               // Comment count
                               Icon(
                                 Icons.chat_bubble_outline,
                                 size: 20,
                                 color: colors.onSurfaceVariant,
                               ),
-                              const SizedBox(width: 4),
-                              Text('${_post.comments}'),
-                              const SizedBox(width: 16),
+                              SizedBox(width: 4),
+                              Text('${_post.comments}'.tr(context)),
+                              SizedBox(width: 16),
                               // Repost button
                               InkWell(
                                 onTap: () {
@@ -756,15 +847,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                             ? const Color(0xFF10B981)
                                             : colors.onSurfaceVariant,
                                       ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${feedProvider.getRepostCount(_post.id)}',
+                                      SizedBox(width: 4),
+                                      Text('${feedProvider.getRepostCount(_post.id)}'.tr(context),
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
-                              const Spacer(),
+                              Spacer(),
                               // Report button (for non-authors)
                               if (!isAuthor)
                                 InkWell(
@@ -785,16 +875,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
                   Row(
                     children: [
-                      Text(
-                        'Comments',
+                      Text('Comments'.tr(context),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       if (_comments.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -805,22 +894,20 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             color: colors.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(
-                            '$totalCommentCount',
+                          child: Text('$totalCommentCount'.tr(context),
                             style: Theme.of(context).textTheme.labelSmall,
                           ),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   if (_loadingComments)
-                    const Center(child: CircularProgressIndicator())
+                    Center(child: CircularProgressIndicator())
                   else if (_comments.isEmpty)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 32),
-                        child: Text(
-                          'No comments yet. Be the first to verify!',
+                        child: Text('No comments yet. Be the first to verify!'.tr(context),
                           style: TextStyle(color: colors.onSurfaceVariant),
                         ),
                       ),
@@ -839,7 +926,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       },
                     ),
                   // Add extra padding at bottom for the input field
-                  const SizedBox(height: 80),
+                  SizedBox(height: 80),
                 ],
               ),
             ),
@@ -885,11 +972,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           textCapitalization: TextCapitalization.sentences,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       IconButton.filled(
                         onPressed: _submittingComment ? null : _submitComment,
                         icon: _submittingComment
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
@@ -897,7 +984,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.send),
+                            : Icon(Icons.send),
                       ),
                     ],
                   ),
@@ -966,4 +1053,3 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     return total;
   }
 }
-

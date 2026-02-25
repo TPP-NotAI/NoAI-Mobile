@@ -35,6 +35,7 @@ import 'tip_modal.dart';
 import 'boost_post_modal.dart';
 import '../screens/boost/boost_analytics_page.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 // ---------------------------------------------------------------------------
 // Public cache so boost_post_modal.dart can mark a post as boosted immediately
 // after a successful boost, causing the Sponsored badge to appear on the card.
@@ -168,8 +169,7 @@ class PostCard extends StatelessWidget {
                         width: AppSpacing.mediumSmall.responsive(context),
                       ),
                       Expanded(
-                        child: Text(
-                          'This post is under review.',
+                        child: Text('This post is under review.'.tr(context),
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
                               context,
@@ -217,8 +217,7 @@ class PostCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Sensitive Content',
+                            Text('Sensitive Content'.tr(context),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: colors.error,
@@ -249,8 +248,8 @@ class PostCard extends StatelessWidget {
               if (post.title != null && post.title!.isNotEmpty)
                 Padding(
                   padding: AppSpacing.responsiveLTRB(context, 16, 8, 16, 0),
-                  child: Text(
-                    post.title!,
+                  child: MentionRichText(
+                    text: post.title!,
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                         context,
@@ -258,6 +257,9 @@ class PostCard extends StatelessWidget {
                       ),
                       fontWeight: FontWeight.bold,
                     ),
+                    onMentionTap: (username) =>
+                        navigateToMentionedUser(context, username),
+                    onHashtagTap: handleHashtagTap,
                   ),
                 ),
 
@@ -272,8 +274,7 @@ class PostCard extends StatelessWidget {
                     children: post.tags!.map((tag) {
                       return GestureDetector(
                         onTap: () => handleHashtagTap(tag.name),
-                        child: Text(
-                          '#${tag.name}',
+                        child: Text('#${tag.name}'.tr(context),
                           style: TextStyle(
                             color: colors.primary,
                             fontWeight: FontWeight.bold,
@@ -636,8 +637,7 @@ class _HeaderState extends State<_Header> {
                               post.author.username.toLowerCase()) ...[
                         SizedBox(width: AppSpacing.small.responsive(context)),
                         Flexible(
-                          child: Text(
-                            '@${post.author.username}',
+                          child: Text('@${post.author.username}'.tr(context),
                             style: TextStyle(
                               fontSize: AppTypography.responsiveFontSize(
                                 context,
@@ -818,10 +818,9 @@ class _RepostHeader extends StatelessWidget {
             size: 14,
             color: colors.onSurfaceVariant.withValues(alpha: 0.7),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Flexible(
-            child: Text(
-              '${post.reposter!.displayName.isNotEmpty ? post.reposter!.displayName : post.reposter!.username} reposted',
+            child: Text('${post.reposter!.displayName.isNotEmpty ? post.reposter!.displayName : post.reposter!.username} reposted'.tr(context),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -854,11 +853,10 @@ class _SponsoredBadge extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Icon(Icons.rocket_launch, size: 9, color: Color(0xFFF97316)),
           SizedBox(width: 3),
-          Text(
-            'Sponsored',
+          Text('Sponsored'.tr(context),
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w600,
@@ -886,8 +884,7 @@ class _AdBadge extends StatelessWidget {
           color: const Color(0xFFFF8C00).withValues(alpha: 0.5),
         ),
       ),
-      child: const Text(
-        'AD',
+      child: Text('AD'.tr(context),
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w700,
@@ -958,28 +955,28 @@ class _MlScoreBadge extends StatelessWidget {
       bgColor = isDark
           ? const Color(0xFF052E1C)
           : greenAccent.withValues(alpha: 0.15);
-      label = '${humanScore.toStringAsFixed(0)}% VERIFIED';
+      label = 'VERIFIED';
     } else if (humanScore > 25) {
       // 26-40% human (AI 60-74%) = LABEL -> REVIEW
       badgeColor = amberAccent;
       bgColor = isDark
           ? const Color(0xFF451A03)
           : amberAccent.withValues(alpha: 0.15);
-      label = '${humanScore.toStringAsFixed(0)}% REVIEW';
+      label = 'REVIEW';
     } else if (humanScore > 5) {
       // 5-25% human (AI 75-94%) = FLAG -> FLAGGED
       badgeColor = redAccent;
       bgColor = isDark
           ? const Color(0xFF2D0F0F)
           : redAccent.withValues(alpha: 0.15);
-      label = '${humanScore.toStringAsFixed(0)}% FLAGGED';
+      label = 'FLAGGED';
     } else {
       // <5% human (AI 95%+) = BLOCKED -> AI DETECTED
       badgeColor = redAccent;
       bgColor = isDark
           ? const Color(0xFF2D0F0F)
           : redAccent.withValues(alpha: 0.15);
-      label = '${humanScore.toStringAsFixed(0)}% AI DETECTED';
+      label = 'AI DETECTED';
     }
 
     return Container(
@@ -1000,7 +997,7 @@ class _MlScoreBadge extends StatelessWidget {
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Text(
             label,
             style: TextStyle(
@@ -1207,7 +1204,7 @@ class _TwoMediaGrid extends StatelessWidget {
           Expanded(
             child: _MediaTile(item: items[0], post: post, index: 0),
           ),
-          const SizedBox(width: 2),
+          SizedBox(width: 2),
           Expanded(
             child: _MediaTile(item: items[1], post: post, index: 1),
           ),
@@ -1234,14 +1231,14 @@ class _ThreeMediaGrid extends StatelessWidget {
             flex: 2,
             child: _MediaTile(item: items[0], post: post, index: 0),
           ),
-          const SizedBox(width: 2),
+          SizedBox(width: 2),
           Expanded(
             child: Column(
               children: [
                 Expanded(
                   child: _MediaTile(item: items[1], post: post, index: 1),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Expanded(
                   child: _MediaTile(item: items[2], post: post, index: 2),
                 ),
@@ -1273,21 +1270,21 @@ class _FourMediaGrid extends StatelessWidget {
                 Expanded(
                   child: _MediaTile(item: items[0], post: post, index: 0),
                 ),
-                const SizedBox(width: 2),
+                SizedBox(width: 2),
                 Expanded(
                   child: _MediaTile(item: items[1], post: post, index: 1),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: 2),
           Expanded(
             child: Row(
               children: [
                 Expanded(
                   child: _MediaTile(item: items[2], post: post, index: 2),
                 ),
-                const SizedBox(width: 2),
+                SizedBox(width: 2),
                 Expanded(
                   child: _MediaTile(item: items[3], post: post, index: 3),
                 ),
@@ -1321,21 +1318,21 @@ class _FourPlusMediaGrid extends StatelessWidget {
                 Expanded(
                   child: _MediaTile(item: items[0], post: post, index: 0),
                 ),
-                const SizedBox(width: 2),
+                SizedBox(width: 2),
                 Expanded(
                   child: _MediaTile(item: items[1], post: post, index: 1),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: 2),
           Expanded(
             child: Row(
               children: [
                 Expanded(
                   child: _MediaTile(item: items[2], post: post, index: 2),
                 ),
-                const SizedBox(width: 2),
+                SizedBox(width: 2),
                 Expanded(
                   child: Stack(
                     fit: StackFit.expand,
@@ -1344,8 +1341,7 @@ class _FourPlusMediaGrid extends StatelessWidget {
                       Container(
                         color: Colors.black.withValues(alpha: 0.6),
                         child: Center(
-                          child: Text(
-                            '+$extraCount',
+                          child: Text('+$extraCount'.tr(context),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 28,
@@ -1474,13 +1470,12 @@ class _MediaTile extends StatelessWidget {
                     color: const Color(0xFF10B981),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.verified, size: 12, color: Colors.white),
                       SizedBox(width: 4),
-                      Text(
-                        'Verified',
+                      Text('Verified'.tr(context),
                         style: TextStyle(
                           fontSize: 10,
                           color: Colors.white,
@@ -1568,13 +1563,13 @@ class _ActionsState extends State<_Actions> {
             isLiked: post.isLiked,
             onTap: () => _handleLike(context, feedProvider, post),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           _ActionButton(
             icon: Icons.chat_bubble_outline,
             label: _format(post.comments),
             onTap: widget.onCommentTap,
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           _ActionButton(
             icon: Icons.repeat,
             label: repostCount > 0 ? _format(repostCount) : null,
@@ -1582,20 +1577,20 @@ class _ActionsState extends State<_Actions> {
             onTap: () => _handleRepost(context, feedProvider),
           ),
           if (!isSelf) ...[
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             _ActionButton(
               icon: Icons.toll,
               label: post.tips > 0 ? '${_format(post.tips.toInt())} ROO' : null,
               onTap: widget.onTipTap ?? () => _handleTip(context),
             ),
           ],
-          const Spacer(),
+          Spacer(),
           _ActionButton(
             icon: isBookmarked ? Icons.bookmark : Icons.bookmark_border,
             isBookmarked: isBookmarked,
             onTap: () => _handleBookmark(context, feedProvider, isBookmarked),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           _ActionButton(
             icon: Icons.share_outlined,
             onTap: () => _handleShare(context),
@@ -1675,9 +1670,8 @@ class _ActionsState extends State<_Actions> {
 
     if (user.isVerificationPending) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Your verification is pending. You can tip once approved.',
+        SnackBar(
+          content: Text('Your verification is pending. You can tip once approved.'.tr(context),
           ),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 4),
@@ -1689,8 +1683,7 @@ class _ActionsState extends State<_Actions> {
     if (!user.isVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            'Please complete identity verification to send tips.',
+          content: Text('Please complete identity verification to send tips.'.tr(context),
           ),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 4),
@@ -1856,8 +1849,8 @@ class _ActionsState extends State<_Actions> {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
-            const SnackBar(
-              content: Text('Post shared! You earned 5 ROOK.'),
+            SnackBar(
+              content: Text('Post shared! You earned 5 ROOK.'.tr(context)),
               duration: Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
             ),
@@ -1928,7 +1921,7 @@ class _ActionButton extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: iconColor),
               if (label != null) ...[
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 Text(label!, style: TextStyle(fontSize: 13, color: textColor)),
               ],
             ],
@@ -1990,7 +1983,7 @@ class _PostMenu extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             if (isAuthor) ...[
               _MenuOption(
                 icon: Icons.rocket_launch,
@@ -2033,7 +2026,7 @@ class _PostMenu extends StatelessWidget {
                   Navigator.pop(context);
                   // TODO: Implement save logic in FeedProvider
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Post saved to bookmarks')),
+                    SnackBar(content: Text('Post saved to bookmarks'.tr(context))),
                   );
                 },
               ),
@@ -2044,7 +2037,7 @@ class _PostMenu extends StatelessWidget {
                   Navigator.pop(context);
                   // TODO: Implement copy link logic
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Link copied to clipboard')),
+                    SnackBar(content: Text('Link copied to clipboard'.tr(context))),
                   );
                 },
               ),
@@ -2065,7 +2058,7 @@ class _PostMenu extends StatelessWidget {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('@${post.author.username} blocked.'),
+                          content: Text('@${post.author.username} blocked.'.tr(context)),
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
@@ -2134,9 +2127,8 @@ class _PostMenu extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: navigator.context,
       builder: (context) => AlertDialog(
-        title: const Text('Unpublish Post?'),
-        content: const Text(
-          'This will remove the post from the public feed. You can republish it later.',
+        title: Text('Unpublish Post?'.tr(context)),
+        content: Text('This will remove the post from the public feed. You can republish it later.'.tr(context),
         ),
         actions: [
           TextButton(
@@ -2145,7 +2137,7 @@ class _PostMenu extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Unpublish'),
+            child: Text('Unpublish'.tr(context)),
           ),
         ],
       ),
@@ -2174,9 +2166,8 @@ class _PostMenu extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: navigator.context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Post?'),
-        content: const Text(
-          'Are you sure you want to delete this post? This action cannot be undone.',
+        title: Text('Delete Post?'.tr(context)),
+        content: Text('Are you sure you want to delete this post? This action cannot be undone.'.tr(context),
         ),
         actions: [
           TextButton(
@@ -2258,7 +2249,7 @@ class _MenuOption extends StatelessWidget {
           child: Row(
             children: [
               Icon(icon, color: color),
-              const SizedBox(width: 16),
+              SizedBox(width: 16),
               Expanded(
                 child: Text(
                   label,

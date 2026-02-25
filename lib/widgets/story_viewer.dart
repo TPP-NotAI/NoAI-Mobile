@@ -12,6 +12,8 @@ import 'video_player_widget.dart';
 import '../services/chat_service.dart';
 import '../utils/snackbar_utils.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 class StoryViewer extends StatefulWidget {
   final List<Story> stories;
   final int initialIndex;
@@ -145,7 +147,7 @@ class _StoryViewerState extends State<StoryViewer>
                 Row(
                   children: [
                     Text(
-                      'Viewers',
+                      'Viewers'.tr(context),
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
                             color: Colors.white,
@@ -154,7 +156,7 @@ class _StoryViewerState extends State<StoryViewer>
                     ),
                     const Spacer(),
                     Text(
-                      '${story.viewCount}',
+                      '${story.viewCount}'.tr(context),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 16,
@@ -176,10 +178,10 @@ class _StoryViewerState extends State<StoryViewer>
                       }
                       final viewers = snapshot.data ?? [];
                       if (viewers.isEmpty) {
-                        return const Center(
+                        return Center(
                           child: Text(
-                            'No views yet',
-                            style: TextStyle(color: Colors.white60),
+                            'No views yet'.tr(context),
+                            style: const TextStyle(color: Colors.white60),
                           ),
                         );
                       }
@@ -222,7 +224,9 @@ class _StoryViewerState extends State<StoryViewer>
                                 ),
                               ),
                               subtitle: Text(
-                                'Viewed ${_getRelativeTime(viewedAt)}',
+                                'Viewed ${_getRelativeTime(viewedAt)}'.tr(
+                                  context,
+                                ),
                                 style: const TextStyle(
                                   color: Colors.white60,
                                   fontSize: 12,
@@ -254,12 +258,12 @@ class _StoryViewerState extends State<StoryViewer>
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: Colors.grey[900],
-            title: const Text(
-              'Delete story?',
+            title: Text(
+              'Delete story?'.tr(context),
               style: TextStyle(color: Colors.white),
             ),
-            content: const Text(
-              'Are you sure you want to delete this story?',
+            content: Text(
+              'Are you sure you want to delete this story?'.tr(context),
               style: TextStyle(color: Colors.white70),
             ),
             actions: [
@@ -269,8 +273,8 @@ class _StoryViewerState extends State<StoryViewer>
               ),
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text(
-                  'Delete',
+                child: Text(
+                  'Delete'.tr(context),
                   style: TextStyle(color: Colors.redAccent),
                 ),
               ),
@@ -334,11 +338,7 @@ class _StoryViewerState extends State<StoryViewer>
         storyId: story.id,
         storyUserId: story.userId,
       );
-      await _chatService.sendMessage(
-        conversation.id,
-        payload,
-        replyToId: null,
-      );
+      await _chatService.sendMessage(conversation.id, payload, replyToId: null);
 
       if (mounted) {
         _replyController.clear();
@@ -480,7 +480,7 @@ class _StoryViewerState extends State<StoryViewer>
                         TextButton(
                           onPressed: _showViewersSheet,
                           child: Text(
-                            '${story.viewCount} Views',
+                            '${story.viewCount} Views'.tr(context),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -826,5 +826,3 @@ class _AiScoreBadge extends StatelessWidget {
     );
   }
 }
-
-

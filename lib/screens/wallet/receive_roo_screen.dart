@@ -8,6 +8,7 @@ import '../../providers/wallet_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../utils/snackbar_utils.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class ReceiveRooScreen extends StatelessWidget {
   const ReceiveRooScreen({super.key});
 
@@ -29,7 +30,7 @@ class ReceiveRooScreen extends StatelessWidget {
 
     if (!user.isVerified) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Receive ROO')),
+        appBar: AppBar(title: Text('Receive ROO'.tr(context))),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -53,7 +54,7 @@ class ReceiveRooScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => Navigator.pushNamed(context, '/verify'),
-                  child: const Text('Verify Now'),
+                  child: Text('Verify Now'.tr(context)),
                 ),
               ],
             ),
@@ -90,8 +91,7 @@ class ReceiveRooScreen extends StatelessWidget {
           icon: Icon(Icons.arrow_back, color: textPrimaryColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Receive ROO',
+        title: Text('Receive ROO'.tr(context),
           style: TextStyle(
             color: textPrimaryColor,
             fontSize: 18,
@@ -134,8 +134,7 @@ class ReceiveRooScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  '@${user.username}',
+                Text('@${user.username}'.tr(context),
                   style: TextStyle(fontSize: 15, color: textSecondaryColor),
                 ),
                 if (user.isVerified) ...[
@@ -169,8 +168,7 @@ class ReceiveRooScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Text(
-                    'Scan QR Code',
+                  Text('Scan QR Code'.tr(context),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -204,8 +202,7 @@ class ReceiveRooScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Text(
-                    'Share this QR code to receive ROO',
+                  Text('Share this QR code to receive ROO'.tr(context),
                     style: TextStyle(fontSize: 13, color: textSecondaryColor),
                     textAlign: TextAlign.center,
                   ),
@@ -227,8 +224,7 @@ class ReceiveRooScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Your Wallet Address',
+                  Text('Your Wallet Address'.tr(context),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -282,8 +278,7 @@ class ReceiveRooScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Your Username',
+                  Text('Your Username'.tr(context),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -294,8 +289,7 @@ class ReceiveRooScreen extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          '@${user.username}',
+                        child: Text('@${user.username}'.tr(context),
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
@@ -357,8 +351,7 @@ class ReceiveRooScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          Text(
-                            'Share Your Wallet',
+                          Text('Share Your Wallet'.tr(context),
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -414,8 +407,7 @@ class ReceiveRooScreen extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.share),
-                label: const Text(
-                  'Share Wallet Info',
+                label: Text('Share Wallet Info'.tr(context),
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -448,8 +440,7 @@ class ReceiveRooScreen extends StatelessWidget {
                   Icon(Icons.info_outline, color: AppColors.info, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      'Share your wallet address or username with others to receive ROO coins. Only share with trusted sources.',
+                    child: Text('Share your wallet address or username with others to receive ROO coins. Only share with trusted sources.'.tr(context),
                       style: TextStyle(
                         fontSize: 13,
                         color: textPrimaryColor,

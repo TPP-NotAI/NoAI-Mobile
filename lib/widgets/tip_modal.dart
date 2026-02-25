@@ -10,6 +10,7 @@ import '../providers/user_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class TipModal extends StatefulWidget {
   final Post post;
 
@@ -67,8 +68,7 @@ class _TipModalState extends State<TipModal> {
     if (!user.isVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            'Please complete identity verification to send tips.',
+          content: Text('Please complete identity verification to send tips.'.tr(context),
           ),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
@@ -119,8 +119,7 @@ class _TipModalState extends State<TipModal> {
       }
       rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
-          content: Text(
-            'Sent ${_selectedAmount.toStringAsFixed(0)} ROO tip. Confirming on-chain...',
+          content: Text('Sent ${_selectedAmount.toStringAsFixed(0)} ROO tip. Confirming on-chain...'.tr(context),
           ),
           backgroundColor: Colors.green.shade600,
           behavior: SnackBarBehavior.floating,
@@ -153,8 +152,7 @@ class _TipModalState extends State<TipModal> {
 
                 rootScaffoldMessengerKey.currentState?.showSnackBar(
                   SnackBar(
-                    content: Text(
-                      'Tip confirmed: ${_selectedAmount.toStringAsFixed(0)} ROO',
+                    content: Text('Tip confirmed: ${_selectedAmount.toStringAsFixed(0)} ROO'.tr(context),
                     ),
                     backgroundColor: Colors.green.shade700,
                     behavior: SnackBarBehavior.floating,
@@ -290,16 +288,14 @@ class _TipModalState extends State<TipModal> {
                     ),
                     const SizedBox(height: 16),
 
-                    Text(
-                      'Send Roobyte Tip',
+                    Text('Send Roobyte Tip'.tr(context),
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: colors.onSurface,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      'Tip @${widget.post.author.username}',
+                    Text('Tip @${widget.post.author.username}'.tr(context),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
                       ),
@@ -323,8 +319,7 @@ class _TipModalState extends State<TipModal> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Your Balance',
+                    Text('Your Balance'.tr(context),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
                       ),
@@ -341,8 +336,7 @@ class _TipModalState extends State<TipModal> {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          'ROO',
+                        Text('ROO'.tr(context),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colors.onSurfaceVariant,
                           ),
@@ -359,8 +353,7 @@ class _TipModalState extends State<TipModal> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'QUICK AMOUNTS',
+                    Text('QUICK AMOUNTS'.tr(context),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colors.onSurfaceVariant,
                         letterSpacing: 1.5,
@@ -400,8 +393,7 @@ class _TipModalState extends State<TipModal> {
                                   width: isSelected ? 2 : 1,
                                 ),
                               ),
-                              child: Text(
-                                '${amount.toStringAsFixed(0)} ROO',
+                              child: Text('${amount.toStringAsFixed(0)} ROO'.tr(context),
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: isSelected
@@ -426,8 +418,7 @@ class _TipModalState extends State<TipModal> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'CUSTOM AMOUNT',
+                    Text('CUSTOM AMOUNT'.tr(context),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colors.onSurfaceVariant,
                         letterSpacing: 1.5,
@@ -505,8 +496,7 @@ class _TipModalState extends State<TipModal> {
                             children: [
                               const Icon(Icons.send),
                               const SizedBox(width: 8),
-                              Text(
-                                'Send ${_selectedAmount.toStringAsFixed(0)} ROO',
+                              Text('Send ${_selectedAmount.toStringAsFixed(0)} ROO'.tr(context),
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),

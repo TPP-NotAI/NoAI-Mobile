@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 /// A dialog for reporting a user with predefined reasons.
 class ReportUserDialog extends StatefulWidget {
   final String username;
@@ -57,8 +58,7 @@ class _ReportUserDialogState extends State<ReportUserDialog> {
           Icon(Icons.flag_outlined, color: colors.error, size: 24),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              'Report @${widget.username}',
+            child: Text('Report @${widget.username}'.tr(context),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -73,8 +73,7 @@ class _ReportUserDialogState extends State<ReportUserDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Why are you reporting this user?',
+            Text('Why are you reporting this user?'.tr(context),
               style: TextStyle(
                 fontSize: 14,
                 color: colors.onSurfaceVariant,
@@ -114,8 +113,7 @@ class _ReportUserDialogState extends State<ReportUserDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(
-            'Cancel',
+          child: Text('Cancel'.tr(context),
             style: TextStyle(color: colors.onSurfaceVariant),
           ),
         ),
@@ -132,7 +130,7 @@ class _ReportUserDialogState extends State<ReportUserDialog> {
           style: FilledButton.styleFrom(
             backgroundColor: colors.error,
           ),
-          child: const Text('Submit Report'),
+          child: Text('Submit Report'.tr(context)),
         ),
       ],
     );

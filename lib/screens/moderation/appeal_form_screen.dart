@@ -7,6 +7,7 @@ import '../../models/story.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/appeal_repository.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class AppealFormScreen extends StatefulWidget {
   final Post? post;
   final Comment? comment;
@@ -44,7 +45,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
     final statement = _statementController.text.trim();
     if (statement.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please explain why you are appealing.')),
+        SnackBar(content: Text('Please explain why you are appealing.'.tr(context))),
       );
       return;
     }
@@ -70,8 +71,8 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
       if (alreadyAppealed) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You have already submitted an appeal for this item.'),
+            SnackBar(
+              content: Text('You have already submitted an appeal for this item.'.tr(context)),
             ),
           );
         }
@@ -112,9 +113,8 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            title: const Text('Appeal Submitted'),
-            content: const Text(
-              'Your appeal has been received. Our team will review it.',
+            title: Text('Appeal Submitted'.tr(context)),
+            content: Text('Your appeal has been received. Our team will review it.'.tr(context),
             ),
             actions: [
               TextButton(
@@ -122,7 +122,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                   Navigator.pop(ctx);
                   Navigator.pop(context, true); // true = appeal was submitted
                 },
-                child: const Text('OK'),
+                child: Text('OK'.tr(context)),
               ),
             ],
           ),
@@ -131,7 +131,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error submitting appeal: $e')),
+          SnackBar(content: Text('Error submitting appeal: $e'.tr(context))),
         );
       }
     } finally {
@@ -196,7 +196,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Text(
                     bodyPreview,
                     maxLines: 4,
@@ -209,9 +209,8 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                   ),
                   if (post?.aiConfidenceScore != null ||
                       comment?.aiScore != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'AI Confidence: ${post != null ? post.aiConfidenceScore!.toStringAsFixed(1) : (comment?.aiScore ?? 0).toStringAsFixed(1)}%',
+                    SizedBox(height: 8),
+                    Text('AI Confidence: ${post != null ? post.aiConfidenceScore!.toStringAsFixed(1) : (comment?.aiScore ?? 0).toStringAsFixed(1)}%'.tr(context),
                       style: const TextStyle(
                         fontSize: 12,
                         color: Colors.orange,
@@ -223,25 +222,23 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
 
-            Text(
-              'Your Statement',
+            Text('Your Statement'.tr(context),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: scheme.onSurface,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Explain why this post should not be flagged as AI-generated.',
+            SizedBox(height: 4),
+            Text('Explain why this post should not be flagged as AI-generated.'.tr(context),
               style: TextStyle(
                 fontSize: 13,
                 color: scheme.onSurface.withOpacity(0.6),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextField(
               controller: _statementController,
               maxLines: 6,
@@ -261,7 +258,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
               ),
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
 
             SizedBox(
               width: double.infinity,
@@ -276,7 +273,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                   ),
                 ),
                 child: _isSubmitting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 24,
                         height: 24,
                         child: CircularProgressIndicator(
@@ -284,8 +281,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
-                        'Submit Appeal',
+                    : Text('Submit Appeal'.tr(context),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

@@ -10,10 +10,14 @@ class NotificationRepository {
 
   String _normalizeType(String type) {
     // DB enum currently supports legacy social/system types.
-    // Map newer AI status variants to `mention` so inserts don't fail.
+    // Map newer AI status variants and unsupported types to `mention` so inserts don't fail.
     if (type.startsWith('post_') ||
         type.startsWith('comment_') ||
-        type.startsWith('story_')) {
+        type.startsWith('story_') ||
+        type == 'message' ||
+        type == 'chat' ||
+        type == 'support_chat' ||
+        type == 'repost') {
       return 'mention';
     }
     return type;
@@ -188,6 +192,9 @@ class NotificationRepository {
               ]);
               break;
             case 'mention':
+            case 'message':
+            case 'chat':
+            case 'support_chat':
               enabled = _isPreferenceEnabled(prefs, [
                 'inapp_mentions',
                 'notify_mentions',

@@ -14,6 +14,7 @@ import '../support/appeal_profile_screen.dart';
 import '../../services/profile_reward_service.dart';
 import '../../l10n/app_localizations.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -478,8 +479,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '${_editProfileText(context, 'failedPickImage')}: ${e.toString().replaceAll('Exception: ', '')}',
+            content: Text('${_editProfileText(context, '.tr(context)failedPickImage')}: ${e.toString().replaceAll('Exception: ', '')}',
             ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
@@ -525,8 +525,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '${_editProfileText(context, 'failedUploadImage')}: $e',
+            content: Text('${_editProfileText(context, '.tr(context)failedUploadImage')}: $e',
             ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),

@@ -9,6 +9,7 @@ import '../../constants/country_calling_codes.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_extensions.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class PhoneLoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
 
@@ -235,8 +236,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
 
                   SizedBox(height: AppSpacing.double_.responsive(context)),
 
-                  Text(
-                    'Login with Phone',
+                  Text('Login with Phone'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                           context, AppTypography.largeHeading),
@@ -247,8 +247,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
 
                   SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
 
-                  Text(
-                    'Enter your number to receive a one-time code. This also completes the human verification requirement.',
+                  Text('Enter your number to receive a one-time code. This also completes the human verification requirement.'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                           context, AppTypography.base),
@@ -357,8 +356,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          "Didn't receive the code? ",
+                        Text("Didn't receive the code? ".tr(context),
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
                                 context, AppTypography.base),
@@ -367,8 +365,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                         ),
                         GestureDetector(
                           onTap: _resendCooldown > 0 ? null : _resendCode,
-                          child: Text(
-                            'Resend',
+                          child: Text('Resend'.tr(context),
                             style: TextStyle(
                               fontSize: AppTypography.responsiveFontSize(
                                   context, AppTypography.base),
@@ -383,8 +380,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                           ),
                         ),
                         if (_resendCooldown > 0)
-                          Text(
-                            ' (${_resendCooldown}s)',
+                          Text(' (${_resendCooldown}s)'.tr(context),
                             style: TextStyle(
                               fontSize: AppTypography.responsiveFontSize(
                                   context, AppTypography.base),
@@ -398,8 +394,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
 
                     TextButton(
                       onPressed: _changePhoneNumber,
-                      child: Text(
-                        'Change phone number',
+                      child: Text('Change phone number'.tr(context),
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(
                               context, AppTypography.extraSmall),
@@ -445,8 +440,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                 items: _countryCodes.map((country) {
                   return DropdownMenuItem(
                     value: country['code'],
-                    child: Text(
-                      '${country['code']} ${country['country']}',
+                    child: Text('${country['.tr(context)code']} ${country['country']}',
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
                             context, AppTypography.base),

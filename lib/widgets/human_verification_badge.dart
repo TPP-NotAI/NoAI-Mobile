@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../config/app_colors.dart';
 import '../config/app_typography.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 /// Human verification badge matching web design
 /// Shows when AI confidence score is < 20%
 class HumanVerificationBadge extends StatelessWidget {
@@ -42,8 +43,7 @@ class HumanVerificationBadge extends StatelessWidget {
                     color: AppColors.success,
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    'HUMAN SCORE: $aiPercentage% [${isPassed ? 'PASS' : 'FAIL'}]',
+                  Text('HUMAN SCORE: $aiPercentage% [${isPassed ? '.tr(context)PASS' : 'FAIL'}]',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -85,8 +85,7 @@ class VerifiedBadge extends StatelessWidget {
       children: [
         Icon(Icons.verified, size: isSmall ? 14 : 16, color: AppColors.success),
         SizedBox(width: isSmall ? 3 : 4),
-        Text(
-          'Verified',
+        Text('Verified'.tr(context),
           style: TextStyle(
             fontSize: isSmall ? AppTypography.tiny : AppTypography.extraSmall,
             fontWeight: AppTypography.medium,

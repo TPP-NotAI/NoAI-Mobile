@@ -5,6 +5,7 @@ import '../../providers/notification_provider.dart';
 import '../../models/notification_settings.dart';
 import '../../widgets/loading_widget.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
 
@@ -71,7 +72,7 @@ class _NotificationSettingsScreenState
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
-        title: const Text('Notification Settings'),
+        title: Text('Notification Settings'.tr(context)),
         elevation: 0,
         backgroundColor: colors.surface,
         surfaceTintColor: colors.surface,
@@ -158,8 +159,7 @@ class _NotificationSettingsScreenState
                 const SizedBox(height: 40),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(
-                    'Note: These settings control which activities spark a notification. Email and push delivery depends on your global device and account settings.',
+                  child: Text('Note: These settings control which activities spark a notification. Email and push delivery depends on your global device and account settings.'.tr(context),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colors.onSurfaceVariant.withOpacity(0.6),
                       height: 1.5,

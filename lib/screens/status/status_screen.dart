@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../support/appeal_profile_screen.dart';
 import '../../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class StatusScreen extends StatelessWidget {
   const StatusScreen({super.key});
 
@@ -52,8 +53,7 @@ class StatusScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    'Status & Appeals',
+                  Text('Status & Appeals'.tr(context),
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: colors.onSurface,
@@ -77,8 +77,7 @@ class StatusScreen extends StatelessWidget {
                         color: colors.onSurfaceVariant.withOpacity(0.3),
                       ),
                       const SizedBox(height: 16),
-                      Text(
-                        'No submissions yet',
+                      Text('No submissions yet'.tr(context),
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: colors.onSurfaceVariant.withOpacity(0.7),
                         ),
@@ -96,7 +95,7 @@ class StatusScreen extends StatelessWidget {
                             );
                           },
                           icon: const Icon(Icons.add),
-                          label: const Text('Create New Appeal'),
+                          label: Text('Create New Appeal'.tr(context)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,

@@ -65,11 +65,26 @@ class RepostRepository {
                     ? '${postBody.substring(0, 50)}...'
                     : postBody ?? '');
 
+          // Fetch reposter profile so we can include their name in the title
+          String reposterName = 'Someone';
+          try {
+            final profile = await _client
+                .from('profiles')
+                .select('username, display_name')
+                .eq('user_id', userId)
+                .maybeSingle();
+            reposterName = (profile?['display_name'] as String?)
+                    ?.trim()
+                    .isNotEmpty == true
+                ? (profile!['display_name'] as String).trim()
+                : ((profile?['username'] as String?) ?? 'Someone');
+          } catch (_) {}
+
           await _notificationRepository.createNotification(
             userId: postAuthorId,
             type: 'repost',
-            title: 'New Repost',
-            body: 'Someone reposted your post: "$preview"',
+            title: '$reposterName reposted your post',
+            body: preview.isNotEmpty ? '"$preview"' : null,
             actorId: userId,
             postId: postId,
           );

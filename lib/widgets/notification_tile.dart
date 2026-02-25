@@ -86,9 +86,15 @@ class NotificationTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // System notifications (AI check, etc.) show title directly
-                    // User notifications show "[actor] [verb]" format
-                    if (_isSystemNotification(notification))
+                    // Always use getDisplayTitle() which already embeds the actor
+                    // name for social types. For true social interactions where we
+                    // want the actor name bolded, use RichText only when:
+                    // - it is NOT a system notification, AND
+                    // - the title field is not explicitly set (so the actor+verb
+                    //   format is appropriate rather than a custom stored title).
+                    if (_isSystemNotification(notification) ||
+                        (notification.title != null &&
+                            notification.title!.isNotEmpty))
                       Text(
                         notification.getDisplayTitle(),
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -179,6 +185,11 @@ class NotificationTile extends StatelessWidget {
       case 'roocoin_received':
       case 'roocoin_sent':
         return Colors.amber;
+      case 'chat':
+      case 'message':
+        return Colors.teal;
+      case 'repost':
+        return Colors.teal;
       case 'mention':
         return Colors.orangeAccent;
       case 'follow':
@@ -214,6 +225,11 @@ class NotificationTile extends StatelessWidget {
       case 'roocoin_received':
       case 'roocoin_sent':
         return Icons.account_balance_wallet;
+      case 'chat':
+      case 'message':
+        return Icons.message;
+      case 'repost':
+        return Icons.repeat;
       case 'mention':
         return Icons.alternate_email;
       case 'follow':
@@ -251,6 +267,11 @@ class NotificationTile extends StatelessWidget {
         return 'sent you Roobyte';
       case 'roocoin_sent':
         return 'successfully sent Roobyte';
+      case 'chat':
+      case 'message':
+        return 'sent you a message';
+      case 'repost':
+        return 'reposted your post';
       case 'mention':
         return 'You were mentioned in a post';
       case 'follow':
@@ -266,6 +287,8 @@ class NotificationTile extends StatelessWidget {
     return type.startsWith('post_') ||
         type.startsWith('comment_') ||
         type.startsWith('story_') ||
+        type == 'chat' ||
+        type == 'message' ||
         (type == 'mention' && notification.actorId == null);
   }
 }

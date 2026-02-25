@@ -12,6 +12,7 @@ import '../models/user.dart';
 import '../models/ai_detection_result.dart';
 import '../config/supabase_config.dart';
 import 'ai_detection_service.dart';
+import '../repositories/notification_repository.dart';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
@@ -20,6 +21,7 @@ class ChatService {
 
   final _supabase = SupabaseService().client;
   final _aiService = AiDetectionService();
+  final NotificationRepository _notificationRepository = NotificationRepository();
   static const Set<String> _imageMediaTypes = {'image'};
   static const Set<String> _videoMediaTypes = {'video'};
   static const Set<String> _aiScannableMediaTypes = {'image', 'video'};
@@ -322,6 +324,7 @@ class ChatService {
     String? mediaType,
     String? localMediaPath,
     String? replyToId,
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
@@ -338,10 +341,33 @@ class ChatService {
       );
     }
 
-    if (precheck != null && precheck.aiScoreStatus == 'flagged') {
+    if (precheck.aiScoreStatus == 'flagged') {
       throw Exception(
         'Message blocked: content detected as likely AI-generated.',
       );
+    }
+
+    bool adFeePaid = false;
+    if (precheck.isAdvertisement) {
+      if (precheck.requiresPayment) {
+        final adMeta = precheck.aiMetadata['advertisement'];
+        final adConfidence =
+            adMeta is Map ? (adMeta['confidence'] as num?)?.toDouble() ?? 0.0 : 0.0;
+        final adType = adMeta is Map ? adMeta['type'] as String? : null;
+        adFeePaid =
+            onAdFeeRequired != null &&
+            await onAdFeeRequired(adConfidence, adType);
+        if (!adFeePaid) {
+          throw Exception(
+            'Advertisement detected. Message was not sent because the ad fee was not paid.',
+          );
+        }
+      }
+      if (!precheck.requiresPayment) {
+        throw Exception(
+          'Message blocked: advertisement content is not allowed in chats.',
+        );
+      }
     }
 
     final insertData = <String, dynamic>{
@@ -388,7 +414,65 @@ class ChatService {
       combinedEvidence: precheck.combinedEvidence,
     );
 
+    // Notify thread recipients on normal pass, or when advert fee was paid
+    // (advert messages go only to the conversation recipient, not broadcast to all)
+    if ((precheck.aiScoreStatus).toLowerCase() == 'pass' || adFeePaid) {
+      await _notifyConversationRecipients(
+        threadId: threadId,
+        senderId: userId,
+        previewContent: previewContent,
+      );
+    }
+
     return message;
+  }
+
+  Future<void> _notifyConversationRecipients({
+    required String threadId,
+    required String senderId,
+    required String previewContent,
+  }) async {
+    try {
+      final participantRows = await _supabase
+          .from(SupabaseConfig.dmParticipantsTable)
+          .select('user_id')
+          .eq('thread_id', threadId)
+          .neq('user_id', senderId);
+
+      final recipients = (participantRows as List<dynamic>)
+          .map((e) => e['user_id'] as String?)
+          .whereType<String>()
+          .toSet();
+      if (recipients.isEmpty) return;
+
+      final senderProfile = await _supabase
+          .from(SupabaseConfig.profilesTable)
+          .select('username, display_name')
+          .eq('user_id', senderId)
+          .maybeSingle();
+      final senderName =
+          (senderProfile?['display_name'] as String?)?.trim().isNotEmpty == true
+          ? (senderProfile!['display_name'] as String).trim()
+          : ((senderProfile?['username'] as String?) ?? 'Someone');
+
+      final body = previewContent.trim().isEmpty
+          ? 'You received a new message.'
+          : (previewContent.length > 120
+              ? '${previewContent.substring(0, 120)}...'
+              : previewContent);
+
+      for (final recipientId in recipients) {
+        await _notificationRepository.createNotification(
+          userId: recipientId,
+          type: 'message',
+          title: senderName,
+          body: body,
+          actorId: null,
+        );
+      }
+    } catch (e) {
+      debugPrint('ChatService: Failed to create message notification - $e');
+    }
   }
 
   /// Run AI detection on a message.
@@ -612,6 +696,16 @@ class ChatService {
           normalizedResult == 'LIKELY AI-GENERATED';
       final labelConfidence = result.confidence.clamp(0, 100);
       final aiScore = isAiResult ? labelConfidence : 100 - labelConfidence;
+
+      // Advertisement detection — takes priority over AI score check
+      final ad = result.advertisement;
+      final isAd = ad != null && ad.detected;
+      final adRequiresPayment =
+          isAd &&
+          (ad.requiresPayment ||
+              ad.action == 'require_payment' ||
+              result.policyRequiresPayment);
+
       return _AiPrecheckResult(
         aiScore: aiScore.toDouble(),
         aiScoreStatus: _resolveAiScoreStatus(aiScore.toDouble()),
@@ -619,6 +713,8 @@ class ChatService {
         analysisId: result.analysisId,
         rationale: result.rationale,
         combinedEvidence: result.combinedEvidence,
+        isAdvertisement: isAd,
+        requiresPayment: adRequiresPayment,
       );
     } catch (e) {
       debugPrint('ChatService: Pre-send AI detection failed - $e');
@@ -941,6 +1037,8 @@ class _AiPrecheckResult {
   final String analysisId;
   final String? rationale;
   final List<String>? combinedEvidence;
+  final bool isAdvertisement;
+  final bool requiresPayment;
 
   const _AiPrecheckResult({
     required this.aiScore,
@@ -949,6 +1047,8 @@ class _AiPrecheckResult {
     required this.analysisId,
     this.rationale,
     this.combinedEvidence,
+    this.isAdvertisement = false,
+    this.requiresPayment = false,
   });
 }
 

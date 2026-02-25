@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 /// Utility class for handling file uploads to Supabase storage.
 class FileUploadUtils {
   static final SupabaseClient _client = SupabaseService().client;
@@ -80,7 +81,7 @@ class FileUploadUtils {
       debugPrint('FileUploadUtils: Failed to upload image - $e');
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to upload image: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to upload image: $e'.tr(context))));
       return null;
     }
   }
@@ -118,7 +119,7 @@ class FileUploadUtils {
       debugPrint('FileUploadUtils: Failed to upload video - $e');
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to upload video: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to upload video: $e'.tr(context))));
       return null;
     }
   }
@@ -159,7 +160,7 @@ class FileUploadUtils {
       debugPrint('FileUploadUtils: Failed to upload media - $e');
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to upload media: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to upload media: $e'.tr(context))));
       return null;
     }
   }
@@ -202,7 +203,7 @@ class FileUploadUtils {
       debugPrint('FileUploadUtils: Failed to upload media list - $e');
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to upload media: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to upload media: $e'.tr(context))));
       return uploads;
     }
   }
@@ -215,18 +216,17 @@ class FileUploadUtils {
     final result = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Choose Media Type'),
-        content: const Text(
-          'What type of media would you like to add to your story?',
+        title: Text('Choose Media Type'.tr(context)),
+        content: Text('What type of media would you like to add to your story?'.tr(context),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop('image'),
-            child: const Text('Photo'),
+            child: Text('Photo'.tr(context)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop('video'),
-            child: const Text('Video'),
+            child: Text('Video'.tr(context)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
@@ -253,17 +253,17 @@ class FileUploadUtils {
     final source = await showDialog<ImageSource>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Choose Image Source'),
+        title: Text('Choose Image Source'.tr(context)),
         actions: [
           TextButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(ImageSource.camera),
-            child: const Text('Camera'),
+            child: Text('Camera'.tr(context)),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(ImageSource.gallery),
-            child: const Text('Gallery'),
+            child: Text('Gallery'.tr(context)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),

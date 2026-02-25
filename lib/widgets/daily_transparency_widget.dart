@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 /// Daily Transparency Report widget
 /// Shows content moderation statistics
 class DailyTransparencyWidget extends StatelessWidget {
@@ -31,8 +32,7 @@ class DailyTransparencyWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          Text(
-            'Daily Transparency Report',
+          Text('Daily Transparency Report'.tr(context),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,

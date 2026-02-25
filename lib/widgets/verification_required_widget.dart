@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class VerificationRequiredWidget extends StatelessWidget {
   final String message;
   final VoidCallback? onVerifyTap;
@@ -50,7 +51,7 @@ class VerificationRequiredWidget extends StatelessWidget {
                 }
               },
               icon: const Icon(Icons.verified, size: 18),
-              label: const Text('Verify Now'),
+              label: Text('Verify Now'.tr(context)),
             ),
           ),
         ],

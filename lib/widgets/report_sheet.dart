@@ -4,6 +4,7 @@ import '../providers/feed_provider.dart';
 import '../providers/user_provider.dart';
 import 'report_confirmation_dialog.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class ReportSheet extends StatefulWidget {
   final String reportType; // 'post', 'user', 'comment'
   final String
@@ -65,8 +66,8 @@ class _ReportSheetState extends State<ReportSheet> {
   Future<void> _submitReport() async {
     if (_selectedReason == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a reason'),
+        SnackBar(
+          content: Text('Please select a reason'.tr(context)),
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
         ),
@@ -160,7 +161,7 @@ class _ReportSheetState extends State<ReportSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
 
             // Title
             Text(
@@ -171,14 +172,14 @@ class _ReportSheetState extends State<ReportSheet> {
                 color: colors.onSurface,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               widget.reportType == 'user'
                   ? 'Why are you reporting this user?'
                   : 'Why are you reporting this post?',
               style: TextStyle(fontSize: 14, color: colors.onSurfaceVariant),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
 
             // Report reasons
             ...List.generate(_reportReasons.length, (index) {
@@ -217,7 +218,7 @@ class _ReportSheetState extends State<ReportSheet> {
                               : colors.onSurfaceVariant,
                           size: 20,
                         ),
-                        const SizedBox(width: 16),
+                        SizedBox(width: 16),
                         Expanded(
                           child: Text(
                             reason['label'] as String,
@@ -245,7 +246,7 @@ class _ReportSheetState extends State<ReportSheet> {
               );
             }),
 
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
 
             // Submit button
             SizedBox(
@@ -261,7 +262,7 @@ class _ReportSheetState extends State<ReportSheet> {
                   ),
                 ),
                 child: _isSubmitting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 24,
                         height: 24,
                         child: CircularProgressIndicator(
@@ -269,8 +270,7 @@ class _ReportSheetState extends State<ReportSheet> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
-                        'Submit Report',
+                    : Text('Submit Report'.tr(context),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,

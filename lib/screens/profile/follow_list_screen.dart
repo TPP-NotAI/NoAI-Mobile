@@ -5,6 +5,7 @@ import '../../repositories/follow_repository.dart';
 import '../../widgets/user_card.dart';
 import 'profile_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 enum FollowListType { followers, following }
 
 class FollowListScreen extends StatefulWidget {
@@ -76,14 +77,13 @@ class _FollowListScreenState extends State<FollowListScreen> {
                 children: [
                   Icon(Icons.error_outline, size: 48, color: colors.error),
                   const SizedBox(height: 12),
-                  Text(
-                    'Failed to load $title',
+                  Text('Failed to load $title'.tr(context),
                     style: TextStyle(color: colors.onSurfaceVariant),
                   ),
                   const SizedBox(height: 12),
                   FilledButton.tonal(
                     onPressed: _loadUsers,
-                    child: const Text('Retry'),
+                    child: Text('Retry'.tr(context)),
                   ),
                 ],
               ),

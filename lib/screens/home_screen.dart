@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../config/app_spacing.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -36,8 +37,7 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Title
-                Text(
-                  'Discover',
+                Text('Discover'.tr(context),
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: colors.onSurface,
@@ -47,8 +47,7 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 8),
 
                 // Subtitle
-                Text(
-                  'Explore trending conversations and\nhuman-verified content on ROOVERSE.',
+                Text('Explore trending conversations and\nhuman-verified content on ROOVERSE.'.tr(context),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.onSurfaceVariant,
@@ -71,8 +70,7 @@ class HomeScreen extends StatelessWidget {
                       Icon(Icons.info_outline, size: 20, color: colors.primary),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          'Discover is launching in Stage 3.',
+                        child: Text('Discover is launching in Stage 3.'.tr(context),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: colors.onSurfaceVariant,
                           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../services/connectivity_service.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 /// Overlay widget that shows a "No Internet" banner when offline.
 class ConnectivityOverlay extends StatefulWidget {
   final Widget child;
@@ -53,13 +54,12 @@ class _ConnectivityOverlayState extends State<ConnectivityOverlay> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                     color: Colors.red.shade700,
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.wifi_off, color: Colors.white, size: 16),
                         SizedBox(width: 8),
-                        Text(
-                          'No Internet access. Please check your connection.',
+                        Text('No Internet access. Please check your connection.'.tr(context),
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -100,13 +100,12 @@ class _ConnectivityOverlayState extends State<ConnectivityOverlay> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       color: Colors.green.shade700,
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.wifi, color: Colors.white, size: 16),
           SizedBox(width: 8),
-          Text(
-            'Back Online',
+          Text('Back Online'.tr(context),
             style: TextStyle(
               color: Colors.white,
               fontSize: 12,

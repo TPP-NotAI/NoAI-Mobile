@@ -12,6 +12,7 @@ import '../../providers/theme_provider.dart';
 import '../../providers/wallet_provider.dart';
 import 'user_search_sheet.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SendRooScreen extends StatefulWidget {
   final double currentBalance;
   final User? initialRecipient;
@@ -178,7 +179,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirm Transfer'),
+        title: Text('Confirm Transfer'.tr(context)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -188,7 +189,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
               value: '${fee.toStringAsFixed(2)} ROO',
               isSubtle: true,
             ),
-            const Divider(height: 16),
+            Divider(height: 16),
             _FeeRow(
               label: 'Total deducted',
               value: '${totalDeducted.toStringAsFixed(2)} ROO',
@@ -199,11 +200,11 @@ class _SendRooScreenState extends State<SendRooScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel'.tr(context)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Confirm'),
+            child: Text('Confirm'.tr(context)),
           ),
         ],
       ),
@@ -233,8 +234,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
       setState(() => _isProcessing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            'Please complete identity verification to send ROO.',
+          content: Text('Please complete identity verification to send ROO.'.tr(context),
           ),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
@@ -296,8 +296,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
       }
       rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
-          content: Text(
-            'Sent ${amount.toStringAsFixed(2)} ROO to $recipient (fee: ${fee.toStringAsFixed(2)} ROO). Confirming on-chain...',
+          content: Text('Sent ${amount.toStringAsFixed(2)} ROO to $recipient (fee: ${fee.toStringAsFixed(2)} ROO). Confirming on-chain...'.tr(context),
           ),
           backgroundColor: Colors.green.shade600,
           behavior: SnackBarBehavior.floating,
@@ -329,8 +328,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                 );
                 rootScaffoldMessengerKey.currentState?.showSnackBar(
                   SnackBar(
-                    content: Text(
-                      'Transfer confirmed: ${amount.toStringAsFixed(2)} ROO sent (${fee.toStringAsFixed(2)} ROO fee)',
+                    content: Text('Transfer confirmed: ${amount.toStringAsFixed(2)} ROO sent (${fee.toStringAsFixed(2)} ROO fee)'.tr(context),
                     ),
                     backgroundColor: Colors.green.shade700,
                     behavior: SnackBarBehavior.floating,
@@ -417,8 +415,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
           icon: Icon(Icons.arrow_back, color: textPrimaryColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Send ROO',
+        title: Text('Send ROO'.tr(context),
           style: TextStyle(
             color: textPrimaryColor,
             fontSize: 18,
@@ -451,8 +448,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
               ),
               child: Column(
                 children: [
-                  Text(
-                    'AVAILABLE BALANCE',
+                  Text('AVAILABLE BALANCE'.tr(context),
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.8),
                       fontSize: 12,
@@ -460,7 +456,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -474,11 +470,10 @@ class _SendRooScreenState extends State<SendRooScreen> {
                           height: 1,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Padding(
+                      SizedBox(width: 8),
+                      Padding(
                         padding: EdgeInsets.only(bottom: 6),
-                        child: Text(
-                          'ROO',
+                        child: Text('ROO'.tr(context),
                           style: TextStyle(
                             color: Color(0xFFFFD700),
                             fontSize: 20,
@@ -491,18 +486,17 @@ class _SendRooScreenState extends State<SendRooScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
 
             // Recipient Field
-            Text(
-              'Recipient',
+            Text('Recipient'.tr(context),
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: textSecondaryColor,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             TextField(
               controller: _recipientController,
               style: TextStyle(color: textPrimaryColor),
@@ -601,8 +595,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      subtitle: Text(
-                        '@${user.username}',
+                      subtitle: Text('@${user.username}'.tr(context),
                         style: TextStyle(
                           color: textSecondaryColor,
                           fontSize: 12,
@@ -613,18 +606,17 @@ class _SendRooScreenState extends State<SendRooScreen> {
                   },
                 ),
               ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
 
             // Amount Field
-            Text(
-              'Amount (ROO)',
+            Text('Amount (ROO)'.tr(context),
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: textSecondaryColor,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             TextField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(
@@ -659,7 +651,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
             ),
 
             // Quick Amount Buttons
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Row(
               children: [
                 _buildQuickAmountButton(
@@ -668,21 +660,21 @@ class _SendRooScreenState extends State<SendRooScreen> {
                   surfaceColor,
                   borderColor,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 _buildQuickAmountButton(
                   '50',
                   textPrimaryColor,
                   surfaceColor,
                   borderColor,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 _buildQuickAmountButton(
                   '100',
                   textPrimaryColor,
                   surfaceColor,
                   borderColor,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 _buildQuickAmountButton(
                   'Max',
                   textPrimaryColor,
@@ -692,18 +684,17 @@ class _SendRooScreenState extends State<SendRooScreen> {
               ],
             ),
 
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
 
             // Note Field (Optional)
-            Text(
-              'Note (Optional)',
+            Text('Note (Optional)'.tr(context),
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: textSecondaryColor,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             TextField(
               controller: _noteController,
               maxLines: 3,
@@ -732,7 +723,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
               ),
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
 
             // Send Button
             SizedBox(
@@ -749,7 +740,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                   elevation: 0,
                 ),
                 child: _isProcessing
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
@@ -757,8 +748,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
-                        'Send ROO',
+                    : Text('Send ROO'.tr(context),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

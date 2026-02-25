@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SplashScreen extends StatelessWidget {
   final VoidCallback onComplete;
 
@@ -98,8 +99,7 @@ class SplashScreen extends StatelessWidget {
 
                 const SizedBox(height: 32),
 
-                Text(
-                  'ROOVERSE',
+                Text('ROOVERSE'.tr(context),
                   style: TextStyle(
                     fontSize: 42,
                     fontWeight: FontWeight.bold,
@@ -110,8 +110,7 @@ class SplashScreen extends StatelessWidget {
 
                 const SizedBox(height: 8),
 
-                Text(
-                  'Verifiably Human.',
+                Text('Verifiably Human.'.tr(context),
                   style: TextStyle(
                     fontSize: 18,
                     color: scheme.onBackground.withOpacity(0.7),
@@ -151,8 +150,7 @@ class SplashScreen extends StatelessWidget {
                   children: [
                     const Icon(Icons.token, size: 14, color: AppColors.primary),
                     const SizedBox(width: 8),
-                    Text(
-                      'Powered by Roobyte',
+                    Text('Powered by Roobyte'.tr(context),
                       style: TextStyle(
                         fontSize: 14,
                         color: scheme.onBackground.withOpacity(0.6),

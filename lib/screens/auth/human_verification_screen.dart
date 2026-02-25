@@ -10,6 +10,7 @@ import '../../services/didit_service.dart';
 import '../../services/kyc_verification_service.dart';
 import '../../utils/responsive_extensions.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class HumanVerificationScreen extends StatefulWidget {
   final VoidCallback onVerify;
   final VoidCallback onPhoneVerify;
@@ -120,7 +121,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Verification error: ${e.toString()}'),
+            content: Text('Verification error: ${e.toString()}'.tr(context)),
             backgroundColor: Colors.red,
           ),
         );
@@ -164,8 +165,8 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Identity verified successfully!'),
+          SnackBar(
+            content: Text('✅ Identity verified successfully!'.tr(context)),
             backgroundColor: Colors.green,
           ),
         );
@@ -180,9 +181,8 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Verification not yet complete. It may take a few minutes — check back soon.',
+            SnackBar(
+              content: Text('Verification not yet complete. It may take a few minutes — check back soon.'.tr(context),
               ),
               backgroundColor: Colors.blue,
               duration: Duration(seconds: 5),
@@ -198,7 +198,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error checking status: ${e.toString()}'),
+            content: Text('Error checking status: ${e.toString()}'.tr(context)),
             backgroundColor: Colors.red,
           ),
         );
@@ -210,9 +210,8 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text(
-          'Are you sure you want to sign out? You will need to complete verification later.',
+        title: Text('Sign Out'.tr(context)),
+        content: Text('Are you sure you want to sign out? You will need to complete verification later.'.tr(context),
         ),
         actions: [
           TextButton(
@@ -221,7 +220,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sign Out', style: TextStyle(color: Colors.red)),
+            child: Text('Sign Out'.tr(context), style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -311,8 +310,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
                               color: AppColors.primary,
                             ),
                             SizedBox(width: AppSpacing.extraSmall.responsive(context)),
-                            Text(
-                              'IDENTITY VERIFICATION',
+                            Text('IDENTITY VERIFICATION'.tr(context),
                               style: TextStyle(
                                 fontSize: AppTypography.responsiveFontSize(context, 10),
                                 fontWeight: FontWeight.bold,
@@ -347,8 +345,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
                   SizedBox(height: AppSpacing.triple.responsive(context)),
 
                   // ── Title ──────────────────────────────────────────
-                  Text(
-                    'Verify You\'re Human',
+                  Text('Verify You\'re Human'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                         context,
@@ -363,8 +360,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
 
                   SizedBox(height: AppSpacing.standard.responsive(context)),
 
-                  Text(
-                    'ROOVERSE uses Didit for secure, AI-powered identity verification. This ensures our community remains 100% human.',
+                  Text('ROOVERSE uses Didit for secure, AI-powered identity verification. This ensures our community remains 100% human.'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                         context,
@@ -400,7 +396,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
                             SizedBox(
                               width: 16.responsive(context),
                               height: 16.responsive(context),
-                              child: const CircularProgressIndicator(
+                              child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   AppColors.primary,
@@ -445,7 +441,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
                         child: OutlinedButton.icon(
                           onPressed: _checkVerificationResult,
                           icon: const Icon(Icons.refresh),
-                          label: const Text('Check Verification Status'),
+                          label: Text('Check Verification Status'.tr(context)),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.primary,
                             side: const BorderSide(color: AppColors.primary),
@@ -540,8 +536,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
                 Row(
                   children: [
                     Flexible(
-                      child: Text(
-                        'ID Verification',
+                      child: Text('ID Verification'.tr(context),
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(
                             context,
@@ -565,8 +560,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
                           AppSpacing.radiusSmall,
                         ),
                       ),
-                      child: Text(
-                        'AI-POWERED',
+                      child: Text('AI-POWERED'.tr(context),
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(context, 9),
                           fontWeight: FontWeight.w900,
@@ -577,8 +571,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
                   ],
                 ),
                 SizedBox(height: AppSpacing.extraSmall.responsive(context) / 2),
-                Text(
-                  'Passport, Driver\'s License, or National ID + Selfie',
+                Text('Passport, Driver\'s License, or National ID + Selfie'.tr(context),
                   style: TextStyle(
                     fontSize: AppTypography.responsiveFontSize(context, AppTypography.small),
                     color: scheme.onSurface.withValues(alpha: 0.5),
@@ -611,7 +604,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
             ? SizedBox(
                 height: 24.responsive(context, min: 20, max: 28),
                 width: 24.responsive(context, min: 20, max: 28),
-                child: const CircularProgressIndicator(
+                child: CircularProgressIndicator(
                   strokeWidth: 2.5,
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
@@ -619,8 +612,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'Start Verification',
+                  Text('Start Verification'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                         context,
@@ -667,8 +659,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Powered by Didit',
+                Text('Powered by Didit'.tr(context),
                   style: TextStyle(
                     fontSize: AppTypography.responsiveFontSize(context, AppTypography.base),
                     fontWeight: FontWeight.bold,
@@ -676,8 +667,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
                   ),
                 ),
                 SizedBox(height: AppSpacing.extraSmall.responsive(context)),
-                Text(
-                  'Your data is encrypted and handled securely. Didit uses AI to verify identity documents and liveness in seconds.',
+                Text('Your data is encrypted and handled securely. Didit uses AI to verify identity documents and liveness in seconds.'.tr(context),
                   style: TextStyle(
                     fontSize: AppTypography.responsiveFontSize(
                       context,

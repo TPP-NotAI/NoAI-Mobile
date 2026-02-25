@@ -13,6 +13,7 @@ import 'package:rooverse/utils/validators.dart';
 import 'package:rooverse/services/referral_service.dart';
 import 'package:rooverse/services/supabase_service.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SignupScreen extends StatefulWidget {
   final VoidCallback onSignup;
   final VoidCallback onLogin;
@@ -318,8 +319,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
               SizedBox(height: AppSpacing.largePlus.responsive(context)),
 
-              Text(
-                'Join the Human Network',
+              Text('Join the Human Network'.tr(context),
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(
                     context,
@@ -582,8 +582,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                           ),
                         )
-                      : Text(
-                          'Create Account',
+                      : Text('Create Account'.tr(context),
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
                               context,
@@ -605,8 +604,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     padding: EdgeInsets.symmetric(
                       horizontal: AppSpacing.largePlus.responsive(context),
                     ),
-                    child: Text(
-                      'Or continue with',
+                    child: Text('Or continue with'.tr(context),
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
                           context,
@@ -654,8 +652,7 @@ class _SignupScreenState extends State<SignupScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'Already have an account? ',
+                  Text('Already have an account? '.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                         context,
@@ -667,8 +664,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   TextButton(
                     onPressed: widget.onLogin,
-                    child: Text(
-                      'Log In',
+                    child: Text('Log In'.tr(context),
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
                           context,
@@ -706,8 +702,7 @@ class _SignupScreenState extends State<SignupScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Password Requirements',
+          Text('Password Requirements'.tr(context),
             style: TextStyle(
               fontSize: AppTypography.responsiveFontSize(
                 context,

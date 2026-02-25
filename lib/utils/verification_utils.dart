@@ -4,6 +4,8 @@ import '../providers/auth_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../services/kyc_verification_service.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 class VerificationUtils {
   /// Checks if the current user is a verified human.
   /// If not, shows a dialog prompting them to verify.
@@ -20,24 +22,25 @@ class VerificationUtils {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.verified_user, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Verification Required'),
+            const Icon(Icons.verified_user, color: Colors.orange),
+            const SizedBox(width: 8),
+            Text('Verification Required'.tr(context)),
           ],
         ),
-        content: const Text(
-          'To ensure a high-quality community, you must be a verified human to perform this action.\n\nIt takes less than a minute!',
+        content: Text(
+          'To ensure a high-quality community, you must be a verified human to perform this action.\n\nIt takes less than a minute!'
+              .tr(context),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false), // Cancel
-            child: const Text('Maybe Later'),
+            child: Text('Maybe Later'.tr(context)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true), // Verify
-            child: const Text('Verify Now'),
+            child: Text('Verify Now'.tr(context)),
           ),
         ],
       ),
@@ -88,7 +91,9 @@ class VerificationUtils {
       try {
         // Final source-of-truth check (wallets.balance_rc) to avoid false prompts
         // when local provider state is stale.
-        await KycVerificationService().requireActivation(currentBalance: balance);
+        await KycVerificationService().requireActivation(
+          currentBalance: balance,
+        );
         return true;
       } on NotActivatedException {
         await _showBuyRooDialog(context);
@@ -110,20 +115,21 @@ class VerificationUtils {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.hourglass_top, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Verification Pending'),
+            const Icon(Icons.hourglass_top, color: Colors.orange),
+            const SizedBox(width: 8),
+            Text('Verification Pending'.tr(context)),
           ],
         ),
-        content: const Text(
-          'Your identity verification is being reviewed. This typically takes a few minutes.\n\nYou will be notified once approved and can start participating.',
+        content: Text(
+          'Your identity verification is being reviewed. This typically takes a few minutes.\n\nYou will be notified once approved and can start participating.'
+              .tr(context),
         ),
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: Text('OK'.tr(context)),
           ),
         ],
       ),
@@ -134,24 +140,25 @@ class VerificationUtils {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.lock_open, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Activate Your Account'),
+            const Icon(Icons.lock_open, color: Colors.orange),
+            const SizedBox(width: 8),
+            Text('Activate Your Account'.tr(context)),
           ],
         ),
-        content: const Text(
-          "You're verified! To unlock posting, commenting, liking, and all platform features, purchase at least 1 ROO.\n\nThis is a one-time activation step.",
+        content: Text(
+          "You're verified! To unlock posting, commenting, liking, and all platform features, purchase at least 1 ROO.\n\nThis is a one-time activation step."
+              .tr(context),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Not Now'),
+            child: Text('Not Now'.tr(context)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Buy ROO'),
+            child: Text('Buy ROO'.tr(context)),
           ),
         ],
       ),

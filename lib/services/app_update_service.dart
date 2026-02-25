@@ -3,14 +3,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../config/global_keys.dart';
 import '../config/supabase_config.dart';
 import 'supabase_service.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class AppUpdateService {
   AppUpdateService._();
   static final AppUpdateService instance = AppUpdateService._();
 
   bool _isChecking = false;
+  bool _isDialogShowing = false;
   DateTime? _lastPromptAt;
 
   Future<void> checkAndPromptForUpdate(
@@ -32,7 +35,7 @@ class AppUpdateService {
         return;
       }
 
-      final info = await InAppUpdate.checkForUpdate();
+      final info = await _checkForUpdateWithRetry(manual: manual);
       final available =
           info.updateAvailability == UpdateAvailability.updateAvailable;
       final mustForce = force && await _isBelowMinimumRequiredVersion();
@@ -77,56 +80,116 @@ class AppUpdateService {
     AppUpdateInfo info, {
     bool force = false,
   }) async {
-    if (!context.mounted) return;
+    if (_isDialogShowing) return;
+    final dialogContext = _dialogHostContext(context);
+    if (dialogContext == null || !dialogContext.mounted) return;
+    _isDialogShowing = true;
 
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: !force,
-      builder: (dialogContext) {
-        var isUpdating = false;
+    try {
+      // Let startup navigation/dialogs settle before presenting the update modal.
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!(dialogContext.mounted)) return;
 
-        return StatefulBuilder(
-          builder: (context, setDialogState) => PopScope(
-            canPop: !force,
-            child: AlertDialog(
-              title: const Text('Update available'),
-              content: Text(
-                force
-                    ? 'A required update is available. You must update ROOVERSE to continue.'
-                    : 'A newer version of ROOVERSE is available. Update now for the latest improvements.',
-              ),
-              actions: [
-                if (!force)
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Later'),
-                  ),
-                ElevatedButton(
-                  onPressed: isUpdating
-                      ? null
-                      : () async {
-                          setDialogState(() => isUpdating = true);
-                          final success = await _performUpdate(context, info);
+      await showDialog<void>(
+        context: dialogContext,
+        useRootNavigator: true,
+        barrierDismissible: !force,
+        builder: (popupContext) {
+          var isUpdating = false;
 
-                          if (!context.mounted || !dialogContext.mounted) {
-                            return;
-                          }
-
-                          if (!force || success) {
-                            Navigator.of(dialogContext).pop();
-                            return;
-                          }
-
-                          setDialogState(() => isUpdating = false);
-                        },
-                  child: Text(isUpdating ? 'Updating...' : 'Update now'),
+          return StatefulBuilder(
+            builder: (context, setDialogState) => PopScope(
+              canPop: !force,
+              child: AlertDialog(
+                title: Text('Update available'.tr(context)),
+                content: Text(
+                  force
+                      ? 'A required update is available. You must update ROOVERSE to continue.'
+                      : 'A newer version of ROOVERSE is available. Update now for the latest improvements.',
                 ),
-              ],
+                actions: [
+                  if (!force)
+                    TextButton(
+                      onPressed: () => Navigator.of(popupContext).pop(),
+                      child: Text('Later'.tr(context)),
+                    ),
+                  ElevatedButton(
+                    onPressed: isUpdating
+                        ? null
+                        : () async {
+                            setDialogState(() => isUpdating = true);
+                            final success = await _performUpdate(context, info);
+
+                            if (!context.mounted || !popupContext.mounted) {
+                              return;
+                            }
+
+                            if (!force || success) {
+                              Navigator.of(popupContext).pop();
+                              return;
+                            }
+
+                            setDialogState(() => isUpdating = false);
+                          },
+                    child: Text(isUpdating ? 'Updating...' : 'Update now'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
+    } finally {
+      _isDialogShowing = false;
+    }
+  }
+
+  Future<AppUpdateInfo> _checkForUpdateWithRetry({required bool manual}) async {
+    Object? lastError;
+    final attempts = manual ? 1 : 3;
+
+    for (var attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        return await InAppUpdate.checkForUpdate();
+      } catch (e) {
+        lastError = e;
+        if (attempt == attempts) rethrow;
+        await Future.delayed(Duration(seconds: attempt));
+      }
+    }
+
+    throw lastError ??
+        StateError('Unknown error while checking for app updates.');
+  }
+
+  BuildContext? _dialogHostContext(BuildContext fallbackContext) {
+    final rootContext = rootNavigatorKey.currentContext;
+    if (rootContext != null && rootContext.mounted) {
+      return rootContext;
+    }
+    if (fallbackContext.mounted) return fallbackContext;
+    return null;
+  }
+
+  ScaffoldMessengerState? _messenger(BuildContext? context) {
+    final rootMessenger = rootScaffoldMessengerKey.currentState;
+    if (rootMessenger != null) return rootMessenger;
+    if (context != null && context.mounted) {
+      return ScaffoldMessenger.maybeOf(context);
+    }
+    return null;
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    final messenger = _messenger(context);
+    if (messenger == null) return;
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showSnackBarFromRoot(String message) {
+    final messenger = _messenger(null);
+    if (messenger == null) return;
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<bool> _performUpdate(BuildContext context, AppUpdateInfo info) async {
@@ -137,18 +200,20 @@ class AppUpdateService {
       }
 
       if (info.flexibleUpdateAllowed) {
-        await InAppUpdate.startFlexibleUpdate();
-        await InAppUpdate.completeFlexibleUpdate();
-        if (context.mounted) {
-          _showSnackBar(context, 'Update downloaded. Restarting app...');
-        }
-        return true;
+      await InAppUpdate.startFlexibleUpdate();
+      await InAppUpdate.completeFlexibleUpdate();
+      if (context.mounted) {
+        _showSnackBar(context, 'Update downloaded. Restarting app...');
+      }
+      return true;
       }
       return false;
     } catch (e) {
       debugPrint('AppUpdateService: Failed to perform app update - $e');
       if (context.mounted) {
         _showSnackBar(context, 'Update failed. Please try again.');
+      } else {
+        _showSnackBarFromRoot('Update failed. Please try again.');
       }
       return false;
     }
@@ -269,10 +334,4 @@ class AppUpdateService {
     }).toList();
   }
 
-  void _showSnackBar(BuildContext context, String message) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
 }

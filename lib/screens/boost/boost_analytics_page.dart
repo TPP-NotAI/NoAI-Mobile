@@ -5,6 +5,7 @@ import '../../models/post.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/boost_repository.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class BoostAnalyticsPage extends StatefulWidget {
   /// If provided, shows analytics for this specific post only.
   /// If null, shows all boosts across all posts.
@@ -170,8 +171,7 @@ class _SummaryHeader extends StatelessWidget {
             children: [
               const Icon(Icons.rocket_launch, color: Colors.white, size: 20),
               const SizedBox(width: 8),
-              Text(
-                'Boost Overview',
+              Text('Boost Overview'.tr(context),
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -335,8 +335,7 @@ class _BoostCard extends StatelessWidget {
                   color: Colors.orange.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  '${boost.amountRoo.toStringAsFixed(0)} ROO',
+                child: Text('${boost.amountRoo.toStringAsFixed(0)} ROO'.tr(context),
                   style: const TextStyle(
                     color: Color(0xFFF97316),
                     fontWeight: FontWeight.bold,
@@ -494,8 +493,7 @@ class _EngagementBar extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Engagement Rate',
+                  Text('Engagement Rate'.tr(context),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: colors.onSurfaceVariant,
                       letterSpacing: 0.5,
@@ -510,8 +508,7 @@ class _EngagementBar extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              '$rateStr%',
+            Text('$rateStr%'.tr(context),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: rate >= 5
                     ? Colors.green.shade600
@@ -571,8 +568,7 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            Text(
-              'Tap ··· on a post you authored and select Boost Post to reach more people.',
+            Text('Tap ··· on a post you authored and select Boost Post to reach more people.'.tr(context),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
@@ -602,7 +598,7 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 16),
             Text(error, textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
+            FilledButton(onPressed: onRetry, child: Text('Retry'.tr(context))),
           ],
         ),
       ),

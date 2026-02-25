@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'faq_screen.dart';
 import 'support_chat_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class HelpSupportScreen extends StatelessWidget {
   const HelpSupportScreen({super.key});
 
@@ -11,7 +12,7 @@ class HelpSupportScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Help & Support'),
+        title: Text('Help & Support'.tr(context)),
         backgroundColor: colors.surface,
         foregroundColor: colors.onSurface,
         elevation: 0,

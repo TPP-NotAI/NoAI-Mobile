@@ -293,6 +293,7 @@ class ChatProvider extends ChangeNotifier {
     String? mediaUrl,
     String? replyToId,
     String? replyContent,
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
   }) async {
     _error = null;
     final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
@@ -318,6 +319,7 @@ class ChatProvider extends ChangeNotifier {
         mediaUrl: mediaUrl,
         mediaType: type != 'text' ? type : null,
         replyToId: replyToId,
+        onAdFeeRequired: onAdFeeRequired,
       );
       // Refresh list to show last message
       await loadConversations();
@@ -395,8 +397,9 @@ class ChatProvider extends ChangeNotifier {
     String conversationId,
     String filePath,
     String fileName,
-    String type,
-  ) async {
+    String type, {
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
+  }) async {
     final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
     final content = _resolveMediaContent(type, fileName);
     final pending = Message(
@@ -421,6 +424,7 @@ class ChatProvider extends ChangeNotifier {
           mediaType: type,
           mediaUrl: mediaUrl,
           localMediaPath: filePath,
+          onAdFeeRequired: onAdFeeRequired,
         );
         await loadConversations();
         return true;

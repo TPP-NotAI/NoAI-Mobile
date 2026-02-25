@@ -13,6 +13,7 @@ import 'package:rooverse/widgets/shimmer_loading.dart';
 import 'profile/profile_screen.dart';
 import 'hashtag_feed_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
 
@@ -136,8 +137,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     children: [
                       Icon(Icons.people, size: 20, color: AppColors.primary),
                       const SizedBox(width: 8),
-                      Text(
-                        'People',
+                      Text('People'.tr(context),
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colors.onSurface,
@@ -287,8 +287,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             children: [
               Icon(Icons.trending_up, size: 20, color: AppColors.primary),
               const SizedBox(width: 8),
-              Text(
-                'Trending Topics',
+              Text('Trending Topics'.tr(context),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: colors.onSurface,
@@ -547,8 +546,7 @@ class _TrendingTagChip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '#${tag.name}',
+                Text('#${tag.name}'.tr(context),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -566,8 +564,7 @@ class _TrendingTagChip extends StatelessWidget {
                       color: colors.surface,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text(
-                      '${tag.postCount}',
+                    child: Text('${tag.postCount}'.tr(context),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
@@ -637,8 +634,7 @@ class _UserSearchResult extends StatelessWidget {
                   if (user['display_name'] != null &&
                       user['display_name'] != user['username']) ...[
                     const SizedBox(height: 2),
-                    Text(
-                      '@${user['username']}',
+                    Text('@${user['.tr(context)username']}',
                       style: TextStyle(
                         fontSize: 14,
                         color: colors.onSurfaceVariant,

@@ -11,6 +11,7 @@ import '../widgets/tip_modal.dart';
 import 'package:rooverse/widgets/shimmer_loading.dart';
 import 'profile/profile_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class HashtagFeedScreen extends StatefulWidget {
   final String hashtag;
 
@@ -86,8 +87,7 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
                 color: AppColors.primarySoft,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text(
-                '#${widget.hashtag}',
+              child: Text('#${widget.hashtag}'.tr(context),
                 style: TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,
@@ -131,7 +131,7 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
               ),
-              child: const Text('Retry'),
+              child: Text('Retry'.tr(context)),
             ),
           ],
         ),
@@ -149,15 +149,13 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
               color: colors.onSurfaceVariant.withOpacity(0.5),
             ),
             const SizedBox(height: 16),
-            Text(
-              'No posts with #${widget.hashtag}',
+            Text('No posts with #${widget.hashtag}'.tr(context),
               style: theme.textTheme.titleMedium?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Be the first to post with this hashtag!',
+            Text('Be the first to post with this hashtag!'.tr(context),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.onSurfaceVariant.withOpacity(0.7),
               ),
@@ -216,16 +214,14 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${_posts.length} ${_posts.length == 1 ? 'post' : 'posts'}',
+                Text('${_posts.length} ${_posts.length == 1 ? '.tr(context)post' : 'posts'}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: colors.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  'Explore content tagged with #${widget.hashtag}',
+                Text('Explore content tagged with #${widget.hashtag}'.tr(context),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),

@@ -12,6 +12,7 @@ import '../../models/user.dart';
 import '../wallet/user_search_sheet.dart';
 import '../../widgets/shimmer_loading.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
 
@@ -36,8 +37,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Messages',
+        title: Text('Messages'.tr(context),
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: colors.surface,
@@ -135,24 +135,22 @@ class _ChatListScreenState extends State<ChatListScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.chat_bubble_outline, size: 64, color: colors.outline),
-          const SizedBox(height: 16),
-          Text(
-            'No messages yet',
+          SizedBox(height: 16),
+          Text('No messages yet'.tr(context),
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: colors.onSurface,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Start a conversation with someone!',
+          SizedBox(height: 8),
+          Text('Start a conversation with someone!'.tr(context),
             style: TextStyle(color: Colors.grey),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () => _createNewMessage(context),
             icon: const Icon(Icons.add),
-            label: const Text('Start Messaging'),
+            label: Text('Start Messaging'.tr(context)),
           ),
         ],
       ),
@@ -182,12 +180,11 @@ class _ConversationTile extends StatelessWidget {
         color: Colors.orange.withOpacity(0.8),
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: const Row(
+        child: Row(
           children: [
             Icon(Icons.archive, color: Colors.white),
             SizedBox(width: 8),
-            Text(
-              'Archive',
+            Text('Archive'.tr(context),
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -200,11 +197,10 @@ class _ConversationTile extends StatelessWidget {
         color: Colors.red.withOpacity(0.8),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Text(
-              'Delete',
+            Text('Delete'.tr(context),
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -220,9 +216,8 @@ class _ConversationTile extends StatelessWidget {
           return await showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Delete Conversation'),
-              content: const Text(
-                'Are you sure you want to delete this conversation? This action cannot be undone.',
+              title: Text('Delete Conversation'.tr(context)),
+              content: Text('Are you sure you want to delete this conversation? This action cannot be undone.'.tr(context),
               ),
               actions: [
                 TextButton(
@@ -244,7 +239,7 @@ class _ConversationTile extends StatelessWidget {
         if (direction == DismissDirection.startToEnd) {
           context.read<ChatProvider>().archiveConversation(conversation.id);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Conversation archived')),
+            SnackBar(content: Text('Conversation archived'.tr(context))),
           );
         } else {
           context.read<ChatProvider>().deleteConversationForUser(
@@ -252,7 +247,7 @@ class _ConversationTile extends StatelessWidget {
           );
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Conversation deleted')));
+          ).showSnackBar(SnackBar(content: Text('Conversation deleted'.tr(context))));
         }
       },
       child: ListTile(
@@ -342,15 +337,14 @@ class _ConversationTile extends StatelessWidget {
               ),
             ),
             if (hasUnread) ...[
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: colors.primary,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  '${conversation.unreadCount}',
+                child: Text('${conversation.unreadCount}'.tr(context),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,

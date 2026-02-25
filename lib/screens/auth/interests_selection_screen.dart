@@ -7,6 +7,7 @@ import '../../providers/user_provider.dart';
 import '../../utils/responsive_extensions.dart';
 import 'package:provider/provider.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class InterestsSelectionScreen extends StatefulWidget {
   final VoidCallback onComplete;
 
@@ -167,7 +168,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
 
     if (_showProfileFields && _displayNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a display name')),
+        SnackBar(content: Text('Please enter a display name'.tr(context))),
       );
       return;
     }
@@ -175,15 +176,14 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
     if (_showProfileFields && _bioController.text.trim().isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Please enter a bio')));
+      ).showSnackBar(SnackBar(content: Text('Please enter a bio'.tr(context))));
       return;
     }
 
     if (_selectedInterests.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please select at least 3 interests to personalize your feed',
+        SnackBar(
+          content: Text('Please select at least 3 interests to personalize your feed'.tr(context),
           ),
         ),
       );
@@ -214,7 +214,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
       debugPrint('Error saving profile/interests: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('An error occurred. Please try again.')),
+          SnackBar(content: Text('An error occurred. Please try again.'.tr(context))),
         );
       }
     } finally {
@@ -268,8 +268,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                 ),
                               ),
                               SizedBox(width: AppSpacing.small.responsive(context)),
-                              Text(
-                                'ROOVERSE',
+                              Text('ROOVERSE'.tr(context),
                                 style: TextStyle(
                                   fontSize: AppTypography.responsiveFontSize(context, AppTypography.mediumHeading),
                                   fontWeight: FontWeight.bold,
@@ -333,8 +332,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                   padding: EdgeInsets.symmetric(
                                     horizontal: AppSpacing.standard.responsive(context),
                                   ),
-                                  child: Text(
-                                    'PICK YOUR INTERESTS',
+                                  child: Text('PICK YOUR INTERESTS'.tr(context),
                                     style: TextStyle(
                                       fontSize: AppTypography.responsiveFontSize(context, AppTypography.tiny),
                                       fontWeight: FontWeight.w800,
@@ -376,8 +374,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                     color: scheme.error,
                                   ),
                                   SizedBox(width: AppSpacing.small.responsive(context)),
-                                  Text(
-                                    'Select ${3 - _selectedInterests.length} more interests to continue',
+                                  Text('Select ${3 - _selectedInterests.length} more interests to continue'.tr(context),
                                     style: TextStyle(
                                       fontSize: AppTypography.responsiveFontSize(context, AppTypography.tiny),
                                       fontWeight: FontWeight.w600,
@@ -409,8 +406,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                     color: Colors.green,
                                   ),
                                   SizedBox(width: AppSpacing.small.responsive(context)),
-                                  Text(
-                                    '${_selectedInterests.length} selected interests',
+                                  Text('${_selectedInterests.length} selected interests'.tr(context),
                                     style: TextStyle(
                                       fontSize: AppTypography.responsiveFontSize(context, AppTypography.tiny),
                                       fontWeight: FontWeight.bold,
@@ -464,7 +460,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                   ? SizedBox(
                                       width: 24.responsive(context, min: 20, max: 28),
                                       height: 24.responsive(context, min: 20, max: 28),
-                                      child: const CircularProgressIndicator(
+                                      child: CircularProgressIndicator(
                                         strokeWidth: 2,
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
@@ -476,8 +472,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        Text(
-                                          'Continue',
+                                        Text('Continue'.tr(context),
                                           style: TextStyle(
                                             fontSize: AppTypography.responsiveFontSize(context, AppTypography.smallHeading),
                                             fontWeight: FontWeight.bold,
@@ -493,8 +488,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                           if (!_showProfileFields)
                             TextButton(
                               onPressed: _isLoading ? null : widget.onComplete,
-                              child: Text(
-                                'Skip for now',
+                              child: Text('Skip for now'.tr(context),
                                 style: TextStyle(
                                   color: scheme.onBackground.withOpacity(0.6),
                                   fontSize: AppTypography.responsiveFontSize(context, AppTypography.small),

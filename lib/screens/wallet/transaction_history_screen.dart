@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class TransactionHistoryScreen extends StatefulWidget {
   const TransactionHistoryScreen({super.key});
 
@@ -137,8 +138,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           icon: Icon(Icons.arrow_back, color: colors.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Transaction History',
+        title: Text('Transaction History'.tr(context),
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: colors.onSurface,
@@ -162,8 +162,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     color: colors.onSurfaceVariant.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'No transactions yet',
+                  Text('No transactions yet'.tr(context),
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -171,8 +170,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Your transaction history will appear here',
+                  Text('Your transaction history will appear here'.tr(context),
                     style: TextStyle(
                       fontSize: 14,
                       color: colors.onSurfaceVariant,
@@ -223,7 +221,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                 _searchController.clear();
                                 setState(() => _selectedDateRange = null);
                               },
-                        child: const Text('Clear'),
+                        child: Text('Clear'.tr(context)),
                       ),
                     ],
                   ),
@@ -239,8 +237,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                             color: colors.onSurfaceVariant.withValues(alpha: 0.5),
                           ),
                           const SizedBox(height: 12),
-                          Text(
-                            'No matching transactions',
+                          Text('No matching transactions'.tr(context),
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               color: colors.onSurface,
@@ -553,8 +550,7 @@ class _TransactionItem extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  '$amountStr ROO',
+                Text('$amountStr ROO'.tr(context),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: amountColor,

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../repositories/mention_repository.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 /// A [TextField] wrapper that shows @mention autocomplete suggestions.
 ///
 /// Drop-in replacement for [TextField] — forwards all standard properties.
@@ -270,8 +271,7 @@ class _MentionAutocompleteFieldState extends State<MentionAutocompleteField> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              Text(
-                                '@$username',
+                              Text('@$username'.tr(context),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: colors.onSurfaceVariant,
                                 ),

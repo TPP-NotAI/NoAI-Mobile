@@ -69,8 +69,7 @@ class ReactionRepository {
         await _notificationRepository.createNotification(
           userId: comment['author_id'],
           type: 'like',
-          title: 'New Like',
-          body: 'Someone liked your comment: "${comment['body']}"',
+          body: '"${comment['body']}"',
           actorId: userId,
           commentId: commentId,
         );
@@ -140,13 +139,14 @@ class ReactionRepository {
         final postTitle = post['title'] as String?;
         final postBody = post['body'] as String?;
         final notificationBody = postTitle != null && postTitle.isNotEmpty
-            ? 'Someone liked your post: "$postTitle"'
-            : 'Someone liked your post: "${postBody?.substring(0, (postBody.length > 50 ? 50 : postBody.length)) ?? ''}..."';
+            ? '"$postTitle"'
+            : postBody != null && postBody.isNotEmpty
+                ? '"${postBody.substring(0, postBody.length > 50 ? 50 : postBody.length)}..."'
+                : null;
 
         await _notificationRepository.createNotification(
           userId: postAuthorId,
           type: 'like',
-          title: 'New Like',
           body: notificationBody,
           actorId: userId,
           postId: postId,
@@ -258,8 +258,7 @@ class ReactionRepository {
         await _notificationRepository.createNotification(
           userId: story['user_id'],
           type: 'like',
-          title: 'Story Liked',
-          body: 'Someone liked your story!',
+          body: 'liked your story',
           actorId: userId,
           storyId: storyId,
         );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class WelcomeDialog extends StatelessWidget {
   final VoidCallback onViewWallet;
   final VoidCallback onStartExploring;
@@ -77,8 +78,7 @@ class WelcomeDialog extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Welcome to ROOVERSE!',
+                  Text('Welcome to ROOVERSE!'.tr(context),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 24,
@@ -86,8 +86,7 @@ class WelcomeDialog extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Your human-only social platform powered by Roobyte',
+                  Text('Your human-only social platform powered by Roobyte'.tr(context),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 14,
@@ -135,8 +134,7 @@ class WelcomeDialog extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Wallet Created!',
+                              Text('Wallet Created!'.tr(context),
                                 style: TextStyle(
                                   color: AppColors.success,
                                   fontSize: 16,
@@ -174,10 +172,9 @@ class WelcomeDialog extends StatelessWidget {
                   // How to Earn ROO
                   Row(
                     children: [
-                      const Text('💡', style: TextStyle(fontSize: 18)),
+                      Text('💡'.tr(context), style: TextStyle(fontSize: 18)),
                       const SizedBox(width: 8),
-                      const Text(
-                        'How to Earn ROO',
+                      Text('How to Earn ROO'.tr(context),
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -289,8 +286,7 @@ class WelcomeDialog extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text(
-                            'View Wallet',
+                          child: Text('View Wallet'.tr(context),
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -314,8 +310,7 @@ class WelcomeDialog extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text(
-                            'Start Exploring',
+                          child: Text('Start Exploring'.tr(context),
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,

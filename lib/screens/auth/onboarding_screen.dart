@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onComplete;
 
@@ -105,8 +106,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'ROOVERSE',
+                        Text('ROOVERSE'.tr(context),
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -118,8 +118,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     TextButton(
                       onPressed: widget.onComplete,
-                      child: Text(
-                        'Skip',
+                      child: Text('Skip'.tr(context),
                         style: TextStyle(
                           color: scheme.onBackground.withOpacity(0.6),
                           fontSize: 14,
@@ -152,8 +151,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   children: [
                     // Indicators
                     // Progress Text
-                    Text(
-                      'STEP ${_currentPage + 1} OF ${_slides.length}: ${_slides[_currentPage].stepName.toUpperCase()}',
+                    Text('STEP ${_currentPage + 1} OF ${_slides.length}: ${_slides[_currentPage].stepName.toUpperCase()}'.tr(context),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -298,8 +296,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               color: const Color(0xFF10B981).withOpacity(0.3),
                             ),
                           ),
-                          child: const Text(
-                            'VERIFIED SYSTEM',
+                          child: Text('VERIFIED SYSTEM'.tr(context),
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,

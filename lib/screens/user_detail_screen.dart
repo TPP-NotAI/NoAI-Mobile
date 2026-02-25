@@ -13,6 +13,7 @@ import '../widgets/tip_modal.dart';
 import '../repositories/post_repository.dart';
 import 'profile/follow_list_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class UserDetailScreen extends StatefulWidget {
   final User user;
 
@@ -72,7 +73,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile Details'),
+        title: Text('Profile Details'.tr(context)),
         actions: [
           IconButton(
             icon: const Icon(Icons.more_horiz),
@@ -132,8 +133,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '@${user.username}',
+                  Text('@${user.username}'.tr(context),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: colors.onSurfaceVariant,
                     ),
@@ -249,7 +249,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                             }
                           },
                           icon: const Icon(Icons.mail_outline),
-                          label: const Text('Message'),
+                          label: Text('Message'.tr(context)),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: colors.onSurface,
                             side: BorderSide(color: colors.onSurface),
@@ -265,8 +265,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Posts by ${user.displayName}',
+                  Text('Posts by ${user.displayName}'.tr(context),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -291,8 +290,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                               color: colors.onSurfaceVariant,
                             ),
                             const SizedBox(height: 12),
-                            Text(
-                              'No posts yet',
+                            Text('No posts yet'.tr(context),
                               style: TextStyle(color: colors.onSurfaceVariant),
                             ),
                           ],
@@ -387,7 +385,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.report_outlined),
-                title: const Text('Report User'),
+                title: Text('Report User'.tr(context)),
                 onTap: () {
                   Navigator.pop(context);
                   _handleReport(context);
@@ -395,8 +393,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.block_outlined, color: Colors.red),
-                title: const Text(
-                  'Block User',
+                title: Text('Block User'.tr(context),
                   style: TextStyle(color: Colors.red),
                 ),
                 onTap: () {

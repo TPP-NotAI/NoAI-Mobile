@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../config/app_colors.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 /// Trust Leaders widget - shows top users by trust score
 /// Displays as horizontal scroll on mobile, sidebar on web
 class TrustLeadersWidget extends StatelessWidget {
@@ -28,8 +29,7 @@ class TrustLeadersWidget extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Trust Leaders',
+                Text('Trust Leaders'.tr(context),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -45,8 +45,7 @@ class TrustLeadersWidget extends StatelessWidget {
                     minimumSize: const Size(0, 0),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: Text(
-                    'View All',
+                  child: Text('View All'.tr(context),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -121,8 +120,7 @@ class _LeaderCard extends StatelessWidget {
                   color: _getRankColor(rank).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(
-                  '#$rank',
+                child: Text('#$rank'.tr(context),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -134,8 +132,7 @@ class _LeaderCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           // Username
-          Text(
-            '@${leader.username}',
+          Text('@${leader.username}'.tr(context),
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -154,8 +151,7 @@ class _LeaderCard extends StatelessWidget {
                 color: AppColors.success,
               ),
               const SizedBox(width: 4),
-              Text(
-                '${leader.trustScore.toStringAsFixed(1)}%',
+              Text('${leader.trustScore.toStringAsFixed(1)}%'.tr(context),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,

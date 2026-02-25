@@ -9,6 +9,7 @@ import '../../repositories/comment_repository.dart';
 import '../../utils/time_utils.dart';
 import 'appeal_form_screen.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class ModQueueScreen extends StatefulWidget {
   const ModQueueScreen({super.key});
 
@@ -78,7 +79,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error loading queue: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error loading queue: $e'.tr(context))));
       }
     }
   }
@@ -95,8 +96,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
           icon: Icon(Icons.arrow_back, color: scheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Mod Queue',
+        title: Text('Mod Queue'.tr(context),
           style: TextStyle(
             color: scheme.onSurface,
             fontSize: 20,
@@ -130,7 +130,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                     subtitle: 'Pending Review',
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: _buildStatCard(
                     context,
@@ -156,13 +156,13 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                   label: _selectedFilter,
                   isPrimary: true,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 _buildFilterChip(
                   context,
                   label: _selectedSort,
                   isPrimary: false,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 _buildFilterChip(
                   context,
                   label: _selectedType,
@@ -172,16 +172,15 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           // Queue Items
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator())
                 : _mergedQueue.isEmpty
                 ? Center(
-                    child: Text(
-                      'All caught up!',
+                    child: Text('All caught up!'.tr(context),
                       style: TextStyle(
                         color: scheme.onSurface.withOpacity(0.6),
                       ),
@@ -190,7 +189,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: _mergedQueue.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, __) => SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final item = _mergedQueue[index];
                       if (item is Post) {
@@ -230,7 +229,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
           Row(
             children: [
               Icon(icon, color: iconColor, size: 20),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
@@ -242,7 +241,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             value,
             style: TextStyle(
@@ -251,7 +250,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
               color: scheme.onSurface,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             subtitle,
             style: TextStyle(
@@ -291,7 +290,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
               color: isPrimary ? Colors.white : scheme.onSurface,
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Icon(
             Icons.arrow_drop_down,
             size: 18,
@@ -345,7 +344,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
           Row(
             children: [
               Icon(Icons.auto_awesome, color: violationColor, size: 18),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
                   classification ?? 'AI Content Detected',
@@ -377,7 +376,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
             ],
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // User Info
           Row(
@@ -396,7 +395,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                       )
                     : null,
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,7 +410,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                             color: scheme.onSurface,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Text(
                           humanReadableTime(post.timestamp),
                           style: TextStyle(
@@ -423,11 +422,10 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                     ),
                     if (post.author.isVerified)
                       Row(
-                        children: const [
+                        children: [
                           Icon(Icons.verified, size: 12, color: Colors.green),
                           SizedBox(width: 4),
-                          Text(
-                            'Verified Human',
+                          Text('Verified Human'.tr(context),
                             style: TextStyle(fontSize: 12, color: Colors.green),
                           ),
                         ],
@@ -438,7 +436,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
             ],
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // Content
           Text(
@@ -451,7 +449,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
           ),
 
           if (post.hasMedia && post.primaryMediaUrl != null) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Container(
               height: 150,
               width: double.infinity,
@@ -467,7 +465,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
           ],
 
           // AI Analysis Results (collapsible)
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _AiAnalysisCard(
             confidence: confidence,
             violationColor: violationColor,
@@ -481,14 +479,14 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
           // Moderation action buttons (for moderators, not the post author)
           if (_currentUserId != null &&
               post.author.userId != _currentUserId) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _handleModeration(post.id, 'approve'),
                     icon: const Icon(Icons.check_circle, size: 18),
-                    label: const Text('Approve'),
+                    label: Text('Approve'.tr(context)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -499,12 +497,12 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _handleModeration(post.id, 'reject'),
                     icon: const Icon(Icons.cancel, size: 18),
-                    label: const Text('Reject'),
+                    label: Text('Reject'.tr(context)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
@@ -522,7 +520,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
           // Appeal button — only for current user's own posts
           if (_currentUserId != null &&
               post.author.userId == _currentUserId) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -535,7 +533,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                   );
                 },
                 icon: const Icon(Icons.gavel, size: 18),
-                label: const Text('Appeal This Decision'),
+                label: Text('Appeal This Decision'.tr(context)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   side: const BorderSide(color: AppColors.primary),
@@ -600,8 +598,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                   color: Colors.purple.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  'COMMENT',
+                child: Text('COMMENT'.tr(context),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -610,9 +607,9 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Icon(Icons.auto_awesome, color: violationColor, size: 16),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               Expanded(
                 child: Text(
                   classification ?? 'AI Content Detected',
@@ -644,7 +641,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
             ],
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // Comment author
           Row(
@@ -667,7 +664,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                       )
                     : null,
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 comment.author.username,
                 style: TextStyle(
@@ -676,7 +673,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                   color: scheme.onSurface,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 humanReadableTime(comment.timestamp),
                 style: TextStyle(
@@ -687,7 +684,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
             ],
           ),
 
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
           // Comment text
           Text(
@@ -700,7 +697,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
           ),
 
           // AI Analysis (collapsible)
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _AiAnalysisCard(
             confidence: confidence,
             violationColor: violationColor,
@@ -712,7 +709,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
           ),
 
           // Appeal entry point for comments
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -725,7 +722,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                 );
               },
               icon: const Icon(Icons.gavel, size: 18),
-              label: const Text('Appeal This Decision'),
+              label: Text('Appeal This Decision'.tr(context)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary),
@@ -761,7 +758,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
         _fetchQueue(); // Refresh the queue
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to moderate post')),
+          SnackBar(content: Text('Failed to moderate post'.tr(context))),
         );
       }
     }
@@ -818,10 +815,9 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
           Row(
             children: [
               const Icon(Icons.psychology, color: Colors.blue, size: 18),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'AI ANALYSIS RESULTS',
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('AI ANALYSIS RESULTS'.tr(context),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -851,21 +847,19 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
 
           // Confidence score — always visible
           Row(
             children: [
-              Text(
-                'Confidence: ',
+              Text('Confidence: '.tr(context),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: scheme.onSurface.withOpacity(0.7),
                 ),
               ),
-              Text(
-                '${widget.confidence.toStringAsFixed(1)}%',
+              Text('${widget.confidence.toStringAsFixed(1)}%'.tr(context),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -873,16 +867,14 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
                 ),
               ),
               if (widget.safetyScore != null) ...[
-                const Spacer(),
-                Text(
-                  'Safety Score: ',
+                Spacer(),
+                Text('Safety Score: '.tr(context),
                   style: TextStyle(
                     fontSize: 11,
                     color: scheme.onSurface.withOpacity(0.6),
                   ),
                 ),
-                Text(
-                  '${widget.safetyScore!.toStringAsFixed(0)}/100',
+                Text('${widget.safetyScore!.toStringAsFixed(0)}/100'.tr(context),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -900,7 +892,7 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
           // Moderation Flags — always visible if flagged
           if (widget.moderation != null &&
               (widget.moderation!['flagged'] == true)) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Wrap(
               spacing: 6,
               runSpacing: 4,
@@ -941,8 +933,7 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
                     color: Colors.orange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(
-                    'SEVERITY: ${(widget.moderation!['severity'] as String? ?? 'none').toUpperCase()}',
+                  child: Text('SEVERITY: ${(widget.moderation!['.tr(context)severity'] as String? ?? 'none').toUpperCase()}',
                     style: const TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
@@ -957,16 +948,15 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
           // Expanded details (rationale + evidence)
           if (_expanded) ...[
             if (widget.rationale != null && widget.rationale!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Rationale',
+              SizedBox(height: 8),
+              Text('Rationale'.tr(context),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: scheme.onSurface.withOpacity(0.6),
                 ),
               ),
-              const SizedBox(height: 2),
+              SizedBox(height: 2),
               Text(
                 widget.rationale!,
                 style: TextStyle(
@@ -978,24 +968,22 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
             ],
             if (widget.combinedEvidence != null &&
                 widget.combinedEvidence!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Evidence',
+              SizedBox(height: 8),
+              Text('Evidence'.tr(context),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: scheme.onSurface.withOpacity(0.6),
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               ...widget.combinedEvidence!.map(
                 (e) => Padding(
                   padding: const EdgeInsets.only(bottom: 2),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        ' \u2022 ',
+                      Text(' \u2022 '.tr(context),
                         style: TextStyle(
                           fontSize: 12,
                           color: scheme.onSurface.withOpacity(0.6),
@@ -1020,7 +1008,7 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
 
           // "Read more" / "Show less" toggle
           if (_hasDetails) ...[
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             GestureDetector(
               onTap: () => setState(() => _expanded = !_expanded),
               child: Row(
@@ -1033,7 +1021,7 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
                       color: Colors.blue,
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   Icon(
                     _expanded
                         ? Icons.keyboard_arrow_up

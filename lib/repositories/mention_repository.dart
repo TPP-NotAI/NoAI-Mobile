@@ -46,8 +46,10 @@ class MentionRepository {
       final postTitle = post['title'] as String?;
       final postBody = post['body'] as String?;
       final notificationBody = postTitle != null && postTitle.isNotEmpty
-          ? 'Mentioned you in a post: "$postTitle"'
-          : 'Mentioned you in a post: "${postBody?.substring(0, (postBody.length > 50 ? 50 : postBody.length)) ?? ''}..."';
+          ? '"$postTitle"'
+          : postBody != null && postBody.isNotEmpty
+              ? '"${postBody.substring(0, postBody.length > 60 ? 60 : postBody.length)}..."'
+              : null;
 
       for (final userId in uniqueUserIds) {
         // Don't notify if user mentions themselves (unlikely but possible).
@@ -56,7 +58,6 @@ class MentionRepository {
         await _notificationRepository.createNotification(
           userId: userId,
           type: 'mention',
-          title: 'New Mention',
           body: notificationBody,
           actorId: authorId,
           postId: postId,
@@ -107,8 +108,9 @@ class MentionRepository {
       final authorId = comment['author_id'] as String;
       final body = comment['body'] as String?;
       final postId = comment['post_id'] as String;
-      final notificationBody =
-          'Mentioned you in a comment: "${body?.substring(0, (body.length > 50 ? 50 : body.length)) ?? ''}..."';
+      final notificationBody = body != null && body.isNotEmpty
+          ? '"${body.substring(0, body.length > 60 ? 60 : body.length)}..."'
+          : null;
 
       for (final userId in uniqueUserIds) {
         // Don't notify if user mentions themselves.
@@ -117,7 +119,6 @@ class MentionRepository {
         await _notificationRepository.createNotification(
           userId: userId,
           type: 'mention',
-          title: 'New Mention',
           body: notificationBody,
           actorId: authorId,
           postId: postId,

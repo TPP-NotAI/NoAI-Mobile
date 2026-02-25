@@ -6,6 +6,7 @@ import '../../models/conversation.dart';
 import 'conversation_thread_page.dart';
 import 'package:intl/intl.dart';
 
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class ArchivedChatsScreen extends StatefulWidget {
   const ArchivedChatsScreen({super.key});
 
@@ -30,8 +31,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Archived Chats',
+        title: Text('Archived Chats'.tr(context),
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: colors.surface,
@@ -40,7 +40,7 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
       body: RefreshIndicator(
         onRefresh: () => chatProvider.loadConversations(showArchived: true),
         child: chatProvider.isLoading && chatProvider.conversations.isEmpty
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator())
             : chatProvider.conversations.isEmpty
             ? _buildEmptyState(context)
             : ListView.separated(
@@ -69,9 +69,8 @@ class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.archive_outlined, size: 64, color: colors.outline),
-          const SizedBox(height: 16),
-          Text(
-            'No archived chats',
+          SizedBox(height: 16),
+          Text('No archived chats'.tr(context),
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: colors.onSurface,
               fontWeight: FontWeight.bold,
@@ -104,12 +103,11 @@ class _ArchivedConversationTile extends StatelessWidget {
         color: Colors.blue.withOpacity(0.8),
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: const Row(
+        child: Row(
           children: [
             Icon(Icons.unarchive, color: Colors.white),
             SizedBox(width: 8),
-            Text(
-              'Unarchive',
+            Text('Unarchive'.tr(context),
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -121,7 +119,7 @@ class _ArchivedConversationTile extends StatelessWidget {
       onDismissed: (direction) {
         context.read<ChatProvider>().unarchiveConversation(conversation.id);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Conversation unarchived')),
+          SnackBar(content: Text('Conversation unarchived'.tr(context))),
         );
       },
       child: ListTile(
