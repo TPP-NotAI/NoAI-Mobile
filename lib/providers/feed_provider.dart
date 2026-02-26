@@ -1478,6 +1478,50 @@ class FeedProvider with ChangeNotifier {
     }
   }
 
+  // ── Ad posts ──────────────────────────────────────────────────────────────
+
+  List<Post> _adPosts = [];
+
+  /// All advertisement posts for the current user (paid + pending).
+  List<Post> get adPosts => _adPosts;
+
+  /// Paid (published) ad posts.
+  List<Post> get paidAdPosts =>
+      _adPosts.where((p) => p.status == 'published').toList();
+
+  /// Pending (unpaid) ad posts.
+  List<Post> get pendingAdPosts =>
+      _adPosts.where((p) => p.status == 'draft').toList();
+
+  /// Load advertisement posts for the current user.
+  Future<void> loadAdPosts() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+
+    try {
+      _adPosts = await _postRepository.getAdsByUser(userId);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('FeedProvider: Error loading ad posts - $e');
+    }
+  }
+
+  /// Pay the ad fee for a pending ad post and publish it.
+  Future<bool> publishPendingAdPost(String postId) async {
+    final userId = _currentUserId;
+    if (userId == null) return false;
+
+    final success = await _postRepository.publishPendingAdPost(
+      postId,
+      currentUserId: userId,
+    );
+    if (success) {
+      // Refresh to reflect the new published status
+      await loadAdPosts();
+    }
+    return success;
+  }
+
   /// Republish a draft post (set status back to 'published').
   Future<bool> republishPost(String postId) async {
     final userId = _currentUserId;

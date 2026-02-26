@@ -11,6 +11,7 @@ import '../models/story_media_input.dart';
 import '../models/user.dart' as noai_user;
 import '../services/supabase_service.dart';
 import '../services/ai_detection_service.dart';
+import '../services/activity_log_service.dart';
 import '../models/ai_detection_result.dart';
 import 'notification_repository.dart';
 import 'mention_repository.dart';
@@ -22,6 +23,7 @@ class StoryRepository {
   final NotificationRepository _notificationRepository =
       NotificationRepository();
   final MentionRepository _mentionRepository = MentionRepository();
+  final ActivityLogService _activityLogService = ActivityLogService();
 
   /// Fetch active stories for the current user and the accounts they follow.
   ///
@@ -216,6 +218,23 @@ class StoryRepository {
       final stories = (response as List)
           .map((row) => Story.fromSupabase(row as Map<String, dynamic>))
           .toList();
+
+      for (final story in stories) {
+        unawaited(
+          _activityLogService.log(
+            userId: userId,
+            activityType: 'story',
+            targetType: 'story',
+            targetId: story.id,
+            description: 'Created a story',
+            metadata: {
+              'media_type': story.mediaType,
+              'has_caption': (story.caption?.trim().isNotEmpty ?? false),
+              'has_text_overlay': (story.textOverlay?.trim().isNotEmpty ?? false),
+            },
+          ),
+        );
+      }
 
       await _createStoryMentionNotifications(
         stories: stories,
@@ -675,6 +694,26 @@ class StoryRepository {
     int limit = 50,
   }) async {
     try {
+      final modCases = await _client
+          .from(SupabaseConfig.moderationCasesTable)
+          .select('story_id, created_at')
+          .eq('reported_user_id', userId)
+          .eq('source', 'ai')
+          .order('created_at', ascending: false) as List<dynamic>;
+
+      final seenStoryIds = <String>{};
+      final storyIds = <String>[];
+      for (final row in modCases) {
+        final storyId = (row as Map<String, dynamic>)['story_id'] as String?;
+        if (storyId == null) continue;
+        if (seenStoryIds.add(storyId)) {
+          storyIds.add(storyId);
+        }
+        if (storyIds.length >= limit) break;
+      }
+
+      if (storyIds.isEmpty) return [];
+
       final data =
           await _client
                   .from(SupabaseConfig.storiesTable)
@@ -688,19 +727,23 @@ class StoryRepository {
               verified_human
             )
           ''')
-                  .eq('user_id', userId)
-                  .inFilter('status', ['flagged', 'review'])
-                  .order('created_at', ascending: false)
-                  .limit(limit)
+                  .inFilter('id', storyIds)
               as List<dynamic>;
 
-      return data
-          .map(
-            (json) => Story.fromSupabase(
-              json as Map<String, dynamic>,
-              currentUserId: userId,
-            ),
-          )
+      final byId = <String, Story>{};
+      for (final json in data) {
+        final story = Story.fromSupabase(
+          json as Map<String, dynamic>,
+          currentUserId: userId,
+        );
+        byId[story.id] = story;
+      }
+
+      return storyIds
+          .where((id) => byId.containsKey(id))
+          .map((id) => byId[id]!)
+          .where((story) => story.status == 'flagged' || story.status == 'review')
+          .take(limit)
           .toList();
     } catch (e) {
       debugPrint('StoryRepository: Error fetching user flagged stories - $e');

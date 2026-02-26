@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
+import '../services/activity_log_service.dart';
 import 'notification_repository.dart';
 import 'wallet_repository.dart';
 import '../services/rooken_service.dart';
@@ -13,6 +16,7 @@ import '../services/viral_content_service.dart';
 class ReactionRepository {
   final _client = SupabaseService().client;
   final _notificationRepository = NotificationRepository();
+  final _activityLogService = ActivityLogService();
 
   /// Toggle like on a comment.
   /// Returns true if liked, false if unliked.
@@ -46,6 +50,16 @@ class ReactionRepository {
           .eq('comment_id', commentId)
           .eq('user_id', userId)
           .eq('reaction_type', 'like');
+      unawaited(
+        _activityLogService.log(
+          userId: userId,
+          activityType: 'like',
+          targetType: 'comment',
+          targetId: commentId,
+          description: 'Removed like from comment',
+          metadata: {'action': 'removed'},
+        ),
+      );
       return false;
     } else {
       // Like - insert new reaction (post_id must be NULL for comment reactions)
@@ -57,6 +71,16 @@ class ReactionRepository {
         'reaction_type': 'like',
       });
       debugPrint('ReactionRepository: Insert successful');
+      unawaited(
+        _activityLogService.log(
+          userId: userId,
+          activityType: 'like',
+          targetType: 'comment',
+          targetId: commentId,
+          description: 'Liked a comment',
+          metadata: {'action': 'added'},
+        ),
+      );
 
       // Fetch comment author to notify
       try {
@@ -115,6 +139,16 @@ class ReactionRepository {
           .isFilter('comment_id', null)
           .eq('user_id', userId)
           .eq('reaction_type', 'like');
+      unawaited(
+        _activityLogService.log(
+          userId: userId,
+          activityType: 'like',
+          targetType: 'post',
+          targetId: postId,
+          description: 'Removed like from post',
+          metadata: {'action': 'removed'},
+        ),
+      );
       return false;
     } else {
       // Like - insert new reaction (comment_id must be NULL for post reactions)
@@ -126,6 +160,16 @@ class ReactionRepository {
         'reaction_type': 'like',
       });
       debugPrint('ReactionRepository: Insert successful');
+      unawaited(
+        _activityLogService.log(
+          userId: userId,
+          activityType: 'like',
+          targetType: 'post',
+          targetId: postId,
+          description: 'Liked a post',
+          metadata: {'action': 'added'},
+        ),
+      );
 
       // Fetch post author to notify and reward
       try {
@@ -238,6 +282,16 @@ class ReactionRepository {
           .eq('story_id', storyId)
           .eq('user_id', userId)
           .eq('reaction_type', 'like');
+      unawaited(
+        _activityLogService.log(
+          userId: userId,
+          activityType: 'like',
+          targetType: 'story',
+          targetId: storyId,
+          description: 'Removed like from story',
+          metadata: {'action': 'removed'},
+        ),
+      );
       return false;
     } else {
       // Like
@@ -246,6 +300,16 @@ class ReactionRepository {
         'user_id': userId,
         'reaction_type': 'like',
       });
+      unawaited(
+        _activityLogService.log(
+          userId: userId,
+          activityType: 'like',
+          targetType: 'story',
+          targetId: storyId,
+          description: 'Liked a story',
+          metadata: {'action': 'added'},
+        ),
+      );
 
       // Notify story author
       try {

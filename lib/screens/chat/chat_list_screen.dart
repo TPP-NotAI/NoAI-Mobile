@@ -10,6 +10,7 @@ import 'archived_chats_screen.dart';
 import 'package:intl/intl.dart';
 import '../../models/user.dart';
 import '../wallet/user_search_sheet.dart';
+import '../support/support_chat_screen.dart';
 import '../../widgets/shimmer_loading.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -34,6 +35,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
     final colors = Theme.of(context).colorScheme;
     final chatProvider = context.watch<ChatProvider>();
     final currentUserId = context.read<AuthProvider>().currentUser?.id;
+    final visibleConversations = chatProvider.conversations
+        .where((c) => !_isSupportConversation(c, currentUserId ?? ''))
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -54,11 +58,21 @@ class _ChatListScreenState extends State<ChatListScreen> {
             icon: const Icon(Icons.archive_outlined),
             tooltip: 'Archived Chats',
           ),
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SupportChatScreen()),
+              );
+            },
+            icon: const Icon(Icons.support_agent_outlined),
+            tooltip: 'Contact Support',
+          ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: () => chatProvider.loadConversations(),
-        child: chatProvider.isLoading && chatProvider.conversations.isEmpty
+        child: chatProvider.isLoading && visibleConversations.isEmpty
             ? ListView.builder(
                 itemCount: 10,
                 itemBuilder: (context, index) => const ShimmerLoading(
@@ -66,17 +80,17 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   child: ChatListItemShimmer(),
                 ),
               )
-            : chatProvider.conversations.isEmpty
+            : visibleConversations.isEmpty
             ? _buildEmptyState(context)
             : ListView.separated(
-                itemCount: chatProvider.conversations.length,
+                itemCount: visibleConversations.length,
                 separatorBuilder: (context, index) => Divider(
                   height: 1,
                   indent: 80,
                   color: colors.outlineVariant.withOpacity(0.5),
                 ),
                 itemBuilder: (context, index) {
-                  final conversation = chatProvider.conversations[index];
+                  final conversation = visibleConversations[index];
                   return _ConversationTile(
                     conversation: conversation,
                     currentUserId: currentUserId ?? '',
@@ -92,6 +106,15 @@ class _ChatListScreenState extends State<ChatListScreen> {
         tooltip: 'New Message',
       ),
     );
+  }
+
+  bool _isSupportConversation(Conversation conversation, String currentUserId) {
+    final other = conversation.otherParticipant(currentUserId);
+    final haystack =
+        '${other.id} ${other.username} ${other.displayName}'.toLowerCase();
+    return haystack.contains('support') ||
+        haystack.contains('helpdesk') ||
+        haystack.contains('customer care');
   }
 
   Future<void> _createNewMessage(BuildContext context) async {

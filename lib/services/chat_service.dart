@@ -467,7 +467,7 @@ class ChatService {
           type: 'message',
           title: senderName,
           body: body,
-          actorId: null,
+          actorId: senderId,
         );
       }
     } catch (e) {

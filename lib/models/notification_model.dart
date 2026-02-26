@@ -19,6 +19,8 @@ class NotificationModel {
   final String? postId;
   @JsonKey(name: 'comment_id')
   final String? commentId;
+  @JsonKey(name: 'ticket_id')
+  final String? ticketId;
   @JsonKey(name: 'created_at')
   final DateTime createdAt;
 
@@ -40,6 +42,7 @@ class NotificationModel {
     this.actorId,
     this.postId,
     this.commentId,
+    this.ticketId,
     required this.createdAt,
     this.actor,
     this.post,
@@ -119,6 +122,7 @@ class NotificationModel {
       actorId: json['actor_id'] as String?,
       postId: json['post_id'] as String?,
       commentId: json['comment_id'] as String?,
+      ticketId: json['ticket_id'] as String?,
       createdAt: createdAt,
       actor: actor,
       post: post,
@@ -299,6 +303,7 @@ class NotificationModel {
     String? actorId,
     String? postId,
     String? commentId,
+    String? ticketId,
     DateTime? createdAt,
     ActorProfile? actor,
     PostPreview? post,
@@ -314,6 +319,7 @@ class NotificationModel {
       actorId: actorId ?? this.actorId,
       postId: postId ?? this.postId,
       commentId: commentId ?? this.commentId,
+      ticketId: ticketId ?? this.ticketId,
       createdAt: createdAt ?? this.createdAt,
       actor: actor ?? this.actor,
       post: post ?? this.post,

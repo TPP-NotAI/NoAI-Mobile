@@ -541,7 +541,7 @@ class _DmThreadPageState extends State<DmThreadPage> {
                         showDate = true;
                       } else {
                         final nextMessage = messages[msgIndex + 1];
-                        if (message.createdAt.day != nextMessage.createdAt.day) {
+                        if (message.createdAt.toLocal().day != nextMessage.createdAt.toLocal().day) {
                           showDate = true;
                         }
                       }
@@ -553,7 +553,7 @@ class _DmThreadPageState extends State<DmThreadPage> {
                       return Column(
                         children: [
                           if (showDate)
-                            _buildDateHeader(message.createdAt, colors),
+                            _buildDateHeader(message.createdAt.toLocal(), colors),
                           SwipeTo(
                             onRightSwipe: (_) {
                               setState(() => _replyMessage = message);
@@ -831,17 +831,18 @@ class _DmThreadPageState extends State<DmThreadPage> {
   }
 
   String _getFriendlyDate(DateTime date) {
+    final local = date.toLocal();
     final now = DateTime.now();
-    if (date.day == now.day &&
-        date.month == now.month &&
-        date.year == now.year) {
+    if (local.day == now.day &&
+        local.month == now.month &&
+        local.year == now.year) {
       return 'Today';
-    } else if (date.day == now.day - 1 &&
-        date.month == now.month &&
-        date.year == now.year) {
+    } else if (local.day == now.day - 1 &&
+        local.month == now.month &&
+        local.year == now.year) {
       return 'Yesterday';
     } else {
-      return DateFormat('MMMM d, yyyy').format(date);
+      return DateFormat('MMMM d, yyyy').format(local);
     }
   }
 

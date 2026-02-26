@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/user.dart' as app_models;
+import '../services/activity_log_service.dart';
 import 'notification_repository.dart';
 
 /// Repository for managing follow relationships in Supabase.
 class FollowRepository {
   final SupabaseClient _client;
   final _notificationRepository = NotificationRepository();
+  final _activityLogService = ActivityLogService();
 
   FollowRepository(this._client);
 
@@ -35,6 +39,15 @@ class FollowRepository {
         'follower_id': followerId,
         'following_id': followingId,
       });
+      unawaited(
+        _activityLogService.log(
+          userId: followerId,
+          activityType: 'follow',
+          targetType: 'user',
+          targetId: followingId,
+          description: 'Followed a user',
+        ),
+      );
 
       // Notify followed user
       try {
@@ -64,6 +77,15 @@ class FollowRepository {
           .delete()
           .eq('follower_id', followerId)
           .eq('following_id', followingId);
+      unawaited(
+        _activityLogService.log(
+          userId: followerId,
+          activityType: 'unfollow',
+          targetType: 'user',
+          targetId: followingId,
+          description: 'Unfollowed a user',
+        ),
+      );
       return true;
     } catch (e) {
       debugPrint('FollowRepository: Error unfollowing user - $e');

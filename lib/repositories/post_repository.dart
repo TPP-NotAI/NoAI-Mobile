@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
@@ -12,6 +13,7 @@ import '../models/ai_detection_result.dart';
 import '../services/ai_detection_service.dart';
 import 'wallet_repository.dart';
 import '../services/rooken_service.dart';
+import '../services/activity_log_service.dart';
 
 /// Repository for post-related Supabase operations.
 class PostRepository {
@@ -22,6 +24,7 @@ class PostRepository {
   final NotificationRepository _notificationRepository =
       NotificationRepository();
   final AiDetectionService _aiDetectionService = AiDetectionService();
+  final ActivityLogService _activityLogService = ActivityLogService();
 
   /// Fetch paginated feed of published posts.
   /// Respects privacy settings: filters posts based on author's posts_visibility setting.
@@ -581,6 +584,22 @@ class PostRepository {
       // Fetch the complete post with all relations
       final post = await getPost(postId, currentUserId: authorId);
 
+      unawaited(
+        _activityLogService.log(
+          userId: authorId,
+          activityType: 'post',
+          targetType: 'post',
+          targetId: postId,
+          description: 'Created a post',
+          metadata: {
+            'has_title': (title?.trim().isNotEmpty ?? false),
+            'has_media': mediaFiles != null && mediaFiles.isNotEmpty,
+            'media_count': mediaFiles?.length ?? 0,
+            'status': status ?? 'under_review',
+          },
+        ),
+      );
+
       return post;
     } catch (e) {
       debugPrint('PostRepository: Error creating post - $e');
@@ -823,6 +842,101 @@ class PostRepository {
     }
   }
 
+  /// Fetch all advertisement posts for a user.
+  /// Returns both published (paid) and draft (pending payment) posts
+  /// that were detected as advertisements.
+  Future<List<Post>> getAdsByUser(String userId) async {
+    try {
+      const select = '''
+        *,
+        profiles!posts_author_id_fkey (
+          user_id,
+          username,
+          display_name,
+          avatar_url,
+          verified_human,
+          posts_visibility
+        ),
+        reactions!reactions_post_id_fkey (
+          user_id,
+          reaction_type
+        ),
+        comments!comments_post_id_fkey (
+          id
+        ),
+        post_media (
+          id,
+          media_type,
+          storage_path,
+          mime_type,
+          width,
+          height,
+          duration_seconds
+        ),
+        post_tags (
+          tags (
+            id,
+            name
+          )
+        ),
+        mentions (
+          mentioned_user_id
+        )
+      ''';
+
+      // Fetch published ads (paid) and draft ads (pending payment) in parallel
+      final results = await Future.wait([
+        _client
+            .from(SupabaseConfig.postsTable)
+            .select(select)
+            .eq('author_id', userId)
+            .eq('status', 'published')
+            .ilike('authenticity_notes', '%advertisement%')
+            .order('created_at', ascending: false),
+        _client
+            .from(SupabaseConfig.postsTable)
+            .select(select)
+            .eq('author_id', userId)
+            .eq('status', 'draft')
+            .ilike('authenticity_notes', '%awaiting ad fee payment%')
+            .order('created_at', ascending: false),
+      ]);
+
+      final published = (results[0] as List<dynamic>)
+          .map((j) => Post.fromSupabase(j as Map<String, dynamic>, currentUserId: userId))
+          .toList();
+
+      final pending = (results[1] as List<dynamic>)
+          .map((j) => Post.fromSupabase(j as Map<String, dynamic>, currentUserId: userId))
+          .toList();
+
+      // Also include drafts with requires_payment flag but no notes yet
+      // (edge case: notes may not have been set)
+      final pendingIds = pending.map((p) => p.id).toSet();
+      final allDraftsResult = await _client
+          .from(SupabaseConfig.postsTable)
+          .select(select)
+          .eq('author_id', userId)
+          .eq('status', 'draft')
+          .order('created_at', ascending: false);
+
+      for (final j in allDraftsResult as List<dynamic>) {
+        final post = Post.fromSupabase(j as Map<String, dynamic>, currentUserId: userId);
+        if (pendingIds.contains(post.id)) continue;
+        final ad = post.aiMetadata?['advertisement'];
+        if (ad is Map && ad['requires_payment'] == true) {
+          pending.add(post);
+          pendingIds.add(post.id);
+        }
+      }
+
+      return [...published, ...pending];
+    } catch (e) {
+      debugPrint('PostRepository: Error fetching ads - $e');
+      return [];
+    }
+  }
+
   /// Update a post's content.
   /// Validates ownership before updating.
   Future<bool> updatePost({
@@ -940,7 +1054,54 @@ class PostRepository {
   /// (ai_score_status = 'flagged' or 'review'), not posts under review for other reasons.
   Future<List<Post>> getUserFlaggedPosts(String userId, {int limit = 50}) async {
     try {
-      final data = await _client
+      final modCases = await _client
+          .from(SupabaseConfig.moderationCasesTable)
+          .select('post_id, created_at')
+          .eq('reported_user_id', userId)
+          .eq('source', 'ai')
+          .order('created_at', ascending: false) as List<dynamic>;
+
+      final seenPostIds = <String>{};
+      final moderatedPostIds = <String>[];
+      for (final row in modCases) {
+        final postId = (row as Map<String, dynamic>)['post_id'] as String?;
+        if (postId == null) continue;
+        if (seenPostIds.add(postId)) {
+          moderatedPostIds.add(postId);
+        }
+        if (moderatedPostIds.length >= limit) break;
+      }
+
+      final postById = <String, Post>{};
+      if (moderatedPostIds.isNotEmpty) {
+        final data = await _client
+            .from(SupabaseConfig.postsTable)
+            .select('''
+              *,
+              profiles!posts_author_id_fkey (
+                user_id,
+                username,
+                display_name,
+                avatar_url,
+                verified_human
+              ),
+              post_media (
+                id,
+                media_type,
+                storage_path,
+                mime_type
+              )
+            ''')
+            .inFilter('id', moderatedPostIds) as List<dynamic>;
+
+        for (final json in data) {
+          final post = Post.fromSupabase(json as Map<String, dynamic>);
+          postById[post.id] = post;
+        }
+      }
+
+      // Preserve prior behavior for ad-fee-held drafts (these may not have moderation cases).
+      final adDraftRows = await _client
           .from(SupabaseConfig.postsTable)
           .select('''
             *,
@@ -959,12 +1120,28 @@ class PostRepository {
             )
           ''')
           .eq('author_id', userId)
-          .or('ai_score_status.in.(flagged,review),status.eq.draft')
+          .eq('status', 'draft')
           .order('created_at', ascending: false)
           .limit(limit) as List<dynamic>;
 
-      return data
-          .map((json) => Post.fromSupabase(json as Map<String, dynamic>))
+      for (final json in adDraftRows) {
+        final post = Post.fromSupabase(json as Map<String, dynamic>);
+        if (postById.containsKey(post.id)) continue;
+        if (post.status == 'draft' &&
+            (post.authenticityNotes ?? '')
+                .toLowerCase()
+                .contains('awaiting ad fee payment')) {
+          postById[post.id] = post;
+        }
+      }
+
+      final posts = <Post>[
+        for (final id in moderatedPostIds)
+          if (postById.containsKey(id)) postById[id]!,
+        ...postById.values.where((p) => !moderatedPostIds.contains(p.id)),
+      ];
+
+      return posts
           .where(
             (post) =>
                 post.aiScoreStatus == 'flagged' ||
@@ -974,6 +1151,7 @@ class PostRepository {
                         .toLowerCase()
                         .contains('awaiting ad fee payment')),
           )
+          .take(limit)
           .toList();
     } catch (e) {
       debugPrint('PostRepository: Error fetching user flagged posts - $e');

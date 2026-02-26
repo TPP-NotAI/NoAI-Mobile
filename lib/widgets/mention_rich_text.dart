@@ -1,6 +1,5 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/user.dart';
 import '../repositories/mention_repository.dart';
 import '../screens/user_detail_screen.dart';
@@ -95,15 +94,6 @@ class _MentionRichTextState extends State<MentionRichText> {
           color: Theme.of(context).colorScheme.primary,
           fontWeight: FontWeight.w600,
         );
-    final defaultLinkStyle = widget.style?.copyWith(
-          color: Theme.of(context).colorScheme.primary,
-          decoration: TextDecoration.underline,
-        ) ??
-        TextStyle(
-          color: Theme.of(context).colorScheme.primary,
-          decoration: TextDecoration.underline,
-        );
-
     final spans = <InlineSpan>[];
     for (final seg in segments) {
       if (seg.isMention && widget.onMentionTap != null) {
@@ -132,7 +122,6 @@ class _MentionRichTextState extends State<MentionRichText> {
         _buildTextAndUrlSpans(
           seg.text,
           baseStyle: widget.style,
-          linkStyle: defaultLinkStyle,
         ),
       );
     }
@@ -147,7 +136,6 @@ class _MentionRichTextState extends State<MentionRichText> {
   List<InlineSpan> _buildTextAndUrlSpans(
     String text, {
     TextStyle? baseStyle,
-    required TextStyle linkStyle,
   }) {
     if (text.isEmpty) return const [];
 
@@ -163,15 +151,10 @@ class _MentionRichTextState extends State<MentionRichText> {
       final cleaned = _trimTrailingPunctuation(rawUrl);
       final trailing = rawUrl.substring(cleaned.length);
 
-      final recognizer = TapGestureRecognizer()
-        ..onTap = () => _openUrl(cleaned);
-      _recognizers.add(recognizer);
-
       spans.add(
         TextSpan(
           text: cleaned,
-          style: linkStyle,
-          recognizer: recognizer,
+          style: baseStyle,
         ),
       );
 
@@ -198,17 +181,4 @@ class _MentionRichTextState extends State<MentionRichText> {
     return value;
   }
 
-  Future<void> _openUrl(String rawUrl) async {
-    final normalized = rawUrl.toLowerCase().startsWith('http')
-        ? rawUrl
-        : 'https://$rawUrl';
-    final uri = Uri.tryParse(normalized);
-    if (uri == null) return;
-
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {
-      // Fail silently to avoid breaking text rendering interactions.
-    }
-  }
 }

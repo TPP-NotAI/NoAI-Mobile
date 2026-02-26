@@ -7,7 +7,10 @@ import '../../widgets/notification_tile.dart';
 import '../../widgets/loading_widget.dart';
 import '../post_detail_screen.dart';
 import '../profile/profile_screen.dart';
+import '../chat/conversation_thread_page.dart';
+import '../support/support_chat_screen.dart';
 import '../../providers/feed_provider.dart';
+import '../../providers/chat_provider.dart';
 import '../../models/notification_model.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -171,10 +174,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           },
           child: NotificationTile(
             notification: notification,
-            onTap: () {
-              provider.markAsRead(notification.id);
-              _handleNotificationNavigation(notification);
-            },
+            onTap: (_isAdminAnnouncementNotification(notification) ||
+                    _isAdminProfileNotification(notification))
+                ? null
+                : () {
+                    provider.markAsRead(notification.id);
+                    _handleNotificationNavigation(notification);
+                  },
           ),
         );
       },
@@ -183,6 +189,54 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   void _handleNotificationNavigation(NotificationModel notification) async {
     final colors = Theme.of(context).colorScheme;
+
+    if (_isAdminAnnouncementNotification(notification)) {
+      return;
+    }
+
+    if (_isAdminProfileNotification(notification)) {
+      return;
+    }
+
+    if (_isSupportChatNotification(notification)) {
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SupportChatScreen(initialTicketId: notification.ticketId),
+        ),
+      );
+      return;
+    }
+
+    // Direct message/chat notification (message/chat types are normalized to
+    // mention in the repository, so we infer using the metadata shape).
+    if (_isDirectMessageNotification(notification) &&
+        notification.actorId != null) {
+      final chatProvider = context.read<ChatProvider>();
+      final conversation = await chatProvider.startConversation(
+        notification.actorId!,
+      );
+
+      if (!mounted) return;
+
+      if (conversation != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ConversationThreadPage(conversation: conversation),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to open chat'.tr(context)),
+            backgroundColor: colors.error,
+          ),
+        );
+      }
+      return;
+    }
 
     // Navigate to post or comment
     if (notification.postId != null) {
@@ -216,6 +270,97 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         );
       }
     }
+  }
+
+  bool _isDirectMessageNotification(NotificationModel notification) {
+    final rawType = notification.type.toLowerCase();
+    if (rawType == 'message' || rawType == 'chat') {
+      return true;
+    }
+
+    // message/chat notifications are currently normalized to `mention`
+    // before insert, but they keep sender title and actor_id and have no post/comment.
+    return rawType == 'mention' &&
+        notification.actorId != null &&
+        notification.postId == null &&
+        notification.commentId == null &&
+        (notification.title?.trim().isNotEmpty ?? false);
+  }
+
+  bool _isSupportChatNotification(NotificationModel notification) {
+    final rawType = notification.type.toLowerCase();
+    if (rawType == 'support_chat') return true;
+
+    // `support_chat` may be normalized to `mention` in the repository.
+    final title = (notification.title ?? '').toLowerCase();
+    final body = (notification.body ?? '').toLowerCase();
+    final actorName = (notification.actor?.displayName ?? '').toLowerCase();
+    final actorUsername = (notification.actor?.username ?? '').toLowerCase();
+    final isAdminLikeActor = actorName.contains('admin') ||
+        actorName.contains('support') ||
+        actorUsername.contains('admin') ||
+        actorUsername.contains('support');
+
+    return rawType == 'mention' &&
+        notification.postId == null &&
+        notification.commentId == null &&
+        !(_isAdminAnnouncementNotification(notification)) &&
+        (title.startsWith('support:') ||
+            title.contains('support chat') ||
+            body.contains('ticket') ||
+            body.contains('replied in') ||
+            (isAdminLikeActor && body.contains('support')));
+  }
+
+  bool _isAdminAnnouncementNotification(NotificationModel notification) {
+    final rawType = notification.type.toLowerCase();
+    if (rawType == 'support_chat') return false;
+
+    final title = (notification.title ?? '').toLowerCase();
+    final body = (notification.body ?? '').toLowerCase();
+    final actorName = (notification.actor?.displayName ?? '').toLowerCase();
+    final actorUsername = (notification.actor?.username ?? '').toLowerCase();
+    final isAdminLikeActor = actorName.contains('admin') ||
+        actorName.contains('support') ||
+        actorUsername.contains('admin') ||
+        actorUsername.contains('support');
+
+    final looksAnnouncement = title.contains('update') ||
+        title.contains('announcement') ||
+        title.contains('notice') ||
+        title.contains('maintenance') ||
+        title.contains('new update');
+
+    return rawType == 'mention' &&
+        notification.postId == null &&
+        notification.commentId == null &&
+        isAdminLikeActor &&
+        looksAnnouncement &&
+        !title.startsWith('support:');
+  }
+
+  bool _isAdminProfileNotification(NotificationModel notification) {
+    if (notification.actorId == null) return false;
+    if (notification.postId != null) return false; // opens post
+    if (_isSupportChatNotification(notification)) return false; // opens support chat
+    if (_isDirectMessageNotification(notification)) return false; // opens chat
+
+    final actorName = (notification.actor?.displayName ?? '').toLowerCase();
+    final actorUsername = (notification.actor?.username ?? '').toLowerCase();
+    final title = (notification.title ?? '').toLowerCase();
+    final body = (notification.body ?? '').toLowerCase();
+
+    final actorLooksAdmin = actorName.contains('admin') ||
+        actorName.contains('support') ||
+        actorUsername.contains('admin') ||
+        actorUsername.contains('support');
+
+    final contentLooksAdmin = title.contains('admin') ||
+        title.contains('support') ||
+        body.contains('admin') ||
+        body.contains('support');
+
+    return actorLooksAdmin || contentLooksAdmin;
   }
 }
 

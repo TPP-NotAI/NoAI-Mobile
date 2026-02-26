@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +10,7 @@ import '../models/comment.dart';
 import '../models/ai_detection_result.dart';
 import '../services/supabase_service.dart';
 import '../services/ai_detection_service.dart';
+import '../services/activity_log_service.dart';
 
 import 'notification_repository.dart';
 import 'mention_repository.dart';
@@ -18,6 +20,7 @@ class CommentRepository {
   final _client = SupabaseService().client;
   final _notificationRepository = NotificationRepository();
   final _mentionRepository = MentionRepository();
+  final _activityLogService = ActivityLogService();
   final _aiDetectionService = AiDetectionService();
 
   /// Fetch comments for a post.
@@ -286,6 +289,22 @@ class CommentRepository {
 
     final comment = Comment.fromSupabase(response, currentUserId: authorId);
 
+    unawaited(
+      _activityLogService.log(
+        userId: authorId,
+        activityType: 'comment',
+        targetType: 'comment',
+        targetId: comment.id,
+        description: parentCommentId == null ? 'Added a comment' : 'Replied to a comment',
+        metadata: {
+          'post_id': postId,
+          'parent_comment_id': parentCommentId,
+          'has_media': mediaUrl != null && mediaUrl.isNotEmpty,
+          'media_type': mediaType,
+        },
+      ),
+    );
+
     // Notify post author
     try {
       final post = await _client
@@ -531,6 +550,26 @@ class CommentRepository {
     int limit = 50,
   }) async {
     try {
+      final modCases = await _client
+          .from(SupabaseConfig.moderationCasesTable)
+          .select('comment_id, created_at')
+          .eq('reported_user_id', userId)
+          .eq('source', 'ai')
+          .order('created_at', ascending: false) as List<dynamic>;
+
+      final seenCommentIds = <String>{};
+      final commentIds = <String>[];
+      for (final row in modCases) {
+        final commentId = (row as Map<String, dynamic>)['comment_id'] as String?;
+        if (commentId == null) continue;
+        if (seenCommentIds.add(commentId)) {
+          commentIds.add(commentId);
+        }
+        if (commentIds.length >= limit) break;
+      }
+
+      if (commentIds.isEmpty) return [];
+
       final data =
           await _client
                   .from(SupabaseConfig.commentsTable)
@@ -544,14 +583,24 @@ class CommentRepository {
               verified_human
             )
           ''')
-                  .eq('author_id', userId)
-                  .inFilter('ai_score_status', ['flagged', 'review'])
-                  .order('created_at', ascending: false)
-                  .limit(limit)
+                  .inFilter('id', commentIds)
               as List<dynamic>;
 
-      return data
-          .map((json) => Comment.fromSupabase(json as Map<String, dynamic>))
+      final byId = <String, Comment>{};
+      for (final json in data) {
+        final comment = Comment.fromSupabase(json as Map<String, dynamic>);
+        byId[comment.id] = comment;
+      }
+
+      return commentIds
+          .where((id) => byId.containsKey(id))
+          .map((id) => byId[id]!)
+          .where(
+            (comment) =>
+                comment.aiScoreStatus == 'flagged' ||
+                comment.aiScoreStatus == 'review',
+          )
+          .take(limit)
           .toList();
     } catch (e) {
       debugPrint(

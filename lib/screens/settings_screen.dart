@@ -55,7 +55,7 @@ class SettingsScreen extends StatelessWidget {
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text('${currentUser?.balance.toStringAsFixed(0) ?? '.tr(context)0'} ROO',
+              child: Text('${currentUser?.balance.toStringAsFixed(0) ?? '0'} ROO',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -94,7 +94,7 @@ class SettingsScreen extends StatelessWidget {
                     color: scheme.onBackground,
                   ),
                 ),
-                Text('@${currentUser?.username ?? _localizedSettingsText(context, '.tr(context)unknownUsername')}',
+                Text('@${currentUser?.username ?? _localizedSettingsText(context, 'unknownUsername')}',
                   style: TextStyle(
                     color: scheme.onSurface.withOpacity(0.6),
                     fontSize: 14,
@@ -168,30 +168,31 @@ class SettingsScreen extends StatelessWidget {
                 : Colors.orange,
             title: l10n.humanVerification,
             subtitle: _getVerificationStatus(context, currentUser?.verifiedHuman),
-            onTap: currentUser?.verifiedHuman == 'verified' ||
-                    currentUser?.verifiedHuman == 'pending'
-                ? null
-                : () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => HumanVerificationScreen(
-                          onVerify: () => Navigator.pop(context),
-                          onPhoneVerify: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => PhoneVerificationScreen(
-                                  onVerify: () => Navigator.pop(context),
-                                  onBack: () => Navigator.pop(context),
-                                ),
-                              ),
-                            );
-                          },
+            onTap: () {
+              if (currentUser?.verifiedHuman == 'verified') {
+                _showAlreadyVerifiedDialog(context);
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HumanVerificationScreen(
+                    onVerify: () => Navigator.pop(context),
+                    onPhoneVerify: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PhoneVerificationScreen(
+                            onVerify: () => Navigator.pop(context),
+                            onBack: () => Navigator.pop(context),
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
           ),
           _buildSettingsTile(
             context,
@@ -604,6 +605,33 @@ class SettingsScreen extends StatelessWidget {
       default:
         return l10n.notVerified;
     }
+  }
+
+  static void _showAlreadyVerifiedDialog(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: scheme.surface,
+        title: Row(
+          children: [
+            const Icon(Icons.verified_user, color: Colors.green),
+            const SizedBox(width: 8),
+            Text('Verified', style: TextStyle(color: scheme.onSurface)),
+          ],
+        ),
+        content: Text(
+          'You are already verified as a human. No further action is needed.',
+          style: TextStyle(color: scheme.onSurface.withOpacity(0.75)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   static void _showAboutDialog(BuildContext context) {

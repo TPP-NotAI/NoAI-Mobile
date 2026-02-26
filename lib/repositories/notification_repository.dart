@@ -150,6 +150,7 @@ class NotificationRepository {
     String? postId,
     String? commentId,
     String? storyId,
+    String? ticketId,
   }) async {
     try {
       final normalizedType = _normalizeType(type);
@@ -228,6 +229,7 @@ class NotificationRepository {
         'actor_id': actorId,
         'post_id': postId,
         'comment_id': commentId,
+        'ticket_id': ticketId,
         'story_id': storyId,
         'is_read': false,
       };

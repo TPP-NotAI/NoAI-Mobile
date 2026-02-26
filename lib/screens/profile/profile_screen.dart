@@ -79,7 +79,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } else {
       await userProvider.fetchUserActivities(resolvedId);
       if (!mounted) return;
-      context.read<FeedProvider>().loadDraftPosts();
+      context.read<FeedProvider>().loadAdPosts();
     }
 
     try {
@@ -381,18 +381,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPostUpdated: _updateProfilePost,
                 )
             else if (_tabIndex == 3 && isActuallyOwnProfile)
-              _DraftsGrid(
-                posts: feedProvider.draftPosts,
+              _AdsTab(
+                paidAds: feedProvider.paidAdPosts,
+                pendingAds: feedProvider.pendingAdPosts,
                 colors: colors,
-                onRepublish: (postId) async {
-                  final success = await feedProvider.republishPost(postId);
+                onPayFee: (postId) async {
+                  final success =
+                      await feedProvider.publishPendingAdPost(postId);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
                           success
-                              ? _profileText(context, 'postRepublished')
-                              : _profileText(context, 'failedRepublishPost'),
+                              ? 'Ad published successfully!'
+                              : 'Failed to publish ad. Please try again.',
                         ),
                       ),
                     );
@@ -1523,7 +1525,7 @@ class _ActivityItem extends StatelessWidget {
                       color: colors.onSurfaceVariant,
                     ),
                     SizedBox(width: 4),
-                    Text('$dateStr ${_profileText(context, '.tr(context)at')} $timeStr',
+                    Text('$dateStr ${_profileText(context, 'at')} $timeStr',
                       style: TextStyle(
                         fontSize: 11,
                         color: colors.onSurfaceVariant,
@@ -1736,211 +1738,478 @@ class _StatItem extends StatelessWidget {
 
 /* ───────────────── POSTS GRID ───────────────── */
 
-/* ───────────────── DRAFTS GRID ───────────────── */
+/* ───────────────── ADS TAB ───────────────── */
 
-class _DraftsGrid extends StatelessWidget {
-  final List posts;
+class _AdsTab extends StatelessWidget {
+  final List<Post> paidAds;
+  final List<Post> pendingAds;
   final ColorScheme colors;
-  final Future<void> Function(String postId) onRepublish;
+  final Future<void> Function(String postId) onPayFee;
 
-  const _DraftsGrid({
-    required this.posts,
+  const _AdsTab({
+    required this.paidAds,
+    required this.pendingAds,
     required this.colors,
-    required this.onRepublish,
+    required this.onPayFee,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (posts.isEmpty) {
+    final hasAny = paidAds.isNotEmpty || pendingAds.isNotEmpty;
+
+    if (!hasAny) {
       return SliverFillRemaining(
-        child: Center(child: Text(_profileText(context, 'noDraftsYet'))),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.campaign_outlined,
+                size: 56,
+                color: colors.onSurfaceVariant.withValues(alpha: 0.4),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No adverts yet',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
+    // Build a flat list of sections + items for the sliver
+    final items = <_AdListItem>[];
+    if (pendingAds.isNotEmpty) {
+      items.add(_AdListItem.sectionHeader('Pending Payment'));
+      for (final p in pendingAds) {
+        items.add(_AdListItem.adCard(p, isPending: true));
+      }
+    }
+    if (paidAds.isNotEmpty) {
+      items.add(_AdListItem.sectionHeader('Paid & Published'));
+      for (final p in paidAds) {
+        items.add(_AdListItem.adCard(p, isPending: false));
+      }
+    }
+
     return SliverPadding(
-      padding: AppSpacing.responsiveAll(context, AppSpacing.extraLarge),
-      sliver: SliverGrid(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: AppSpacing.mediumSmall.responsive(context),
-          mainAxisSpacing: AppSpacing.mediumSmall.responsive(context),
-          childAspectRatio: 1,
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, i) => _DraftGridItem(
-            post: posts[i],
-            colors: colors,
-            onRepublish: onRepublish,
-          ),
-          childCount: posts.length,
+          (context, i) {
+            final item = items[i];
+            if (item.isHeader) {
+              return _AdSectionHeader(
+                label: item.label!,
+                colors: colors,
+                isPending: item.label == 'Pending Payment',
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _AdCard(
+                post: item.post!,
+                colors: colors,
+                isPending: item.isPending,
+                onPayFee: onPayFee,
+              ),
+            );
+          },
+          childCount: items.length,
         ),
       ),
     );
   }
 }
 
-/* ───────────────── DRAFT GRID ITEM ───────────────── */
+class _AdListItem {
+  final bool isHeader;
+  final String? label;
+  final Post? post;
+  final bool isPending;
 
-class _DraftGridItem extends StatelessWidget {
-  final dynamic post;
-  final ColorScheme colors;
-  final Future<void> Function(String postId) onRepublish;
-
-  const _DraftGridItem({
-    required this.post,
-    required this.colors,
-    required this.onRepublish,
+  const _AdListItem._({
+    required this.isHeader,
+    this.label,
+    this.post,
+    this.isPending = false,
   });
 
-  bool _isVideo(dynamic post) {
-    if (post.mediaList != null && (post.mediaList as List).isNotEmpty) {
-      return (post.mediaList as List).first.mediaType == 'video';
-    }
-    if (post.mediaUrl != null) {
-      final url = (post.mediaUrl as String).toLowerCase();
-      return url.endsWith('.mp4') ||
-          url.endsWith('.mov') ||
-          url.endsWith('.avi');
-    }
-    return false;
+  factory _AdListItem.sectionHeader(String label) =>
+      _AdListItem._(isHeader: true, label: label);
+
+  factory _AdListItem.adCard(Post post, {required bool isPending}) =>
+      _AdListItem._(isHeader: false, post: post, isPending: isPending);
+}
+
+/* ───────────────── AD SECTION HEADER ───────────────── */
+
+class _AdSectionHeader extends StatelessWidget {
+  final String label;
+  final ColorScheme colors;
+  final bool isPending;
+
+  const _AdSectionHeader({
+    required this.label,
+    required this.colors,
+    required this.isPending,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isPending ? Colors.orange.shade700 : Colors.green.shade700;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: color.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isPending ? Icons.pending_outlined : Icons.check_circle_outline,
+                  size: 14,
+                  color: color,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* ───────────────── AD CARD ───────────────── */
+
+class _AdCard extends StatefulWidget {
+  final Post post;
+  final ColorScheme colors;
+  final bool isPending;
+  final Future<void> Function(String postId) onPayFee;
+
+  const _AdCard({
+    required this.post,
+    required this.colors,
+    required this.isPending,
+    required this.onPayFee,
+  });
+
+  @override
+  State<_AdCard> createState() => _AdCardState();
+}
+
+class _AdCardState extends State<_AdCard> {
+  bool _paying = false;
+
+  Map<String, dynamic>? get _adMeta {
+    final ad = widget.post.aiMetadata?['advertisement'];
+    if (ad is Map<String, dynamic>) return ad;
+    if (ad is Map) return ad.cast<String, dynamic>();
+    return null;
+  }
+
+  String get _adType {
+    final t = (_adMeta?['type'] as String?)?.replaceAll('_', ' ');
+    return t != null && t.isNotEmpty ? t : 'Advertisement';
   }
 
   @override
   Widget build(BuildContext context) {
+    final post = widget.post;
+    final colors = widget.colors;
     final primaryMediaUrl = post.primaryMediaUrl;
     final hasMedia = primaryMediaUrl != null && primaryMediaUrl.isNotEmpty;
-    final isVideo = _isVideo(post);
+    final accentColor = widget.isPending
+        ? Colors.orange.shade700
+        : Colors.green.shade700;
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
-        );
-      },
-      onLongPress: () async {
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(_profileText(context, 'republishPostQuestion')),
-            content: Text(_profileText(context, 'republishPostDesc')),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(AppLocalizations.of(context)!.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(_profileText(context, 'republish')),
-              ),
-            ],
-          ),
-        );
-        if (confirm == true) {
-          await onRepublish(post.id);
-        }
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+      ),
       child: Container(
         decoration: BoxDecoration(
-          color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: colors.outlineVariant.withValues(alpha: 0.5),
-            width: 1,
+            color: accentColor.withValues(alpha: 0.35),
+            width: 1.5,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Media image or content preview
-              if (hasMedia)
-                isVideo
-                    ? Container(
-                        color: Colors.black,
-                        child: Center(
-                          child: Icon(
-                            Icons.play_circle_fill,
-                            color: Colors.white.withOpacity(0.8),
-                            size: 48,
-                          ),
-                        ),
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: primaryMediaUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => const ShimmerLoading(
-                          isLoading: true,
-                          child: ShimmerBox(
-                            width: double.infinity,
-                            height: double.infinity,
-                            borderRadius: 0,
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          padding: const EdgeInsets.all(8),
-                          color: colors.surfaceContainerHighest,
-                          child: Center(
-                            child: Icon(
-                              Icons.broken_image_outlined,
-                              color: colors.onSurfaceVariant.withValues(
-                                alpha: 0.5,
-                              ),
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      )
-              else
-                // Text-only post background
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  child: Center(
-                    child: Text(
-                      post.content.length > 50
-                          ? '${post.content.substring(0, 50)}...'
-                          : post.content,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: colors.onSurface.withValues(alpha: 0.7),
-                        height: 1.3,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Media thumbnail (if any) ──
+            if (hasMedia)
+              ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(14)),
+                child: SizedBox(
+                  height: 160,
+                  width: double.infinity,
+                  child: CachedNetworkImage(
+                    imageUrl: primaryMediaUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => ShimmerLoading(
+                      isLoading: true,
+                      child: ShimmerBox(
+                        width: double.infinity,
+                        height: 160,
+                        borderRadius: 0,
                       ),
-                      textAlign: TextAlign.center,
-                      maxLines: 5,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ),
-
-              // DRAFT badge
-              Positioned(
-                top: 4,
-                left: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.tertiary,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    _profileText(context, 'draft'),
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: colors.onTertiary,
-                      letterSpacing: 0.5,
+                    errorWidget: (_, __, ___) => Container(
+                      color: colors.surfaceContainerHighest,
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        color: colors.onSurfaceVariant.withValues(alpha: 0.4),
+                        size: 40,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+
+            // ── Body ──
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // AD type chip + status badge row
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF8C00).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: const Color(0xFFFF8C00)
+                                .withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.campaign,
+                                size: 12, color: Color(0xFFFF8C00)),
+                            const SizedBox(width: 4),
+                            Text(
+                              _adType.toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFFF8C00),
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          widget.isPending ? 'PENDING' : 'PAID',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: accentColor,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Title / content preview
+                  if (post.title?.trim().isNotEmpty == true)
+                    Text(
+                      post.title!.trim(),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: colors.onSurface,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  if (post.content.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        post.content,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.onSurfaceVariant,
+                          height: 1.4,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+
+                  const SizedBox(height: 12),
+
+                  // Engagement row (only for paid/published)
+                  if (!widget.isPending)
+                    Row(
+                      children: [
+                        _AdStat(
+                            icon: Icons.visibility_outlined,
+                            value: post.views.toString(),
+                            colors: colors),
+                        const SizedBox(width: 16),
+                        _AdStat(
+                            icon: Icons.favorite_border,
+                            value: post.likes.toString(),
+                            colors: colors),
+                        const SizedBox(width: 16),
+                        _AdStat(
+                            icon: Icons.chat_bubble_outline,
+                            value: post.comments.toString(),
+                            colors: colors),
+                      ],
+                    ),
+
+                  // Pay fee button (only for pending)
+                  if (widget.isPending) ...[
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _paying
+                            ? null
+                            : () => _confirmPayFee(context),
+                        icon: _paying
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.payment, size: 18),
+                        label: Text(_paying ? 'Processing...' : 'Pay & Publish'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.orange.shade700,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Future<void> _confirmPayFee(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Pay Ad Fee & Publish'),
+        content: const Text(
+          'This will charge the advertising fee from your ROO balance and '
+          'immediately publish your ad to the feed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+                backgroundColor: Colors.orange.shade700),
+            child: const Text('Pay & Publish'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _paying = true);
+    await widget.onPayFee(widget.post.id);
+    if (mounted) setState(() => _paying = false);
+  }
+}
+
+/* ───────────────── AD STAT ───────────────── */
+
+class _AdStat extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final ColorScheme colors;
+
+  const _AdStat({
+    required this.icon,
+    required this.value,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: colors.onSurfaceVariant),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            color: colors.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2395,7 +2664,7 @@ class _TabBar extends StatelessWidget {
           ),
           if (isOwnProfile)
             _TabButton(
-              label: _profileText(context, 'drafts'),
+              label: 'Ads',
               index: 3,
               isSelected: currentIndex == 3,
               onTap: () => onTabChanged(3),

@@ -329,7 +329,7 @@ class DmService {
           type: 'chat',
           title: senderName,
           body: body,
-          actorId: null,
+          actorId: senderId,
         );
       }
     } catch (e) {

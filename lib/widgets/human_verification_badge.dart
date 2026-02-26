@@ -43,7 +43,7 @@ class HumanVerificationBadge extends StatelessWidget {
                     color: AppColors.success,
                   ),
                   const SizedBox(width: 6),
-                  Text('HUMAN SCORE: $aiPercentage% [${isPassed ? '.tr(context)PASS' : 'FAIL'}]',
+                  Text('HUMAN SCORE: $aiPercentage% [${isPassed ? 'PASS'.tr(context) : 'FAIL'.tr(context)}]',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,

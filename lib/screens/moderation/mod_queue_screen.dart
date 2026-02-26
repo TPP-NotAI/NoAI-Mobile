@@ -933,7 +933,7 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
                     color: Colors.orange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text('SEVERITY: ${(widget.moderation!['.tr(context)severity'] as String? ?? 'none').toUpperCase()}',
+                  child: Text('SEVERITY: ${(widget.moderation!['severity'] as String? ?? 'none').toUpperCase()}',
                     style: const TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.bold,

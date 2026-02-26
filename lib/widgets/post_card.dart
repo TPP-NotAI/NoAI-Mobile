@@ -575,6 +575,8 @@ class _HeaderState extends State<_Header> {
     final colors = Theme.of(context).colorScheme;
     final post = widget.post;
     final mentionSummary = _buildMentionSummary(post);
+    final isAdvert = _isAdvertPost(post);
+    final isSponsored = !isAdvert && _isBoosted;
 
     return Padding(
       padding: AppSpacing.responsiveLTRB(context, 16, 16, 8, 8),
@@ -700,17 +702,18 @@ class _HeaderState extends State<_Header> {
                             ),
                           ),
                           SizedBox(width: AppSpacing.small.responsive(context)),
-                          _MlScoreBadge(
-                            score: post.aiConfidenceScore,
-                            isModerated: post.status == 'under_review',
-                          ),
-                          if (_isAdvertPost(post)) ...[
+                          if (!isAdvert && !isSponsored)
+                            _MlScoreBadge(
+                              score: post.aiConfidenceScore,
+                              isModerated: post.status == 'under_review',
+                            ),
+                          if (isAdvert) ...[
                             SizedBox(
                               width: AppSpacing.small.responsive(context),
                             ),
                             const _AdBadge(),
                           ],
-                          if (_isBoosted) ...[
+                          if (isSponsored) ...[
                             SizedBox(
                               width: AppSpacing.small.responsive(context),
                             ),
@@ -851,20 +854,13 @@ class _SponsoredBadge extends StatelessWidget {
           color: const Color(0xFFF97316).withValues(alpha: 0.5),
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.rocket_launch, size: 9, color: Color(0xFFF97316)),
-          SizedBox(width: 3),
-          Text('Sponsored'.tr(context),
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFFF97316),
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
+      child: Text('SPONSORED'.tr(context),
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFFF97316),
+          letterSpacing: 0.2,
+        ),
       ),
     );
   }
@@ -884,7 +880,7 @@ class _AdBadge extends StatelessWidget {
           color: const Color(0xFFFF8C00).withValues(alpha: 0.5),
         ),
       ),
-      child: Text('AD'.tr(context),
+      child: Text('ADVERT'.tr(context),
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w700,

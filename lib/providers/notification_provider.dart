@@ -20,6 +20,7 @@ class NotificationProvider with ChangeNotifier {
   int _unreadCount = 0;
   NotificationSettings? _settings;
   RealtimeChannel? _notificationChannel;
+  RealtimeChannel? _supportMessageChannel;
 
   List<NotificationModel> get notifications => _notifications;
   bool get isLoading => _isLoading;
@@ -70,6 +71,9 @@ class NotificationProvider with ChangeNotifier {
               data: {
                 'notification_id': newRecord['id'],
                 'type': type,
+                'title': title,
+                'body': body,
+                'ticket_id': newRecord['ticket_id'],
                 'post_id': newRecord['post_id'],
                 'actor_id': newRecord['actor_id'],
               },
@@ -114,6 +118,82 @@ class NotificationProvider with ChangeNotifier {
             );
             // Notification was deleted
             await refreshNotifications(userId);
+          },
+        )
+        .subscribe();
+
+    // Listen for support ticket replies from staff/admin and show a local notification.
+    // This is app-side realtime, so it works while the app is running.
+    _supportMessageChannel = _client
+        .channel('public:support-ticket-messages:user=$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: SupabaseConfig.supportTicketMessagesTable,
+          callback: (payload) async {
+            final newRecord = payload.newRecord;
+            final isStaff = newRecord['is_staff'] as bool? ?? false;
+            if (!isStaff) return;
+
+            final ticketId = newRecord['ticket_id'] as String?;
+            final messageText = (newRecord['message'] as String? ?? '').trim();
+            if (ticketId == null || messageText.isEmpty) return;
+
+            try {
+              final ticketRow = await _client
+                  .from(SupabaseConfig.supportTicketsTable)
+                  .select('id, user_id, subject')
+                  .eq('id', ticketId)
+                  .maybeSingle();
+
+              if (ticketRow == null) return;
+              if ((ticketRow['user_id'] as String?) != userId) return;
+
+              final subject = (ticketRow['subject'] as String?)?.trim();
+              final title = (subject != null && subject.isNotEmpty)
+                  ? 'Support: $subject'
+                  : 'Support Team';
+              final body = messageText.length > 180
+                  ? '${messageText.substring(0, 180)}...'
+                  : messageText;
+              final senderId = newRecord['sender_id'] as String?;
+
+              // Fallback: ensure a notification row exists so it appears in the
+              // in-app Notifications screen (backend should ideally do this).
+              final notificationRowAvailable = await _ensureSupportNotificationRow(
+                userId: userId,
+                ticketId: ticketId,
+                title: title,
+                body: body,
+                actorId: senderId,
+              );
+
+              // Avoid duplicate local pushes/snackbars when a notification row
+              // exists (the notifications realtime listener will handle UI).
+              if (!notificationRowAvailable) {
+                await PushNotificationService().showLocalNotification(
+                  title: title,
+                  body: body,
+                  type: 'support_chat',
+                  data: {
+                    'type': 'support_chat',
+                    'title': title,
+                    'body': body,
+                    'ticket_id': ticketId,
+                  },
+                );
+
+                _showInAppNotificationSnackBar(
+                  type: 'support_chat',
+                  title: title,
+                  body: body,
+                );
+              }
+            } catch (e) {
+              debugPrint(
+                'NotificationProvider: Failed support message notification - $e',
+              );
+            }
           },
         )
         .subscribe();
@@ -193,6 +273,81 @@ class NotificationProvider with ChangeNotifier {
     if (_notificationChannel != null) {
       _client.removeChannel(_notificationChannel!);
       _notificationChannel = null;
+    }
+    if (_supportMessageChannel != null) {
+      _client.removeChannel(_supportMessageChannel!);
+      _supportMessageChannel = null;
+    }
+  }
+
+  Future<bool> _ensureSupportNotificationRow({
+    required String userId,
+    required String ticketId,
+    required String title,
+    required String body,
+    String? actorId,
+  }) async {
+    try {
+      final recent = DateTime.now()
+          .subtract(const Duration(minutes: 2))
+          .toIso8601String();
+      List existing;
+      try {
+        // Preferred path when notifications table supports `ticket_id`.
+        existing = await _client
+            .from(SupabaseConfig.notificationsTable)
+            .select('id')
+            .eq('user_id', userId)
+            .eq('ticket_id', ticketId)
+            .eq('title', title)
+            .eq('body', body)
+            .gte('created_at', recent)
+            .limit(1);
+      } catch (_) {
+        // Backward-compatible fallback for schemas without `ticket_id`.
+        existing = await _client
+            .from(SupabaseConfig.notificationsTable)
+            .select('id')
+            .eq('user_id', userId)
+            .eq('title', title)
+            .eq('body', body)
+            .gte('created_at', recent)
+            .limit(1);
+      }
+
+      if (existing.isNotEmpty) return true;
+
+      var created = await _repository.createNotification(
+        userId: userId,
+        type: 'support_chat',
+        title: title,
+        body: body,
+        actorId: actorId,
+        ticketId: ticketId,
+      );
+
+      // Backward-compatible retry if insert failed because `ticket_id` column
+      // is not yet present in the notifications table.
+      if (!created) {
+        created = await _repository.createNotification(
+          userId: userId,
+          type: 'support_chat',
+          title: title,
+          body: body,
+          actorId: actorId,
+        );
+      }
+
+      // Ensure the list updates even if realtime callback lags/skips.
+      if (created) {
+        await refreshNotifications(userId);
+      }
+      return created;
+    } catch (e) {
+      debugPrint(
+        'NotificationProvider: Failed to ensure support notification row - $e',
+      );
+      return false;
     }
   }
 

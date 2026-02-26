@@ -818,8 +818,8 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                         showDate = true;
                       } else {
                         final nextMessage = messages[index + 1];
-                        if (message.createdAt.day !=
-                            nextMessage.createdAt.day) {
+                        if (message.createdAt.toLocal().day !=
+                            nextMessage.createdAt.toLocal().day) {
                           showDate = true;
                         }
                       }
@@ -827,7 +827,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                       return Column(
                         children: [
                           if (showDate)
-                            _buildDateHeader(message.createdAt, colors),
+                            _buildDateHeader(message.createdAt.toLocal(), colors),
                           SwipeTo(
                             onRightSwipe: (details) {
                               setState(() => _replyMessage = message);
@@ -885,13 +885,13 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
 
       if (difference.inDays == 0) {
         // Today - show time
-        statusText = 'Last seen ${DateFormat.Hm().format(lastSeen)}';
+        statusText = 'Last seen ${DateFormat.Hm().format(lastSeen.toLocal())}';
       } else if (difference.inDays == 1) {
         statusText = 'Last seen yesterday';
       } else if (difference.inDays < 7) {
         statusText = 'Last seen ${difference.inDays} days ago';
       } else {
-        statusText = 'Last seen ${DateFormat.MMMd().format(lastSeen)}';
+        statusText = 'Last seen ${DateFormat.MMMd().format(lastSeen.toLocal())}';
       }
     } else if (otherUser.lastSeen == null) {
       statusText = 'Offline';
@@ -1061,17 +1061,18 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
   }
 
   String _getFriendlyDate(DateTime date) {
+    final local = date.toLocal();
     final now = DateTime.now();
-    if (date.day == now.day &&
-        date.month == now.month &&
-        date.year == now.year) {
+    if (local.day == now.day &&
+        local.month == now.month &&
+        local.year == now.year) {
       return 'Today';
-    } else if (date.day == now.day - 1 &&
-        date.month == now.month &&
-        date.year == now.year) {
+    } else if (local.day == now.day - 1 &&
+        local.month == now.month &&
+        local.year == now.year) {
       return 'Yesterday';
     } else {
-      return DateFormat('MMMM d, yyyy').format(date);
+      return DateFormat('MMMM d, yyyy').format(local);
     }
   }
 
@@ -1694,7 +1695,7 @@ class _MessageBubble extends StatelessWidget {
                               const SizedBox(width: 4),
                             ],
                             Text(
-                              DateFormat.Hm().format(message.createdAt),
+                              DateFormat.Hm().format(message.createdAt.toLocal()),
                               style: TextStyle(
                                 fontSize: 10,
                                 color: isDark ? Colors.white60 : Colors.black54,

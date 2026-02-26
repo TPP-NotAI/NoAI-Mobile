@@ -18,6 +18,8 @@ String humanReadableTime(String timestamp) {
 
   if (dt == null) return timestamp; // fallback to original
 
+  // Convert to local timezone so all comparisons and formatting use the viewer's time
+  dt = dt.toLocal();
   final now = DateTime.now();
   final diff = now.difference(dt);
 

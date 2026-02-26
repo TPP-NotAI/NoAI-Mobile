@@ -17,6 +17,7 @@ NotificationModel _$NotificationModelFromJson(Map<String, dynamic> json) =>
       actorId: json['actor_id'] as String?,
       postId: json['post_id'] as String?,
       commentId: json['comment_id'] as String?,
+      ticketId: json['ticket_id'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
 
@@ -31,5 +32,6 @@ Map<String, dynamic> _$NotificationModelToJson(NotificationModel instance) =>
       'actor_id': instance.actorId,
       'post_id': instance.postId,
       'comment_id': instance.commentId,
+      'ticket_id': instance.ticketId,
       'created_at': instance.createdAt.toIso8601String(),
     };

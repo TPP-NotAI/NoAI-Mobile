@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
+import '../services/activity_log_service.dart';
 
 /// Repository for bookmark operations.
 class BookmarkRepository {
   final _client = SupabaseService().client;
+  final _activityLogService = ActivityLogService();
 
   /// Toggle bookmark on a post.
   /// Returns true if bookmarked, false if unbookmarked.
@@ -32,6 +36,16 @@ class BookmarkRepository {
           .delete()
           .eq('post_id', postId)
           .eq('user_id', userId);
+      unawaited(
+        _activityLogService.log(
+          userId: userId,
+          activityType: 'bookmark',
+          targetType: 'post',
+          targetId: postId,
+          description: 'Removed bookmark',
+          metadata: {'action': 'removed'},
+        ),
+      );
       return false;
     } else {
       // Add bookmark
@@ -41,6 +55,16 @@ class BookmarkRepository {
         'user_id': userId,
       });
       debugPrint('BookmarkRepository: Insert successful');
+      unawaited(
+        _activityLogService.log(
+          userId: userId,
+          activityType: 'bookmark',
+          targetType: 'post',
+          targetId: postId,
+          description: 'Bookmarked a post',
+          metadata: {'action': 'added'},
+        ),
+      );
       return true;
     }
   }

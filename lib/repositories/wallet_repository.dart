@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/wallet.dart';
 import '../services/rooken_service.dart';
 import '../services/secure_storage_service.dart';
+import '../services/activity_log_service.dart';
 import '../core/extensions/exception_extensions.dart';
 
 /// Repository for managing wallet data and Rooken integration
@@ -10,6 +11,7 @@ class WalletRepository {
   final SupabaseClient _supabase;
   final RookenService _rookenService;
   final SecureStorageService _secureStorage;
+  final ActivityLogService _activityLogService = ActivityLogService();
   static const String _walletKeysTable = 'user_wallet_keys';
   static const String _legacyWalletBackupsTable = 'wallet_backups';
   static final Map<String, Future<Wallet>> _getOrCreateInFlight = {};
@@ -949,6 +951,25 @@ class WalletRepository {
         },
         'completed_at': DateTime.now().toIso8601String(),
       });
+
+      await _activityLogService.log(
+        userId: userId,
+        activityType: 'transaction',
+        targetType: 'wallet',
+        targetId: recipientUserId,
+        description: 'Sent ROO',
+        metadata: {
+          'direction': recipientUserId != null ? 'internal' : 'external',
+          'to_user_id': recipientUserId,
+          'to_address': toAddress,
+          'amount_rc': amount,
+          'fee_rc': fee,
+          'tx_hash': txHash,
+          'memo': memo,
+          'reference_post_id': referencePostId,
+          'reference_comment_id': referenceCommentId,
+        },
+      );
 
       // 1b. Record the withdrawal fee as a separate fee transaction
       if (fee > 0) {

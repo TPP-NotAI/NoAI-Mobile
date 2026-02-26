@@ -2171,7 +2171,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         children: _taggedPeople.map((person) {
                           return Chip(
                             avatar: const Icon(Icons.person, size: 16),
-                            label: Text('@${person['.tr(context)username']}'),
+                            label: Text('@${person['username']}'),
                             deleteIcon: const Icon(Icons.close, size: 16),
                             onDeleted: () {
                               setState(() => _taggedPeople.remove(person));
@@ -3763,7 +3763,7 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
                             ? const Icon(Icons.person, size: 16)
                             : null,
                       ),
-                      label: Text('@${person['.tr(context)username']}'),
+                      label: Text('@${person['username']}'),
                       deleteIcon: const Icon(Icons.close, size: 16),
                       onDeleted: () => _removePerson(person),
                       backgroundColor: colors.primaryContainer,
@@ -3809,7 +3809,7 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
                             title: Text(
                               user['display_name'] ?? user['username'],
                             ),
-                            subtitle: Text('@${user['.tr(context)username']}'),
+                            subtitle: Text('@${user['username']}'),
                             trailing: isSelected
                                 ? Icon(Icons.check, color: colors.primary)
                                 : null,

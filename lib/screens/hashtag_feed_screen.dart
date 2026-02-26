@@ -214,7 +214,7 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${_posts.length} ${_posts.length == 1 ? '.tr(context)post' : 'posts'}',
+                Text('${_posts.length} ${_posts.length == 1 ? 'post' : 'posts'}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: colors.onSurface,

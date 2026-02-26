@@ -123,6 +123,43 @@ support_ticket_messages(message, created_at)
     }
   }
 
+  Future<SupportTicket?> getCurrentUserTicketById(String ticketId) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return null;
+
+      final row = await _client
+          .from(SupabaseConfig.supportTicketsTable)
+          .select(
+            '''
+id,
+user_id,
+subject,
+category,
+priority,
+status,
+assigned_to,
+created_at,
+updated_at,
+resolved_at,
+profiles!support_tickets_user_id_fkey(username, display_name),
+support_ticket_messages(message, created_at)
+''',
+          )
+          .eq('id', ticketId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (row == null) return null;
+      return SupportTicket.fromSupabase(row);
+    } catch (e) {
+      debugPrint(
+        'SupportTicketRepository: Failed to fetch current user ticket by id - $e',
+      );
+      return null;
+    }
+  }
+
   Stream<List<SupportTicketMessage>> subscribeToTicketMessages(String ticketId) {
     return _client
         .from(SupabaseConfig.supportTicketMessagesTable)

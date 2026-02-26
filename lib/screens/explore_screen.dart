@@ -634,7 +634,7 @@ class _UserSearchResult extends StatelessWidget {
                   if (user['display_name'] != null &&
                       user['display_name'] != user['username']) ...[
                     const SizedBox(height: 2),
-                    Text('@${user['.tr(context)username']}',
+                    Text('@${user['username']}',
                       style: TextStyle(
                         fontSize: 14,
                         color: colors.onSurfaceVariant,

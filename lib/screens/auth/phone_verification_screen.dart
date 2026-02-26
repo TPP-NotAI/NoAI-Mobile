@@ -504,7 +504,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                 items: _countryCodes.map((country) {
                   return DropdownMenuItem(
                     value: country['code'],
-                    child: Text('${country['.tr(context)code']} ${country['country']}',
+                    child: Text('${country['code']} ${country['country']}',
                       style: TextStyle(
                         fontSize: AppTypography.responsiveFontSize(
                             context, AppTypography.base),

@@ -7,6 +7,7 @@ import 'package:rooverse/services/supabase_service.dart';
 import 'package:rooverse/config/supabase_config.dart';
 import 'package:rooverse/models/user.dart';
 import 'package:rooverse/services/referral_service.dart';
+import 'package:rooverse/services/activity_log_service.dart';
 import 'package:rooverse/core/errors/error_mapper.dart';
 import 'package:rooverse/core/errors/app_exception.dart';
 
@@ -21,6 +22,7 @@ enum RecoveryStep { email, otp, newPassword, success }
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
   final SupabaseService _supabase = SupabaseService();
+  final ActivityLogService _activityLogService = ActivityLogService();
 
   AuthStatus _status = AuthStatus.initial;
   User? _currentUser;
@@ -77,6 +79,17 @@ class AuthProvider with ChangeNotifier {
       switch (event.event) {
         case AuthChangeEvent.signedIn:
           if (event.session?.user != null) {
+            unawaited(
+              _activityLogService.log(
+                userId: event.session!.user.id,
+                activityType: 'login',
+                description: 'User signed in',
+                metadata: {
+                  'auth_event': 'signed_in',
+                  'provider': event.session!.user.appMetadata['provider'],
+                },
+              ),
+            );
             _loadCurrentUser(event.session!.user.id);
           }
           break;
@@ -468,6 +481,17 @@ class AuthProvider with ChangeNotifier {
   Future<void> signOut() async {
     // Cancel profile realtime subscription before signing out.
     _unsubscribeFromProfileChanges();
+    final signingOutUserId = _currentUser?.id;
+
+    if (signingOutUserId != null) {
+      unawaited(
+        _activityLogService.log(
+          userId: signingOutUserId,
+          activityType: 'logout',
+          description: 'User signed out',
+        ),
+      );
+    }
 
     try {
       await _authService.signOut();

@@ -42,9 +42,11 @@ import 'screens/create/create_post_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/chat/chat_list_screen.dart';
+import 'screens/chat/conversation_thread_page.dart';
 import 'screens/support/contact_support_screen.dart';
 import 'screens/support/faq_screen.dart';
 import 'screens/support/support_chat_screen.dart';
+import 'screens/post_detail_screen.dart';
 import 'config/app_constants.dart';
 import 'config/global_keys.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
@@ -297,10 +299,14 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _deepLinkHandled = false;
+  bool _handlingPendingNotificationTap = false;
 
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeHandleDeepLink());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _maybeHandlePendingNotificationTap(),
+    );
 
     final authProvider = context.watch<AuthProvider>();
     // Watch WalletProvider so AuthWrapper rebuilds when balance changes,
@@ -444,6 +450,149 @@ class _AuthWrapperState extends State<AuthWrapper> {
         : const ContactSupportScreen();
 
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
+
+  Future<void> _maybeHandlePendingNotificationTap() async {
+    if (!mounted || _handlingPendingNotificationTap) return;
+
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.status != AuthStatus.authenticated ||
+        authProvider.currentUser == null) {
+      return;
+    }
+
+    final data = PushNotificationService().consumePendingNotificationData();
+    if (data == null) return;
+
+    _handlingPendingNotificationTap = true;
+    try {
+      await _handlePendingNotificationTapData(data);
+    } finally {
+      _handlingPendingNotificationTap = false;
+    }
+  }
+
+  Future<void> _handlePendingNotificationTapData(
+    Map<String, dynamic> data,
+  ) async {
+    final notificationId = _payloadString(data, 'notification_id');
+    if (notificationId != null) {
+      await context.read<NotificationProvider>().markAsRead(notificationId);
+    }
+
+    final type = (_payloadString(data, 'type') ?? '').toLowerCase();
+    final title = (_payloadString(data, 'title') ?? '').toLowerCase();
+    final body = (_payloadString(data, 'body') ?? '').toLowerCase();
+    final threadId = _payloadString(data, 'thread_id');
+    final ticketId = _payloadString(data, 'ticket_id');
+    final postId = _payloadString(data, 'post_id');
+    final actorId = _payloadString(data, 'actor_id');
+
+    final isSupportNotification =
+        type == 'support_chat' ||
+        (type == 'mention' &&
+            postId == null &&
+            (title.contains('support') ||
+                body.contains('support') ||
+                title.contains('update') ||
+                title.contains('announcement') ||
+                title.contains('notice') ||
+                title.contains('maintenance') ||
+                body.contains('support team')));
+
+    if (isSupportNotification && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SupportChatScreen(initialTicketId: ticketId),
+        ),
+      );
+      return;
+    }
+
+    if (threadId != null) {
+      final chatProvider = context.read<ChatProvider>();
+      var index = chatProvider.conversations.indexWhere(
+        (c) => c.id == threadId,
+      );
+      var conversation = index >= 0 ? chatProvider.conversations[index] : null;
+
+      if (conversation == null) {
+        await chatProvider.loadConversations();
+        if (!mounted) return;
+        index = chatProvider.conversations.indexWhere((c) => c.id == threadId);
+        conversation = index >= 0 ? chatProvider.conversations[index] : null;
+      }
+
+      if (conversation != null && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ConversationThreadPage(conversation: conversation!),
+          ),
+        );
+        return;
+      }
+    }
+
+    if (postId != null) {
+      final post = await context.read<FeedProvider>().getPostById(postId);
+      if (!mounted) return;
+      if (post != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+        );
+        return;
+      }
+    }
+
+    final shouldOpenChatFromActor =
+        actorId != null &&
+        (type == 'message' ||
+            type == 'chat' ||
+            (type == 'mention' && postId == null));
+
+    if (shouldOpenChatFromActor) {
+      final conversation = await context.read<ChatProvider>().startConversation(
+        actorId!,
+      );
+      if (!mounted) return;
+      if (conversation != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ConversationThreadPage(conversation: conversation),
+          ),
+        );
+        return;
+      }
+    }
+
+    if (actorId != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProfileScreen(userId: actorId, showAppBar: true),
+        ),
+      );
+      return;
+    }
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+      );
+    }
+  }
+
+  String? _payloadString(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return null;
+    return text;
   }
 }
 
@@ -962,6 +1111,7 @@ void _showProfileSheet(BuildContext parentContext) {
                         onTap: () {
                           final avatarUrl = user.avatar?.trim();
                           if (avatarUrl != null && avatarUrl.isNotEmpty) {
+                            Navigator.pop(sheetContext);
                             ProfileImagePreview.show(
                               parentContext,
                               imageUrl: avatarUrl,

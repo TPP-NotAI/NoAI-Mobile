@@ -9,7 +9,9 @@ import '../../services/supabase_service.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SupportChatScreen extends StatefulWidget {
-  const SupportChatScreen({super.key});
+  final String? initialTicketId;
+
+  const SupportChatScreen({super.key, this.initialTicketId});
 
   @override
   State<SupportChatScreen> createState() => _SupportChatScreenState();
@@ -48,7 +50,9 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     });
 
     try {
-      final ticket = await _repository.getLatestCurrentUserTicket();
+      final ticket = widget.initialTicketId != null
+          ? await _repository.getCurrentUserTicketById(widget.initialTicketId!)
+          : await _repository.getLatestCurrentUserTicket();
       if (!mounted) return;
 
       setState(() {
@@ -58,6 +62,13 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
 
       if (ticket != null) {
         _subscribeToMessages(ticket.id);
+      } else if (widget.initialTicketId != null) {
+        final fallback = await _repository.getLatestCurrentUserTicket();
+        if (!mounted) return;
+        setState(() => _ticket = fallback);
+        if (fallback != null) {
+          _subscribeToMessages(fallback.id);
+        }
       }
     } catch (e) {
       if (!mounted) return;

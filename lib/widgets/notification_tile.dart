@@ -1,26 +1,39 @@
 import 'package:flutter/material.dart';
 import '../../models/notification_model.dart';
 import '../../config/app_colors.dart';
+import 'package:rooverse/l10n/hardcoded_l10n.dart';
 
-class NotificationTile extends StatelessWidget {
+class NotificationTile extends StatefulWidget {
   final NotificationModel notification;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const NotificationTile({
     super.key,
     required this.notification,
-    required this.onTap,
+    this.onTap,
   });
+
+  @override
+  State<NotificationTile> createState() => _NotificationTileState();
+}
+
+class _NotificationTileState extends State<NotificationTile> {
+  static const int _readMoreThreshold = 140;
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final notification = widget.notification;
+    final isSupportLike = _isSupportLikeNotification(notification);
+    final bodyText = notification.getDisplayBody();
+    final canExpand = bodyText.length > _readMoreThreshold;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -126,16 +139,39 @@ class NotificationTile extends StatelessWidget {
                         ),
                       ),
 
-                    if (notification.getDisplayBody().isNotEmpty) ...[
+                    if (bodyText.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        notification.getDisplayBody(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        bodyText,
+                        maxLines: _expanded ? null : (isSupportLike ? 4 : 2),
+                        overflow:
+                            _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.onSurfaceVariant,
                         ),
                       ),
+                      if (canExpand)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: () => setState(() => _expanded = !_expanded),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.only(top: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            child: Text(
+                              _expanded
+                                  ? 'Read less'.tr(context)
+                                  : 'Read more'.tr(context),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
 
                     const SizedBox(height: 4),
@@ -287,8 +323,36 @@ class NotificationTile extends StatelessWidget {
     return type.startsWith('post_') ||
         type.startsWith('comment_') ||
         type.startsWith('story_') ||
+        _isSupportLikeNotification(notification) ||
         type == 'chat' ||
         type == 'message' ||
         (type == 'mention' && notification.actorId == null);
+  }
+
+  bool _isSupportLikeNotification(NotificationModel notification) {
+    final type = notification.type.toLowerCase();
+    final title = (notification.title ?? '').toLowerCase();
+    final body = (notification.body ?? '').toLowerCase();
+    final actorName = (notification.actor?.displayName ?? '').toLowerCase();
+    final actorUsername = (notification.actor?.username ?? '').toLowerCase();
+
+    final actorLooksSupport = actorName.contains('admin') ||
+        actorName.contains('support') ||
+        actorUsername.contains('admin') ||
+        actorUsername.contains('support');
+
+    final titleLooksSupport = title.contains('support') ||
+        title.contains('update') ||
+        title.contains('announcement') ||
+        title.contains('notice') ||
+        title.contains('maintenance');
+
+    return type == 'support_chat' ||
+        (type == 'mention' &&
+            notification.postId == null &&
+            notification.commentId == null &&
+            (actorLooksSupport ||
+                titleLooksSupport ||
+                body.contains('support team')));
   }
 }

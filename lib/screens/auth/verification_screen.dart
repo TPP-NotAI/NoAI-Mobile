@@ -532,7 +532,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               ),
                             ),
                           if (_resendCooldown > 0)
-                            Text(' (${_resendCooldown ~/ 60}:${(_resendCooldown % 60).toString().padLeft(2, '.tr(context)0')})',
+                            Text(' (${_resendCooldown ~/ 60}:${(_resendCooldown % 60).toString().padLeft(2, '0')})',
                               style: TextStyle(
                                 fontSize: AppTypography.responsiveFontSize(
                                     context, AppTypography.base),

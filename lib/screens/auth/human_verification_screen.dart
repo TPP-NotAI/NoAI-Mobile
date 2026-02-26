@@ -34,6 +34,8 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
   String? _statusMessage;
   bool _isSessionActive = false;
   bool _onVerifyCalled = false;
+  AuthProvider? _authProvider;
+  bool _authListenerAttached = false;
 
   @override
   void initState() {
@@ -44,13 +46,19 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
     // table, so when verified_human changes to 'verified' we get notified here
     // and can call onVerify() without the user restarting the app.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthProvider>().addListener(_onAuthChanged);
+      if (!mounted) return;
+      _authProvider = context.read<AuthProvider>();
+      _authProvider!.addListener(_onAuthChanged);
+      _authListenerAttached = true;
     });
   }
 
   @override
   void dispose() {
-    context.read<AuthProvider>().removeListener(_onAuthChanged);
+    if (_authListenerAttached) {
+      _authProvider?.removeListener(_onAuthChanged);
+      _authListenerAttached = false;
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -74,6 +82,20 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
 
   Future<void> _startVerification() async {
     if (_isLoading) return;
+    final verificationStatus = context.read<AuthProvider>().currentUser?.verifiedHuman;
+    if (verificationStatus == 'verified' || verificationStatus == 'pending') {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            verificationStatus == 'verified'
+                ? 'You are already verified.'.tr(context)
+                : 'Your verification is already pending review.'.tr(context),
+          ),
+        ),
+      );
+      return;
+    }
 
     try {
       setState(() {
@@ -586,11 +608,17 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
   }
 
   Widget _buildActionButton() {
+    final verificationStatus =
+        context.watch<AuthProvider>().currentUser?.verifiedHuman;
+    final isVerified = verificationStatus == 'verified';
+    final isPending = verificationStatus == 'pending';
+    final isDisabled = _isLoading || isVerified || isPending;
+
     return SizedBox(
       width: double.infinity,
       height: 60.responsive(context, min: 52, max: 68),
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _startVerification,
+        onPressed: isDisabled ? null : _startVerification,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
@@ -612,7 +640,12 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Start Verification'.tr(context),
+                  Text(
+                    isVerified
+                        ? 'Already Verified'.tr(context)
+                        : isPending
+                        ? 'Verification Pending'.tr(context)
+                        : 'Start Verification'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
                         context,
@@ -621,11 +654,13 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    size: AppTypography.responsiveIconSize(context, 20),
-                  ),
+                  if (!isVerified && !isPending) ...[
+                    SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: AppTypography.responsiveIconSize(context, 20),
+                    ),
+                  ],
                 ],
               ),
       ),

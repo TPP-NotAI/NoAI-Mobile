@@ -335,7 +335,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       children: [
         _buildTitleSection('Verify Code'),
         SizedBox(height: AppSpacing.largePlus.responsive(context)),
-        Text('We\'ve sent a 6-digit verification code to ${authProvider.pendingEmail ?? '.tr(context)your email'}. Please enter it below to proceed.',
+        Text('We\'ve sent a 6-digit verification code to ${authProvider.pendingEmail ?? 'your email'.tr(context)}. Please enter it below to proceed.',
           style: TextStyle(
             fontSize: AppTypography.responsiveFontSize(
               context,

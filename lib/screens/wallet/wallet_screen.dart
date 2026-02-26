@@ -1108,7 +1108,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  Text('${isSent ? '.tr(context)-' : '+'}${_currencyFormat.format(amount)} ROO',
+                                  Text('${isSent ? '-' : '+'}${_currencyFormat.format(amount)} ROO',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: isSent
