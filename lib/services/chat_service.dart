@@ -647,6 +647,25 @@ class ChatService {
         });
   }
 
+  /// Fetch all DM messages flagged by AI that were sent by [userId].
+  Future<List<Message>> getUserFlaggedMessages(String userId) async {
+    try {
+      final data = await _supabase
+          .from('dm_messages')
+          .select()
+          .eq('sender_id', userId)
+          .eq('ai_score_status', 'flagged')
+          .order('created_at', ascending: false);
+
+      return (data as List)
+          .map((m) => Message.fromSupabase(m as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('ChatService: getUserFlaggedMessages error - $e');
+      return [];
+    }
+  }
+
   Future<_AiPrecheckResult?> _runAiDetectionPreSend({
     required String content,
     String? mediaUrl,

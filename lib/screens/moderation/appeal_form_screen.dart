@@ -4,6 +4,7 @@ import '../../config/app_colors.dart';
 import '../../models/post.dart';
 import '../../models/comment.dart';
 import '../../models/story.dart';
+import '../../models/message.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/appeal_repository.dart';
 
@@ -12,18 +13,21 @@ class AppealFormScreen extends StatefulWidget {
   final Post? post;
   final Comment? comment;
   final Story? story;
+  final Message? message;
 
   const AppealFormScreen({
     super.key,
     this.post,
     this.comment,
     this.story,
+    this.message,
   }) : assert(
           (post != null ? 1 : 0) +
                   (comment != null ? 1 : 0) +
-                  (story != null ? 1 : 0) ==
+                  (story != null ? 1 : 0) +
+                  (message != null ? 1 : 0) ==
               1,
-          'Provide exactly one of post, comment, or story.',
+          'Provide exactly one of post, comment, story, or message.',
         );
 
   @override
@@ -59,6 +63,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
       final postId = widget.post?.id;
       final commentId = widget.comment?.id;
       final storyId = widget.story?.id;
+      final messageId = widget.message?.id;
 
       // Check for existing appeal
       final alreadyAppealed = await _appealRepo.hasExistingAppeal(
@@ -66,6 +71,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
         postId: postId,
         commentId: commentId,
         storyId: storyId,
+        messageId: messageId,
       );
 
       if (alreadyAppealed) {
@@ -83,12 +89,14 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
       final aiConfidence = widget.post?.aiConfidenceScore ??
           widget.comment?.aiScore ??
           widget.story?.aiScore ??
+          widget.message?.aiScore ??
           0.0;
 
       final caseId = await _appealRepo.getOrCreateModerationCase(
         postId: postId,
         commentId: commentId,
         storyId: storyId,
+        messageId: messageId,
         reportedUserId: currentUser.id,
         aiConfidence: aiConfidence,
       );
@@ -145,12 +153,15 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
     final post = widget.post;
     final comment = widget.comment;
     final story = widget.story;
+    final message = widget.message;
     final title = post != null
         ? 'Post Appeal'
         : story != null
         ? 'Story Appeal'
+        : message != null
+        ? 'Message Appeal'
         : 'Comment Appeal';
-    final bodyPreview = post?.content ?? comment?.text ?? story?.caption ?? '';
+    final bodyPreview = post?.content ?? comment?.text ?? story?.caption ?? message?.displayContent ?? '';
 
     return Scaffold(
       backgroundColor: scheme.background,
@@ -188,6 +199,8 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                         ? 'FLAGGED POST'
                         : story != null
                         ? 'FLAGGED STORY'
+                        : message != null
+                        ? 'FLAGGED MESSAGE'
                         : 'FLAGGED COMMENT',
                     style: TextStyle(
                       fontSize: 11,
@@ -208,9 +221,10 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                     ),
                   ),
                   if (post?.aiConfidenceScore != null ||
-                      comment?.aiScore != null) ...[
+                      comment?.aiScore != null ||
+                      message?.aiScore != null) ...[
                     SizedBox(height: 8),
-                    Text('AI Confidence: ${post != null ? post.aiConfidenceScore!.toStringAsFixed(1) : (comment?.aiScore ?? 0).toStringAsFixed(1)}%'.tr(context),
+                    Text('AI Confidence: ${(post?.aiConfidenceScore ?? comment?.aiScore ?? message?.aiScore ?? 0).toStringAsFixed(1)}%'.tr(context),
                       style: const TextStyle(
                         fontSize: 12,
                         color: Colors.orange,

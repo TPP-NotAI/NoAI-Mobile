@@ -12,20 +12,23 @@ class AppealRepository {
     String? postId,
     String? commentId,
     String? storyId,
+    String? messageId,
     required String reportedUserId,
     required double aiConfidence,
   }) async {
     assert(
-      [postId, commentId, storyId].where((v) => v != null).length == 1,
-      'Provide exactly one of postId, commentId, or storyId',
+      [postId, commentId, storyId, messageId].where((v) => v != null).length == 1,
+      'Provide exactly one of postId, commentId, storyId, or messageId',
     );
 
     final field = postId != null
         ? 'post_id'
         : commentId != null
         ? 'comment_id'
+        : messageId != null
+        ? 'message_id'
         : 'story_id';
-    final contentId = postId ?? commentId ?? storyId;
+    final contentId = postId ?? commentId ?? storyId ?? messageId;
 
     try {
       final existing = await _client
@@ -44,6 +47,7 @@ class AppealRepository {
             if (postId != null) 'post_id': postId,
             if (commentId != null) 'comment_id': commentId,
             if (storyId != null) 'story_id': storyId,
+            if (messageId != null) 'message_id': messageId,
             'reported_user_id': reportedUserId,
             'reason': 'ai_generated',
             'source': 'ai',
@@ -89,18 +93,21 @@ class AppealRepository {
     String? postId,
     String? commentId,
     String? storyId,
+    String? messageId,
   }) async {
     assert(
-      [postId, commentId, storyId].where((v) => v != null).length == 1,
-      'Provide exactly one of postId, commentId, or storyId',
+      [postId, commentId, storyId, messageId].where((v) => v != null).length == 1,
+      'Provide exactly one of postId, commentId, storyId, or messageId',
     );
 
     final field = postId != null
         ? 'post_id'
         : commentId != null
         ? 'comment_id'
+        : messageId != null
+        ? 'message_id'
         : 'story_id';
-    final contentId = postId ?? commentId ?? storyId;
+    final contentId = postId ?? commentId ?? storyId ?? messageId;
 
     try {
       final result = await _client

@@ -7,11 +7,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/post.dart';
 import '../../models/comment.dart';
 import '../../models/story.dart';
+import '../../models/message.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../repositories/post_repository.dart';
 import '../../repositories/comment_repository.dart';
 import '../../repositories/story_repository.dart';
+import '../../services/chat_service.dart';
 import '../../config/app_colors.dart';
 import '../../widgets/video_player_widget.dart';
 import 'appeal_form_screen.dart';
@@ -31,10 +33,12 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
   final _postRepo = PostRepository();
   final _commentRepo = CommentRepository();
   final _storyRepo = StoryRepository();
+  final _chatService = ChatService();
 
   List<Post> _flaggedPosts = [];
   List<Comment> _flaggedComments = [];
   List<Story> _flaggedStories = [];
+  List<Message> _flaggedMessages = [];
   bool _loading = true;
   final Set<String> _payingPostIds = <String>{};
 
@@ -47,7 +51,7 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _load();
   }
 
@@ -69,6 +73,7 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
       _postRepo.getUserFlaggedPosts(userId),
       _commentRepo.getUserFlaggedComments(userId),
       _storyRepo.getUserFlaggedStories(userId),
+      _chatService.getUserFlaggedMessages(userId),
     ]);
 
     if (mounted) {
@@ -76,6 +81,7 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
         _flaggedPosts = results[0] as List<Post>;
         _flaggedComments = results[1] as List<Comment>;
         _flaggedStories = results[2] as List<Story>;
+        _flaggedMessages = results[3] as List<Message>;
         _loading = false;
       });
     }
@@ -241,6 +247,29 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
     });
   }
 
+  Future<void> _deleteMessage(Message message) async {
+    final confirm = await _confirmDelete(context, 'message');
+    if (!confirm) return;
+    await _chatService.deleteMessage(message.id);
+    setState(() => _flaggedMessages.removeWhere((m) => m.id == message.id));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Message deleted.'.tr(context))),
+      );
+    }
+  }
+
+  void _appealMessage(Message message) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => AppealFormScreen(message: message)),
+    ).then((appealed) {
+      if (appealed == true) {
+        setState(() => _flaggedMessages.removeWhere((m) => m.id == message.id));
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -269,6 +298,8 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
           labelColor: AppColors.primary,
           unselectedLabelColor: scheme.onSurface.withValues(alpha: 0.5),
           indicatorColor: AppColors.primary,
+          isScrollable: true,
+          tabAlignment: TabAlignment.center,
           tabs: [
             Tab(
               text:
@@ -276,11 +307,15 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
             ),
             Tab(
               text:
+                  'Stories${_flaggedStories.isNotEmpty ? ' (${_flaggedStories.length})' : ''}',
+            ),
+            Tab(
+              text:
                   'Comments${_flaggedComments.isNotEmpty ? ' (${_flaggedComments.length})' : ''}',
             ),
             Tab(
               text:
-                  'Stories${_flaggedStories.isNotEmpty ? ' (${_flaggedStories.length})' : ''}',
+                  'Messages${_flaggedMessages.isNotEmpty ? ' (${_flaggedMessages.length})' : ''}',
             ),
           ],
         ),
@@ -332,16 +367,22 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
                          onDelete: _deletePost,
                          onRefresh: _load,
                        ),
+                      _StoryTab(
+                        stories: _flaggedStories,
+                        onAppeal: _appealStory,
+                        onDelete: _deleteStory,
+                        onRefresh: _load,
+                      ),
                       _CommentTab(
                         comments: _flaggedComments,
                         onAppeal: _appealComment,
                         onDelete: _deleteComment,
                         onRefresh: _load,
                       ),
-                      _StoryTab(
-                        stories: _flaggedStories,
-                        onAppeal: _appealStory,
-                        onDelete: _deleteStory,
+                      _MessageTab(
+                        messages: _flaggedMessages,
+                        onAppeal: _appealMessage,
+                        onDelete: _deleteMessage,
                         onRefresh: _load,
                       ),
                     ],
@@ -498,6 +539,95 @@ class _StoryTab extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Messages tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MessageTab extends StatelessWidget {
+  final List<Message> messages;
+  final void Function(Message) onAppeal;
+  final Future<void> Function(Message) onDelete;
+  final Future<void> Function() onRefresh;
+
+  const _MessageTab({
+    required this.messages,
+    required this.onAppeal,
+    required this.onDelete,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (messages.isEmpty) {
+      return const _EmptyState(
+        icon: Icons.check_circle_outline,
+        message: 'No AI-flagged messages',
+        sub: 'None of your messages have been flagged by our AI system.',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: messages.length,
+        separatorBuilder: (_, __) => SizedBox(height: 12),
+        itemBuilder: (context, i) {
+          final message = messages[i];
+          return _MessageFlaggedCard(
+            message: message,
+            onAppeal: () => onAppeal(message),
+            onDelete: () => onDelete(message),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Message flagged card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MessageFlaggedCard extends StatelessWidget {
+  final Message message;
+  final VoidCallback onAppeal;
+  final VoidCallback onDelete;
+
+  const _MessageFlaggedCard({
+    required this.message,
+    required this.onAppeal,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final score = message.aiScore;
+    final isFlagged = score != null && score >= 75;
+    final scoreColor = isFlagged ? Colors.red : Colors.orange;
+
+    final mediaItems = <_MediaItem>[
+      if (message.mediaUrl != null && message.mediaUrl!.isNotEmpty)
+        _MediaItem(url: message.mediaUrl!, type: message.mediaType ?? 'image'),
+    ];
+
+    return _FlaggedCardShell(
+      label: 'MESSAGE',
+      isFlagged: isFlagged,
+      scoreColor: scoreColor,
+      timestamp: message.createdAt.toIso8601String(),
+      aiScore: score,
+      authenticityNotes: null,
+      aiMetadata: null,
+      verificationMethod: null,
+      mediaItems: mediaItems,
+      text: message.displayContent,
+      onAppeal: onAppeal,
+      onDelete: onDelete,
     );
   }
 }
