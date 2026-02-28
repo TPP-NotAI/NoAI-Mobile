@@ -17,6 +17,7 @@ import 'providers/language_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/story_provider.dart';
 import 'providers/wallet_provider.dart';
+import 'providers/platform_config_provider.dart';
 import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'services/presence_service.dart';
@@ -47,7 +48,6 @@ import 'screens/support/contact_support_screen.dart';
 import 'screens/support/faq_screen.dart';
 import 'screens/support/support_chat_screen.dart';
 import 'screens/post_detail_screen.dart';
-import 'config/app_constants.dart';
 import 'config/global_keys.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
 import 'screens/auth/banned_screen.dart';
@@ -144,12 +144,13 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => WalletProvider()),
+        ChangeNotifierProvider(create: (_) => PlatformConfigProvider()),
         Provider(create: (_) => DeepLinkService()),
       ],
-      child: Consumer2<ThemeProvider, LanguageProvider>(
-        builder: (_, themeProvider, languageProvider, __) {
+      child: Consumer3<ThemeProvider, LanguageProvider, PlatformConfigProvider>(
+        builder: (_, themeProvider, languageProvider, platformConfigProvider, __) {
           return MaterialApp(
-            title: AppConstants.appName,
+            title: platformConfigProvider.config.platformName,
             scaffoldMessengerKey: rootScaffoldMessengerKey,
             navigatorKey: rootNavigatorKey,
             debugShowCheckedModeBanner: false,
@@ -194,10 +195,56 @@ class MyApp extends StatelessWidget {
             },
             home: const AuthWrapper(),
             builder: (context, child) {
-              // Add connectivity overlay and error boundary
-              return ConnectivityOverlay(
+              final platformConfig =
+                  context.watch<PlatformConfigProvider>().config;
+              Widget content = ConnectivityOverlay(
                 child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
               );
+              if (platformConfig.maintenanceMode) {
+                content = Stack(
+                  children: [
+                    content,
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: Material(
+                        color: Colors.orange.shade800,
+                        child: SafeArea(
+                          bottom: false,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.build_circle_outlined,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    platformConfig.maintenanceMessage ??
+                                        'The app is currently under maintenance. Some features may be unavailable.',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return content;
             },
           );
         },
@@ -300,6 +347,14 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _deepLinkHandled = false;
   bool _handlingPendingNotificationTap = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PlatformConfigProvider>().fetch();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

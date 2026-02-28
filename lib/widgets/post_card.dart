@@ -289,7 +289,7 @@ class PostCard extends StatelessWidget {
                   ),
                 ),
 
-              if (post.hasMedia) _MediaGridView(post: post),
+              if (post.hasMedia) PostMediaGridView(post: post),
 
               _Actions(
                 post: post,
@@ -1103,10 +1103,11 @@ class _ContentState extends State<_Content> {
 
 /* ───────────────── MEDIA GRID VIEW (Facebook-style) ───────────────── */
 
-class _MediaGridView extends StatelessWidget {
+class PostMediaGridView extends StatelessWidget {
   final Post post;
+  final EdgeInsetsGeometry? padding;
 
-  const _MediaGridView({required this.post});
+  const PostMediaGridView({required this.post, this.padding});
 
   List<_MediaItem> _getMediaItems() {
     final items = <_MediaItem>[];
@@ -1138,7 +1139,7 @@ class _MediaGridView extends StatelessWidget {
     if (mediaItems.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: padding ?? const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: _buildMediaGrid(context, mediaItems),
@@ -1955,6 +1956,8 @@ class _PostMenu extends StatelessWidget {
       listen: false,
     ).currentUser?.id;
     final isAuthor = currentUserId != null && post.authorId == currentUserId;
+    final feedProvider = context.read<FeedProvider>();
+    final isBookmarked = feedProvider.isBookmarked(post.id);
 
     return Material(
       color: colors.surface,
@@ -2016,13 +2019,19 @@ class _PostMenu extends StatelessWidget {
               ),
             ] else ...[
               _MenuOption(
-                icon: Icons.bookmark_border,
-                label: 'Save post',
+                icon: isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                label: isBookmarked ? 'Remove from Saved' : 'Save post',
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: Implement save logic in FeedProvider
+                  feedProvider.toggleBookmark(post.id);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Post saved to bookmarks'.tr(context))),
+                    SnackBar(
+                      content: Text(
+                        isBookmarked
+                            ? 'Removed from bookmarks'
+                            : 'Saved to bookmarks',
+                      ),
+                    ),
                   );
                 },
               ),

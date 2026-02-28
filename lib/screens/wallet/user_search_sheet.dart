@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:rooverse/models/user.dart';
 import '../../providers/auth_provider.dart';
-import '../../repositories/follow_repository.dart';
+import '../../providers/user_provider.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class UserSearchSheet extends StatefulWidget {
@@ -15,60 +15,38 @@ class UserSearchSheet extends StatefulWidget {
 
 class _UserSearchSheetState extends State<UserSearchSheet> {
   final TextEditingController _searchController = TextEditingController();
-  final FollowRepository _followRepository = FollowRepository(
-    Supabase.instance.client,
-  );
-
-  List<User> _following = [];
-  List<User> _filtered = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadFollowing();
-  }
+  List<User> _results = [];
+  bool _isLoading = false;
+  Timer? _debounce;
 
   @override
   void dispose() {
     _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
-  Future<void> _loadFollowing() async {
-    final currentUserId =
-        context.read<AuthProvider>().currentUser?.id;
-    if (currentUserId == null) {
-      if (mounted) setState(() => _isLoading = false);
+  void _onSearchChanged(String query) {
+    _debounce?.cancel();
+    final q = query.trim();
+    if (q.isEmpty) {
+      setState(() {
+        _results = [];
+        _isLoading = false;
+      });
       return;
     }
-
-    try {
-      final users = await _followRepository.getFollowing(currentUserId);
-      if (mounted) {
-        setState(() {
-          _following = users;
-          _filtered = users;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('UserSearchSheet: Error loading following - $e');
-      if (mounted) setState(() => _isLoading = false);
-    }
+    setState(() => _isLoading = true);
+    _debounce = Timer(const Duration(milliseconds: 350), () => _search(q));
   }
 
-  void _onSearchChanged(String query) {
-    final q = query.trim().toLowerCase().replaceFirst('@', '');
+  Future<void> _search(String query) async {
+    final currentUserId = context.read<AuthProvider>().currentUser?.id;
+    final results = await context.read<UserProvider>().searchUsers(query);
+    if (!mounted) return;
     setState(() {
-      if (q.isEmpty) {
-        _filtered = _following;
-      } else {
-        _filtered = _following.where((u) {
-          return u.username.toLowerCase().contains(q) ||
-              u.displayName.toLowerCase().contains(q);
-        }).toList();
-      }
+      _results = results.where((u) => u.id != currentUserId).toList();
+      _isLoading = false;
     });
   }
 
@@ -76,6 +54,7 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final isEmpty = _searchController.text.trim().isEmpty;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -94,7 +73,8 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
         children: [
           Row(
             children: [
-              Text('New Message'.tr(context),
+              Text(
+                'New Message'.tr(context),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -111,7 +91,7 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
             controller: _searchController,
             autofocus: true,
             decoration: InputDecoration(
-              hintText: 'Search people you follow...',
+              hintText: 'Search by name or @username...',
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -123,19 +103,20 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
           const SizedBox(height: 16),
           if (_isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
-          else if (_following.isEmpty)
+          else if (isEmpty)
             Expanded(
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.people_outline,
+                      Icons.search,
                       size: 48,
                       color: colors.onSurfaceVariant,
                     ),
                     const SizedBox(height: 12),
-                    Text('Follow people to start a chat'.tr(context),
+                    Text(
+                      'Search for anyone to message'.tr(context),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colors.onSurfaceVariant,
                       ),
@@ -144,10 +125,11 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
                 ),
               ),
             )
-          else if (_filtered.isEmpty)
+          else if (_results.isEmpty)
             Expanded(
               child: Center(
-                child: Text('No matching users'.tr(context),
+                child: Text(
+                  'No users found'.tr(context),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -157,9 +139,9 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
           else
             Expanded(
               child: ListView.builder(
-                itemCount: _filtered.length,
+                itemCount: _results.length,
                 itemBuilder: (context, index) {
-                  final user = _filtered[index];
+                  final user = _results[index];
                   final name = user.displayName.isNotEmpty
                       ? user.displayName
                       : user.username;
@@ -181,7 +163,7 @@ class _UserSearchSheetState extends State<UserSearchSheet> {
                       name,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: Text('@${user.username}'.tr(context)),
+                    subtitle: Text('@${user.username}'),
                     onTap: () => Navigator.pop(context, user),
                   );
                 },

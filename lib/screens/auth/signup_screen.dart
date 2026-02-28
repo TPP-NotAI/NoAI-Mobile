@@ -6,6 +6,7 @@ import 'package:rooverse/config/app_colors.dart';
 import 'package:rooverse/config/app_spacing.dart';
 import 'package:rooverse/config/app_typography.dart';
 import 'package:rooverse/providers/auth_provider.dart';
+import 'package:rooverse/providers/platform_config_provider.dart';
 import 'package:rooverse/utils/responsive_extensions.dart';
 import 'package:rooverse/screens/legal/terms_of_service_screen.dart';
 import 'package:rooverse/screens/legal/privacy_policy_screen.dart';
@@ -52,8 +53,11 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isCheckingUsername = false;
   Timer? _debounceTimer;
 
+  int get _minPasswordLength =>
+      (context.read<PlatformConfigProvider>()).config.minPasswordLength;
+
   // Password strength checks
-  bool get _hasMinLength => _passwordController.text.length >= 8;
+  bool get _hasMinLength => _passwordController.text.length >= _minPasswordLength;
   bool get _hasUppercase => _passwordController.text.contains(RegExp(r'[A-Z]'));
   bool get _hasLowercase => _passwordController.text.contains(RegExp(r'[a-z]'));
   bool get _hasNumber => _passwordController.text.contains(RegExp(r'[0-9]'));
@@ -136,6 +140,14 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> _handleSignup() async {
+    final platformConfig = context.read<PlatformConfigProvider>().config;
+    if (!platformConfig.allowNewSignups) {
+      setState(() {
+        _signupError = 'New sign-ups are currently disabled. Please try again later.';
+      });
+      return;
+    }
+
     setState(() {
       _usernameError = null;
       _emailError = null;

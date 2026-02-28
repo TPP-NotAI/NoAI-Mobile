@@ -1468,8 +1468,9 @@ class _ActivityItem extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: 4),
-                // Preview content if available
-                if (activity.previewContent != null) ...[
+                // Preview content if available (not for comments)
+                if (activity.previewContent != null &&
+                    activity.type != UserActivityType.postCommented) ...[
                   Text(
                     activity.previewContent!,
                     style: TextStyle(

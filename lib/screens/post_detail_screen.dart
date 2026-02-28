@@ -5,12 +5,10 @@ import '../models/post.dart';
 import '../models/comment.dart';
 import '../providers/auth_provider.dart';
 import '../providers/feed_provider.dart';
-import '../widgets/video_player_widget.dart';
 import '../widgets/report_sheet.dart';
 import '../utils/time_utils.dart';
 import 'create/edit_post_screen.dart';
 import 'hashtag_feed_screen.dart';
-import '../widgets/full_screen_media_viewer.dart';
 import '../widgets/mention_rich_text.dart';
 import '../widgets/mention_autocomplete_field.dart';
 import '../utils/verification_utils.dart';
@@ -18,9 +16,14 @@ import '../widgets/verification_required_widget.dart';
 import '../services/viral_content_service.dart';
 import '../widgets/comment_card.dart';
 import '../widgets/boost_post_modal.dart';
+import '../widgets/post_card.dart' show PostMediaGridView;
+import '../widgets/tip_modal.dart';
 import '../screens/boost/boost_analytics_page.dart';
 import '../screens/ads/ad_insights_page.dart';
 import '../repositories/boost_repository.dart';
+import '../repositories/wallet_repository.dart';
+import '../services/rooken_service.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class PostDetailScreen extends StatefulWidget {
@@ -42,6 +45,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   bool _submittingComment = false;
   bool _isTextExpanded = false;
   bool _isBoosted = false;
+  Comment? _replyingTo;
 
   static const int _maxLinesCollapsed = 4;
 
@@ -124,30 +128,70 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
 
-    // Require full activation (verified + purchased ROO)
     final isActivated = await VerificationUtils.checkActivation(context);
     if (!mounted || !isActivated) return;
 
     setState(() => _submittingComment = true);
 
     final feedProvider = context.read<FeedProvider>();
-    final newComment = await feedProvider.addComment(_post.id, text);
+    final replyTarget = _replyingTo;
 
-    if (mounted) {
-      setState(() => _submittingComment = false);
-      if (newComment != null) {
-        _commentController.clear();
-        setState(() {
-          _comments.add(newComment);
-          _post = _post.copyWith(comments: _post.comments + 1);
-        });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Comment posted!'.tr(context))));
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to post comment'.tr(context))));
+    if (replyTarget != null) {
+      // Build optimistic reply using current user's info
+      final currentUser = context.read<AuthProvider>().currentUser;
+      final tempId = 'temp_reply_${DateTime.now().millisecondsSinceEpoch}';
+      final tempReply = Comment(
+        id: tempId,
+        authorId: currentUser?.id,
+        author: CommentAuthor(
+          displayName: currentUser?.displayName ?? '',
+          username: currentUser?.username ?? '',
+          avatar: currentUser?.avatar,
+        ),
+        text: text,
+        timestamp: DateTime.now().toIso8601String(),
+      );
+
+      // Optimistic: inject into local _comments immediately so it shows
+      _commentController.clear();
+      setState(() {
+        _replyingTo = null;
+        _submittingComment = false;
+        _comments = _addReplyToComments(_comments, replyTarget.id, tempReply);
+      });
+
+      try {
+        await feedProvider.addReply(_post.id, replyTarget.id, text, tempId);
+      } catch (e) {
+        if (mounted) {
+          // Roll back the optimistic reply on failure
+          setState(() {
+            _comments = _removeReplyFromComments(_comments, tempId);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to post reply'.tr(context))),
+          );
+        }
+      }
+    } else {
+      // Submit as a top-level comment
+      final newComment = await feedProvider.addComment(_post.id, text);
+      if (mounted) {
+        setState(() => _submittingComment = false);
+        if (newComment != null) {
+          _commentController.clear();
+          setState(() {
+            _comments.add(newComment);
+            _post = _post.copyWith(comments: _post.comments + 1);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Comment posted!'.tr(context))),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to post comment'.tr(context))),
+          );
+        }
       }
     }
   }
@@ -708,57 +752,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             ),
                             SizedBox(height: 16),
                           ],
-                          if (_post.primaryMediaUrl != null) ...[
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  PageRouteBuilder(
-                                    pageBuilder:
-                                        (
-                                          context,
-                                          animation,
-                                          secondaryAnimation,
-                                        ) => FullScreenMediaViewer(
-                                          post: _post,
-                                          mediaUrl: _post.primaryMediaUrl!,
-                                          isVideo: _isVideo(_post),
-                                          heroTag: '',
-                                        ),
-                                    transitionsBuilder:
-                                        (
-                                          context,
-                                          animation,
-                                          secondaryAnimation,
-                                          child,
-                                        ) {
-                                          return FadeTransition(
-                                            opacity: animation,
-                                            child: child,
-                                          );
-                                        },
-                                  ),
-                                );
-                              },
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: _isVideo(_post)
-                                    ? SizedBox(
-                                        height: 300,
-                                        child: VideoPlayerWidget(
-                                          videoUrl: _post.primaryMediaUrl!,
-                                        ),
-                                      )
-                                    : Image.network(
-                                        _post.primaryMediaUrl!,
-                                        fit: BoxFit.cover,
-                                        width: double.infinity,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                              return const SizedBox.shrink();
-                                            },
-                                      ),
-                              ),
+                          if (_post.hasMedia) ...[
+                            PostMediaGridView(
+                              post: _post,
+                              padding: EdgeInsets.zero,
                             ),
                             SizedBox(height: 16),
                           ],
@@ -854,7 +851,44 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   ),
                                 ),
                               ),
+                              SizedBox(width: 16),
+                              // Tip button (for non-authors)
+                              if (!isAuthor)
+                                InkWell(
+                                  onTap: () => _handleTip(context),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.toll,
+                                          size: 20,
+                                          color: colors.onSurfaceVariant,
+                                        ),
+                                        if (_post.tips > 0) ...[
+                                          SizedBox(width: 4),
+                                          Text('${_post.tips.toInt()} ROO'),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               Spacer(),
+                              // Share button
+                              InkWell(
+                                onTap: () => _handleShare(context),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Icon(
+                                    Icons.share_outlined,
+                                    size: 20,
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 8),
                               // Report button (for non-authors)
                               if (!isAuthor)
                                 InkWell(
@@ -922,6 +956,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         return CommentCard(
                           comment: comment,
                           postId: _post.id,
+                          onReplyTap: (targetComment) {
+                            setState(() => _replyingTo = targetComment);
+                            _commentController.clear();
+                          },
                         );
                       },
                     ),
@@ -945,49 +983,90 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 ],
               ),
               child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: MentionAutocompleteField(
-                          controller: _commentController,
-                          decoration: InputDecoration(
-                            hintText: 'Add a comment...',
-                            filled: true,
-                            fillColor: colors.surfaceContainerHighest
-                                .withValues(alpha: 0.5),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide.none,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_replyingTo != null)
+                      Container(
+                        color: colors.surfaceContainerHighest,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.reply,
+                              size: 14,
+                              color: colors.primary,
                             ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Replying to @${_replyingTo!.author.username}',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: colors.primary),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                          textCapitalization: TextCapitalization.sentences,
+                            GestureDetector(
+                              onTap: () => setState(() => _replyingTo = null),
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      SizedBox(width: 8),
-                      IconButton.filled(
-                        onPressed: _submittingComment ? null : _submitComment,
-                        icon: _submittingComment
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Icon(Icons.send),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                    ],
-                  ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: MentionAutocompleteField(
+                              controller: _commentController,
+                              decoration: InputDecoration(
+                                hintText: _replyingTo != null
+                                    ? 'Reply to @${_replyingTo!.author.username}...'
+                                    : 'Add a comment...',
+                                filled: true,
+                                fillColor: colors.surfaceContainerHighest
+                                    .withValues(alpha: 0.5),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 10,
+                                ),
+                              ),
+                              textCapitalization: TextCapitalization.sentences,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          IconButton.filled(
+                            onPressed: _submittingComment ? null : _submitComment,
+                            icon: _submittingComment
+                                ? SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Icon(Icons.send),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -1011,6 +1090,89 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
+  void _handleTip(BuildContext context) {
+    final user = context.read<AuthProvider>().currentUser;
+    if (user == null) return;
+
+    if (user.isVerificationPending) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Your verification is pending. You can tip once approved.'.tr(context)),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    if (!user.isVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please complete identity verification to send tips.'.tr(context)),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Verify',
+            textColor: Colors.white,
+            onPressed: () {
+              if (context.mounted) Navigator.pushNamed(context, '/verify');
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => TipModal(post: _post),
+    );
+  }
+
+  void _handleShare(BuildContext context) async {
+    try {
+      final currentUserId = context.read<AuthProvider>().currentUser?.id;
+
+      final shareText = _post.title != null && _post.title!.isNotEmpty
+          ? '${_post.title}\n\n${_post.content}\n\nShared from ROOVERSE'
+          : '${_post.content}\n\nShared from ROOVERSE';
+
+      await Share.share(
+        shareText,
+        subject: _post.title ?? 'Check out this post on ROOVERSE',
+      );
+
+      if (currentUserId != null && currentUserId.isNotEmpty) {
+        try {
+          final walletRepo = WalletRepository();
+          await walletRepo.earnRoo(
+            userId: currentUserId,
+            activityType: RookenActivityType.postShare,
+            referencePostId: _post.id,
+          );
+        } catch (e) {
+          debugPrint('Error awarding share ROOK: $e');
+        }
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('Post shared! You earned 5 ROOK.'.tr(context)),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
+    } catch (e) {
+      debugPrint('Error sharing post: $e');
+    }
+  }
+
   void _handleReportPost(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -1027,18 +1189,38 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
-  bool _isVideo(Post post) {
-    if (post.mediaList != null && post.mediaList!.isNotEmpty) {
-      return post.mediaList!.first.mediaType == 'video';
-    }
-    // Fallback check by extension if legacy
-    if (post.mediaUrl != null) {
-      final url = post.mediaUrl!.toLowerCase();
-      return url.endsWith('.mp4') ||
-          url.endsWith('.mov') ||
-          url.endsWith('.avi');
-    }
-    return false;
+  // Recursively add a reply under the target comment in the local list
+  List<Comment> _addReplyToComments(
+    List<Comment> comments,
+    String parentId,
+    Comment reply,
+  ) {
+    return comments.map((c) {
+      if (c.id == parentId) {
+        return c.copyWith(replies: [...?c.replies, reply]);
+      }
+      if (c.replies != null && c.replies!.isNotEmpty) {
+        return c.copyWith(
+          replies: _addReplyToComments(c.replies!, parentId, reply),
+        );
+      }
+      return c;
+    }).toList();
+  }
+
+  // Recursively remove a reply by id from the local list (used for rollback)
+  List<Comment> _removeReplyFromComments(List<Comment> comments, String replyId) {
+    return comments.map((c) {
+      if (c.replies != null && c.replies!.isNotEmpty) {
+        return c.copyWith(
+          replies: c.replies!
+              .where((r) => r.id != replyId)
+              .map((r) => _removeReplyFromComments([r], replyId).first)
+              .toList(),
+        );
+      }
+      return c;
+    }).toList();
   }
 
   int _countCommentsWithReplies(List<Comment> comments) {

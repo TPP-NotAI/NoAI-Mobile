@@ -36,6 +36,7 @@ class FeedProvider with ChangeNotifier {
 
   // Track bookmarked and reposted posts
   final Set<String> _bookmarkedPostIds = {};
+  List<Post> _bookmarkedPostsList = [];
   final Set<String> _repostedPostIds = {};
   final Map<String, int> _repostCounts = {}; // postId -> count
 
@@ -1075,8 +1076,12 @@ class FeedProvider with ChangeNotifier {
     // Optimistic update
     if (wasBookmarked) {
       _bookmarkedPostIds.remove(postId);
+      _bookmarkedPostsList.removeWhere((p) => p.id == postId);
     } else {
       _bookmarkedPostIds.add(postId);
+      // Add to list from feed if available so it shows immediately
+      final feedIndex = _posts.indexWhere((p) => p.id == postId);
+      if (feedIndex != -1) _bookmarkedPostsList.insert(0, _posts[feedIndex]);
     }
     notifyListeners();
 
@@ -1086,18 +1091,39 @@ class FeedProvider with ChangeNotifier {
       // Revert on failure
       if (wasBookmarked) {
         _bookmarkedPostIds.add(postId);
+        final feedIndex = _posts.indexWhere((p) => p.id == postId);
+        if (feedIndex != -1) _bookmarkedPostsList.insert(0, _posts[feedIndex]);
       } else {
         _bookmarkedPostIds.remove(postId);
+        _bookmarkedPostsList.removeWhere((p) => p.id == postId);
       }
       notifyListeners();
       debugPrint('Failed to toggle bookmark: $e');
     }
   }
 
-  List<Post> get bookmarkedPosts {
-    return _posts
-        .where((post) => _bookmarkedPostIds.contains(post.id))
-        .toList();
+  bool _isLoadingBookmarks = false;
+  bool get isLoadingBookmarks => _isLoadingBookmarks;
+
+  List<Post> get bookmarkedPosts => _bookmarkedPostsList;
+
+  Future<void> fetchBookmarkedPosts() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+    _isLoadingBookmarks = true;
+    notifyListeners();
+    try {
+      final posts = await _bookmarkRepository.getBookmarkedPosts(userId: userId);
+      _bookmarkedPostsList = posts;
+      // Keep IDs in sync
+      _bookmarkedPostIds.clear();
+      _bookmarkedPostIds.addAll(posts.map((p) => p.id));
+    } catch (e) {
+      debugPrint('FeedProvider: Error fetching bookmarked posts - $e');
+    } finally {
+      _isLoadingBookmarks = false;
+      notifyListeners();
+    }
   }
 
   // Repost functionality
@@ -1155,6 +1181,30 @@ class FeedProvider with ChangeNotifier {
 
   List<Post> get repostedPosts {
     return _posts.where((post) => _repostedPostIds.contains(post.id)).toList();
+  }
+
+  // Report a comment
+  Future<bool> reportComment({
+    required String commentId,
+    required String reportedUserId,
+    required String reason,
+    String? details,
+  }) async {
+    final userId = _currentUserId;
+    if (userId == null) return false;
+
+    try {
+      return await _reportRepository.reportComment(
+        reporterId: userId,
+        commentId: commentId,
+        reportedUserId: reportedUserId,
+        reason: reason,
+        details: details,
+      );
+    } catch (e) {
+      debugPrint('Failed to report comment: $e');
+      return false;
+    }
   }
 
   // Report a post

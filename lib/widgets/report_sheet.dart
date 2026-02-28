@@ -97,9 +97,15 @@ class _ReportSheetState extends State<ReportSheet> {
         reason: _selectedReason!,
       );
       error = userProvider.error;
+    } else if (widget.reportType == 'comment') {
+      final feedProvider = context.read<FeedProvider>();
+      success = await feedProvider.reportComment(
+        commentId: widget.referenceId,
+        reportedUserId: widget.reportedUserId,
+        reason: _selectedReason!,
+      );
     } else {
-      // TODO: Handle comment reporting if needed
-      error = 'Reporting comments not implemented yet';
+      error = 'Unknown report type';
     }
 
     if (!mounted) return;
@@ -133,7 +139,11 @@ class _ReportSheetState extends State<ReportSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final title = widget.reportType == 'user' ? 'Report User' : 'Report Post';
+    final title = widget.reportType == 'user'
+        ? 'Report User'
+        : widget.reportType == 'comment'
+            ? 'Report Comment'
+            : 'Report Post';
 
     return SingleChildScrollView(
       child: Padding(
@@ -176,7 +186,9 @@ class _ReportSheetState extends State<ReportSheet> {
             Text(
               widget.reportType == 'user'
                   ? 'Why are you reporting this user?'
-                  : 'Why are you reporting this post?',
+                  : widget.reportType == 'comment'
+                      ? 'Why are you reporting this comment?'
+                      : 'Why are you reporting this post?',
               style: TextStyle(fontSize: 14, color: colors.onSurfaceVariant),
             ),
             SizedBox(height: 24),

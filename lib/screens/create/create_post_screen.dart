@@ -14,6 +14,7 @@ import 'package:rooverse/services/ai_detection_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../providers/feed_provider.dart';
+import '../../providers/platform_config_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../repositories/tag_repository.dart';
@@ -64,7 +65,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   // Character limit constant
   static const int _maxCharacterLimit = 280;
   double _postCostRoo = 10.0; // Default posting reward in ROO
-  bool _isLoadingPostCost = false;
   static const Duration _postCostCacheTtl = Duration(hours: 6);
 
   // Media state
@@ -94,7 +94,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   String? _activeDraftId;
   final StorageService _storageService = StorageService();
   late final LocalPostDraftService _draftService;
-  bool _postCostLoadFailed = false;
 
   @override
   void initState() {
@@ -102,13 +101,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     _postType = widget.initialPostType ?? 'Text';
     _draftService = LocalPostDraftService(storage: _storageService);
     _loadCachedPostCost();
-    _loadPostCost();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncPostCostFromConfig());
     _checkForSavedDraft().then((_) {
       _isInitialLoad = false;
       // Add listener after draft count check to avoid early autosave behavior.
       _contentController.addListener(_onContentChanged);
       _titleController.addListener(_onContentChanged);
     });
+  }
+
+  void _syncPostCostFromConfig() {
+    if (!mounted) return;
+    final configProvider = context.read<PlatformConfigProvider>();
+    final fee = configProvider.config.defaultPublishFeeRc;
+    final effectiveFee = fee >= 10 ? fee : 10.0;
+    setState(() => _postCostRoo = effectiveFee);
+    // Persist so _loadCachedPostCost works next time even without network
+    _storageService.setString('post_cost_rc', effectiveFee.toString());
+    _storageService.setString(
+      'post_cost_rc_ts',
+      DateTime.now().millisecondsSinceEpoch.toString(),
+    );
   }
 
   void _loadCachedPostCost() {
@@ -135,50 +148,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
-  Future<void> _loadPostCost() async {
-    if (_isLoadingPostCost) return;
-    _isLoadingPostCost = true;
-    try {
-      final response = await SupabaseService().client
-          .from(SupabaseConfig.platformConfigTable)
-          .select('default_publish_fee_rc')
-          .eq('id', 1)
-          .maybeSingle();
-
-      if (response != null) {
-        final fee =
-            (response['default_publish_fee_rc'] as num?)?.toDouble() ?? 10.0;
-        // Post creation reward is at least 10 ROO.
-        final effectiveFee = fee >= 10 ? fee : 10.0;
-        if (mounted) {
-          setState(() {
-            _postCostRoo = effectiveFee;
-          });
-        }
-        await _storageService.setString(
-          'post_cost_rc',
-          effectiveFee.toString(),
-        );
-        await _storageService.setString(
-          'post_cost_rc_ts',
-          DateTime.now().millisecondsSinceEpoch.toString(),
-        );
-      }
-    } catch (e) {
-      debugPrint('CreatePostScreen: Failed to load post cost - $e');
-      if (mounted && !_postCostLoadFailed) {
-        _postCostLoadFailed = true;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not refresh ROO posting fee. Using cached value.'.tr(context),
-            ),
-          ),
-        );
-      }
-    } finally {
-      _isLoadingPostCost = false;
-    }
-  }
 
   @override
   void dispose() {
@@ -229,6 +198,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickMedia({required bool fromCamera}) async {
+    final maxImages = context.read<PlatformConfigProvider>().config.maxImagesPerPost;
+    if (_selectedMediaFiles.length >= maxImages) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('You can add up to $maxImages media files per post')),
+      );
+      return;
+    }
     try {
       if (!fromCamera) {
         final pickedMedia = await _imagePicker.pickMultipleMedia();
@@ -239,6 +215,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           for (final media in pickedMedia) {
             final mediaType = _detectMediaType(media.path);
             if (mediaType == null) continue;
+            if (_selectedMediaFiles.length + filesToAdd.length >= maxImages) break;
             filesToAdd.add(File(media.path));
             typesToAdd.add(mediaType);
           }
@@ -776,6 +753,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ),
         ),
       );
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -2206,7 +2186,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       icon: Icons.tag,
                       title: 'Add #Topics',
                       subtitle: _selectedTags.isNotEmpty
-                          ? '${_selectedTags.length} topics added'
+                          ? '${_selectedTags.length}/${context.read<PlatformConfigProvider>().config.maxTagsPerPost} topics added'
                           : 'You can also type #topics in your caption',
                       onTap: _showTopicsPicker,
                     ),
@@ -3474,9 +3454,15 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
     }
   }
 
-  void _addTag(String tag) {
+  void _addTag(String tag, {required int maxTags}) {
     final normalizedTag = tag.toLowerCase().trim().replaceAll('#', '');
     if (normalizedTag.isNotEmpty && !_tags.contains(normalizedTag)) {
+      if (_tags.length >= maxTags) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('You can add up to $maxTags topics per post')),
+        );
+        return;
+      }
       setState(() {
         _tags.add(normalizedTag);
         _controller.clear();
@@ -3493,6 +3479,7 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final maxTags = context.read<PlatformConfigProvider>().config.maxTagsPerPost;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -3528,7 +3515,7 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                   suffixIcon: _controller.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.add),
-                          onPressed: () => _addTag(_controller.text),
+                          onPressed: () => _addTag(_controller.text, maxTags: maxTags),
                         )
                       : null,
                   border: OutlineInputBorder(
@@ -3536,7 +3523,7 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                   ),
                 ),
                 onChanged: _searchTags,
-                onSubmitted: _addTag,
+                onSubmitted: (v) => _addTag(v, maxTags: maxTags),
               ),
               SizedBox(height: 16),
 
@@ -3577,7 +3564,7 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                             label: Text('#${suggestion.name}'.tr(context)),
                             onPressed: isSelected
                                 ? null
-                                : () => _addTag(suggestion.name),
+                                : () => _addTag(suggestion.name, maxTags: maxTags),
                             backgroundColor: isSelected
                                 ? colors.primaryContainer
                                 : null,
@@ -3594,7 +3581,7 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                           final isSelected = _tags.contains(topic);
                           return ActionChip(
                             label: Text('#$topic'.tr(context)),
-                            onPressed: isSelected ? null : () => _addTag(topic),
+                            onPressed: isSelected ? null : () => _addTag(topic, maxTags: maxTags),
                             backgroundColor: isSelected
                                 ? colors.primaryContainer
                                 : null,

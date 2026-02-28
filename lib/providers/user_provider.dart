@@ -696,8 +696,14 @@ class UserProvider with ChangeNotifier {
       // Sort all activities by timestamp (newest first)
       activities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
+      // Only show received ROO (not spent or transferred)
+      final filtered = activities.where((a) =>
+        a.type != UserActivityType.rookenSpent &&
+        a.type != UserActivityType.rookenTransferred,
+      ).toList();
+
       // Limit to the most recent activities
-      _userActivities = activities.take(limit).toList();
+      _userActivities = filtered.take(limit).toList();
       _error = null;
     } catch (e) {
       debugPrint('UserProvider: Error fetching user activities - $e');

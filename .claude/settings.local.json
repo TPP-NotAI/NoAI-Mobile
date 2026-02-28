@@ -27,7 +27,8 @@
       "Bash(echo $TMPDIR)",
       "Bash(echo $TEMP)",
       "Bash(python \"D:/noai_org/insert_l10n_block.py\")",
-      "Bash(/d/noai_org/insert_l10n_block.py:*)"
+      "Bash(/d/noai_org/insert_l10n_block.py:*)",
+      "Bash(xargs grep -l \"platform_config\\\\|PlatformConfig\")"
     ],
     "additionalDirectories": [
       "\\",

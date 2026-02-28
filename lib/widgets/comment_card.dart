@@ -12,6 +12,7 @@ import '../utils/time_utils.dart';
 import 'video_player_widget.dart';
 import 'full_screen_media_viewer.dart';
 import 'mention_rich_text.dart';
+import 'report_sheet.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class CommentCard extends StatefulWidget {
@@ -306,33 +307,51 @@ class _CommentCardState extends State<CommentCard> {
                             ],
                           ),
                         ),
-                        // More options menu (only for comment author)
-                        if (isAuthor)
-                          SizedBox(
-                            width: 28.responsive(context, min: 24, max: 32),
-                            height: 28.responsive(context, min: 24, max: 32),
-                            child: PopupMenuButton<String>(
-                              padding: EdgeInsets.zero,
-                              iconSize: AppTypography.responsiveIconSize(
+                        // More options menu
+                        SizedBox(
+                          width: 28.responsive(context, min: 24, max: 32),
+                          height: 28.responsive(context, min: 24, max: 32),
+                          child: PopupMenuButton<String>(
+                            padding: EdgeInsets.zero,
+                            iconSize: AppTypography.responsiveIconSize(
+                              context,
+                              16,
+                            ),
+                            icon: Icon(
+                              Icons.more_horiz,
+                              color: colors.onSurfaceVariant,
+                              size: AppTypography.responsiveIconSize(
                                 context,
                                 16,
                               ),
-                              icon: Icon(
-                                Icons.more_horiz,
-                                color: colors.onSurfaceVariant,
-                                size: AppTypography.responsiveIconSize(
-                                  context,
-                                  16,
-                                ),
-                              ),
-                              onSelected: (value) {
-                                if (value == 'edit') {
-                                  _startEditing(currentComment);
-                                } else if (value == 'delete') {
-                                  _confirmDelete(currentComment.id);
-                                }
-                              },
-                              itemBuilder: (context) => [
+                            ),
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                _startEditing(currentComment);
+                              } else if (value == 'delete') {
+                                _confirmDelete(currentComment.id);
+                              } else if (value == 'report') {
+                                showModalBottomSheet(
+                                  context: context,
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.surface,
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(24),
+                                    ),
+                                  ),
+                                  builder: (_) => ReportSheet(
+                                    reportType: 'comment',
+                                    referenceId: currentComment.id,
+                                    reportedUserId:
+                                        currentComment.authorId ?? '',
+                                    username: currentComment.author.username,
+                                  ),
+                                );
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              if (isAuthor) ...[
                                 PopupMenuItem(
                                   value: 'edit',
                                   child: Row(
@@ -368,15 +387,40 @@ class _CommentCardState extends State<CommentCard> {
                                         width: AppSpacing.mediumSmall
                                             .responsive(context),
                                       ),
-                                      Text('Delete'.tr(context),
+                                      Text(
+                                        'Delete'.tr(context),
                                         style: TextStyle(color: colors.error),
                                       ),
                                     ],
                                   ),
                                 ),
-                              ],
-                            ),
+                              ] else
+                                PopupMenuItem(
+                                  value: 'report',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.flag_outlined,
+                                        size: AppTypography.responsiveIconSize(
+                                          context,
+                                          18,
+                                        ),
+                                        color: colors.error,
+                                      ),
+                                      SizedBox(
+                                        width: AppSpacing.mediumSmall
+                                            .responsive(context),
+                                      ),
+                                      Text(
+                                        'Report'.tr(context),
+                                        style: TextStyle(color: colors.error),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
+                        ),
                       ],
                     ),
                     SizedBox(height: AppSpacing.extraSmall.responsive(context)),

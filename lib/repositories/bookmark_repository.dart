@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
+import '../models/post.dart';
 import '../services/supabase_service.dart';
 import '../services/activity_log_service.dart';
 
@@ -94,5 +95,80 @@ class BookmarkRepository {
     return (response as List<dynamic>)
         .map((r) => r['post_id'] as String)
         .toSet();
+  }
+
+  /// Fetch full post data for all bookmarked posts of a user.
+  Future<List<Post>> getBookmarkedPosts({
+    required String userId,
+  }) async {
+    try {
+      final response = await _client
+          .from(SupabaseConfig.bookmarksTable)
+          .select('''
+            created_at,
+            posts!bookmarks_post_id_fkey (
+              *,
+              profiles!posts_author_id_fkey (
+                user_id,
+                username,
+                display_name,
+                avatar_url,
+                verified_human,
+                posts_visibility
+              ),
+              reactions!reactions_post_id_fkey (
+                user_id,
+                reaction_type
+              ),
+              comments!comments_post_id_fkey (
+                id
+              ),
+              post_media (
+                id,
+                media_type,
+                storage_path,
+                mime_type,
+                width,
+                height,
+                duration_seconds
+              ),
+              post_tags (
+                tags (
+                  id,
+                  name
+                )
+              ),
+              roocoin_transactions!roocoin_transactions_reference_post_id_fkey (
+                amount_rc,
+                status,
+                metadata
+              ),
+              mentions (
+                mentioned_user_id
+              )
+            )
+          ''')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+
+      final posts = <Post>[];
+      for (final row in response as List<dynamic>) {
+        final postJson = row['posts'];
+        if (postJson == null) continue;
+        try {
+          final post = Post.fromSupabase(
+            postJson as Map<String, dynamic>,
+            currentUserId: userId,
+          );
+          if (post.status == 'published') posts.add(post);
+        } catch (e) {
+          debugPrint('BookmarkRepository: Error parsing post - $e');
+        }
+      }
+      return posts;
+    } catch (e) {
+      debugPrint('BookmarkRepository: Error fetching bookmarked posts - $e');
+      return [];
+    }
   }
 }

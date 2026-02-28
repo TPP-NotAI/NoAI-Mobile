@@ -201,11 +201,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         selected: _selectedFilter,
                         onSelect: _select,
                       ),
-                      _FilterChip(
-                        label: 'Verified',
-                        selected: _selectedFilter,
-                        onSelect: _select,
-                      ),
                     ],
                   ),
                 ),
@@ -419,9 +414,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
         // Filter out posts with no likes
         filtered = filtered.where((p) => p.likes > 0).toList();
         filtered = [...filtered]..sort((a, b) => b.likes.compareTo(a.likes));
-        break;
-      case 'Verified':
-        filtered = filtered.where((p) => p.author.isVerified).toList();
         break;
     }
 

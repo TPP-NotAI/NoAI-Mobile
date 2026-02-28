@@ -7,8 +7,21 @@ import '../../widgets/tip_modal.dart';
 import '../profile/profile_screen.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
-class BookmarksScreen extends StatelessWidget {
+class BookmarksScreen extends StatefulWidget {
   const BookmarksScreen({super.key});
+
+  @override
+  State<BookmarksScreen> createState() => _BookmarksScreenState();
+}
+
+class _BookmarksScreenState extends State<BookmarksScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<FeedProvider>().fetchBookmarkedPosts();
+    });
+  }
 
   void _showComments(BuildContext context, post) {
     showModalBottomSheet(
@@ -54,6 +67,10 @@ class BookmarksScreen extends StatelessWidget {
               final maxWidth = constraints.maxWidth > 720
                   ? 720.0
                   : constraints.maxWidth;
+
+              if (feed.isLoadingBookmarks) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
               if (bookmarkedPosts.isEmpty) {
                 return Center(
