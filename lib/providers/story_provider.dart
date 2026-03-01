@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/supabase_config.dart';
 import '../models/story.dart';
 import '../models/story_media_input.dart';
 import '../services/supabase_service.dart';
@@ -15,9 +17,45 @@ class StoryProvider extends ChangeNotifier {
   List<Story> _stories = [];
   bool _isLoading = false;
   String? _error;
+  RealtimeChannel? _storiesChannel;
 
   StoryProvider() {
     loadStories();
+    _subscribeToStories();
+  }
+
+  void _subscribeToStories() {
+    _storiesChannel = _supabase.client
+        .channel('feed:stories:published')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: SupabaseConfig.storiesTable,
+          callback: (payload) async {
+            final record = payload.newRecord;
+            if (record['status'] != 'pass') return;
+            // Refresh to get full story with joined author data
+            await loadStories();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: SupabaseConfig.storiesTable,
+          callback: (payload) async {
+            // Story may have just been approved (status changed to 'pass')
+            await loadStories();
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    if (_storiesChannel != null) {
+      _supabase.client.removeChannel(_storiesChannel!);
+    }
+    super.dispose();
   }
 
   List<Story> get stories => _stories.where(_canViewStory).toList();

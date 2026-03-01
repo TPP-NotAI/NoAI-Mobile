@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rooverse/providers/user_provider.dart';
 import 'package:rooverse/screens/create/create_post_screen.dart';
@@ -27,7 +26,6 @@ class FeedScreen extends StatefulWidget {
 
 class _FeedScreenState extends State<FeedScreen> {
   final ScrollController _scrollController = ScrollController();
-  Timer? _newPostsTimer;
 
   @override
   void initState() {
@@ -37,16 +35,10 @@ class _FeedScreenState extends State<FeedScreen> {
       if (!mounted) return;
       context.read<StoryProvider>().refresh();
     });
-    // Periodically check for new content every 60 seconds
-    _newPostsTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      if (!mounted) return;
-      context.read<FeedProvider>().checkForNewPosts();
-    });
   }
 
   @override
   void dispose() {
-    _newPostsTimer?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();

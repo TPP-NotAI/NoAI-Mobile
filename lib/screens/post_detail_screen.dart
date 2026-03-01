@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/supabase_config.dart';
 import '../models/post.dart';
 import '../models/comment.dart';
 import '../providers/auth_provider.dart';
 import '../providers/feed_provider.dart';
+import '../services/supabase_service.dart';
 import '../widgets/report_sheet.dart';
 import '../utils/time_utils.dart';
 import 'create/edit_post_screen.dart';
@@ -44,6 +47,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   bool _isTextExpanded = false;
   bool _isBoosted = false;
   Comment? _replyingTo;
+  RealtimeChannel? _commentsChannel;
 
   static const int _maxLinesCollapsed = 4;
 
@@ -55,10 +59,75 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     _loadComments();
     _checkViralReward();
     _loadBoostStatus();
+    _subscribeToComments();
+  }
+
+  void _subscribeToComments() {
+    _commentsChannel = SupabaseService().client
+        .channel('post:comments:${_post.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: SupabaseConfig.commentsTable,
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'post_id',
+            value: _post.id,
+          ),
+          callback: (payload) async {
+            final record = payload.newRecord;
+            // Only surface approved/published top-level comments
+            final status = record['status'] as String?;
+            final parentId = record['parent_comment_id'];
+            if (status != 'published' && status != 'approved') return;
+            if (parentId != null) return; // replies handled by parent refresh
+            // Reload to get full comment with author join
+            if (!mounted) return;
+            final feedProvider = context.read<FeedProvider>();
+            final updated = await feedProvider.fetchCommentsForPost(_post.id);
+            if (!mounted) return;
+            setState(() {
+              _comments = updated;
+              _post = _post.copyWith(
+                comments: _countCommentsWithReplies(updated),
+              );
+            });
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: SupabaseConfig.commentsTable,
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'post_id',
+            value: _post.id,
+          ),
+          callback: (payload) async {
+            final record = payload.newRecord;
+            final status = record['status'] as String?;
+            // A comment just got approved
+            if (status != 'published' && status != 'approved') return;
+            if (!mounted) return;
+            final feedProvider = context.read<FeedProvider>();
+            final updated = await feedProvider.fetchCommentsForPost(_post.id);
+            if (!mounted) return;
+            setState(() {
+              _comments = updated;
+              _post = _post.copyWith(
+                comments: _countCommentsWithReplies(updated),
+              );
+            });
+          },
+        )
+        .subscribe();
   }
 
   @override
   void dispose() {
+    if (_commentsChannel != null) {
+      SupabaseService().client.removeChannel(_commentsChannel!);
+    }
     _editController.dispose();
     _commentController.dispose();
     super.dispose();

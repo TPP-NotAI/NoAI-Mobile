@@ -342,6 +342,47 @@ class ChatService {
     }
 
     if (precheck.aiScoreStatus == 'flagged') {
+      // Save the message as flagged so it appears in "My Flagged Content" and
+      // is logged in moderation_cases. Upload media first if needed.
+      String? flaggedMediaUrl = mediaUrl;
+      if (flaggedMediaUrl == null &&
+          localMediaPath != null &&
+          localMediaPath.isNotEmpty &&
+          mediaType != null) {
+        final fileName = localMediaPath.split('/').last.split('\\').last;
+        flaggedMediaUrl = await uploadMedia(localMediaPath, fileName);
+      }
+      try {
+        final flaggedData = <String, dynamic>{
+          'thread_id': threadId,
+          'sender_id': userId,
+          'body': content,
+          'ai_score': precheck.aiScore,
+          'ai_score_status': 'flagged',
+          'ai_metadata': precheck.aiMetadata,
+          'verification_session_id': precheck.analysisId,
+        };
+        if (flaggedMediaUrl != null) flaggedData['media_url'] = flaggedMediaUrl;
+        if (mediaType != null) flaggedData['media_type'] = mediaType;
+        if (replyToId != null) flaggedData['reply_to_id'] = replyToId;
+
+        final flaggedResponse = await _supabase
+            .from('dm_messages')
+            .insert(flaggedData)
+            .select()
+            .single();
+        final flaggedMessage = Message.fromSupabase(flaggedResponse);
+        await _createModerationCaseIfNeeded(
+          messageId: flaggedMessage.id,
+          senderId: userId,
+          aiScore: precheck.aiScore,
+          aiMetadata: precheck.aiMetadata,
+          rationale: precheck.rationale,
+          combinedEvidence: precheck.combinedEvidence,
+        );
+      } catch (e) {
+        debugPrint('ChatService: Failed to save flagged message - $e');
+      }
       throw Exception(
         'Message blocked: content detected as likely AI-generated.',
       );
@@ -370,13 +411,23 @@ class ChatService {
       }
     }
 
+    // Upload media only after AI check passes, to avoid orphaned files in storage.
+    String? resolvedMediaUrl = mediaUrl;
+    if (resolvedMediaUrl == null &&
+        localMediaPath != null &&
+        localMediaPath.isNotEmpty &&
+        mediaType != null) {
+      final fileName = localMediaPath.split('/').last.split('\\').last;
+      resolvedMediaUrl = await uploadMedia(localMediaPath, fileName);
+    }
+
     final insertData = <String, dynamic>{
       'thread_id': threadId,
       'sender_id': userId,
       'body': content,
     };
 
-    if (mediaUrl != null) insertData['media_url'] = mediaUrl;
+    if (resolvedMediaUrl != null) insertData['media_url'] = resolvedMediaUrl;
     if (mediaType != null) insertData['media_type'] = mediaType;
     if (replyToId != null) insertData['reply_to_id'] = replyToId;
     insertData['ai_score'] = precheck.aiScore;
@@ -834,7 +885,7 @@ class ChatService {
     final now = DateTime.now();
     final cached = _signedUrlCache[path];
     if (cached != null && now.isBefore(cached.expiresAt)) {
-      return cached.url;
+      return cached.notFound ? rawMediaRef : cached.url;
     }
 
     try {
@@ -851,7 +902,18 @@ class ChatService {
       );
       return signedUrl;
     } catch (e) {
-      debugPrint('ChatService: Failed to create signed media URL - $e');
+      final is404 = e is StorageException && e.statusCode == '404';
+      if (is404) {
+        // File no longer exists in storage (orphaned). Cache for 1 hour so we
+        // don't hammer storage with 404s on every stream event.
+        _signedUrlCache[path] = _SignedUrlCacheEntry(
+          url: rawMediaRef,
+          expiresAt: now.add(const Duration(hours: 1)),
+          notFound: true,
+        );
+      } else {
+        debugPrint('ChatService: Failed to create signed media URL - $e');
+      }
       return rawMediaRef;
     }
   }
@@ -1045,8 +1107,15 @@ class ChatService {
 class _SignedUrlCacheEntry {
   final String url;
   final DateTime expiresAt;
+  /// True when the object was not found in storage (404). The raw URL is kept
+  /// as [url] and we skip re-signing until the TTL expires.
+  final bool notFound;
 
-  const _SignedUrlCacheEntry({required this.url, required this.expiresAt});
+  const _SignedUrlCacheEntry({
+    required this.url,
+    required this.expiresAt,
+    this.notFound = false,
+  });
 }
 
 class _AiPrecheckResult {

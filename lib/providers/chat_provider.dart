@@ -416,20 +416,15 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final mediaUrl = await _chatService.uploadMedia(filePath, fileName);
-      if (mediaUrl != null) {
-        await _chatService.sendMessage(
-          conversationId,
-          content,
-          mediaType: type,
-          mediaUrl: mediaUrl,
-          localMediaPath: filePath,
-          onAdFeeRequired: onAdFeeRequired,
-        );
-        await loadConversations();
-        return true;
-      }
-      return false;
+      await _chatService.sendMessage(
+        conversationId,
+        content,
+        mediaType: type,
+        localMediaPath: filePath,
+        onAdFeeRequired: onAdFeeRequired,
+      );
+      await loadConversations();
+      return true;
     } catch (e) {
       debugPrint('Error sending media message: $e');
       _error = e.toString().replaceFirst('Exception: ', '').trim();

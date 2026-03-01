@@ -786,7 +786,7 @@ class _AiScoreBadge extends StatelessWidget {
     } else if (isReview) {
       badgeColor = const Color(0xFFF59E0B); // Amber
       bgColor = const Color(0xFF451A03);
-      label = 'REVIEW REQ';
+      label = 'UNDER REVIEW';
     } else {
       badgeColor = const Color(0xFF10B981); // Green
       bgColor = const Color(0xFF052E1C);

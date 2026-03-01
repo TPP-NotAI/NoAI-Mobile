@@ -1395,7 +1395,7 @@ class _DmBubble extends StatelessWidget {
                                 : Colors.orange.shade700,
                           ),
                           SizedBox(width: 4),
-                          Text('Under review · Only you can see this'.tr(context),
+                          Text('AI check in progress · Only you can see this'.tr(context),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,

@@ -2118,11 +2118,11 @@ class _AiScoreBadge extends StatelessWidget {
     if (isFlagged) {
       badgeColor = const Color(0xFFEF4444); // Red
       bgColor = const Color(0xFF2D0F0F);
-      label = 'AI';
+      label = 'AI FLAGGED';
     } else if (isReview) {
       badgeColor = const Color(0xFFF59E0B); // Amber
       bgColor = const Color(0xFF451A03);
-      label = 'REQ';
+      label = 'UNDER REVIEW';
     } else {
       // Cleanest view for passed checks: just a green dot
       return Padding(

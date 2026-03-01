@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/supabase_config.dart';
 import '../models/post.dart';
 import '../models/comment.dart';
 import '../repositories/post_repository.dart';
@@ -26,6 +28,8 @@ class FeedProvider with ChangeNotifier {
   final UserInterestsRepository _interestsRepository =
       UserInterestsRepository();
   final KycVerificationService _kycService = KycVerificationService();
+
+  RealtimeChannel? _postsChannel;
 
   List<Post> _posts = [];
   List<Post>? _cachedFilteredPosts; // cached result of the posts getter
@@ -191,10 +195,51 @@ class FeedProvider with ChangeNotifier {
   }
 
   FeedProvider() {
-    // Load initial feed from Supabase
     _loadInitialFeed();
-    // Load user interests
     _loadUserInterests();
+    _subscribeToNewPosts();
+  }
+
+  void _subscribeToNewPosts() {
+    _postsChannel = SupabaseService().client
+        .channel('feed:posts:published')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: SupabaseConfig.postsTable,
+          callback: (payload) async {
+            final record = payload.newRecord;
+            // Only care about published posts
+            if (record['status'] != 'published') return;
+            final postId = record['id'] as String?;
+            if (postId == null) return;
+            // Fetch the full post so we get author, media, etc.
+            try {
+              final fresh = await _postRepository.getPost(
+                postId,
+                currentUserId: _currentUserId,
+              );
+              if (fresh == null) return;
+              // Skip if already in feed
+              if (_posts.any((p) => p.id == fresh.id)) return;
+              _posts = [fresh, ..._posts];
+              _invalidatePostsCache();
+              _newPostsAvailable = true;
+              notifyListeners();
+            } catch (e) {
+              debugPrint('FeedProvider realtime: error fetching post $postId – $e');
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    if (_postsChannel != null) {
+      SupabaseService().client.removeChannel(_postsChannel!);
+    }
+    super.dispose();
   }
 
   /// Load user interests for feed personalization.
