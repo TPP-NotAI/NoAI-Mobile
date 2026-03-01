@@ -649,109 +649,6 @@ class _ProfileHeader extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           maxLines: 1,
         ),
-        // Country, date of birth, and website
-        if (user.countryOfResidence != null &&
-                user.countryOfResidence!.isNotEmpty ||
-            user.birthDate != null ||
-            user.websiteUrl != null && user.websiteUrl!.isNotEmpty) ...[
-          SizedBox(height: 8),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 12,
-            runSpacing: 4,
-            children: [
-              if (user.countryOfResidence != null &&
-                  user.countryOfResidence!.isNotEmpty)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 14,
-                      color: colors.onSurfaceVariant,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      user.countryOfResidence!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              if (user.birthDate != null)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.cake_outlined,
-                      size: 14,
-                      color: colors.onSurfaceVariant,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      DateFormat('MMM d, yyyy').format(user.birthDate!),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              if (user.websiteUrl != null && user.websiteUrl!.isNotEmpty)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.link, size: 14, color: colors.primary),
-                    SizedBox(width: 4),
-                    Text(
-                      user.websiteUrl!.replaceFirst(RegExp(r'^https?://'), ''),
-                      style: TextStyle(fontSize: 12, color: colors.primary),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ],
-        SizedBox(height: 16),
-        // Badges: verified human status + achievements from DB
-        if (user.verifiedHuman == 'verified' || user.achievements.isNotEmpty)
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (user.verifiedHuman == 'verified')
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF052E1C),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFF10B981)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.verified, size: 14, color: Color(0xFF10B981)),
-                      SizedBox(width: 6),
-                      Text('Verified Human'.tr(context),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF10B981),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              for (final achievement in user.achievements)
-                _AchievementBadge(achievement: achievement),
-            ],
-          ),
         if (user.bio != null && user.bio!.isNotEmpty) ...[
           SizedBox(height: 12),
           Text(
@@ -760,6 +657,64 @@ class _ProfileHeader extends StatelessWidget {
             style: TextStyle(color: colors.onSurfaceVariant, height: 1.5),
           ),
         ],
+        if (user.achievements.isNotEmpty) ...[
+          SizedBox(height: 16),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final achievement in user.achievements)
+                _AchievementBadge(achievement: achievement),
+            ],
+          ),
+        ],
+        SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _ProfileStatColumn(label: 'Followers'.tr(context), value: user.followersCount, colors: colors),
+            Container(width: 1, height: 32, color: colors.outlineVariant.withValues(alpha: 0.4)),
+            _ProfileStatColumn(label: 'Following'.tr(context), value: user.followingCount, colors: colors),
+            Container(width: 1, height: 32, color: colors.outlineVariant.withValues(alpha: 0.4)),
+            _ProfileStatColumn(label: 'Posts'.tr(context), value: user.postsCount, colors: colors),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/* ───────────────── PROFILE STAT COLUMN ───────────────── */
+
+class _ProfileStatColumn extends StatelessWidget {
+  final String label;
+  final int value;
+  final ColorScheme colors;
+
+  const _ProfileStatColumn({
+    required this.label,
+    required this.value,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          '$value',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: colors.onSurface,
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
+        ),
       ],
     );
   }
@@ -942,191 +897,110 @@ class _HumanityMetricsCompact extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('HUMANITY METRICS'.tr(context),
+              Text(
+                'Humanity Metrics'.tr(context),
                 style: TextStyle(
-                  fontSize: AppTypography.responsiveFontSize(context, 11),
+                  fontSize: AppTypography.responsiveFontSize(context, 13),
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                  color: colors.onSurfaceVariant,
+                  color: colors.onSurface,
                 ),
               ),
-              Spacer(),
+              SizedBox(width: 6),
               Icon(
                 Icons.info_outline,
-                size: AppTypography.responsiveIconSize(context, 18),
+                size: AppTypography.responsiveIconSize(context, 16),
                 color: colors.onSurfaceVariant,
               ),
             ],
           ),
-          SizedBox(height: AppSpacing.extraLarge.responsive(context)),
-          // Trust Score
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Trust Score'.tr(context),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('${user.trustScore.toStringAsFixed(0)}'.tr(context),
-                          style: TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: colors.onSurface,
-                            height: 1,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4, left: 2),
-                          child: Text('/100'.tr(context),
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 56.responsive(context, min: 48, max: 64),
-                height: 56.responsive(context, min: 48, max: 64),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color:
-                      (user.trustScore > 80
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFF59E0B))
-                          .withOpacity(0.15),
-                  border: Border.all(
-                    color: user.trustScore > 80
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFFF59E0B),
-                    width: 2,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    user.trustScore > 90
-                        ? 'A+'
-                        : user.trustScore > 80
-                        ? 'A'
-                        : user.trustScore > 70
-                        ? 'B'
-                        : 'C',
-                    style: TextStyle(
-                      fontSize: AppTypography.responsiveFontSize(
-                        context,
-                        AppTypography.smallHeading,
-                      ),
-                      fontWeight: FontWeight.bold,
-                      color: user.trustScore > 80
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFF59E0B),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppSpacing.extraLarge.responsive(context)),
-          Divider(height: 1),
-          SizedBox(height: AppSpacing.largePlus.responsive(context)),
-          // Human-Verified Posts
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _profileText(context, 'humanVerifiedPosts'),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text('${user.humanVerifiedPostsCount}'.tr(context),
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: colors.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.content_paste,
-                size: 32,
-                color: colors.onSurfaceVariant.withOpacity(0.5),
-              ),
-            ],
-          ),
-          SizedBox(height: 20),
-          Divider(height: 1),
           SizedBox(height: 16),
-          // Reputation Score
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _profileText(context, 'aiLikelihoodScore'),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('${user.mlScore.toStringAsFixed(2)}%'.tr(context),
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: colors.onSurface,
-                            height: 1,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 2, left: 6),
-                          child: Text(
-                            _profileText(context, 'aiProb'),
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.workspace_premium,
-                size: 32,
-                color: const Color(0xFFF59E0B),
-              ),
-            ],
+          // Verified Posts
+          _HumanityMetricRow(
+            label: 'Verified Posts'.tr(context),
+            value: '${user.humanVerifiedPostsCount}',
+            subLabel: 'verified',
+            icon: Icons.verified,
+            iconColor: const Color(0xFF10B981),
+            colors: colors,
+          ),
+          SizedBox(height: 12),
+          // Verification Status
+          _HumanityMetricRow(
+            label: 'Verification Status'.tr(context),
+            value: user.verifiedHuman == 'verified'
+                ? 'Verified'.tr(context)
+                : user.verifiedHuman == 'pending'
+                ? 'Pending'.tr(context)
+                : 'Unverified'.tr(context),
+            subLabel: 'verified',
+            icon: Icons.verified_user,
+            iconColor: colors.primary,
+            colors: colors,
+          ),
+          SizedBox(height: 12),
+          // Average Human Score
+          _HumanityMetricRow(
+            label: 'Average Human Score'.tr(context),
+            value: '${user.mlScore.toStringAsFixed(0)}%',
+            subLabel: 'psychology',
+            icon: Icons.psychology,
+            iconColor: const Color(0xFFF59E0B),
+            colors: colors,
           ),
         ],
       ),
+    );
+  }
+}
+
+/* ───────────────── HUMANITY METRIC ROW ───────────────── */
+
+class _HumanityMetricRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final String subLabel;
+  final IconData icon;
+  final Color iconColor;
+  final ColorScheme colors;
+
+  const _HumanityMetricRow({
+    required this.label,
+    required this.value,
+    required this.subLabel,
+    required this.icon,
+    required this.iconColor,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: colors.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Icon(icon, size: 28, color: iconColor),
+      ],
     );
   }
 }
@@ -1823,32 +1697,69 @@ class _AdsTab extends StatelessWidget {
       }
     }
 
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, i) {
-            final item = items[i];
-            if (item.isHeader) {
-              return _AdSectionHeader(
-                label: item.label!,
-                colors: colors,
-                isPending: item.label == 'Pending Payment',
-              );
-            }
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _AdCard(
-                post: item.post!,
-                colors: colors,
-                isPending: item.isPending,
-                onPayFee: onPayFee,
+    return SliverMainAxisGroup(
+      slivers: [
+        if (pendingAds.isNotEmpty) ...[
+          SliverToBoxAdapter(
+            child: _AdSectionHeader(
+              label: 'Pending Payment',
+              colors: colors,
+              isPending: true,
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 4,
+                mainAxisSpacing: 4,
+                childAspectRatio: 1,
               ),
-            );
-          },
-          childCount: items.length,
-        ),
-      ),
+              delegate: SliverChildBuilderDelegate(
+                (context, i) => _AdGridItem(
+                  post: pendingAds[i],
+                  colors: colors,
+                  isPending: true,
+                  onPayFee: onPayFee,
+                ),
+                childCount: pendingAds.length,
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        ],
+        if (paidAds.isNotEmpty) ...[
+          SliverToBoxAdapter(
+            child: _AdSectionHeader(
+              label: 'Paid & Published',
+              colors: colors,
+              isPending: false,
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 4,
+                mainAxisSpacing: 4,
+                childAspectRatio: 1,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, i) => _AdGridItem(
+                  post: paidAds[i],
+                  colors: colors,
+                  isPending: false,
+                  onPayFee: onPayFee,
+                ),
+                childCount: paidAds.length,
+              ),
+            ),
+          ),
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      ],
     );
   }
 }
@@ -2240,6 +2151,110 @@ class _AdStat extends StatelessWidget {
   }
 }
 
+/* ───────────────── AD GRID ITEM ───────────────── */
+
+class _AdGridItem extends StatelessWidget {
+  final Post post;
+  final ColorScheme colors;
+  final bool isPending;
+  final Future<void> Function(String postId) onPayFee;
+
+  const _AdGridItem({
+    required this.post,
+    required this.colors,
+    required this.isPending,
+    required this.onPayFee,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryMediaUrl = post.primaryMediaUrl;
+    final hasMedia = primaryMediaUrl != null && primaryMediaUrl.isNotEmpty;
+    final accentColor = isPending ? Colors.orange.shade700 : Colors.green.shade700;
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: accentColor.withValues(alpha: 0.4),
+            width: 1,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasMedia)
+                CachedNetworkImage(
+                  imageUrl: primaryMediaUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => const ShimmerLoading(
+                    isLoading: true,
+                    child: ShimmerBox(
+                      width: double.infinity,
+                      height: double.infinity,
+                      borderRadius: 0,
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: colors.surfaceContainerHighest,
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: colors.onSurfaceVariant.withValues(alpha: 0.5),
+                      size: 24,
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
+                  padding: const EdgeInsets.all(6),
+                  child: Center(
+                    child: Text(
+                      post.content,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: colors.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    isPending ? 'Pending' : 'Live',
+                    style: const TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PostsGrid extends StatelessWidget {
   final List posts;
   final ColorScheme colors;
@@ -2473,54 +2488,59 @@ class _PostGridItem extends StatelessWidget {
                 ),
               ),
 
-              // Media type indicator
+              // Media type indicator + count
               if (hasMedia)
                 Positioned(
                   top: 6,
                   left: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isVideo ? Icons.videocam : Icons.image,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                        if ((post.mediaList?.length ?? 0) > 1) ...[
+                          const SizedBox(width: 3),
+                          Text(
+                            '${post.mediaList!.length}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Repost indicator
+              if (post.reposter != null)
+                Positioned(
+                  top: 6,
+                  right: 6,
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Icon(
-                      isVideo ? Icons.videocam : Icons.image,
+                    child: const Icon(
+                      Icons.repeat,
                       size: 12,
                       color: Colors.white,
                     ),
                   ),
                 ),
-
-              // ML Score badge
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF052E1C),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: const Color(0xFF10B981),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    post.aiConfidenceScore != null
-                        ? '${post.aiConfidenceScore!.toStringAsFixed(1)}%'
-                        : '0.05%',
-                    style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF10B981),
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),

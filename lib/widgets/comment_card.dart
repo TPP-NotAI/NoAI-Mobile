@@ -1018,6 +1018,18 @@ class _AiCheckBadge extends StatelessWidget {
       label = 'AI CHECK: PENDING';
     }
 
+    // For passed: just show a green dot
+    if (isPassed) {
+      return Container(
+        width: 8,
+        height: 8,
+        decoration: const BoxDecoration(
+          color: Color(0xFF10B981),
+          shape: BoxShape.circle,
+        ),
+      );
+    }
+
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: AppSpacing.mediumSmall.responsive(context),

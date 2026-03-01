@@ -4,6 +4,7 @@ import '../models/wallet.dart';
 import '../services/rooken_service.dart';
 import '../services/secure_storage_service.dart';
 import '../services/activity_log_service.dart';
+import '../services/push_notification_service.dart';
 import '../core/extensions/exception_extensions.dart';
 
 /// Repository for managing wallet data and Rooken integration
@@ -662,10 +663,48 @@ class WalletRepository {
         'activityType=$activityType, amount=$rewardAmount ROO',
       );
 
+      // 5. Show local push notification so user knows they earned ROO
+      if (rewardAmount > 0) {
+        try {
+          final notifBody = _rewardNotificationBody(activityType, rewardAmount);
+          await PushNotificationService().showLocalNotification(
+            title: 'ROO Earned!',
+            body: notifBody,
+            type: 'reward',
+            data: {
+              'type': 'reward',
+              'activityType': activityType,
+              'amount': rewardAmount,
+            },
+          );
+        } catch (_) {}
+      }
+
       return result;
     } catch (e) {
       debugPrint('Error earning ROOK: $e');
       rethrow;
+    }
+  }
+
+  /// Returns a human-readable notification body for a reward activity.
+  String _rewardNotificationBody(String activityType, double amount) {
+    final amtStr = amount == amount.truncateToDouble()
+        ? amount.toInt().toString()
+        : amount.toStringAsFixed(2);
+    switch (activityType) {
+      case RookenActivityType.postLike:
+        return 'You earned $amtStr ROO for liking a post.';
+      case RookenActivityType.postCreate:
+        return 'You earned $amtStr ROO for your daily post.';
+      case RookenActivityType.referral:
+        return 'You earned $amtStr ROO for a successful referral!';
+      case RookenActivityType.profileComplete:
+        return 'You earned $amtStr ROO for completing your profile!';
+      case RookenActivityType.contentViral:
+        return 'Your post hit a viral milestone! You earned $amtStr ROO.';
+      default:
+        return 'You earned $amtStr ROO.';
     }
   }
 
@@ -1058,6 +1097,25 @@ class WalletRepository {
           debugPrint('Error in recipient background update: $e');
         }
       }
+
+      // 4. Notify sender that their transfer completed
+      try {
+        final recipientLabel = recipientDisplayName ??
+            recipientUsername ??
+            '${toAddress.substring(0, 6)}…';
+        await PushNotificationService().showLocalNotification(
+          title: 'Transfer Sent',
+          body:
+              'You sent ${amount.toStringAsFixed(2)} ROO to $recipientLabel.',
+          type: 'roo_sent',
+          data: {
+            'type': 'roo_sent',
+            'amount': amount,
+            'to_address': toAddress,
+            'tx_hash': txHash,
+          },
+        );
+      } catch (_) {}
     } catch (e) {
       debugPrint('Error in background transfer updates: $e');
     }

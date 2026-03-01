@@ -21,8 +21,6 @@ import '../widgets/tip_modal.dart';
 import '../screens/boost/boost_analytics_page.dart';
 import '../screens/ads/ad_insights_page.dart';
 import '../repositories/boost_repository.dart';
-import '../repositories/wallet_repository.dart';
-import '../services/rooken_service.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -1133,8 +1131,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   void _handleShare(BuildContext context) async {
     try {
-      final currentUserId = context.read<AuthProvider>().currentUser?.id;
-
       final shareText = _post.title != null && _post.title!.isNotEmpty
           ? '${_post.title}\n\n${_post.content}\n\nShared from ROOVERSE'
           : '${_post.content}\n\nShared from ROOVERSE';
@@ -1144,25 +1140,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         subject: _post.title ?? 'Check out this post on ROOVERSE',
       );
 
-      if (currentUserId != null && currentUserId.isNotEmpty) {
-        try {
-          final walletRepo = WalletRepository();
-          await walletRepo.earnRoo(
-            userId: currentUserId,
-            activityType: RookenActivityType.postShare,
-            referencePostId: _post.id,
-          );
-        } catch (e) {
-          debugPrint('Error awarding share ROOK: $e');
-        }
-      }
-
       if (context.mounted) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
             SnackBar(
-              content: Text('Post shared! You earned 5 ROOK.'.tr(context)),
+              content: Text('Post shared!'.tr(context)),
               duration: const Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
             ),

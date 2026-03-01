@@ -175,34 +175,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
             // ───────── FILTERS
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(left: 16, bottom: 12),
-                child: SizedBox(
-                  height: 36,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      _FilterChip(
-                        label: 'All',
-                        selected: _selectedFilter,
-                        onSelect: _select,
-                      ),
-                      _FilterChip(
-                        label: 'Trending',
-                        selected: _selectedFilter,
-                        onSelect: _select,
-                      ),
-                      _FilterChip(
-                        label: 'Latest',
-                        selected: _selectedFilter,
-                        onSelect: _select,
-                      ),
-                      _FilterChip(
-                        label: 'Most Liked',
-                        selected: _selectedFilter,
-                        onSelect: _select,
-                      ),
-                    ],
-                  ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0).copyWith(bottom: 12),
+                child: Row(
+                  children: [
+                    Expanded(child: _FilterChip(label: 'All', selected: _selectedFilter, onSelect: _select)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _FilterChip(label: 'Trending', selected: _selectedFilter, onSelect: _select)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _FilterChip(label: 'Latest', selected: _selectedFilter, onSelect: _select)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _FilterChip(label: 'Most Liked', selected: _selectedFilter, onSelect: _select)),
+                  ],
                 ),
               ),
             ),
@@ -482,23 +465,24 @@ class _FilterChip extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final isActive = selected == label;
 
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: () => onSelect(label),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: isActive ? colors.primary : colors.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isActive ? colors.primary : colors.outlineVariant,
-            ),
+    return GestureDetector(
+      onTap: () => onSelect(label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? colors.primary : colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? colors.primary : colors.outlineVariant,
           ),
+        ),
+        child: Center(
           child: Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: isActive ? colors.onPrimary : colors.onSurfaceVariant,
             ),

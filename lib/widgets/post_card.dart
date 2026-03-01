@@ -705,13 +705,17 @@ class _HeaderState extends State<_Header> {
                               score: post.aiConfidenceScore,
                               isModerated: post.status == 'under_review',
                             ),
-                          if (isAdvert) ...[
+                          if (isAdvert && isSponsored) ...[
+                            SizedBox(
+                              width: AppSpacing.small.responsive(context),
+                            ),
+                            const _SponsoredAdBadge(),
+                          ] else if (isAdvert) ...[
                             SizedBox(
                               width: AppSpacing.small.responsive(context),
                             ),
                             const _AdBadge(),
-                          ],
-                          if (isSponsored) ...[
+                          ] else if (isSponsored) ...[
                             SizedBox(
                               width: AppSpacing.small.responsive(context),
                             ),
@@ -884,6 +888,33 @@ class _AdBadge extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: Color(0xFFFF8C00),
           letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+}
+
+class _SponsoredAdBadge extends StatelessWidget {
+  const _SponsoredAdBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF97316).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: const Color(0xFFF97316).withValues(alpha: 0.5),
+        ),
+      ),
+      child: Text(
+        'SPONSORED ADVERT'.tr(context),
+        style: const TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFFF97316),
+          letterSpacing: 0.2,
         ),
       ),
     );

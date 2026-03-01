@@ -74,7 +74,7 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
 
   Widget _buildSingleMediaView() {
     final mediaWidget = widget.isVideo
-        ? VideoPlayerWidget(videoUrl: widget.mediaUrl)
+        ? VideoPlayerWidget(showControls: true, videoUrl:widget.mediaUrl)
         : InteractiveViewer(
             minScale: 0.5,
             maxScale: 4.0,
@@ -125,7 +125,7 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
 
               if (isVideo) {
                 return Center(
-                  child: VideoPlayerWidget(videoUrl: url),
+                  child: VideoPlayerWidget(showControls: true, videoUrl:url),
                 );
               }
 
