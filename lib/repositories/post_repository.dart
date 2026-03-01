@@ -194,6 +194,228 @@ class PostRepository {
     return filteredPosts.take(limit).toList();
   }
 
+  /// Fetch feed of posts from users the current user follows.
+  Future<List<Post>> getFollowingFeed({
+    int limit = 20,
+    int offset = 0,
+    required String currentUserId,
+  }) async {
+    final followingIds = await _getFollowingIds(currentUserId);
+    if (followingIds.isEmpty) return [];
+
+    final fetchLimit = limit * 2;
+
+    var query = _client.from(SupabaseConfig.postsTable).select('''
+          *,
+          profiles!posts_author_id_fkey (
+            user_id,
+            username,
+            display_name,
+            avatar_url,
+            verified_human,
+            posts_visibility
+          ),
+          reactions!reactions_post_id_fkey (
+            user_id,
+            reaction_type
+          ),
+          comments!comments_post_id_fkey (
+            id
+          ),
+          post_media (
+            id,
+            media_type,
+            storage_path,
+            mime_type,
+            width,
+            height,
+            duration_seconds
+          ),
+          post_tags (
+            tags (
+              id,
+              name
+            )
+          ),
+          roocoin_transactions!roocoin_transactions_reference_post_id_fkey (
+            amount_rc,
+            status,
+            metadata
+          ),
+          mentions (
+            mentioned_user_id
+          )
+        ''');
+
+    query = query.eq('status', 'published');
+    query = query.inFilter('author_id', followingIds.toList());
+
+    final postData = await query
+        .order('created_at', ascending: false)
+        .range(offset, offset + fetchLimit - 1);
+
+    final posts = (postData as List<dynamic>)
+        .map((json) => Post.fromSupabase(json, currentUserId: currentUserId))
+        .toList();
+
+    // Fetch reposts from following
+    final repostData = await _client
+        .from(SupabaseConfig.repostsTable)
+        .select('''
+          *,
+          reposter:profiles!reposts_user_id_fkey (
+            user_id,
+            username,
+            display_name,
+            avatar_url,
+            verified_human
+          ),
+          posts!reposts_post_id_fkey (
+            *,
+            profiles!posts_author_id_fkey (
+              user_id,
+              username,
+              display_name,
+              avatar_url,
+              verified_human,
+              posts_visibility
+            ),
+            reactions!reactions_post_id_fkey (
+              user_id,
+              reaction_type
+            ),
+            comments!comments_post_id_fkey (
+              id
+            ),
+            post_media (
+              id,
+              media_type,
+              storage_path,
+              mime_type,
+              width,
+              height,
+              duration_seconds
+            ),
+            post_tags (
+              tags (
+                id,
+                name
+              )
+            ),
+            roocoin_transactions!roocoin_transactions_reference_post_id_fkey (
+              amount_rc,
+              status,
+              metadata
+            ),
+            mentions (
+              mentioned_user_id
+            )
+          )
+        ''')
+        .inFilter('user_id', followingIds.toList())
+        .eq('posts.status', 'published')
+        .order('created_at', ascending: false)
+        .range(offset, offset + fetchLimit - 1);
+
+    final reposts = (repostData as List<dynamic>)
+        .where((json) => json['posts'] != null && json['reposter'] != null)
+        .map((json) {
+          final originalPostJson = json['posts'] as Map<String, dynamic>;
+          final reposterJson = json['reposter'] as Map<String, dynamic>;
+          final post = Post.fromSupabase(originalPostJson, currentUserId: currentUserId);
+          return post.copyWith(
+            reposter: PostAuthor(
+              userId: reposterJson['user_id'] as String?,
+              displayName: reposterJson['display_name'] ?? '',
+              username: reposterJson['username'] ?? 'unknown',
+              avatar: reposterJson['avatar_url'] ?? '',
+              isVerified: reposterJson['verified_human'] == 'verified',
+            ),
+            repostedAt: json['created_at'] as String?,
+          );
+        })
+        .toList();
+
+    final allItems = [...posts, ...reposts];
+    allItems.sort((a, b) {
+      final timeA = DateTime.parse(a.repostedAt ?? a.timestamp);
+      final timeB = DateTime.parse(b.repostedAt ?? b.timestamp);
+      return timeB.compareTo(timeA);
+    });
+
+    final filtered = await _filterPostsByPrivacy(allItems, currentUserId: currentUserId);
+    return filtered.take(limit).toList();
+  }
+
+  /// Fetch trending posts sorted by engagement (likes + comments + reposts).
+  Future<List<Post>> getTrendingFeed({
+    int limit = 20,
+    int offset = 0,
+    String? currentUserId,
+  }) async {
+    final fetchLimit = limit * 2;
+
+    final postData = await _client.from(SupabaseConfig.postsTable).select('''
+          *,
+          profiles!posts_author_id_fkey (
+            user_id,
+            username,
+            display_name,
+            avatar_url,
+            verified_human,
+            posts_visibility
+          ),
+          reactions!reactions_post_id_fkey (
+            user_id,
+            reaction_type
+          ),
+          comments!comments_post_id_fkey (
+            id
+          ),
+          post_media (
+            id,
+            media_type,
+            storage_path,
+            mime_type,
+            width,
+            height,
+            duration_seconds
+          ),
+          post_tags (
+            tags (
+              id,
+              name
+            )
+          ),
+          roocoin_transactions!roocoin_transactions_reference_post_id_fkey (
+            amount_rc,
+            status,
+            metadata
+          ),
+          mentions (
+            mentioned_user_id
+          )
+        ''')
+        .eq('status', 'published')
+        .gte('created_at', DateTime.now().subtract(const Duration(days: 7)).toIso8601String())
+        .order('likes_count', ascending: false)
+        .range(offset, offset + fetchLimit - 1);
+
+    final posts = (postData as List<dynamic>)
+        .map((json) => Post.fromSupabase(json, currentUserId: currentUserId))
+        .toList();
+
+    // Sort by engagement score: likes + comments + reposts
+    posts.sort((a, b) {
+      final scoreA = a.likes + a.comments + a.reposts;
+      final scoreB = b.likes + b.comments + b.reposts;
+      return scoreB.compareTo(scoreA);
+    });
+
+    final filtered = await _filterPostsByPrivacy(posts, currentUserId: currentUserId);
+    return filtered.take(limit).toList();
+  }
+
   /// Filter posts based on privacy settings.
   /// - 'everyone': visible to all
   /// - 'followers': visible only to followers
@@ -985,16 +1207,68 @@ class PostRepository {
     }
   }
 
-  /// Update tip total for a post.
-  Future<bool> tipPost(String postId, double newTotal) async {
+  /// Count posts that are published AND human-verified (ai_score_status = 'pass').
+  /// Used for the "Approved Posts" statistic on the profile screen.
+  Future<int> countApprovedPosts(String userId) async {
     try {
-      final updatedRow = await _client
+      final response = await _client
           .from(SupabaseConfig.postsTable)
-          .update({'total_tips_rc': newTotal})
-          .eq('id', postId)
           .select('id')
-          .maybeSingle();
-      return updatedRow != null;
+          .eq('author_id', userId)
+          .eq('status', 'published')
+          .eq('ai_score_status', 'pass')
+          .count(CountOption.exact);
+      return response.count;
+    } catch (e) {
+      debugPrint('PostRepository: Error counting approved posts - $e');
+      return 0;
+    }
+  }
+
+  /// Sum total likes across all posts by a user.
+  Future<int> getTotalLikes(String userId) async {
+    try {
+      final response = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('likes_count')
+          .eq('author_id', userId);
+      int total = 0;
+      for (final row in (response as List)) {
+        total += (row['likes_count'] as int? ?? 0);
+      }
+      return total;
+    } catch (e) {
+      debugPrint('PostRepository: Error getting total likes - $e');
+      return 0;
+    }
+  }
+
+  /// Sum total comments across all posts by a user.
+  Future<int> getTotalComments(String userId) async {
+    try {
+      final response = await _client
+          .from(SupabaseConfig.postsTable)
+          .select('comments_count')
+          .eq('author_id', userId);
+      int total = 0;
+      for (final row in (response as List)) {
+        total += (row['comments_count'] as int? ?? 0);
+      }
+      return total;
+    } catch (e) {
+      debugPrint('PostRepository: Error getting total comments - $e');
+      return 0;
+    }
+  }
+
+  /// Increment the tip total for a post via RPC (bypasses RLS).
+  Future<bool> tipPost(String postId, double amount) async {
+    try {
+      await _client.rpc('increment_post_tips', params: {
+        'p_post_id': postId,
+        'p_amount': amount,
+      });
+      return true;
     } catch (e) {
       debugPrint('PostRepository: Error tipping post - $e');
       return false;

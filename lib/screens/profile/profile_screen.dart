@@ -43,6 +43,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final PostRepository _postRepository = PostRepository();
   List<Post> _profilePosts = [];
   bool _isLoadingPosts = true;
+  int _approvedPostsCount = 0;
+  int _totalLikes = 0;
+  int _totalComments = 0;
 
   @override
   void initState() {
@@ -86,13 +89,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Pass current user ID for proper privacy filtering
       // When viewing own profile, this ensures all posts are shown
       // When viewing another's profile, respects their privacy settings
-      final posts = await _postRepository.getPostsByUser(
-        resolvedId,
-        currentUserId: authProvider.currentUser?.id,
-      );
+      final results = await Future.wait([
+        _postRepository.getPostsByUser(
+          resolvedId,
+          currentUserId: authProvider.currentUser?.id,
+        ),
+        _postRepository.countApprovedPosts(resolvedId),
+        _postRepository.getTotalLikes(resolvedId),
+        _postRepository.getTotalComments(resolvedId),
+      ]);
       if (mounted) {
         setState(() {
-          _profilePosts = posts;
+          _profilePosts = results[0] as List<Post>;
+          _approvedPostsCount = results[1] as int;
+          _totalLikes = results[2] as int;
+          _totalComments = results[3] as int;
           _isLoadingPosts = false;
         });
       }
@@ -241,10 +252,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final posts = _profilePosts.where((p) => p.status == 'published').toList()
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    // "Approved Posts" should reflect posts that are actually live on profile,
-    // not only records with ai_score_status == pass (legacy/live posts may lack it).
-    final approvedPostsCount = posts.length;
-
     return Scaffold(
       backgroundColor: colors.surface,
       appBar: widget.showAppBar
@@ -367,7 +374,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   user: user,
                   colors: colors,
                   isOwnProfile: isActuallyOwnProfile,
-                  approvedPostsCount: approvedPostsCount,
+                  approvedPostsCount: _approvedPostsCount,
+                  totalLikes: _totalLikes,
+                  totalComments: _totalComments,
                 )
             else if (_tabIndex == 2)
               if (_isLoadingPosts)
@@ -1550,12 +1559,16 @@ class _Statistics extends StatelessWidget {
   final ColorScheme colors;
   final bool isOwnProfile;
   final int approvedPostsCount;
+  final int totalLikes;
+  final int totalComments;
 
   const _Statistics({
     required this.user,
     required this.colors,
     required this.isOwnProfile,
     required this.approvedPostsCount,
+    required this.totalLikes,
+    required this.totalComments,
   });
 
   @override
@@ -1567,6 +1580,18 @@ class _Statistics extends StatelessWidget {
           _StatItem(
             label: _profileText(context, 'approvedPosts'),
             value: approvedPostsCount.toString(),
+            colors: colors,
+          ),
+          SizedBox(height: 12),
+          _StatItem(
+            label: _profileText(context, 'totalLikes'),
+            value: totalLikes.toString(),
+            colors: colors,
+          ),
+          SizedBox(height: 12),
+          _StatItem(
+            label: _profileText(context, 'totalComments'),
+            value: totalComments.toString(),
             colors: colors,
           ),
           SizedBox(height: 12),
@@ -2577,6 +2602,8 @@ String _profileText(
     'noActivityYet': {'en': 'No activity yet'},
     'at': {'en': 'at'},
     'approvedPosts': {'en': 'Approved Posts'},
+    'totalLikes': {'en': 'Total Likes'},
+    'totalComments': {'en': 'Total Comments'},
     'totalFollowers': {'en': 'Total Followers'},
     'aiFlaggedContent': {'en': 'AI Flagged Content'},
     'view': {'en': 'View'},

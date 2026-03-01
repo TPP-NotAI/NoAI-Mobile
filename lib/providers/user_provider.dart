@@ -11,6 +11,7 @@ import '../repositories/block_repository.dart';
 import '../repositories/report_repository.dart';
 import '../repositories/mute_repository.dart';
 import '../repositories/wallet_repository.dart';
+import '../repositories/notification_repository.dart';
 
 class UserProvider with ChangeNotifier {
   final SupabaseService _supabase = SupabaseService();
@@ -19,6 +20,7 @@ class UserProvider with ChangeNotifier {
   late final MuteRepository _muteRepository;
   final ReportRepository _reportRepository = ReportRepository();
   final WalletRepository _walletRepository = WalletRepository();
+  final NotificationRepository _notificationRepository = NotificationRepository();
 
   List<app_models.User> _users = [];
   app_models.User? _currentUser;
@@ -649,6 +651,7 @@ class UserProvider with ChangeNotifier {
         }
 
         final amount = (tx['amount_rc'] as num?)?.toDouble() ?? 0.0;
+        if (amount <= 0) continue; // skip zero/null amount transactions
         final isReceived = tx['to_user_id'] == userId;
         final txType = tx['tx_type'] as String?;
         final isTransfer = txType == 'transfer' || txType == 'tip';
@@ -736,6 +739,7 @@ class UserProvider with ChangeNotifier {
 
       final resolved = await resolveUsernameToAddress(toUsername);
       final recipientAddress = resolved['address']!;
+      final recipientUserId = resolved['userId']!;
 
       await _walletRepository.transferToExternal(
         userId: fromUserId,
@@ -746,6 +750,23 @@ class UserProvider with ChangeNotifier {
         referenceCommentId: referenceCommentId,
         metadata: metadata,
       );
+
+      // Notify recipient in-app (fire-and-forget, never blocks transfer)
+      final isTip = metadata?['activityType'] == 'tip';
+      final senderUsername = _currentUser?.username ?? '';
+      _notificationRepository.createNotification(
+        userId: recipientUserId,
+        type: isTip ? 'mention' : 'mention',
+        title: isTip ? 'You received a tip!' : 'You received ROO!',
+        body: isTip
+            ? '@$senderUsername tipped you ${amount.toStringAsFixed(0)} ROO'
+            : '@$senderUsername sent you ${amount.toStringAsFixed(2)} ROO',
+        actorId: fromUserId,
+        postId: referencePostId,
+      ).catchError((e) {
+        debugPrint('UserProvider: wallet notification failed (non-critical) - $e');
+        return false;
+      });
 
       // Refresh local user data in background to show updated balance
       // We don't await this to keep the UI snappy

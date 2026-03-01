@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rooverse/providers/user_provider.dart';
 import 'package:rooverse/screens/create/create_post_screen.dart';
@@ -16,6 +17,7 @@ import '../../widgets/stories_carousel.dart';
 import '../profile/profile_screen.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
 
@@ -25,6 +27,7 @@ class FeedScreen extends StatefulWidget {
 
 class _FeedScreenState extends State<FeedScreen> {
   final ScrollController _scrollController = ScrollController();
+  Timer? _newPostsTimer;
 
   @override
   void initState() {
@@ -34,10 +37,16 @@ class _FeedScreenState extends State<FeedScreen> {
       if (!mounted) return;
       context.read<StoryProvider>().refresh();
     });
+    // Periodically check for new content every 60 seconds
+    _newPostsTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (!mounted) return;
+      context.read<FeedProvider>().checkForNewPosts();
+    });
   }
 
   @override
   void dispose() {
+    _newPostsTimer?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -66,6 +75,16 @@ class _FeedScreenState extends State<FeedScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => TipModal(post: post),
     );
+  }
+
+  void _scrollToTopAndRefresh(FeedProvider feed) {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+    feed.refreshFeed();
+    context.read<StoryProvider>().refresh();
   }
 
   @override
@@ -120,6 +139,32 @@ class _FeedScreenState extends State<FeedScreen> {
                     ),
                   ),
 
+                  /// ───────────────── FILTER TABS ─────────────────
+                  SliverToBoxAdapter(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: maxWidth),
+                        child: _FeedFilterTabs(
+                          activeFilter: feed.activeFilter,
+                          onFilterChanged: (f) => feed.setFilter(f),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  /// ───────────────── NEW POSTS BANNER ─────────────────
+                  if (feed.newPostsAvailable)
+                    SliverToBoxAdapter(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: maxWidth),
+                          child: _NewPostsBanner(
+                            onTap: () => _scrollToTopAndRefresh(feed),
+                          ),
+                        ),
+                      ),
+                    ),
+
                   /// ───────────────── EMPTY STATE ─────────────────
                   if (feed.posts.isEmpty && !feed.isLoading)
                     SliverFillRemaining(
@@ -139,7 +184,10 @@ class _FeedScreenState extends State<FeedScreen> {
                             SizedBox(
                               height: AppSpacing.largePlus.responsive(context),
                             ),
-                            Text('No posts yet'.tr(context),
+                            Text(
+                              feed.activeFilter == FeedFilter.following
+                                  ? 'Follow people to see their posts here'.tr(context)
+                                  : 'No posts yet'.tr(context),
                               style: TextStyle(
                                 fontSize: AppTypography.responsiveFontSize(
                                   context,
@@ -223,6 +271,176 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/* ───────────────── FEED FILTER TABS ───────────────── */
+
+class _FeedFilterTabs extends StatelessWidget {
+  final FeedFilter activeFilter;
+  final ValueChanged<FeedFilter> onFilterChanged;
+
+  const _FeedFilterTabs({
+    required this.activeFilter,
+    required this.onFilterChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.largePlus.responsive(context),
+        vertical: AppSpacing.small.responsive(context),
+      ),
+      child: Row(
+        children: [
+          _FilterTab(
+            label: 'For You'.tr(context),
+            icon: Icons.auto_awesome_outlined,
+            isActive: activeFilter == FeedFilter.forYou,
+            onTap: () => onFilterChanged(FeedFilter.forYou),
+            colors: colors,
+          ),
+          SizedBox(width: AppSpacing.standard.responsive(context)),
+          _FilterTab(
+            label: 'Following'.tr(context),
+            icon: Icons.people_outline,
+            isActive: activeFilter == FeedFilter.following,
+            onTap: () => onFilterChanged(FeedFilter.following),
+            colors: colors,
+          ),
+          SizedBox(width: AppSpacing.standard.responsive(context)),
+          _FilterTab(
+            label: 'Trending'.tr(context),
+            icon: Icons.trending_up,
+            isActive: activeFilter == FeedFilter.trending,
+            onTap: () => onFilterChanged(FeedFilter.trending),
+            colors: colors,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterTab extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isActive;
+  final VoidCallback onTap;
+  final ColorScheme colors;
+
+  const _FilterTab({
+    required this.label,
+    required this.icon,
+    required this.isActive,
+    required this.onTap,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.largePlus.responsive(context),
+          vertical: AppSpacing.mediumSmall.responsive(context),
+        ),
+        decoration: BoxDecoration(
+          color: isActive ? colors.primary : colors.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: AppSpacing.responsiveRadius(context, 20),
+          border: Border.all(
+            color: isActive ? colors.primary : colors.outlineVariant,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: AppTypography.responsiveIconSize(context, 16),
+              color: isActive ? colors.onPrimary : colors.onSurfaceVariant,
+            ),
+            SizedBox(width: AppSpacing.small.responsive(context)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: AppTypography.responsiveFontSize(
+                  context,
+                  AppTypography.small,
+                ),
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? colors.onPrimary : colors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/* ───────────────── NEW POSTS BANNER ───────────────── */
+
+class _NewPostsBanner extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _NewPostsBanner({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: EdgeInsets.symmetric(
+          horizontal: AppSpacing.largePlus.responsive(context),
+          vertical: AppSpacing.small.responsive(context),
+        ),
+        padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.largePlus.responsive(context),
+          vertical: AppSpacing.mediumSmall.responsive(context),
+        ),
+        decoration: BoxDecoration(
+          color: colors.primary,
+          borderRadius: AppSpacing.responsiveRadius(context, 24),
+          boxShadow: [
+            BoxShadow(
+              color: colors.primary.withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.arrow_upward,
+              size: AppTypography.responsiveIconSize(context, 16),
+              color: colors.onPrimary,
+            ),
+            SizedBox(width: AppSpacing.small.responsive(context)),
+            Text(
+              'New posts available'.tr(context),
+              style: TextStyle(
+                fontSize: AppTypography.responsiveFontSize(
+                  context,
+                  AppTypography.small,
+                ),
+                fontWeight: FontWeight.w700,
+                color: colors.onPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

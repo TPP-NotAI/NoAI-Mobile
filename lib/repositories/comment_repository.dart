@@ -240,8 +240,20 @@ class CommentRepository {
         continue;
       }
 
+      // Recursively fetch replies for this reply
+      final nestedReplies = await _getReplies(
+        json['id'] as String,
+        currentUserId: currentUserId,
+        blockedUserIds: blockedUserIds,
+        blockedByUserIds: blockedByUserIds,
+        mutedUserIds: mutedUserIds,
+        followingIds: followingIds,
+      );
+
       filteredReplies.add(
-        Comment.fromSupabase(json, currentUserId: currentUserId),
+        Comment.fromSupabase(json, currentUserId: currentUserId).copyWith(
+          replies: nestedReplies.isNotEmpty ? nestedReplies : null,
+        ),
       );
     }
 

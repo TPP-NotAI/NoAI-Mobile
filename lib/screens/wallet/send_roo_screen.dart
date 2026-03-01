@@ -276,6 +276,15 @@ class _SendRooScreenState extends State<SendRooScreen> {
           ? null
           : _noteController.text.trim();
 
+      // Capture translated strings before the screen is popped so we never
+      // touch `context` after the widget is unmounted.
+      final confirmingText =
+          'Sent ${amount.toStringAsFixed(2)} ROO to $recipient (fee: ${fee.toStringAsFixed(2)} ROO). Confirming on-chain...'
+              .tr(context);
+      final confirmedText =
+          'Transfer confirmed: ${amount.toStringAsFixed(2)} ROO sent (${fee.toStringAsFixed(2)} ROO fee)'
+              .tr(context);
+
       // 2. Optimistic local update — deduct full amount including fee
       final localTxId = walletProvider.addOptimisticOutgoingTransaction(
         userId: user.id,
@@ -296,8 +305,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
       }
       rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
-          content: Text('Sent ${amount.toStringAsFixed(2)} ROO to $recipient (fee: ${fee.toStringAsFixed(2)} ROO). Confirming on-chain...'.tr(context),
-          ),
+          content: Text(confirmingText),
           backgroundColor: Colors.green.shade600,
           behavior: SnackBarBehavior.floating,
         ),
@@ -328,8 +336,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
                 );
                 rootScaffoldMessengerKey.currentState?.showSnackBar(
                   SnackBar(
-                    content: Text('Transfer confirmed: ${amount.toStringAsFixed(2)} ROO sent (${fee.toStringAsFixed(2)} ROO fee)'.tr(context),
-                    ),
+                    content: Text(confirmedText),
                     backgroundColor: Colors.green.shade700,
                     behavior: SnackBarBehavior.floating,
                   ),
@@ -369,10 +376,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
     } catch (e) {
       if (!mounted) return;
       _showError(e.toString().replaceAll('Exception: ', ''));
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
+      setState(() => _isProcessing = false);
     }
   }
 

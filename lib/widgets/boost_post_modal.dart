@@ -84,13 +84,20 @@ class _BoostPostModalState extends State<BoostPostModal> {
       },
     );
 
+    // Capture translated strings while context is still valid
+    final targetUsers = _targetUsers.toInt();
+    final confirmingText = 'Boosting post to $targetUsers users… confirming payment.'.tr(context);
+    final successTitle = 'Boost Successful!'.tr(context);
+    final successBody = 'Your post was successfully boosted to $targetUsers users.'.tr(context);
+    final greatText = 'Great!'.tr(context);
+    final boostFailedPrefix = 'Boost failed: '.tr(context);
+
     // Close modal immediately for snappy UX
     if (mounted) Navigator.pop(context);
 
     rootScaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
-        content: Text('Boosting post to ${_targetUsers.toInt()} users… confirming payment.'.tr(context),
-        ),
+        content: Text(confirmingText),
         backgroundColor: Colors.blue.shade700,
         behavior: SnackBarBehavior.floating,
       ),
@@ -99,10 +106,14 @@ class _BoostPostModalState extends State<BoostPostModal> {
     unawaited(
       _performBoost(
         userId: user.id,
-        targetUsers: _targetUsers.toInt(),
+        targetUsers: targetUsers,
         cost: _cost,
         localTxId: localTxId,
         walletProvider: walletProvider,
+        successTitle: successTitle,
+        successBody: successBody,
+        greatText: greatText,
+        boostFailedPrefix: boostFailedPrefix,
       ),
     );
   }
@@ -113,6 +124,10 @@ class _BoostPostModalState extends State<BoostPostModal> {
     required double cost,
     required String localTxId,
     required WalletProvider walletProvider,
+    required String successTitle,
+    required String successBody,
+    required String greatText,
+    required String boostFailedPrefix,
   }) async {
     final boostRepo = BoostRepository();
 
@@ -183,13 +198,12 @@ class _BoostPostModalState extends State<BoostPostModal> {
           context: ctx,
           builder: (_) => AlertDialog(
             icon: const Icon(Icons.rocket_launch, color: Color(0xFFF97316), size: 36),
-            title: Text('Boost Successful!'.tr(context)),
-            content: Text('Your post was successfully boosted to $targetUsers users.'.tr(context),
-            ),
+            title: Text(successTitle),
+            content: Text(successBody),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: Text('Great!'.tr(context)),
+                child: Text(greatText),
               ),
             ],
           ),
@@ -202,7 +216,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
       );
       rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
-          content: Text('Boost failed: ${e.toString()}'.tr(context)),
+          content: Text('$boostFailedPrefix${e.toString()}'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
         ),

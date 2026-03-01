@@ -755,6 +755,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       );
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
+      } else {
+        setState(_resetComposer);
       }
     }
   }
@@ -936,12 +938,21 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         },
       );
 
-      if (result == true && context.mounted && Navigator.canPop(context)) {
-        Navigator.pop(context);
+      if (result == true && context.mounted) {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        } else {
+          // Tab mode — can't pop, so just reset the composer
+          setState(_resetComposer);
+        }
       }
     } else {
-      if (context.mounted && Navigator.canPop(context)) {
-        Navigator.pop(context);
+      if (context.mounted) {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        } else {
+          setState(_resetComposer);
+        }
       }
     }
   }
@@ -1451,25 +1462,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ? null
           : tagsList.map((t) => PostTag(id: 'temp_$t', name: t)).toList();
 
-      // 1. Clear form and draft immediately
-      _contentController.clear();
-      _titleController.clear();
-      _selectedMediaFiles.clear();
-      _selectedMediaTypes.clear();
-      _selectedTags.clear();
-      _taggedPeople.clear();
-      _selectedLocation = null;
-      _certifyHumanGenerated = false;
-      await _clearDraft();
-
-      if (mounted) {
-        setState(() {
-          _hasUnsavedChanges = false;
-          // Keep _isPosting = true until AI check completes for feedback
-        });
-      }
-
-      // 2. Trigger post creation and WAIT for AI detection
+      // 1. Trigger post creation and WAIT for media upload + AI detection.
+      //    Do NOT clear the form yet so the user can see their content while
+      //    media is uploading. The UI is locked by _isPosting = true.
       final createdPost = await feedProvider.createPost(
         contentText,
         title: titleText.isNotEmpty ? titleText : null,
@@ -1487,7 +1482,22 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       );
 
       if (!mounted) return;
-      setState(() => _isPosting = false);
+
+      // 2. Clear the form now that media upload + AI check are complete.
+      _contentController.clear();
+      _titleController.clear();
+      _selectedMediaFiles.clear();
+      _selectedMediaTypes.clear();
+      _selectedTags.clear();
+      _taggedPeople.clear();
+      _selectedLocation = null;
+      _certifyHumanGenerated = false;
+      await _clearDraft();
+
+      setState(() {
+        _isPosting = false;
+        _hasUnsavedChanges = false;
+      });
 
       if (createdPost != null) {
         // Refresh wallet/user state so new ROO rewards reflect quickly in UI.

@@ -99,28 +99,38 @@ class _TipModalState extends State<TipModal> {
 
     setState(() => _isProcessing = true);
 
+    // Capture translated strings and values before the modal is popped,
+    // so nothing touches `context` after the widget is unmounted.
+    final amount = _selectedAmount;
+    final postId = widget.post.id;
+    final authorUsername = widget.post.author.username;
+    final authorUserId = widget.post.author.userId;
+    final postContent = widget.post.content;
+    final confirmingText = 'Sent ${amount.toStringAsFixed(0)} ROO tip. Confirming on-chain...'.tr(context);
+    final confirmedText = 'Tip confirmed: ${amount.toStringAsFixed(0)} ROO'.tr(context);
+
     try {
-      final memo = 'Tip for post: ${widget.post.content.split('\n').first}';
+      final memo = 'Tip for post: ${postContent.split('\n').first}';
       final localTxId = walletProvider.addOptimisticOutgoingTransaction(
         userId: user.id,
-        amount: _selectedAmount,
+        amount: amount,
         txType: 'tip',
-        toUserId: widget.post.author.userId,
+        toUserId: authorUserId,
         memo: memo,
         metadata: {
           'activityType': 'tip',
-          'referencePostId': widget.post.id,
-          'toUsername': widget.post.author.username,
+          'referencePostId': postId,
+          'toUsername': authorUsername,
         },
       );
 
       if (mounted) {
         Navigator.pop(context);
       }
+
       rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
-          content: Text('Sent ${_selectedAmount.toStringAsFixed(0)} ROO tip. Confirming on-chain...'.tr(context),
-          ),
+          content: Text(confirmingText),
           backgroundColor: Colors.green.shade600,
           behavior: SnackBarBehavior.floating,
         ),
@@ -130,19 +140,17 @@ class _TipModalState extends State<TipModal> {
         userProvider
             .transferRoo(
               fromUserId: user.id,
-              toUsername: widget.post.author.username,
-              amount: _selectedAmount,
+              toUsername: authorUsername,
+              amount: amount,
               memo: memo,
-              referencePostId: widget.post.id,
+              referencePostId: postId,
               metadata: {'activityType': 'tip'},
             )
             .then((success) async {
               if (success) {
                 walletProvider.confirmOptimisticTransaction(localTxId);
 
-                feedProvider.tipPost(widget.post.id, _selectedAmount).catchError((
-                  e,
-                ) {
+                feedProvider.tipPost(postId, amount).catchError((e) {
                   debugPrint('TipModal: Error updating post tips - $e');
                 });
 
@@ -152,8 +160,7 @@ class _TipModalState extends State<TipModal> {
 
                 rootScaffoldMessengerKey.currentState?.showSnackBar(
                   SnackBar(
-                    content: Text('Tip confirmed: ${_selectedAmount.toStringAsFixed(0)} ROO'.tr(context),
-                    ),
+                    content: Text(confirmedText),
                     backgroundColor: Colors.green.shade700,
                     behavior: SnackBarBehavior.floating,
                   ),
@@ -192,9 +199,6 @@ class _TipModalState extends State<TipModal> {
     } catch (e) {
       if (mounted) {
         _showError('Failed to send tip: ${e.toString()}');
-      }
-    } finally {
-      if (mounted) {
         setState(() => _isProcessing = false);
       }
     }

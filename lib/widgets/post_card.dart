@@ -27,8 +27,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../repositories/boost_repository.dart';
 import '../repositories/mention_repository.dart';
-import '../repositories/wallet_repository.dart';
-import '../services/rooken_service.dart';
 import '../services/supabase_service.dart';
 import '../services/kyc_verification_service.dart';
 import 'tip_modal.dart';
@@ -576,7 +574,7 @@ class _HeaderState extends State<_Header> {
     final post = widget.post;
     final mentionSummary = _buildMentionSummary(post);
     final isAdvert = _isAdvertPost(post);
-    final isSponsored = !isAdvert && _isBoosted;
+    final isSponsored = _isBoosted;
 
     return Padding(
       padding: AppSpacing.responsiveLTRB(context, 16, 16, 8, 8),
@@ -1814,45 +1812,14 @@ class _ActionsState extends State<_Actions> {
 
   void _handleShare(BuildContext context) async {
     try {
-      final currentUserId = context.read<AuthProvider>().currentUser?.id;
-
-      // Create share text
       final shareText = widget.post.title != null && widget.post.title!.isNotEmpty
           ? '${widget.post.title}\n\n${widget.post.content}\n\nShared from ROOVERSE'
           : '${widget.post.content}\n\nShared from ROOVERSE';
 
-      // Share using native share dialog
       await Share.share(
         shareText,
         subject: widget.post.title ?? 'Check out this post on ROOVERSE',
       );
-
-      // Award 5 ROO to the user who shared the post
-      if (currentUserId != null && currentUserId.isNotEmpty) {
-        try {
-          final walletRepo = WalletRepository();
-          await walletRepo.earnRoo(
-            userId: currentUserId,
-            activityType: RookenActivityType.postShare,
-            referencePostId: widget.post.id,
-          );
-        } catch (e) {
-          debugPrint('Error awarding share ROOK: $e');
-        }
-      }
-
-      // Show success message
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            SnackBar(
-              content: Text('Post shared! You earned 5 ROOK.'.tr(context)),
-              duration: Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-      }
     } catch (e) {
       debugPrint('Error sharing post: $e');
     }

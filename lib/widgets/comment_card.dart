@@ -195,7 +195,7 @@ class _CommentCardState extends State<CommentCard> {
         : (providerComment ?? widget.comment);
     final hasReplies =
         currentComment.replies != null && currentComment.replies!.isNotEmpty;
-    final canRenderNestedReplies = widget.depth < 1; // Instagram-style depth
+    final canRenderNestedReplies = widget.depth < 3;
     final replyCount = currentComment.replies?.length ?? 0;
     final replies = currentComment.replies ?? const <Comment>[];
     final showReplies = hasReplies && _showReplies && canRenderNestedReplies;
@@ -211,8 +211,8 @@ class _CommentCardState extends State<CommentCard> {
         // Comment content
         Padding(
           padding: EdgeInsets.only(
-            left: widget.isReply
-                ? 48.responsive(context, min: 40, max: 56)
+            left: widget.depth > 0
+                ? (widget.depth * 40.0).responsive(context, min: widget.depth * 32.0, max: widget.depth * 48.0)
                 : AppSpacing.medium.responsive(context),
             right: AppSpacing.medium.responsive(context),
             top: AppSpacing.standard.responsive(context),
@@ -785,11 +785,13 @@ class _CommentCardState extends State<CommentCard> {
           ),
         ),
 
-        // Show/hide replies button (only for top-level comments with replies)
-        if (!widget.isReply && hasReplies)
+        // Show/hide replies button
+        if (canRenderNestedReplies && hasReplies)
           Padding(
             padding: EdgeInsets.only(
-              left: 60.responsive(context, min: 52, max: 68),
+              left: ((widget.depth + 1) * 40.0 + 20).responsive(context,
+                  min: (widget.depth + 1) * 32.0 + 16,
+                  max: (widget.depth + 1) * 48.0 + 20),
               bottom: AppSpacing.mediumSmall.responsive(context),
             ),
             child: Material(
@@ -846,7 +848,9 @@ class _CommentCardState extends State<CommentCard> {
         if (showReplies && remainingReplies > 0)
           Padding(
             padding: EdgeInsets.only(
-              left: 60.responsive(context, min: 52, max: 68),
+              left: ((widget.depth + 1) * 40.0 + 20).responsive(context,
+                  min: (widget.depth + 1) * 32.0 + 16,
+                  max: (widget.depth + 1) * 48.0 + 20),
               bottom: AppSpacing.mediumSmall.responsive(context),
             ),
             child: TextButton(

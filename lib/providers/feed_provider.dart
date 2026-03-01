@@ -13,6 +13,8 @@ import '../repositories/user_interests_repository.dart';
 import '../services/supabase_service.dart';
 import '../services/kyc_verification_service.dart';
 
+enum FeedFilter { forYou, following, trending }
+
 class FeedProvider with ChangeNotifier {
   final PostRepository _postRepository = PostRepository();
   final CommentRepository _commentRepository = CommentRepository();
@@ -33,6 +35,15 @@ class FeedProvider with ChangeNotifier {
   bool _isRefreshing = false;
   bool _hasMore = true;
   String? _error;
+
+  // Feed filter
+  FeedFilter _activeFilter = FeedFilter.forYou;
+  FeedFilter get activeFilter => _activeFilter;
+
+  // New content indicator — set to true when a background check finds newer posts
+  bool _newPostsAvailable = false;
+  bool get newPostsAvailable => _newPostsAvailable;
+  String? _newestPostTimestamp;
 
   // Track bookmarked and reposted posts
   final Set<String> _bookmarkedPostIds = {};
@@ -141,6 +152,44 @@ class FeedProvider with ChangeNotifier {
 
   String? get _currentUserId => SupabaseService().currentUser?.id;
 
+  /// Switch the active feed filter and reload posts.
+  Future<void> setFilter(FeedFilter filter) async {
+    if (_activeFilter == filter) return;
+    _activeFilter = filter;
+    _newPostsAvailable = false;
+    _newestPostTimestamp = null;
+    notifyListeners();
+    await _loadInitialFeed();
+  }
+
+  /// Check if new posts have appeared since the current top post.
+  /// Sets [newPostsAvailable] = true if newer content exists.
+  Future<void> checkForNewPosts() async {
+    if (_posts.isEmpty) return;
+    final topTimestamp = _newestPostTimestamp ?? _posts.first.timestamp;
+    try {
+      final userId = _currentUserId;
+      final results = await _postRepository.getFeed(
+        limit: 1,
+        offset: 0,
+        currentUserId: userId,
+      );
+      if (results.isNotEmpty) {
+        final latestTimestamp = results.first.repostedAt ?? results.first.timestamp;
+        if (latestTimestamp.compareTo(topTimestamp) > 0) {
+          _newPostsAvailable = true;
+          notifyListeners();
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// Dismiss the new posts banner without refreshing.
+  void dismissNewPostsBanner() {
+    _newPostsAvailable = false;
+    notifyListeners();
+  }
+
   FeedProvider() {
     // Load initial feed from Supabase
     _loadInitialFeed();
@@ -179,8 +228,35 @@ class FeedProvider with ChangeNotifier {
     _invalidatePostsCache();
   }
 
+  Future<List<Post>> _fetchByFilter({required int limit, required int offset}) async {
+    final userId = _currentUserId;
+    switch (_activeFilter) {
+      case FeedFilter.following:
+        if (userId == null) return [];
+        return _postRepository.getFollowingFeed(
+          limit: limit,
+          offset: offset,
+          currentUserId: userId,
+        );
+      case FeedFilter.trending:
+        return _postRepository.getTrendingFeed(
+          limit: limit,
+          offset: offset,
+          currentUserId: userId,
+        );
+      case FeedFilter.forYou:
+        return _postRepository.getFeed(
+          limit: limit,
+          offset: offset,
+          currentUserId: userId,
+        );
+    }
+  }
+
   Future<void> _loadInitialFeed() async {
     _isLoading = true;
+    _posts = [];
+    _invalidatePostsCache();
     notifyListeners();
 
     try {
@@ -188,7 +264,7 @@ class FeedProvider with ChangeNotifier {
 
       // Load posts, bookmarks, and reposts in parallel
       final results = await Future.wait([
-        _postRepository.getFeed(limit: 20, offset: 0, currentUserId: userId),
+        _fetchByFilter(limit: 20, offset: 0),
         if (userId != null)
           _bookmarkRepository.getUserBookmarkIds(userId: userId),
         if (userId != null) _repostRepository.getUserRepostIds(userId: userId),
@@ -196,6 +272,11 @@ class FeedProvider with ChangeNotifier {
 
       _posts = results[0] as List<Post>;
       _deduplicatePosts();
+
+      // Record the newest post timestamp for new-content detection
+      if (_posts.isNotEmpty) {
+        _newestPostTimestamp = _posts.first.repostedAt ?? _posts.first.timestamp;
+      }
 
       if (userId != null && results.length > 1) {
         _bookmarkedPostIds.clear();
@@ -230,16 +311,17 @@ class FeedProvider with ChangeNotifier {
   Future<void> refreshFeed() async {
     _isRefreshing = true;
     _error = null;
+    _newPostsAvailable = false;
     notifyListeners();
 
     try {
-      _posts = await _postRepository.getFeed(
-        limit: 20,
-        offset: 0,
-        currentUserId: _currentUserId,
-      );
+      _posts = await _fetchByFilter(limit: 20, offset: 0);
       _deduplicatePosts();
       _hasMore = _posts.length >= 20;
+
+      if (_posts.isNotEmpty) {
+        _newestPostTimestamp = _posts.first.repostedAt ?? _posts.first.timestamp;
+      }
 
       // Refresh repost counts
       final postIds = _posts.map((p) => p.id).toList();
@@ -267,10 +349,9 @@ class FeedProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final newPosts = await _postRepository.getFeed(
+      final newPosts = await _fetchByFilter(
         limit: 20,
         offset: _posts.length,
-        currentUserId: _currentUserId,
       );
 
       if (newPosts.isEmpty) {
@@ -368,17 +449,11 @@ class FeedProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Add tip to a post
-  /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
+  // Add tip to a post — updates the post tip counter after a successful transfer.
+  // KYC is verified by the caller before the blockchain transfer; no re-check needed here.
   Future<void> tipPost(String postId, double amount) async {
-    // Require KYC verification before tipping
-    await _kycService.requireActivation(currentBalance: _currentUserBalance);
-
     final first = _posts.indexWhere((p) => p.id == postId);
     if (first == -1) return;
-
-    final originalPost = _posts[first];
-    final newTotal = originalPost.tips + amount;
 
     // Optimistic update across all feed instances (original + repost cards)
     final originals = _updateAllInstances(
@@ -388,7 +463,7 @@ class FeedProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _postRepository.tipPost(postId, newTotal);
+      final success = await _postRepository.tipPost(postId, amount);
       if (!success) {
         debugPrint(
           'FeedProvider: tipPost write returned no updated row for post=$postId',
