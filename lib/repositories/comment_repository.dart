@@ -251,9 +251,10 @@ class CommentRepository {
       );
 
       filteredReplies.add(
-        Comment.fromSupabase(json, currentUserId: currentUserId).copyWith(
-          replies: nestedReplies.isNotEmpty ? nestedReplies : null,
-        ),
+        Comment.fromSupabase(
+          json,
+          currentUserId: currentUserId,
+        ).copyWith(replies: nestedReplies.isNotEmpty ? nestedReplies : null),
       );
     }
 
@@ -307,7 +308,9 @@ class CommentRepository {
         activityType: 'comment',
         targetType: 'comment',
         targetId: comment.id,
-        description: parentCommentId == null ? 'Added a comment' : 'Replied to a comment',
+        description: parentCommentId == null
+            ? 'Added a comment'
+            : 'Replied to a comment',
         metadata: {
           'post_id': postId,
           'parent_comment_id': parentCommentId,
@@ -327,6 +330,20 @@ class CommentRepository {
 
       final postAuthorId = post['author_id'] as String;
 
+      // Fetch commenter's display name for notification titles
+      String commenterName = 'Someone';
+      try {
+        final profile = await _client
+            .from('profiles')
+            .select('username, display_name')
+            .eq('user_id', authorId)
+            .maybeSingle();
+        commenterName =
+            (profile?['display_name'] as String?)?.trim().isNotEmpty == true
+            ? (profile?['display_name'] as String).trim()
+            : ((profile?['username'] as String?) ?? 'Someone');
+      } catch (_) {}
+
       // Only notify if author is not the commenter
       if (postAuthorId != authorId) {
         final postTitle = post['title'] as String?;
@@ -334,12 +351,13 @@ class CommentRepository {
         final notificationBody = postTitle != null && postTitle.isNotEmpty
             ? '"$postTitle"'
             : postBody != null && postBody.isNotEmpty
-                ? '"${postBody.substring(0, postBody.length > 50 ? 50 : postBody.length)}..."'
-                : null;
+            ? '"${postBody.substring(0, postBody.length > 50 ? 50 : postBody.length)}..."'
+            : null;
 
         await _notificationRepository.createNotification(
           userId: postAuthorId,
           type: 'comment',
+          title: '$commenterName commented on your post',
           body: notificationBody,
           actorId: authorId,
           postId: postId,
@@ -362,6 +380,7 @@ class CommentRepository {
           await _notificationRepository.createNotification(
             userId: parentAuthorId,
             type: 'reply',
+            title: '$commenterName replied to your comment',
             body: replyBody != null && replyBody.isNotEmpty
                 ? '"${replyBody.substring(0, replyBody.length > 60 ? 60 : replyBody.length)}"'
                 : null,
@@ -476,13 +495,121 @@ class CommentRepository {
         return false;
       }
 
+      // Delete dependent records first to avoid FK constraint violations.
+      // Delete reactions on replies, then the replies themselves
+      final replies = await _client
+          .from(SupabaseConfig.commentsTable)
+          .select('id')
+          .eq('parent_comment_id', commentId);
+      final replyIds = (replies as List)
+          .map((r) => r['id'] as String)
+          .toList();
+      if (replyIds.isNotEmpty) {
+        await _client
+            .from(SupabaseConfig.reactionsTable)
+            .delete()
+            .inFilter('comment_id', replyIds);
+        await _client
+            .from(SupabaseConfig.mentionsTable)
+            .delete()
+            .inFilter('comment_id', replyIds);
+        // Clear user_reports referencing mod cases before deleting mod cases
+        final replyModCases = await _client
+            .from(SupabaseConfig.moderationCasesTable)
+            .select('id')
+            .inFilter('comment_id', replyIds) as List<dynamic>;
+        final replyModCaseIds = replyModCases
+            .map((r) => (r as Map<String, dynamic>)['id'] as String)
+            .toList();
+        if (replyModCaseIds.isNotEmpty) {
+          await _client
+              .from(SupabaseConfig.userReportsTable)
+              .delete()
+              .inFilter('moderation_case_id', replyModCaseIds);
+        }
+        await _client
+            .from(SupabaseConfig.moderationCasesTable)
+            .delete()
+            .inFilter('comment_id', replyIds);
+        await _client
+            .from(SupabaseConfig.userReportsTable)
+            .delete()
+            .inFilter('comment_id', replyIds);
+        await _client
+            .from(SupabaseConfig.notificationsTable)
+            .delete()
+            .inFilter('comment_id', replyIds);
+        await _client
+            .from('roocoin_transactions')
+            .delete()
+            .inFilter('reference_comment_id', replyIds);
+        await _client
+            .from(SupabaseConfig.commentsTable)
+            .delete()
+            .eq('parent_comment_id', commentId);
+      }
+      // Now delete dependencies on the comment itself
       await _client
+          .from(SupabaseConfig.reactionsTable)
+          .delete()
+          .eq('comment_id', commentId);
+      await _client
+          .from(SupabaseConfig.mentionsTable)
+          .delete()
+          .eq('comment_id', commentId);
+      // Clear user_reports referencing mod cases before deleting mod cases
+      final modCases = await _client
+          .from(SupabaseConfig.moderationCasesTable)
+          .select('id')
+          .eq('comment_id', commentId) as List<dynamic>;
+      final modCaseIds = modCases
+          .map((r) => (r as Map<String, dynamic>)['id'] as String)
+          .toList();
+      if (modCaseIds.isNotEmpty) {
+        await _client
+            .from(SupabaseConfig.userReportsTable)
+            .delete()
+            .inFilter('moderation_case_id', modCaseIds);
+      }
+      await _client
+          .from(SupabaseConfig.moderationCasesTable)
+          .delete()
+          .eq('comment_id', commentId);
+      await _client
+          .from(SupabaseConfig.userReportsTable)
+          .delete()
+          .eq('comment_id', commentId);
+      await _client
+          .from(SupabaseConfig.notificationsTable)
+          .delete()
+          .eq('comment_id', commentId);
+      await _client
+          .from('roocoin_transactions')
+          .delete()
+          .eq('reference_comment_id', commentId);
+
+      final deletedRows = await _client
           .from(SupabaseConfig.commentsTable)
           .delete()
-          .eq('id', commentId);
-      return true;
+          .eq('id', commentId)
+          .select('id');
+      return (deletedRows as List).isNotEmpty;
     } catch (e) {
       debugPrint('CommentRepository: Error deleting comment - $e');
+      return false;
+    }
+  }
+
+  /// Delete a flagged comment using DB-side RPC for stronger FK/RLS handling.
+  Future<bool> deleteFlaggedCommentViaRpc(String commentId) async {
+    try {
+      final result = await _client.rpc(
+        'delete_flagged_comment',
+        params: {'p_comment_id': commentId},
+      );
+      return result == true;
+    } catch (e) {
+      debugPrint('CommentRepository: deleteFlaggedCommentViaRpc error - $e');
       return false;
     }
   }
@@ -562,17 +689,20 @@ class CommentRepository {
     int limit = 50,
   }) async {
     try {
-      final modCases = await _client
-          .from(SupabaseConfig.moderationCasesTable)
-          .select('comment_id, created_at')
-          .eq('reported_user_id', userId)
-          .eq('source', 'ai')
-          .order('created_at', ascending: false) as List<dynamic>;
+      final modCases =
+          await _client
+                  .from(SupabaseConfig.moderationCasesTable)
+                  .select('comment_id, created_at')
+                  .eq('reported_user_id', userId)
+                  .eq('source', 'ai')
+                  .order('created_at', ascending: false)
+              as List<dynamic>;
 
       final seenCommentIds = <String>{};
       final commentIds = <String>[];
       for (final row in modCases) {
-        final commentId = (row as Map<String, dynamic>)['comment_id'] as String?;
+        final commentId =
+            (row as Map<String, dynamic>)['comment_id'] as String?;
         if (commentId == null) continue;
         if (seenCommentIds.add(commentId)) {
           commentIds.add(commentId);
@@ -916,6 +1046,19 @@ class CommentRepository {
     String? notes,
   }) async {
     try {
+      final commentData = await _client
+          .from(SupabaseConfig.commentsTable)
+          .select('author_id, body')
+          .eq('id', commentId)
+          .maybeSingle();
+      if (commentData == null) return false;
+
+      final authorId = commentData['author_id'] as String?;
+      final rawBody = (commentData['body'] as String?)?.trim() ?? '';
+      final preview = rawBody.isNotEmpty
+          ? (rawBody.length > 60 ? '${rawBody.substring(0, 60)}...' : rawBody)
+          : '';
+
       final updates = <String, dynamic>{};
       if (action == 'approve') {
         updates['status'] = 'published';
@@ -929,6 +1072,24 @@ class CommentRepository {
           .from(SupabaseConfig.commentsTable)
           .update(updates)
           .eq('id', commentId);
+
+      if (authorId != null && authorId.isNotEmpty) {
+        final bool approved = action == 'approve';
+        await _notificationRepository.createNotification(
+          userId: authorId,
+          type: approved ? 'comment_published' : 'comment_flagged',
+          title: approved ? 'Comment Approved' : 'Comment Rejected',
+          body: approved
+              ? (preview.isNotEmpty
+                    ? 'Your comment "$preview" is now visible.'
+                    : 'Your comment is now visible.')
+              : (notes != null && notes.trim().isNotEmpty
+                    ? 'Your comment was rejected. Reason: ${notes.trim()}'
+                    : 'Your comment was rejected.'),
+          commentId: commentId,
+          actorId: moderatorId,
+        );
+      }
 
       // Resolve the moderation case
       try {

@@ -18,7 +18,11 @@ import '../profile/profile_screen.dart';
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 
 class FeedScreen extends StatefulWidget {
-  const FeedScreen({super.key});
+  /// Increment this notifier's value to trigger a scroll-to-top + refresh
+  /// from outside (e.g., when the home tab is re-tapped).
+  final ValueNotifier<int>? returnToTopNotifier;
+
+  const FeedScreen({super.key, this.returnToTopNotifier});
 
   @override
   State<FeedScreen> createState() => _FeedScreenState();
@@ -31,15 +35,22 @@ class _FeedScreenState extends State<FeedScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    widget.returnToTopNotifier?.addListener(_onReturnToTop);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<StoryProvider>().refresh();
     });
   }
 
+  void _onReturnToTop() {
+    if (!mounted) return;
+    _scrollToTopAndRefresh(context.read<FeedProvider>());
+  }
+
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
+    widget.returnToTopNotifier?.removeListener(_onReturnToTop);
     _scrollController.dispose();
     super.dispose();
   }

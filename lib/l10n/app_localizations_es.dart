@@ -126,15 +126,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get typeDeleteConfirm => 'Escribe ELIMINAR para confirmar.';
 
   @override
-  String get accountDeletionRequested =>
-      'Solicitud de eliminación de cuenta enviada. Has cerrado sesión.';
+  String get accountDeletionRequested => 'Solicitud de eliminación de cuenta enviada. Has cerrado sesión.';
 
   @override
   String get pleaseTypeDelete => 'Por favor escribe ELIMINAR para confirmar';
 
   @override
-  String get aboutROOVERSEDescription =>
-      'ROOVERSE – Plataforma Social Centrada en Humanos\n\nVersión 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription => 'ROOVERSE – Plataforma Social Centrada en Humanos\n\nVersión 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'Iniciar Sesión';
@@ -245,8 +243,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get verificationError => 'Error de verificacion';
 
   @override
-  String get identityVerifiedSuccessfully =>
-      '✅ Identidad verificada exitosamente!';
+  String get identityVerifiedSuccessfully => '✅ Identidad verificada exitosamente!';
 
   @override
   String get errorCheckingStatus => 'Error al verificar estado';
@@ -261,8 +258,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pleaseEnterBio => 'Por favor ingrese biografia';
 
   @override
-  String get anErrorOccurredTryAgain =>
-      'Ocurrio un error. Por favor intentalo de nuevo.';
+  String get anErrorOccurredTryAgain => 'Ocurrio un error. Por favor intentalo de nuevo.';
 
   @override
   String get phoneNumber => 'Numero de telefono';
@@ -295,8 +291,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get notNow => 'Ahora no';
 
   @override
-  String get insufficientRooBalance =>
-      'Saldo ROO insuficiente para pagar la tarifa del anuncio.';
+  String get insufficientRooBalance => 'Saldo ROO insuficiente para pagar la tarifa del anuncio.';
 
   @override
   String get boostFailed => 'Boost fallido';
@@ -392,8 +387,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get payAdFee => 'Pagar tarifa de anuncio';
 
   @override
-  String get failedToCreatePost =>
-      'Error al crear publicacion. Por favor intentalo de nuevo.';
+  String get failedToCreatePost => 'Error al crear publicacion. Por favor intentalo de nuevo.';
 
   @override
   String get completeYourProfile => 'Completa tu perfil';
@@ -504,15 +498,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get emailNotifications => 'Notificaciones por correo';
 
   @override
-  String get emailNotificationsSubtitle =>
-      'Recibir actualizaciones por correo electronico';
+  String get emailNotificationsSubtitle => 'Recibir actualizaciones por correo electronico';
 
   @override
   String get inAppNotifications => 'Notificaciones en la app';
 
   @override
-  String get inAppNotificationsSubtitle =>
-      'Ver alertas en la pestana de actividad';
+  String get inAppNotificationsSubtitle => 'Ver alertas en la pestana de actividad';
 
   @override
   String get newFollowers => 'Nuevos seguidores';
@@ -530,15 +522,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get likesAndReactions => 'Reacciones y me gusta';
 
   @override
-  String get likesAndReactionsSubtitle =>
-      'Cuando alguien reacciona a tu contenido';
+  String get likesAndReactionsSubtitle => 'Cuando alguien reacciona a tu contenido';
 
   @override
   String get mentions => 'Menciones';
 
   @override
-  String get mentionsSubtitle =>
-      'Cuando alguien te menciona en una publicacion';
+  String get mentionsSubtitle => 'Cuando alguien te menciona en una publicacion';
 
   @override
   String get commentPosted => 'Comentario publicado!';
@@ -598,15 +588,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get resetPasswordViaEmail => 'Restablecer contrasena por correo';
 
   @override
-  String get resetPasswordViaEmailSubtitle =>
-      'Enviar enlace de restablecimiento a tu correo';
+  String get resetPasswordViaEmailSubtitle => 'Enviar enlace de restablecimiento a tu correo';
 
   @override
   String get twoFactorAuth => 'Autenticacion de dos factores (2FA)';
 
   @override
-  String get twoFactorAuthSubtitle =>
-      'Agregar una capa extra de seguridad con 2FA basada en correo';
+  String get twoFactorAuthSubtitle => 'Agregar una capa extra de seguridad con 2FA basada en correo';
 
   @override
   String get accountSecurityTips => 'Consejos de seguridad de cuenta';
@@ -624,8 +612,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get enable2FA => 'Habilitar 2FA';
 
   @override
-  String get pleaseEnter6DigitCode =>
-      'Por favor ingresa un codigo de 6 digitos';
+  String get pleaseEnter6DigitCode => 'Por favor ingresa un codigo de 6 digitos';
 
   @override
   String get invalidCode => 'Codigo invalido';
@@ -640,8 +627,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get passwordsDoNotMatch => 'Las contrasenas no coinciden';
 
   @override
-  String get passwordUpdatedSuccessfully =>
-      'Contrasena actualizada exitosamente';
+  String get passwordUpdatedSuccessfully => 'Contrasena actualizada exitosamente';
 
   @override
   String get failedToUpdatePassword => 'Error al actualizar contrasena';
@@ -653,8 +639,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pleaseEnterValidEmail => 'Por favor ingresa un correo valido';
 
   @override
-  String get failedToSendResetEmail =>
-      'Error al enviar correo de restablecimiento';
+  String get failedToSendResetEmail => 'Error al enviar correo de restablecimiento';
 
   @override
   String get sendResetLink => 'Enviar enlace de restablecimiento';
@@ -675,8 +660,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get blockedUsers => 'Usuarios bloqueados';
 
   @override
-  String get blockedUsersSubtitle =>
-      'Los usuarios bloqueados no pueden interactuar contigo';
+  String get blockedUsersSubtitle => 'Los usuarios bloqueados no pueden interactuar contigo';
 
   @override
   String get userNotLoggedIn => 'Usuario no ha iniciado sesion.';
@@ -700,8 +684,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pleaseExplainAppeal => 'Por favor explica tu apelacion.';
 
   @override
-  String get alreadySubmittedAppeal =>
-      'Ya enviaste una apelacion para este elemento.';
+  String get alreadySubmittedAppeal => 'Ya enviaste una apelacion para este elemento.';
 
   @override
   String get appealSubmitted => 'Apelacion enviada';
@@ -725,8 +708,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get postDeletedSnack => 'Publicacion eliminada.';
 
   @override
-  String get paymentFailedCheckBalance =>
-      'Pago fallido. Verifica tu saldo ROO e intenta de nuevo.';
+  String get paymentFailedCheckBalance => 'Pago fallido. Verifica tu saldo ROO e intenta de nuevo.';
 
   @override
   String get createNewAppeal => 'Crear nueva apelacion';
@@ -735,19 +717,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get appealProfileStatus => 'Estado de apelacion de perfil';
 
   @override
-  String get pleaseProvideReasonForAppeal =>
-      'Por favor proporciona una razon para tu apelacion.';
+  String get pleaseProvideReasonForAppeal => 'Por favor proporciona una razon para tu apelacion.';
 
   @override
   String get failedToSubmitAppeal => 'Error al enviar apelacion';
 
   @override
-  String get fillInAllRequiredFields =>
-      'Por favor completa todos los campos requeridos';
+  String get fillInAllRequiredFields => 'Por favor completa todos los campos requeridos';
 
   @override
-  String get failedToSubmitTicket =>
-      'Error al enviar ticket. Por favor intentalo de nuevo.';
+  String get failedToSubmitTicket => 'Error al enviar ticket. Por favor intentalo de nuevo.';
 
   @override
   String get generalInquiry => 'Consulta general';
@@ -837,8 +816,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get failedToUpdateComment => 'Error al actualizar comentario';
 
   @override
-  String get searchPostsUsersHashtags =>
-      'Buscar publicaciones, usuarios o #hashtags';
+  String get searchPostsUsersHashtags => 'Buscar publicaciones, usuarios o #hashtags';
 
   @override
   String get toggleMute => 'Alternar silencio';
@@ -854,4 +832,148 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get paymentFailed => 'Pago fallido';
+
+  @override
+  String get passwordRequired => 'La contraseña es obligatoria';
+
+  @override
+  String get invalidEmailOrPassword => 'Correo o contraseña inválidos';
+
+  @override
+  String get unableToStartGoogleLogin => 'No se puede iniciar el inicio de sesión con Google';
+
+  @override
+  String get pleaseEnterPhoneNumber => 'Por favor ingresa tu número de teléfono';
+
+  @override
+  String get pleaseEnterValidPhoneNumber => 'Por favor ingresa un número de teléfono válido';
+
+  @override
+  String get failedToSendLoginCode => 'Error al enviar el código de inicio de sesión';
+
+  @override
+  String get verifyAndLogin => 'Verificar e iniciar sesión';
+
+  @override
+  String get sendCode => 'Enviar código';
+
+  @override
+  String get failedToSendVerificationCode => 'Error al enviar el código de verificación';
+
+  @override
+  String get verifyCode => 'Verificar código';
+
+  @override
+  String get enterPhone => 'Ingresar teléfono';
+
+  @override
+  String get enterVerificationCode => 'Ingresar código de verificación';
+
+  @override
+  String get enterPhoneForSms => 'Ingresa tu número de teléfono para recibir un código de verificación por SMS.';
+
+  @override
+  String get forgotPassword => '¿Olvidaste tu contraseña?';
+
+  @override
+  String get enterYourEmail => 'Ingresa tu correo electrónico';
+
+  @override
+  String get enterNewPassword => 'Ingresa la nueva contraseña';
+
+  @override
+  String get confirmPassword => 'Confirmar contraseña';
+
+  @override
+  String get confirmYourPassword => 'Confirma tu contraseña';
+
+  @override
+  String get resetPassword => 'Restablecer contraseña';
+
+  @override
+  String get passwordReset => '¡Contraseña restablecida!';
+
+  @override
+  String get backToLogin => 'Volver al inicio de sesión';
+
+  @override
+  String get online => 'En línea';
+
+  @override
+  String get offline => 'Desconectado';
+
+  @override
+  String get available => 'Disponible';
+
+  @override
+  String get lifetimeEarned => 'Ganado de por vida';
+
+  @override
+  String get enterRooAmount => 'Ingresa la cantidad de ROO';
+
+  @override
+  String get recipient => 'Destinatario';
+
+  @override
+  String get verificationPendingSendRoo => 'Tu verificación está pendiente. Puedes enviar ROO una vez aprobado.';
+
+  @override
+  String get completeVerificationToSendRoo => 'Por favor completa la verificación de identidad para enviar ROO.';
+
+  @override
+  String get cannotSendRooToSelf => 'No puedes enviarte ROO a ti mismo';
+
+  @override
+  String get availableBalance => 'Saldo disponible';
+
+  @override
+  String get locationPermissionDenied => 'Permiso de ubicación denegado';
+
+  @override
+  String get locationPermissionPermanentlyDenied => 'Permiso de ubicación denegado permanentemente';
+
+  @override
+  String get mustBeLoggedInToBoost => 'Debes iniciar sesión para impulsar una publicación.';
+
+  @override
+  String get verificationPendingTip => 'Tu verificación está pendiente. Puedes dar propina una vez aprobado.';
+
+  @override
+  String get cannotTipOwnPost => 'No puedes dar propina a tu propia publicación';
+
+  @override
+  String get enterAmount => 'Ingresar cantidad';
+
+  @override
+  String get postUnderReview => 'Esta publicación está en revisión.';
+
+  @override
+  String get sensitiveContent => 'Contenido sensible';
+
+  @override
+  String get deleteCommentConfirmation => '¿Estás seguro de que deseas eliminar este comentario? Esto no se puede deshacer.';
+
+  @override
+  String get commentUnderReview => 'Comentario en revisión.';
+
+  @override
+  String get storiesEmpty => 'Las historias de las personas que sigues aparecerán aquí';
+
+  @override
+  String get textStoryWordLimit => 'Las historias de texto están limitadas a 250 palabras.';
+
+  @override
+  String get createStory => 'Crear historia';
+
+  @override
+  String get clickToUpload => 'Haz clic para subir';
+
+  @override
+  String get imageOrVideoMax => 'Imagen o video (máx. 15s)';
+
+  @override
+  String get commentNotPublishedAi => 'Tu comentario no fue publicado. Nuestra IA detectó que podría violar nuestras pautas.';
+
+  @override
+  String get commentUnderReviewExtended => 'Tu comentario está bajo revisión. Aparecerá una vez aprobado.';
 }

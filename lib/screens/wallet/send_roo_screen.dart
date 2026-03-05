@@ -117,7 +117,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
     // If it looks like an EVM address, return it
     final evmRegex = RegExp(r'^0x[a-fA-F0-9]{40}$');
     if (evmRegex.hasMatch(cleanInput)) {
-      return {'username': 'Recipient', 'address': cleanInput};
+      return {'username': 'Recipient'.tr(context), 'address': cleanInput};
     }
 
     if (cleanInput.startsWith('PENDING_ACTIVATION_')) {
@@ -220,13 +220,13 @@ class _SendRooScreenState extends State<SendRooScreen> {
 
     if (user == null) {
       setState(() => _isProcessing = false);
-      _showError('User not logged in');
+      _showError('User not logged in'.tr(context));
       return;
     }
 
     if (user.isVerificationPending) {
       setState(() => _isProcessing = false);
-      _showError('Your verification is pending. You can send ROO once approved.');
+      _showError('Your verification is pending. You can send ROO once approved.'.tr(context));
       return;
     }
 
@@ -238,6 +238,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
           ),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
           action: SnackBarAction(
             label: 'Verify',
             textColor: Colors.white,
@@ -269,7 +270,7 @@ class _SendRooScreenState extends State<SendRooScreen> {
       // Prevent self-sending
       if (toAddress.toLowerCase() ==
           walletProvider.wallet?.walletAddress.toLowerCase()) {
-        throw Exception('You cannot send ROO to your own account');
+        throw Exception('You cannot send ROO to your own account'.tr(context));
       }
 
       final memo = _noteController.text.trim().isEmpty

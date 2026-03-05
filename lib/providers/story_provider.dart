@@ -221,22 +221,47 @@ class StoryProvider extends ChangeNotifier {
         notifyListeners();
 
         // Trigger AI detection for each
+        bool hasAiInBatch = false;
         for (int i = 0; i < newStories.length; i++) {
           final story = newStories[i];
           final mediaUrl = i < mediaItems.length ? mediaItems[i].url : '';
           final mediaType = i < mediaItems.length
               ? mediaItems[i].mediaType
               : 'text';
-          final detectionFuture = _triggerAiDetection(
-            story,
-            mediaUrl,
-            mediaType,
-            caption ?? textOverlay,
-            onAdFeeRequired: onAdFeeRequired,
-          );
           if (waitForAi) {
-            await detectionFuture;
+            final result = await _triggerAiDetection(
+              story,
+              mediaUrl,
+              mediaType,
+              caption ?? textOverlay,
+              onAdFeeRequired: onAdFeeRequired,
+            );
+            if (result?['isAiDetected'] == true) {
+              hasAiInBatch = true;
+            }
+          } else {
+            _triggerAiDetection(
+              story,
+              mediaUrl,
+              mediaType,
+              caption ?? textOverlay,
+              onAdFeeRequired: onAdFeeRequired,
+            );
           }
+        }
+
+        if (waitForAi && hasAiInBatch) {
+          final blockedStoryIds = newStories.map((s) => s.id).toSet();
+          await _storyRepository.blockStoriesBatchForAi(
+            storyIds: blockedStoryIds.toList(),
+          );
+          _stories = _stories.map((story) {
+            if (!blockedStoryIds.contains(story.id)) return story;
+            return story.copyWith(status: 'flagged');
+          }).toList();
+          _error = 'Story upload blocked: AI content detected in the upload.';
+          notifyListeners();
+          return [];
         }
       }
 
@@ -266,15 +291,13 @@ class StoryProvider extends ChangeNotifier {
     return stories.isNotEmpty ? stories.first : null;
   }
 
-  Future<void> _triggerAiDetection(
+  Future<Map<String, dynamic>?> _triggerAiDetection(
     Story story,
     String mediaUrl,
     String mediaType,
-    String? caption,
-    {
+    String? caption, {
     Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
-  }
-  ) async {
+  }) async {
     try {
       final result = await _storyRepository.runAiDetection(
         storyId: story.id,
@@ -311,8 +334,10 @@ class StoryProvider extends ChangeNotifier {
         notifyListeners();
         _showStoryAiResultSnackBar(status);
       }
+      return result;
     } catch (e) {
       debugPrint('StoryProvider: AI detection trigger failed - $e');
+      return null;
     }
   }
 

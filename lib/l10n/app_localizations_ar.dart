@@ -132,8 +132,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get pleaseTypeDelete => 'الرجاء كتابة DELETE للتأكيد';
 
   @override
-  String get aboutROOVERSEDescription =>
-      'ROOVERSE – منصة اجتماعية تتمحور حول الإنسان\n\nالإصدار 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription => 'ROOVERSE – منصة اجتماعية تتمحور حول الإنسان\n\nالإصدار 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'تسجيل الدخول';
@@ -589,8 +588,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle =>
-      'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -834,4 +832,148 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get paymentFailed => 'Payment Failed';
+
+  @override
+  String get passwordRequired => 'كلمة المرور مطلوبة';
+
+  @override
+  String get invalidEmailOrPassword => 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
+
+  @override
+  String get unableToStartGoogleLogin => 'تعذر بدء تسجيل الدخول بـ Google';
+
+  @override
+  String get pleaseEnterPhoneNumber => 'الرجاء إدخال رقم هاتفك';
+
+  @override
+  String get pleaseEnterValidPhoneNumber => 'الرجاء إدخال رقم هاتف صحيح';
+
+  @override
+  String get failedToSendLoginCode => 'فشل إرسال رمز تسجيل الدخول';
+
+  @override
+  String get verifyAndLogin => 'التحقق وتسجيل الدخول';
+
+  @override
+  String get sendCode => 'إرسال الرمز';
+
+  @override
+  String get failedToSendVerificationCode => 'فشل إرسال رمز التحقق';
+
+  @override
+  String get verifyCode => 'التحقق من الرمز';
+
+  @override
+  String get enterPhone => 'أدخل الهاتف';
+
+  @override
+  String get enterVerificationCode => 'أدخل رمز التحقق';
+
+  @override
+  String get enterPhoneForSms => 'أدخل رقم هاتفك لتلقي رمز التحقق عبر الرسائل القصيرة.';
+
+  @override
+  String get forgotPassword => 'هل نسيت كلمة المرور؟';
+
+  @override
+  String get enterYourEmail => 'أدخل بريدك الإلكتروني';
+
+  @override
+  String get enterNewPassword => 'أدخل كلمة المرور الجديدة';
+
+  @override
+  String get confirmPassword => 'تأكيد كلمة المرور';
+
+  @override
+  String get confirmYourPassword => 'أكد كلمة مرورك';
+
+  @override
+  String get resetPassword => 'إعادة تعيين كلمة المرور';
+
+  @override
+  String get passwordReset => 'تمت إعادة تعيين كلمة المرور!';
+
+  @override
+  String get backToLogin => 'العودة لتسجيل الدخول';
+
+  @override
+  String get online => 'متصل';
+
+  @override
+  String get offline => 'غير متصل';
+
+  @override
+  String get available => 'متاح';
+
+  @override
+  String get lifetimeEarned => 'المكتسب مدى الحياة';
+
+  @override
+  String get enterRooAmount => 'أدخل مبلغ ROO';
+
+  @override
+  String get recipient => 'المستلم';
+
+  @override
+  String get verificationPendingSendRoo => 'تحققك معلق. يمكنك إرسال ROO بعد الموافقة.';
+
+  @override
+  String get completeVerificationToSendRoo => 'يرجى إكمال التحقق من الهوية لإرسال ROO.';
+
+  @override
+  String get cannotSendRooToSelf => 'لا يمكنك إرسال ROO إلى حسابك الخاص';
+
+  @override
+  String get availableBalance => 'الرصيد المتاح';
+
+  @override
+  String get locationPermissionDenied => 'رُفض إذن الموقع';
+
+  @override
+  String get locationPermissionPermanentlyDenied => 'رُفض إذن الموقع نهائياً';
+
+  @override
+  String get mustBeLoggedInToBoost => 'يجب تسجيل الدخول لتعزيز منشور.';
+
+  @override
+  String get verificationPendingTip => 'تحققك معلق. يمكنك إرسال إكرامية بعد الموافقة.';
+
+  @override
+  String get cannotTipOwnPost => 'لا يمكنك إرسال إكرامية لمنشورك الخاص';
+
+  @override
+  String get enterAmount => 'أدخل المبلغ';
+
+  @override
+  String get postUnderReview => 'هذا المنشور قيد المراجعة.';
+
+  @override
+  String get sensitiveContent => 'محتوى حساس';
+
+  @override
+  String get deleteCommentConfirmation => 'هل أنت متأكد أنك تريد حذف هذا التعليق؟ لا يمكن التراجع عن هذا.';
+
+  @override
+  String get commentUnderReview => 'التعليق قيد المراجعة.';
+
+  @override
+  String get storiesEmpty => 'ستظهر هنا قصص الأشخاص الذين تتابعهم';
+
+  @override
+  String get textStoryWordLimit => 'القصص النصية محدودة بـ 250 كلمة.';
+
+  @override
+  String get createStory => 'إنشاء قصة';
+
+  @override
+  String get clickToUpload => 'انقر للتحميل';
+
+  @override
+  String get imageOrVideoMax => 'صورة أو فيديو (بحد أقصى 15 ثانية)';
+
+  @override
+  String get commentNotPublishedAi => 'لم يتم نشر تعليقك. اكتشف الذكاء الاصطناعي لدينا أنه قد ينتهك إرشاداتنا.';
+
+  @override
+  String get commentUnderReviewExtended => 'تعليقك قيد المراجعة. سيظهر بمجرد الموافقة عليه.';
 }

@@ -90,11 +90,22 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
   Future<void> _deletePost(Post post) async {
     final confirm = await _confirmDelete(context, 'post');
     if (!confirm) return;
-    await _postRepo.deletePost(post.id, currentUserId: post.authorId);
-    setState(() => _flaggedPosts.removeWhere((p) => p.id == post.id));
-    if (mounted) {
+    final success = await _postRepo.deletePost(
+      post.id,
+      currentUserId: post.authorId,
+    );
+    if (!mounted) return;
+    if (success) {
+      setState(() => _flaggedPosts.removeWhere((p) => p.id == post.id));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Post deleted.'.tr(context))),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete post.'.tr(context)),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -165,14 +176,19 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
   Future<void> _deleteComment(Comment comment) async {
     final confirm = await _confirmDelete(context, 'comment');
     if (!confirm) return;
-    await _commentRepo.deleteComment(
-      comment.id,
-      currentUserId: comment.authorId ?? '',
-    );
-    setState(() => _flaggedComments.removeWhere((c) => c.id == comment.id));
-    if (mounted) {
+    final success = await _commentRepo.deleteFlaggedCommentViaRpc(comment.id);
+    if (!mounted) return;
+    if (success) {
+      setState(() => _flaggedComments.removeWhere((c) => c.id == comment.id));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Comment deleted.'.tr(context))),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete comment.'.tr(context)),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -180,11 +196,19 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
   Future<void> _deleteStory(Story story) async {
     final confirm = await _confirmDelete(context, 'story');
     if (!confirm) return;
-    await _storyRepo.deleteStory(storyId: story.id, userId: story.userId);
-    setState(() => _flaggedStories.removeWhere((s) => s.id == story.id));
-    if (mounted) {
+    final success = await _storyRepo.deleteFlaggedStoryViaRpc(storyId: story.id);
+    if (!mounted) return;
+    if (success) {
+      setState(() => _flaggedStories.removeWhere((s) => s.id == story.id));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Story deleted.'.tr(context))),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete story.'.tr(context)),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -250,11 +274,19 @@ class _MyFlaggedContentScreenState extends State<MyFlaggedContentScreen>
   Future<void> _deleteMessage(Message message) async {
     final confirm = await _confirmDelete(context, 'message');
     if (!confirm) return;
-    await _chatService.deleteMessage(message.id);
-    setState(() => _flaggedMessages.removeWhere((m) => m.id == message.id));
-    if (mounted) {
+    final success = await _chatService.deleteFlaggedMessageViaRpc(message.id);
+    if (!mounted) return;
+    if (success) {
+      setState(() => _flaggedMessages.removeWhere((m) => m.id == message.id));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Message deleted.'.tr(context))),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete message.'.tr(context)),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }

@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../utils/responsive_extensions.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 class PhoneVerificationScreen extends StatefulWidget {
   final VoidCallback onVerify;
   final VoidCallback onBack;
@@ -20,7 +21,8 @@ class PhoneVerificationScreen extends StatefulWidget {
   });
 
   @override
-  State<PhoneVerificationScreen> createState() => _PhoneVerificationScreenState();
+  State<PhoneVerificationScreen> createState() =>
+      _PhoneVerificationScreenState();
 }
 
 class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
@@ -71,17 +73,18 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
     return _otpControllers.map((c) => c.text).join();
   }
 
-  String get _fullPhoneNumber => '$_selectedCountryCode${_phoneController.text.trim()}';
+  String get _fullPhoneNumber =>
+      '$_selectedCountryCode${_phoneController.text.trim()}';
 
   Future<void> _sendCode() async {
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
-      setState(() => _error = 'Please enter your phone number');
+      setState(() => _error = 'Please enter your phone number'.tr(context));
       return;
     }
 
     if (phone.length < 10) {
-      setState(() => _error = 'Please enter a valid phone number');
+      setState(() => _error = 'Please enter a valid phone number'.tr(context));
       return;
     }
 
@@ -104,14 +107,14 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
         _startResendCooldown();
       } else {
         setState(() {
-          _error = authProvider.error ?? 'Failed to send verification code';
+          _error = authProvider.error ?? 'Failed to send verification code'.tr(context);
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'An error occurred. Please try again.';
+          _error = 'An error occurred. Please try again.'.tr(context);
           _isLoading = false;
         });
       }
@@ -121,7 +124,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
   Future<void> _verifyCode() async {
     final code = _getOtpCode();
     if (code.length != 6) {
-      setState(() => _error = 'Please enter the 6-digit code');
+      setState(() => _error = 'Please enter the 6-digit code'.tr(context));
       return;
     }
 
@@ -132,10 +135,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
 
     try {
       final authProvider = context.read<AuthProvider>();
-      final success = await authProvider.verifyPhoneOtp(
-        _fullPhoneNumber,
-        code,
-      );
+      final success = await authProvider.verifyPhoneOtp(_fullPhoneNumber, code);
 
       if (!mounted) return;
 
@@ -146,14 +146,14 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
         widget.onVerify();
       } else {
         setState(() {
-          _error = authProvider.error ?? 'Invalid verification code';
+          _error = authProvider.error ?? 'Invalid verification code'.tr(context);
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'An error occurred. Please try again.';
+          _error = 'An error occurred. Please try again.'.tr(context);
           _isLoading = false;
         });
       }
@@ -221,22 +221,30 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                         decoration: BoxDecoration(
                           color: AppColors.primarySoft,
                           borderRadius: AppSpacing.responsiveRadius(
-                              context, AppSpacing.radiusMedium),
+                            context,
+                            AppSpacing.radiusMedium,
+                          ),
                         ),
                         child: Row(
                           children: [
                             Icon(
                               Icons.phone_android,
-                              size: AppTypography.responsiveIconSize(context, 16),
+                              size: AppTypography.responsiveIconSize(
+                                context,
+                                16,
+                              ),
                               color: AppColors.primary,
                             ),
                             SizedBox(
-                                width: AppSpacing.extraSmall.responsive(context)),
+                              width: AppSpacing.extraSmall.responsive(context),
+                            ),
                             Text(
-                              _codeSent ? 'VERIFY CODE' : 'ENTER PHONE',
+                              _codeSent ? 'VERIFY CODE'.tr(context) : 'ENTER PHONE'.tr(context),
                               style: TextStyle(
                                 fontSize: AppTypography.responsiveFontSize(
-                                    context, 10),
+                                  context,
+                                  10,
+                                ),
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.primary,
                                 letterSpacing: 1,
@@ -282,10 +290,14 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
 
                   // Title
                   Text(
-                    _codeSent ? 'Enter Verification Code' : 'Phone Verification',
+                    _codeSent
+                        ? 'Enter Verification Code'.tr(context)
+                        : 'Phone Verification'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
-                          context, AppTypography.largeHeading),
+                        context,
+                        AppTypography.largeHeading,
+                      ),
                       fontWeight: FontWeight.bold,
                       color: scheme.onSurface,
                     ),
@@ -297,10 +309,12 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                   Text(
                     _codeSent
                         ? 'We sent a 6-digit code to $_fullPhoneNumber'
-                        : 'Enter your phone number to receive a verification code via SMS.',
+                        : 'Enter your phone number to receive a verification code via SMS.'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
-                          context, AppTypography.base),
+                        context,
+                        AppTypography.base,
+                      ),
                       color: scheme.onSurface.withOpacity(0.7),
                       height: 1.5,
                     ),
@@ -321,29 +335,37 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                   if (_error != null) ...[
                     SizedBox(height: AppSpacing.largePlus.responsive(context)),
                     Container(
-                      padding:
-                          AppSpacing.responsiveAll(context, AppSpacing.standard),
+                      padding: AppSpacing.responsiveAll(
+                        context,
+                        AppSpacing.standard,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.red.withOpacity(0.1),
                         borderRadius: AppSpacing.responsiveRadius(
-                            context, AppSpacing.radiusMedium),
+                          context,
+                          AppSpacing.radiusMedium,
+                        ),
                         border: Border.all(color: Colors.red.withOpacity(0.5)),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline,
-                              color: Colors.red,
-                              size:
-                                  AppTypography.responsiveIconSize(context, 20)),
+                          Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: AppTypography.responsiveIconSize(context, 20),
+                          ),
                           SizedBox(
-                              width: AppSpacing.mediumSmall.responsive(context)),
+                            width: AppSpacing.mediumSmall.responsive(context),
+                          ),
                           Expanded(
                             child: Text(
                               _error!,
                               style: TextStyle(
                                 color: Colors.red,
                                 fontSize: AppTypography.responsiveFontSize(
-                                    context, AppTypography.small),
+                                  context,
+                                  AppTypography.small,
+                                ),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -363,17 +385,21 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                       onPressed: _isLoading
                           ? null
                           : _codeSent
-                              ? _verifyCode
-                              : _sendCode,
+                          ? _verifyCode
+                          : _sendCode,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: AppSpacing.responsiveRadius(context, 28),
+                          borderRadius: AppSpacing.responsiveRadius(
+                            context,
+                            28,
+                          ),
                         ),
                         elevation: 0,
-                        disabledBackgroundColor:
-                            AppColors.primary.withOpacity(0.6),
+                        disabledBackgroundColor: AppColors.primary.withOpacity(
+                          0.6,
+                        ),
                       ),
                       child: _isLoading
                           ? SizedBox(
@@ -381,27 +407,36 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                               width: 24.responsive(context, min: 20, max: 28),
                               child: const CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             )
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  _codeSent ? 'Verify Phone' : 'Send Code',
+                                  _codeSent ? 'Verify Phone'.tr(context) : 'Send Code'.tr(context),
                                   style: TextStyle(
                                     fontSize: AppTypography.responsiveFontSize(
-                                        context, AppTypography.smallHeading),
+                                      context,
+                                      AppTypography.smallHeading,
+                                    ),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 SizedBox(
-                                    width: AppSpacing.mediumSmall
-                                        .responsive(context)),
-                                Icon(Icons.arrow_forward,
-                                    size: AppTypography.responsiveIconSize(
-                                        context, 20)),
+                                  width: AppSpacing.mediumSmall.responsive(
+                                    context,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_forward,
+                                  size: AppTypography.responsiveIconSize(
+                                    context,
+                                    20,
+                                  ),
+                                ),
                               ],
                             ),
                     ),
@@ -413,19 +448,25 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Didn't receive the code? ".tr(context),
+                        Text(
+                          "Didn't receive the code? ".tr(context),
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
-                                context, AppTypography.base),
+                              context,
+                              AppTypography.base,
+                            ),
                             color: scheme.onSurface.withOpacity(0.7),
                           ),
                         ),
                         GestureDetector(
                           onTap: _resendCooldown > 0 ? null : _resendCode,
-                          child: Text('Resend'.tr(context),
+                          child: Text(
+                            'Resend'.tr(context),
                             style: TextStyle(
                               fontSize: AppTypography.responsiveFontSize(
-                                  context, AppTypography.base),
+                                context,
+                                AppTypography.base,
+                              ),
                               color: _resendCooldown > 0
                                   ? Colors.grey
                                   : AppColors.primary,
@@ -437,10 +478,13 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                           ),
                         ),
                         if (_resendCooldown > 0)
-                          Text(' (${_resendCooldown}s)'.tr(context),
+                          Text(
+                            ' (${_resendCooldown}s)'.tr(context),
                             style: TextStyle(
                               fontSize: AppTypography.responsiveFontSize(
-                                  context, AppTypography.base),
+                                context,
+                                AppTypography.base,
+                              ),
                               color: Colors.grey,
                             ),
                           ),
@@ -457,9 +501,13 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                           c.clear();
                         }
                       }),
-                      child: Text('CHANGE PHONE NUMBER'.tr(context),
+                      child: Text(
+                        'CHANGE PHONE NUMBER'.tr(context),
                         style: TextStyle(
-                          fontSize: AppTypography.responsiveFontSize(context, 10),
+                          fontSize: AppTypography.responsiveFontSize(
+                            context,
+                            10,
+                          ),
                           fontWeight: FontWeight.bold,
                           color: const Color(0xFF64748B),
                           letterSpacing: 1.5,
@@ -482,46 +530,73 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
-        borderRadius:
-            AppSpacing.responsiveRadius(context, AppSpacing.radiusLarge),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusLarge,
+        ),
         border: Border.all(color: scheme.outline.withOpacity(0.3)),
       ),
       child: Row(
         children: [
           // Country code dropdown
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppSpacing.standard.responsive(context),
-            ),
-            decoration: BoxDecoration(
-              border: Border(
-                right: BorderSide(color: scheme.outline.withOpacity(0.3)),
+          SizedBox(
+            width: 132.responsive(context, min: 108, max: 148),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.standard.responsive(context),
               ),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedCountryCode,
-                items: _countryCodes.map((country) {
-                  return DropdownMenuItem(
-                    value: country['code'],
-                    child: Text('${country['code']} ${country['country']}',
-                      style: TextStyle(
-                        fontSize: AppTypography.responsiveFontSize(
-                            context, AppTypography.base),
-                        color: scheme.onSurface,
+              decoration: BoxDecoration(
+                border: Border(
+                  right: BorderSide(color: scheme.outline.withOpacity(0.3)),
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedCountryCode,
+                  isExpanded: true,
+                  items: _countryCodes.map((country) {
+                    return DropdownMenuItem(
+                      value: country['code'],
+                      child: Text(
+                        '${country['code']} ${country['country']}',
+                        style: TextStyle(
+                          fontSize: AppTypography.responsiveFontSize(
+                            context,
+                            AppTypography.base,
+                          ),
+                          color: scheme.onSurface,
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedCountryCode = value);
-                  }
-                },
-                dropdownColor: scheme.surface,
-                icon: Icon(
-                  Icons.arrow_drop_down,
-                  color: scheme.onSurface.withOpacity(0.5),
+                    );
+                  }).toList(),
+                  selectedItemBuilder: (context) {
+                    return _countryCodes.map((country) {
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          country['code'] ?? '',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: AppTypography.responsiveFontSize(
+                              context,
+                              AppTypography.base,
+                            ),
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                      );
+                    }).toList();
+                  },
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedCountryCode = value);
+                    }
+                  },
+                  dropdownColor: scheme.surface,
+                  icon: Icon(
+                    Icons.arrow_drop_down,
+                    color: scheme.onSurface.withOpacity(0.5),
+                  ),
                 ),
               ),
             ),
@@ -533,15 +608,15 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
               keyboardType: TextInputType.phone,
               style: TextStyle(
                 fontSize: AppTypography.responsiveFontSize(
-                    context, AppTypography.smallHeading),
+                  context,
+                  AppTypography.smallHeading,
+                ),
                 color: scheme.onSurface,
                 fontWeight: FontWeight.w500,
               ),
               decoration: InputDecoration(
-                hintText: 'Phone number',
-                hintStyle: TextStyle(
-                  color: scheme.onSurface.withOpacity(0.4),
-                ),
+                hintText: 'Phone number'.tr(context),
+                hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.4)),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.largePlus.responsive(context),
@@ -574,7 +649,9 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
             maxLength: 1,
             style: TextStyle(
               fontSize: AppTypography.responsiveFontSize(
-                  context, AppTypography.mediumHeading),
+                context,
+                AppTypography.mediumHeading,
+              ),
               fontWeight: FontWeight.bold,
               color: scheme.onSurface,
             ),
@@ -583,31 +660,33 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
               filled: true,
               fillColor: scheme.surfaceContainerHighest,
               hintText: '-',
-              hintStyle: TextStyle(
-                color: scheme.onSurface.withOpacity(0.4),
-              ),
+              hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.4)),
               border: OutlineInputBorder(
                 borderRadius: AppSpacing.responsiveRadius(
-                    context, AppSpacing.radiusLarge),
+                  context,
+                  AppSpacing.radiusLarge,
+                ),
                 borderSide: BorderSide(color: scheme.outline),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: AppSpacing.responsiveRadius(
-                    context, AppSpacing.radiusLarge),
+                  context,
+                  AppSpacing.radiusLarge,
+                ),
                 borderSide: BorderSide(color: scheme.outline),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: AppSpacing.responsiveRadius(
-                    context, AppSpacing.radiusLarge),
+                  context,
+                  AppSpacing.radiusLarge,
+                ),
                 borderSide: const BorderSide(
                   color: AppColors.primary,
                   width: 2,
                 ),
               ),
             ),
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-            ],
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             onChanged: (value) {
               if (value.isNotEmpty && index < 5) {
                 _otpFocusNodes[index + 1].requestFocus();

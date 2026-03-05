@@ -276,6 +276,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       links.add({
         'user_id': userId,
         'platform': 'website',
+        'label': 'Website',
         'url': _websiteController.text.trim(),
       });
     }
@@ -283,6 +284,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       links.add({
         'user_id': userId,
         'platform': 'twitter',
+        'label': 'Twitter',
         'url': _twitterController.text.trim(),
       });
     }
@@ -290,6 +292,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       links.add({
         'user_id': userId,
         'platform': 'instagram',
+        'label': 'Instagram',
         'url': _instagramController.text.trim(),
       });
     }
@@ -464,13 +467,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           SnackBar(
             content: Text(message),
             backgroundColor: Theme.of(context).colorScheme.error,
-            action: SnackBarAction(
-              label: _editProfileText(context, 'settings'),
-              textColor: Colors.white,
-              onPressed: () {
-                // User can manually open settings
-              },
-            ),
+            duration: const Duration(seconds: 4),
           ),
         );
       }

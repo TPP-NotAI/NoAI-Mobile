@@ -19,14 +19,20 @@ import '../widgets/verification_required_widget.dart';
 import '../services/viral_content_service.dart';
 import '../widgets/comment_card.dart';
 import '../widgets/boost_post_modal.dart';
-import '../widgets/post_card.dart' show PostMediaGridView;
+import '../widgets/post_card.dart'
+    show
+        PostMediaGridView,
+        PostSponsoredBadge,
+        PostAdBadge,
+        PostSponsoredAdBadge,
+        PostBoostCache;
 import '../widgets/tip_modal.dart';
 import '../screens/boost/boost_analytics_page.dart';
 import '../screens/ads/ad_insights_page.dart';
-import '../repositories/boost_repository.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 class PostDetailScreen extends StatefulWidget {
   final Post post;
   final String? heroTag;
@@ -161,12 +167,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   Future<void> _loadBoostStatus() async {
     final currentUserId = context.read<AuthProvider>().currentUser?.id;
-    if (currentUserId == null || currentUserId != _post.authorId) return;
+    if (currentUserId == null) return;
     try {
-      final boostedIds = await BoostRepository().getBoostedPostIds(currentUserId);
+      await PostBoostCache.ensureLoaded(currentUserId);
       if (!mounted) return;
       setState(() {
-        _isBoosted = boostedIds.contains(_post.id);
+        _isBoosted = PostBoostCache.isBoosted(_post.id);
       });
     } catch (e) {
       debugPrint('PostDetailScreen: Error loading boost status - $e');
@@ -235,13 +241,20 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           setState(() {
             _comments = _removeReplyFromComments(_comments, tempId);
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to post reply'.tr(context))),
-          );
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(content: Text('Failed to post reply'.tr(context))),
+            );
         }
       }
     } else {
       // Submit as a top-level comment
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(content: Text('Comment under review.'.tr(context))),
+        );
       final newComment = await feedProvider.addComment(_post.id, text);
       if (mounted) {
         setState(() => _submittingComment = false);
@@ -251,13 +264,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             _comments.add(newComment);
             _post = _post.copyWith(comments: _post.comments + 1);
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Comment posted!'.tr(context))),
-          );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to post comment'.tr(context))),
-          );
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(content: Text('Failed to post comment'.tr(context))),
+            );
         }
       }
     }
@@ -291,7 +303,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Unpublish Post?'.tr(context)),
-        content: Text('This will remove the post from the public feed. You can republish it later (not implemented yet).'.tr(context),
+        content: Text(
+          'This will remove the post from the public feed. You can republish it later (not implemented yet).'
+              .tr(context),
         ),
         actions: [
           TextButton(
@@ -312,16 +326,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       if (mounted) {
         if (success) {
           Navigator.pop(context); // Go back to feed/profile
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Post unpublished'.tr(context))));
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(content: Text('Post unpublished'.tr(context))),
+            );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to unpublish post. You can only unpublish your own posts.'.tr(context),
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Failed to unpublish post. You can only unpublish your own posts.'
+                      .tr(context),
+                ),
               ),
-            ),
-          );
+            );
         }
       }
     }
@@ -332,7 +352,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete Post?'.tr(context)),
-        content: Text('Are you sure you want to delete this post? This action cannot be undone.'.tr(context),
+        content: Text(
+          'Are you sure you want to delete this post? This action cannot be undone.'
+              .tr(context),
         ),
         actions: [
           TextButton(
@@ -356,16 +378,20 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       if (mounted) {
         if (success) {
           Navigator.pop(context); // Go back
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Post deleted'.tr(context))));
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(SnackBar(content: Text('Post deleted'.tr(context))));
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to delete post. You can only delete your own posts.'.tr(context),
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Failed to delete post. You can only delete your own posts.'
+                      .tr(context),
+                ),
               ),
-            ),
-          );
+            );
         }
       }
     }
@@ -401,7 +427,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final feedProvider = context.watch<FeedProvider>();
     final isAuthor = authProvider.currentUser?.id == _post.authorId;
     final colors = Theme.of(context).colorScheme;
-    final totalCommentCount = _countCommentsWithReplies(_comments);
+    final providerPostIndex = feedProvider.posts.indexWhere(
+      (p) => p.id == _post.id,
+    );
+    final providerComments = providerPostIndex != -1
+        ? feedProvider.posts[providerPostIndex].commentList
+        : null;
+    final displayComments = providerComments ?? _comments;
+    final totalCommentCount = _countCommentsWithReplies(displayComments);
+    final isAdvert = _isAdvertPost;
+    final isSponsored = _isBoosted;
 
     return WillPopScope(
       onWillPop: () async {
@@ -410,164 +445,184 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-        title: Text('Post Details'.tr(context)),
-        actions: [
-          if (isAuthor)
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                switch (value) {
-                  case 'edit':
-                    _handleEdit();
-                    break;
-                  case 'boost':
-                    _handleBoost();
-                    break;
-                  case 'boost_analytics':
-                    _handleBoostAnalytics();
-                    break;
-                  case 'ad_insights':
-                    _handleAdInsights();
-                    break;
-                  case 'unpublish':
-                    _handleUnpublish();
-                    break;
-                  case 'delete':
-                    _handleDelete();
-                    break;
-                }
-              },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                PopupMenuItem(
-                  value: 'boost',
-                  child: Row(
-                    children: [
-                      Icon(Icons.rocket_launch, size: 20),
-                      SizedBox(width: 12),
-                      Text('Boost Post'.tr(context)),
-                    ],
-                  ),
-                ),
-                if (_isBoosted)
+          title: Text('Post Details'.tr(context)),
+          actions: [
+            if (isAuthor)
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  switch (value) {
+                    case 'edit':
+                      _handleEdit();
+                      break;
+                    case 'boost':
+                      _handleBoost();
+                      break;
+                    case 'boost_analytics':
+                      _handleBoostAnalytics();
+                      break;
+                    case 'ad_insights':
+                      _handleAdInsights();
+                      break;
+                    case 'unpublish':
+                      _handleUnpublish();
+                      break;
+                    case 'delete':
+                      _handleDelete();
+                      break;
+                  }
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
                   PopupMenuItem(
-                    value: 'boost_analytics',
+                    value: 'boost',
                     child: Row(
                       children: [
-                        Icon(Icons.bar_chart, size: 20),
+                        Icon(Icons.rocket_launch, size: 20),
                         SizedBox(width: 12),
-                        Text('View Boost Analytics'.tr(context)),
+                        Text('Boost Post'.tr(context)),
                       ],
                     ),
                   ),
-                if (_isAdvertPost)
-                  PopupMenuItem(
-                    value: 'ad_insights',
-                    child: Row(
-                      children: [
-                        Icon(Icons.insights_outlined, size: 20),
-                        SizedBox(width: 12),
-                        Text('Ad Insights'.tr(context)),
-                      ],
-                    ),
-                  ),
-                PopupMenuDivider(),
-                PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 20),
-                      SizedBox(width: 12),
-                      Text('Edit Post'.tr(context)),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'unpublish',
-                  child: Row(
-                    children: [
-                      Icon(Icons.visibility_off, size: 20),
-                      SizedBox(width: 12),
-                      Text('Unpublish'.tr(context)),
-                    ],
-                  ),
-                ),
-                PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.delete_forever,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.error,
+                  if (_isBoosted)
+                    PopupMenuItem(
+                      value: 'boost_analytics',
+                      child: Row(
+                        children: [
+                          Icon(Icons.bar_chart, size: 20),
+                          SizedBox(width: 12),
+                          Text('View Boost Analytics'.tr(context)),
+                        ],
                       ),
-                      SizedBox(width: 12),
-                      Text('Delete'.tr(context),
-                        style: TextStyle(
+                    ),
+                  if (_isAdvertPost)
+                    PopupMenuItem(
+                      value: 'ad_insights',
+                      child: Row(
+                        children: [
+                          Icon(Icons.insights_outlined, size: 20),
+                          SizedBox(width: 12),
+                          Text('Ad Insights'.tr(context)),
+                        ],
+                      ),
+                    ),
+                  PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 20),
+                        SizedBox(width: 12),
+                        Text('Edit Post'.tr(context)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'unpublish',
+                    child: Row(
+                      children: [
+                        Icon(Icons.visibility_off, size: 20),
+                        SizedBox(width: 12),
+                        Text('Unpublish'.tr(context)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_forever,
+                          size: 20,
                           color: Theme.of(context).colorScheme.error,
                         ),
-                      ),
-                    ],
+                        SizedBox(width: 12),
+                        Text(
+                          'Delete'.tr(context),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-        ],
-      ),
+                ],
+              ),
+          ],
+        ),
         body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundImage: _post.author.avatar.isNotEmpty
-                                    ? NetworkImage(_post.author.avatar)
-                                    : null,
-                                backgroundColor: colors.surfaceContainerHighest,
-                                child: _post.author.avatar.isEmpty
-                                    ? Icon(
-                                        Icons.person,
-                                        color: colors.onSurfaceVariant,
-                                      )
-                                    : null,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          _post.author.displayName,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                        ),
-                                        if (_post.author.isVerified) ...[
-                                          SizedBox(width: 4),
-                                          Icon(
-                                            Icons.verified,
-                                            size: 14,
-                                            color: colors.primary,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundImage:
+                                      _post.author.avatar.isNotEmpty
+                                      ? NetworkImage(_post.author.avatar)
+                                      : null,
+                                  backgroundColor:
+                                      colors.surfaceContainerHighest,
+                                  child: _post.author.avatar.isEmpty
+                                      ? Icon(
+                                          Icons.person,
+                                          color: colors.onSurfaceVariant,
+                                        )
+                                      : null,
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            _post.author.displayName,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                           ),
+                                          if (_post.author.isVerified) ...[
+                                            SizedBox(width: 4),
+                                            Icon(
+                                              Icons.verified,
+                                              size: 14,
+                                              color: colors.primary,
+                                            ),
+                                          ],
                                         ],
-                                      ],
-                                    ),
-                                    Text('@${_post.author.username}'.tr(context),
+                                      ),
+                                      Text(
+                                        '@${_post.author.username}'.tr(context),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: colors.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      humanReadableTime(_post.timestamp),
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
@@ -575,583 +630,648 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                             color: colors.onSurfaceVariant,
                                           ),
                                     ),
+                                    if (isAdvert && isSponsored) ...[
+                                      const SizedBox(height: 4),
+                                      const PostSponsoredAdBadge(),
+                                    ] else if (isAdvert) ...[
+                                      const SizedBox(height: 4),
+                                      const PostAdBadge(),
+                                    ] else if (isSponsored) ...[
+                                      const SizedBox(height: 4),
+                                      const PostSponsoredBadge(),
+                                    ],
                                   ],
-                                ),
-                              ),
-                              Text(
-                                humanReadableTime(_post.timestamp),
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: colors.onSurfaceVariant),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 16),
-                          // Moderation Alert for Author
-                          if (isAuthor &&
-                              (_post.status == 'deleted' ||
-                                  _post.status == 'under_review' ||
-                                  _post.status == 'flagged'))
-                            Container(
-                              width: double.infinity,
-                              margin: const EdgeInsets.only(bottom: 16),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color:
-                                    (_post.status == 'deleted'
-                                            ? colors.error
-                                            : colors.tertiary)
-                                        .withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color:
-                                      (_post.status == 'deleted'
-                                              ? colors.error
-                                              : colors.tertiary)
-                                          .withOpacity(0.3),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _post.status == 'deleted'
-                                        ? Icons.block
-                                        : Icons.warning_amber_rounded,
-                                    color: _post.status == 'deleted'
-                                        ? colors.error
-                                        : colors.tertiary,
-                                  ),
-                                  SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          _post.status == 'deleted'
-                                              ? 'Post Rejected/Deleted'
-                                              : 'Post Under Review',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: _post.status == 'deleted'
-                                                ? colors.error
-                                                : colors.tertiary,
-                                          ),
-                                        ),
-                                        if (_post.authenticityNotes != null)
-                                          Text(
-                                            _post.authenticityNotes!,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: _post.status == 'deleted'
-                                                  ? colors.onErrorContainer
-                                                  : colors.onTertiaryContainer,
-                                            ),
-                                          ),
-                                        if (_post.aiScoreStatus != null)
-                                          Text('Status: ${_post.aiScoreStatus}'.tr(context),
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontStyle: FontStyle.italic,
-                                              color: _post.status == 'deleted'
-                                                  ? colors.onErrorContainer
-                                                  : colors.onTertiaryContainer,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          if (_post.isSensitive)
-                            Container(
-                              width: double.infinity,
-                              margin: const EdgeInsets.only(bottom: 16),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: colors.errorContainer.withValues(
-                                  alpha: 0.1,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: colors.error.withValues(alpha: 0.3),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.warning_amber_rounded,
-                                    color: colors.error,
-                                  ),
-                                  SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Sensitive Content'.tr(context),
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: colors.error,
-                                          ),
-                                        ),
-                                        if (_post.sensitiveReason != null)
-                                          Text(
-                                            _post.sensitiveReason!,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: colors.onErrorContainer,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          if (_post.title != null &&
-                              _post.title!.isNotEmpty) ...[
-                            MentionRichText(
-                              text: _post.title!,
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                              onMentionTap: (username) =>
-                                  navigateToMentionedUser(context, username),
-                              onHashtagTap: _openHashtagFeed,
-                            ),
-                            SizedBox(height: 8),
-                          ],
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final textStyle = Theme.of(
-                                context,
-                              ).textTheme.bodyLarge?.copyWith(height: 1.6);
-                              final textSpan = TextSpan(
-                                text: _post.content,
-                                style: textStyle,
-                              );
-                              final textPainter = TextPainter(
-                                text: textSpan,
-                                maxLines: _maxLinesCollapsed,
-                                textDirection: TextDirection.ltr,
-                              )..layout(maxWidth: constraints.maxWidth);
-                              final isOverflowing =
-                                  textPainter.didExceedMaxLines;
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  MentionRichText(
-                                    text: _post.content,
-                                    style: textStyle,
-                                    maxLines: _isTextExpanded
-                                        ? null
-                                        : _maxLinesCollapsed,
-                                    overflow: TextOverflow.clip,
-                                    onMentionTap: (username) =>
-                                        navigateToMentionedUser(
-                                          context,
-                                          username,
-                                        ),
-                                    onHashtagTap: _openHashtagFeed,
-                                  ),
-                                  if (isOverflowing)
-                                    GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _isTextExpanded = !_isTextExpanded;
-                                        });
-                                      },
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Text(
-                                          _isTextExpanded
-                                              ? 'Show less'
-                                              : '... more',
-                                          style: TextStyle(
-                                            color: colors.primary,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              );
-                            },
-                          ),
-                          SizedBox(height: 16),
-                          if (_post.location != null &&
-                              _post.location!.isNotEmpty) ...[
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  size: 16,
-                                  color: colors.onSurfaceVariant,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  _post.location!,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: colors.onSurfaceVariant,
-                                      ),
                                 ),
                               ],
                             ),
                             SizedBox(height: 16),
-                          ],
-                          if (_post.tags != null && _post.tags!.isNotEmpty) ...[
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: _post.tags!.map((tag) {
-                                return GestureDetector(
-                                  onTap: () => _openHashtagFeed(tag.name),
-                                  child: Text('#${tag.name}'.tr(context),
-                                    style: TextStyle(
-                                      color: colors.primary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                            SizedBox(height: 16),
-                          ],
-                          if (_post.hasMedia) ...[
-                            PostMediaGridView(
-                              post: _post,
-                              padding: EdgeInsets.zero,
-                            ),
-                            SizedBox(height: 16),
-                          ],
-                          SizedBox(height: 16),
-                          Row(
-                            children: [
-                              // Like button
-                              InkWell(
-                                onTap: () {
-                                  feedProvider.toggleLike(_post.id);
-                                  setState(() {
-                                    final wasLiked = _post.isLiked;
-                                    _post = _post.copyWith(
-                                      likes: wasLiked
-                                          ? _post.likes - 1
-                                          : _post.likes + 1,
-                                      isLiked: !wasLiked,
-                                    );
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        _post.isLiked
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
-                                        size: 20,
-                                        color: _post.isLiked
-                                            ? Colors.red
-                                            : colors.onSurfaceVariant,
-                                      ),
-                                      SizedBox(width: 4),
-                                      Text('${_post.likes}'.tr(context)),
-                                    ],
+                            // Moderation Alert for Author
+                            if (isAuthor &&
+                                (_post.status == 'deleted' ||
+                                    _post.status == 'under_review' ||
+                                    _post.status == 'flagged'))
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color:
+                                      (_post.status == 'deleted'
+                                              ? colors.error
+                                              : colors.tertiary)
+                                          .withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color:
+                                        (_post.status == 'deleted'
+                                                ? colors.error
+                                                : colors.tertiary)
+                                            .withOpacity(0.3),
                                   ),
                                 ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _post.status == 'deleted'
+                                          ? Icons.block
+                                          : Icons.warning_amber_rounded,
+                                      color: _post.status == 'deleted'
+                                          ? colors.error
+                                          : colors.tertiary,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            _post.status == 'deleted'
+                                                ? 'Post Rejected/Deleted'
+                                                : 'Post Under Review',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: _post.status == 'deleted'
+                                                  ? colors.error
+                                                  : colors.tertiary,
+                                            ),
+                                          ),
+                                          if (_post.authenticityNotes != null)
+                                            Text(
+                                              _post.authenticityNotes!,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: _post.status == 'deleted'
+                                                    ? colors.onErrorContainer
+                                                    : colors
+                                                          .onTertiaryContainer,
+                                              ),
+                                            ),
+                                          if (_post.aiScoreStatus != null)
+                                            Text(
+                                              'Status: ${_post.aiScoreStatus}'
+                                                  .tr(context),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontStyle: FontStyle.italic,
+                                                color: _post.status == 'deleted'
+                                                    ? colors.onErrorContainer
+                                                    : colors
+                                                          .onTertiaryContainer,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              SizedBox(width: 16),
-                              // Comment count
-                              Icon(
-                                Icons.chat_bubble_outline,
-                                size: 20,
-                                color: colors.onSurfaceVariant,
+                            if (_post.isSensitive)
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: colors.errorContainer.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: colors.error.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.warning_amber_rounded,
+                                      color: colors.error,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Sensitive Content'.tr(context),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: colors.error,
+                                            ),
+                                          ),
+                                          if (_post.sensitiveReason != null)
+                                            Text(
+                                              _post.sensitiveReason!,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: colors.onErrorContainer,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              SizedBox(width: 4),
-                              Text('${_post.comments}'.tr(context)),
-                              SizedBox(width: 16),
-                              // Repost button
-                              InkWell(
-                                onTap: () {
-                                  final wasReposted = feedProvider.isReposted(
-                                    _post.id,
-                                  );
-                                  feedProvider.toggleRepost(_post.id);
-                                  ScaffoldMessenger.of(context)
-                                    ..clearSnackBars()
-                                    ..showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          wasReposted
-                                              ? 'Removed repost'
-                                              : 'Reposted to your profile',
-                                        ),
-                                        duration: const Duration(seconds: 2),
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
+                            if (_post.title != null &&
+                                _post.title!.isNotEmpty) ...[
+                              MentionRichText(
+                                text: _post.title!,
+                                style: Theme.of(context).textTheme.headlineSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                onMentionTap: (username) =>
+                                    navigateToMentionedUser(context, username),
+                                onHashtagTap: _openHashtagFeed,
+                              ),
+                              SizedBox(height: 8),
+                            ],
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final textStyle = Theme.of(
+                                  context,
+                                ).textTheme.bodyLarge?.copyWith(height: 1.6);
+                                final textSpan = TextSpan(
+                                  text: _post.content,
+                                  style: textStyle,
+                                );
+                                final textPainter = TextPainter(
+                                  text: textSpan,
+                                  maxLines: _maxLinesCollapsed,
+                                  textDirection: TextDirection.ltr,
+                                )..layout(maxWidth: constraints.maxWidth);
+                                final isOverflowing =
+                                    textPainter.didExceedMaxLines;
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    MentionRichText(
+                                      text: _post.content,
+                                      style: textStyle,
+                                      maxLines: _isTextExpanded
+                                          ? null
+                                          : _maxLinesCollapsed,
+                                      overflow: TextOverflow.clip,
+                                      onMentionTap: (username) =>
+                                          navigateToMentionedUser(
+                                            context,
+                                            username,
+                                          ),
+                                      onHashtagTap: _openHashtagFeed,
+                                    ),
+                                    if (isOverflowing)
+                                      GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _isTextExpanded = !_isTextExpanded;
+                                          });
+                                        },
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 4,
+                                          ),
+                                          child: Text(
+                                            _isTextExpanded
+                                                ? 'Show less'
+                                                : '... more',
+                                            style: TextStyle(
+                                              color: colors.primary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    );
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.repeat,
-                                        size: 20,
-                                        color: feedProvider.isReposted(_post.id)
-                                            ? const Color(0xFF10B981)
-                                            : colors.onSurfaceVariant,
-                                      ),
-                                      SizedBox(width: 4),
-                                      Text('${feedProvider.getRepostCount(_post.id)}'.tr(context),
-                                      ),
-                                    ],
+                                  ],
+                                );
+                              },
+                            ),
+                            SizedBox(height: 16),
+                            if (_post.location != null &&
+                                _post.location!.isNotEmpty) ...[
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.location_on,
+                                    size: 16,
+                                    color: colors.onSurfaceVariant,
                                   ),
-                                ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    _post.location!,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: colors.onSurfaceVariant,
+                                        ),
+                                  ),
+                                ],
                               ),
-                              SizedBox(width: 16),
-                              // Tip button (for non-authors)
-                              if (!isAuthor)
+                              SizedBox(height: 16),
+                            ],
+                            if (_post.tags != null &&
+                                _post.tags!.isNotEmpty) ...[
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: _post.tags!.map((tag) {
+                                  return GestureDetector(
+                                    onTap: () => _openHashtagFeed(tag.name),
+                                    child: Text(
+                                      '#${tag.name}'.tr(context),
+                                      style: TextStyle(
+                                        color: colors.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                              SizedBox(height: 16),
+                            ],
+                            if (_post.hasMedia) ...[
+                              PostMediaGridView(
+                                post: _post,
+                                padding: EdgeInsets.zero,
+                              ),
+                              SizedBox(height: 16),
+                            ],
+                            SizedBox(height: 16),
+                            Row(
+                              children: [
+                                // Like button
                                 InkWell(
-                                  onTap: () => _handleTip(context),
+                                  onTap: () {
+                                    feedProvider.toggleLike(_post.id);
+                                    setState(() {
+                                      final wasLiked = _post.isLiked;
+                                      _post = _post.copyWith(
+                                        likes: wasLiked
+                                            ? _post.likes - 1
+                                            : _post.likes + 1,
+                                        isLiked: !wasLiked,
+                                      );
+                                    });
+                                  },
                                   borderRadius: BorderRadius.circular(8),
                                   child: Padding(
                                     padding: const EdgeInsets.all(4),
                                     child: Row(
                                       children: [
                                         Icon(
-                                          Icons.toll,
+                                          _post.isLiked
+                                              ? Icons.favorite
+                                              : Icons.favorite_border,
                                           size: 20,
-                                          color: colors.onSurfaceVariant,
+                                          color: _post.isLiked
+                                              ? Colors.red
+                                              : colors.onSurfaceVariant,
                                         ),
-                                        if (_post.tips > 0) ...[
-                                          SizedBox(width: 4),
-                                          Text('${_post.tips.toInt()} ROO'),
-                                        ],
+                                        SizedBox(width: 4),
+                                        Text('${_post.likes}'.tr(context)),
                                       ],
                                     ),
                                   ),
                                 ),
-                              Spacer(),
-                              // Share button
-                              InkWell(
-                                onTap: () => _handleShare(context),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Icon(
-                                    Icons.share_outlined,
-                                    size: 20,
-                                    color: colors.onSurfaceVariant,
+                                SizedBox(width: 16),
+                                // Comment count
+                                Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 20,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                                SizedBox(width: 4),
+                                Text('${_post.comments}'.tr(context)),
+                                SizedBox(width: 16),
+                                // Repost button
+                                InkWell(
+                                  onTap: () {
+                                    final wasReposted = feedProvider.isReposted(
+                                      _post.id,
+                                    );
+                                    feedProvider.toggleRepost(_post.id);
+                                    ScaffoldMessenger.of(context)
+                                      ..clearSnackBars()
+                                      ..showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            wasReposted
+                                                ? 'Removed repost'
+                                                : 'Reposted to your profile',
+                                          ),
+                                          duration: const Duration(seconds: 2),
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.repeat,
+                                          size: 20,
+                                          color:
+                                              feedProvider.isReposted(_post.id)
+                                              ? const Color(0xFF10B981)
+                                              : colors.onSurfaceVariant,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          '${feedProvider.getRepostCount(_post.id)}'
+                                              .tr(context),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(width: 8),
-                              // Report button (for non-authors)
-                              if (!isAuthor)
+                                SizedBox(width: 16),
+                                // Tip button (for non-authors)
+                                if (!isAuthor)
+                                  InkWell(
+                                    onTap: () => _handleTip(context),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.toll,
+                                            size: 20,
+                                            color: colors.onSurfaceVariant,
+                                          ),
+                                          if (_post.tips > 0) ...[
+                                            SizedBox(width: 4),
+                                            Text('${_post.tips.toInt()} ROO'),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                Spacer(),
+                                // Bookmark button
                                 InkWell(
-                                  onTap: () => _handleReportPost(context),
+                                  onTap: () {
+                                    final wasBookmarked = feedProvider
+                                        .isBookmarked(_post.id);
+                                    feedProvider.toggleBookmark(_post.id);
+                                    ScaffoldMessenger.of(context)
+                                      ..clearSnackBars()
+                                      ..showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            wasBookmarked
+                                                ? 'Removed from bookmarks'
+                                                : 'Saved to bookmarks',
+                                          ),
+                                          duration: const Duration(seconds: 2),
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                  },
                                   borderRadius: BorderRadius.circular(8),
                                   child: Padding(
                                     padding: const EdgeInsets.all(4),
                                     child: Icon(
-                                      Icons.flag_outlined,
+                                      feedProvider.isBookmarked(_post.id)
+                                          ? Icons.bookmark
+                                          : Icons.bookmark_border,
+                                      size: 20,
+                                      color: feedProvider.isBookmarked(_post.id)
+                                          ? colors.primary
+                                          : colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                // Share button
+                                InkWell(
+                                  onTap: () => _handleShare(context),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(
+                                      Icons.share_outlined,
                                       size: 20,
                                       color: colors.onSurfaceVariant,
                                     ),
                                   ),
                                 ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Text('Comments'.tr(context),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      if (_comments.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colors.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text('$totalCommentCount'.tr(context),
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  if (_loadingComments)
-                    Center(child: CircularProgressIndicator())
-                  else if (_comments.isEmpty)
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 32),
-                        child: Text('No comments yet. Be the first to verify!'.tr(context),
-                          style: TextStyle(color: colors.onSurfaceVariant),
-                        ),
-                      ),
-                    )
-                  else
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _comments.length,
-                      itemBuilder: (context, index) {
-                        final comment = _comments[index];
-                        return CommentCard(
-                          comment: comment,
-                          postId: _post.id,
-                          onReplyTap: (targetComment) {
-                            setState(() => _replyingTo = targetComment);
-                            _commentController.clear();
-                          },
-                        );
-                      },
-                    ),
-                  // Add extra padding at bottom for the input field
-                  SizedBox(height: 80),
-                ],
-              ),
-            ),
-          ),
-          // Comment Input
-          if (authProvider.currentUser?.isActivated == true)
-            Container(
-              decoration: BoxDecoration(
-                color: colors.surface,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_replyingTo != null)
-                      Container(
-                        color: colors.surfaceContainerHighest,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 6,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.reply,
-                              size: 14,
-                              color: colors.primary,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'Replying to @${_replyingTo!.author.username}',
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: colors.primary),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () => setState(() => _replyingTo = null),
-                              child: Icon(
-                                Icons.close,
-                                size: 16,
-                                color: colors.onSurfaceVariant,
-                              ),
+                                SizedBox(width: 8),
+                                // Report button (for non-authors)
+                                if (!isAuthor)
+                                  InkWell(
+                                    onTap: () => _handleReportPost(context),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.flag_outlined,
+                                        size: 20,
+                                        color: colors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
                       ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: MentionAutocompleteField(
-                              controller: _commentController,
-                              decoration: InputDecoration(
-                                hintText: _replyingTo != null
-                                    ? 'Reply to @${_replyingTo!.author.username}...'
-                                    : 'Add a comment...',
-                                filled: true,
-                                fillColor: colors.surfaceContainerHighest
-                                    .withValues(alpha: 0.5),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                  borderSide: BorderSide.none,
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 10,
-                                ),
-                              ),
-                              textCapitalization: TextCapitalization.sentences,
+                    ),
+                    SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Text(
+                          'Comments'.tr(context),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(width: 8),
+                        if (displayComments.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$totalCommentCount'.tr(context),
+                              style: Theme.of(context).textTheme.labelSmall,
                             ),
                           ),
-                          SizedBox(width: 8),
-                          IconButton.filled(
-                            onPressed: _submittingComment ? null : _submitComment,
-                            icon: _submittingComment
-                                ? SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : Icon(Icons.send),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
+                    SizedBox(height: 16),
+                    if (_loadingComments)
+                      Center(child: CircularProgressIndicator())
+                    else if (displayComments.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Text(
+                            'No comments yet. Be the first to verify!'.tr(
+                              context,
+                            ),
+                            style: TextStyle(color: colors.onSurfaceVariant),
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: displayComments.length,
+                        itemBuilder: (context, index) {
+                          final comment = displayComments[index];
+                          return CommentCard(
+                            comment: comment,
+                            postId: _post.id,
+                            onReplyTap: (targetComment) {
+                              setState(() => _replyingTo = targetComment);
+                              _commentController.clear();
+                            },
+                          );
+                        },
+                      ),
+                    // Add extra padding at bottom for the input field
+                    SizedBox(height: 80),
                   ],
                 ),
               ),
-            )
-          else
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: VerificationRequiredWidget(
-                  message: 'Verify your identity to comment on this post.',
-                  onVerifyTap: () {
-                    if (context.mounted) {
-                      Navigator.pushNamed(context, '/verify');
-                    }
-                  },
+            ),
+            // Comment Input
+            if (authProvider.currentUser?.isActivated == true)
+              Container(
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_replyingTo != null)
+                        Container(
+                          color: colors.surfaceContainerHighest,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 6,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.reply,
+                                size: 14,
+                                color: colors.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Replying to @${_replyingTo!.author.username}',
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(color: colors.primary),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => setState(() => _replyingTo = null),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: MentionAutocompleteField(
+                                controller: _commentController,
+                                decoration: InputDecoration(
+                                  hintText: _replyingTo != null
+                                      ? 'Reply to @${_replyingTo!.author.username}...'
+                                      : 'Add a comment...',
+                                  filled: true,
+                                  fillColor: colors.surfaceContainerHighest
+                                      .withValues(alpha: 0.5),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 10,
+                                  ),
+                                ),
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            IconButton.filled(
+                              onPressed: _submittingComment
+                                  ? null
+                                  : _submitComment,
+                              icon: _submittingComment
+                                  ? SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Icon(Icons.send),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: VerificationRequiredWidget(
+                    message: 'Verify your identity to comment on this post.',
+                    onVerifyTap: () {
+                      if (context.mounted) {
+                        Navigator.pushNamed(context, '/verify');
+                      }
+                    },
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
         ),
       ),
     );
@@ -1164,7 +1284,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (user.isVerificationPending) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Your verification is pending. You can tip once approved.'.tr(context)),
+          content: Text(
+            'Your verification is pending. You can tip once approved.'.tr(
+              context,
+            ),
+          ),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 4),
         ),
@@ -1175,7 +1299,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (!user.isVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please complete identity verification to send tips.'.tr(context)),
+          content: Text(
+            'Please complete identity verification to send tips.'.tr(context),
+          ),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 4),
           action: SnackBarAction(
@@ -1261,7 +1387,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   // Recursively remove a reply by id from the local list (used for rollback)
-  List<Comment> _removeReplyFromComments(List<Comment> comments, String replyId) {
+  List<Comment> _removeReplyFromComments(
+    List<Comment> comments,
+    String replyId,
+  ) {
     return comments.map((c) {
       if (c.replies != null && c.replies!.isNotEmpty) {
         return c.copyWith(

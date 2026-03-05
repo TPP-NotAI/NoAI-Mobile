@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/post.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show RealtimeChannel, PostgresChangeEvent;
 import '../providers/chat_provider.dart';
 import '../providers/auth_provider.dart';
 import 'chat/conversation_thread_page.dart';
@@ -11,6 +15,8 @@ import '../widgets/post_card.dart';
 import '../widgets/comments_sheet.dart';
 import '../widgets/tip_modal.dart';
 import '../repositories/post_repository.dart';
+import '../config/supabase_config.dart';
+import '../services/supabase_service.dart';
 import 'profile/follow_list_screen.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -27,17 +33,52 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   final PostRepository _postRepository = PostRepository();
   List<Post> _userPosts = [];
   bool _loadingPosts = true;
+  RealtimeChannel? _userPostsChannel;
+  Timer? _realtimeDebounce;
 
   @override
   void initState() {
     super.initState();
     _loadUserPosts();
+    _bindUserPostsRealtime();
     // Load follow status and fetch full user data with counts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = context.read<UserProvider>();
       userProvider.loadFollowStatus(widget.user.id);
       userProvider.fetchUser(widget.user.id);
     });
+  }
+
+  void _bindUserPostsRealtime() {
+    _userPostsChannel = SupabaseService().client
+        .channel('user-detail:posts:${widget.user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: SupabaseConfig.postsTable,
+          callback: (payload) {
+            final newAuthor = payload.newRecord['author_id'] as String?;
+            final oldAuthor = payload.oldRecord['author_id'] as String?;
+            if (newAuthor != widget.user.id && oldAuthor != widget.user.id) {
+              return;
+            }
+            _realtimeDebounce?.cancel();
+            _realtimeDebounce = Timer(const Duration(milliseconds: 300), () {
+              if (!mounted) return;
+              _loadUserPosts();
+            });
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _realtimeDebounce?.cancel();
+    if (_userPostsChannel != null) {
+      SupabaseService().client.removeChannel(_userPostsChannel!);
+    }
+    super.dispose();
   }
 
   Future<void> _loadUserPosts() async {

@@ -34,6 +34,7 @@ import 'boost_post_modal.dart';
 import '../screens/boost/boost_analytics_page.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 // ---------------------------------------------------------------------------
 // Public cache so boost_post_modal.dart can mark a post as boosted immediately
 // after a successful boost, causing the Sponsored badge to appear on the card.
@@ -53,8 +54,11 @@ class PostBoostCache {
     final inserted = _boostedPostIds.add(postId);
     if (inserted) {
       _version.value++;
+      // Reset so the next ensureLoaded call re-fetches and picks up the
+      // new boost for all other users who have the cache already warm.
+      _loaded = false;
+      _loadFuture = null;
     }
-    _loaded = true;
   }
 
   static Future<void> ensureLoaded(String userId) {
@@ -65,9 +69,29 @@ class PostBoostCache {
 
   static Future<void> _fetch(String userId) async {
     try {
-      final ids = await BoostRepository().getBoostedPostIds(userId);
       final before = _boostedPostIds.length;
-      _boostedPostIds.addAll(ids);
+
+      // 1) Existing behavior: posts boosted by the current user.
+      final ownBoostedIds = await BoostRepository().getBoostedPostIds(userId);
+      _boostedPostIds.addAll(ownBoostedIds);
+
+      // 2) RLS-safe fallback: fetch all active/completed boosts' post IDs
+      // directly from post_boosts so every user sees the Sponsored chip,
+      // not just the post author or notification recipients.
+      try {
+        final rows = await SupabaseService().client
+            .from('post_boosts')
+            .select('post_id')
+            .inFilter('status', ['active', 'completed']);
+
+        final allBoostedIds = (rows as List<dynamic>)
+            .map((r) => r['post_id'] as String?)
+            .whereType<String>();
+        _boostedPostIds.addAll(allBoostedIds);
+      } catch (_) {
+        // Ignore — badge will still show via authenticity_notes metadata.
+      }
+
       if (_boostedPostIds.length != before) {
         _version.value++;
       }
@@ -167,7 +191,8 @@ class PostCard extends StatelessWidget {
                         width: AppSpacing.mediumSmall.responsive(context),
                       ),
                       Expanded(
-                        child: Text('This post is under review.'.tr(context),
+                        child: Text(
+                          'This post is under review.'.tr(context),
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
                               context,
@@ -215,7 +240,8 @@ class PostCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Sensitive Content'.tr(context),
+                            Text(
+                              'Sensitive Content'.tr(context),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: colors.error,
@@ -272,7 +298,8 @@ class PostCard extends StatelessWidget {
                     children: post.tags!.map((tag) {
                       return GestureDetector(
                         onTap: () => handleHashtagTap(tag.name),
-                        child: Text('#${tag.name}'.tr(context),
+                        child: Text(
+                          '#${tag.name}'.tr(context),
                           style: TextStyle(
                             color: colors.primary,
                             fontWeight: FontWeight.bold,
@@ -344,6 +371,13 @@ class _HeaderState extends State<_Header> {
           (ad['confidence'] is num && (ad['confidence'] as num) >= 40);
     }
     return false;
+  }
+
+  bool _isBoostedByPostMetadata(Post post) {
+    final notes = (post.authenticityNotes ?? '').toLowerCase();
+    return notes.contains('boosted:') ||
+        notes.contains('promoted post') ||
+        notes.contains('sponsored post');
   }
 
   @override
@@ -574,7 +608,7 @@ class _HeaderState extends State<_Header> {
     final post = widget.post;
     final mentionSummary = _buildMentionSummary(post);
     final isAdvert = _isAdvertPost(post);
-    final isSponsored = _isBoosted;
+    final isSponsored = _isBoosted || _isBoostedByPostMetadata(post);
 
     return Padding(
       padding: AppSpacing.responsiveLTRB(context, 16, 16, 8, 8),
@@ -637,7 +671,8 @@ class _HeaderState extends State<_Header> {
                               post.author.username.toLowerCase()) ...[
                         SizedBox(width: AppSpacing.small.responsive(context)),
                         Flexible(
-                          child: Text('@${post.author.username}'.tr(context),
+                          child: Text(
+                            '@${post.author.username}'.tr(context),
                             style: TextStyle(
                               fontSize: AppTypography.responsiveFontSize(
                                 context,
@@ -709,17 +744,17 @@ class _HeaderState extends State<_Header> {
                             SizedBox(
                               width: AppSpacing.small.responsive(context),
                             ),
-                            const _SponsoredAdBadge(),
+                            const PostSponsoredAdBadge(),
                           ] else if (isAdvert) ...[
                             SizedBox(
                               width: AppSpacing.small.responsive(context),
                             ),
-                            const _AdBadge(),
+                            const PostAdBadge(),
                           ] else if (isSponsored) ...[
                             SizedBox(
                               width: AppSpacing.small.responsive(context),
                             ),
-                            const _SponsoredBadge(),
+                            const PostSponsoredBadge(),
                           ],
                         ],
                       ),
@@ -825,7 +860,9 @@ class _RepostHeader extends StatelessWidget {
           ),
           SizedBox(width: 8),
           Flexible(
-            child: Text('${post.reposter!.displayName.isNotEmpty ? post.reposter!.displayName : post.reposter!.username} reposted'.tr(context),
+            child: Text(
+              '${post.reposter!.displayName.isNotEmpty ? post.reposter!.displayName : post.reposter!.username} reposted'
+                  .tr(context),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -842,8 +879,8 @@ class _RepostHeader extends StatelessWidget {
 
 /* ───────────────── SPONSORED BADGE ───────────────── */
 
-class _SponsoredBadge extends StatelessWidget {
-  const _SponsoredBadge();
+class PostSponsoredBadge extends StatelessWidget {
+  const PostSponsoredBadge();
 
   @override
   Widget build(BuildContext context) {
@@ -856,7 +893,8 @@ class _SponsoredBadge extends StatelessWidget {
           color: const Color(0xFFF97316).withValues(alpha: 0.5),
         ),
       ),
-      child: Text('SPONSORED'.tr(context),
+      child: Text(
+        'SPONSORED'.tr(context),
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w700,
@@ -868,8 +906,8 @@ class _SponsoredBadge extends StatelessWidget {
   }
 }
 
-class _AdBadge extends StatelessWidget {
-  const _AdBadge();
+class PostAdBadge extends StatelessWidget {
+  const PostAdBadge();
 
   @override
   Widget build(BuildContext context) {
@@ -882,7 +920,8 @@ class _AdBadge extends StatelessWidget {
           color: const Color(0xFFFF8C00).withValues(alpha: 0.5),
         ),
       ),
-      child: Text('ADVERT'.tr(context),
+      child: Text(
+        'ADVERT'.tr(context),
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w700,
@@ -894,8 +933,8 @@ class _AdBadge extends StatelessWidget {
   }
 }
 
-class _SponsoredAdBadge extends StatelessWidget {
-  const _SponsoredAdBadge();
+class PostSponsoredAdBadge extends StatelessWidget {
+  const PostSponsoredAdBadge();
 
   @override
   Widget build(BuildContext context) {
@@ -1367,7 +1406,8 @@ class _FourPlusMediaGrid extends StatelessWidget {
                       Container(
                         color: Colors.black.withValues(alpha: 0.6),
                         child: Center(
-                          child: Text('+$extraCount'.tr(context),
+                          child: Text(
+                            '+$extraCount'.tr(context),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 28,
@@ -1501,7 +1541,8 @@ class _MediaTile extends StatelessWidget {
                     children: [
                       Icon(Icons.verified, size: 12, color: Colors.white),
                       SizedBox(width: 4),
-                      Text('Verified'.tr(context),
+                      Text(
+                        'Verified'.tr(context),
                         style: TextStyle(
                           fontSize: 10,
                           color: Colors.white,
@@ -1695,35 +1736,43 @@ class _ActionsState extends State<_Actions> {
     if (user == null) return;
 
     if (user.isVerificationPending) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Your verification is pending. You can tip once approved.'.tr(context),
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Your verification is pending. You can tip once approved.'.tr(
+                context,
+              ),
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
           ),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 4),
-        ),
-      );
+        );
       return;
     }
 
     if (!user.isVerified) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please complete identity verification to send tips.'.tr(context),
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Please complete identity verification to send tips.'.tr(context),
+            ),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Verify',
+              textColor: Colors.white,
+              onPressed: () {
+                if (context.mounted) {
+                  Navigator.pushNamed(context, '/verify');
+                }
+              },
+            ),
           ),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'Verify',
-            textColor: Colors.white,
-            onPressed: () {
-              if (context.mounted) {
-                Navigator.pushNamed(context, '/verify');
-              }
-            },
-          ),
-        ),
-      );
+        );
       return;
     }
 
@@ -1843,7 +1892,8 @@ class _ActionsState extends State<_Actions> {
 
   void _handleShare(BuildContext context) async {
     try {
-      final shareText = widget.post.title != null && widget.post.title!.isNotEmpty
+      final shareText =
+          widget.post.title != null && widget.post.title!.isNotEmpty
           ? '${widget.post.title}\n\n${widget.post.content}\n\nShared from ROOVERSE'
           : '${widget.post.content}\n\nShared from ROOVERSE';
 
@@ -2022,15 +2072,17 @@ class _PostMenu extends StatelessWidget {
                 onTap: () {
                   Navigator.pop(context);
                   feedProvider.toggleBookmark(post.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isBookmarked
-                            ? 'Removed from bookmarks'
-                            : 'Saved to bookmarks',
+                  ScaffoldMessenger.of(context)
+                    ..clearSnackBars()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          isBookmarked
+                              ? 'Removed from bookmarks'
+                              : 'Saved to bookmarks',
+                        ),
                       ),
-                    ),
-                  );
+                    );
                 },
               ),
               _MenuOption(
@@ -2039,9 +2091,13 @@ class _PostMenu extends StatelessWidget {
                 onTap: () {
                   Navigator.pop(context);
                   // TODO: Implement copy link logic
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Link copied to clipboard'.tr(context))),
-                  );
+                  ScaffoldMessenger.of(context)
+                    ..clearSnackBars()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: Text('Link copied to clipboard'.tr(context)),
+                      ),
+                    );
                 },
               ),
               _MenuOption(
@@ -2059,21 +2115,27 @@ class _PostMenu extends StatelessWidget {
                   if (context.mounted) {
                     if (success) {
                       Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('@${post.author.username} blocked.'.tr(context)),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            userProvider.error ?? 'Failed to block user',
+                      ScaffoldMessenger.of(context)
+                        ..clearSnackBars()
+                        ..showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '@${post.author.username} blocked.'.tr(context),
+                            ),
+                            behavior: SnackBarBehavior.floating,
                           ),
-                          backgroundColor: Theme.of(context).colorScheme.error,
-                        ),
-                      );
+                        );
+                    } else {
+                      ScaffoldMessenger.of(context)
+                        ..clearSnackBars()
+                        ..showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              userProvider.error ?? 'Failed to block user',
+                            ),
+                            backgroundColor: Theme.of(context).colorScheme.error,
+                          ),
+                        );
                     }
                   }
                 },
@@ -2131,7 +2193,9 @@ class _PostMenu extends StatelessWidget {
       context: navigator.context,
       builder: (context) => AlertDialog(
         title: Text('Unpublish Post?'.tr(context)),
-        content: Text('This will remove the post from the public feed. You can republish it later.'.tr(context),
+        content: Text(
+          'This will remove the post from the public feed. You can republish it later.'
+              .tr(context),
         ),
         actions: [
           TextButton(
@@ -2148,13 +2212,15 @@ class _PostMenu extends StatelessWidget {
 
     if (confirm == true) {
       final success = await feedProvider.unpublishPost(post.id);
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            success ? 'Post unpublished' : 'Failed to unpublish post',
+      scaffoldMessenger
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              success ? 'Post unpublished' : 'Failed to unpublish post',
+            ),
           ),
-        ),
-      );
+        );
     }
   }
 
@@ -2170,7 +2236,9 @@ class _PostMenu extends StatelessWidget {
       context: navigator.context,
       builder: (context) => AlertDialog(
         title: Text('Delete Post?'.tr(context)),
-        content: Text('Are you sure you want to delete this post? This action cannot be undone.'.tr(context),
+        content: Text(
+          'Are you sure you want to delete this post? This action cannot be undone.'
+              .tr(context),
         ),
         actions: [
           TextButton(
@@ -2190,11 +2258,13 @@ class _PostMenu extends StatelessWidget {
 
     if (confirm == true) {
       final success = await feedProvider.deletePost(post.id);
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(success ? 'Post deleted' : 'Failed to delete post'),
-        ),
-      );
+      scaffoldMessenger
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Post deleted' : 'Failed to delete post'),
+          ),
+        );
     }
   }
 

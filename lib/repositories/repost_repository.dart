@@ -76,7 +76,7 @@ class RepostRepository {
             reposterName = (profile?['display_name'] as String?)
                     ?.trim()
                     .isNotEmpty == true
-                ? (profile!['display_name'] as String).trim()
+                ? (profile?['display_name'] as String).trim()
                 : ((profile?['username'] as String?) ?? 'Someone');
           } catch (_) {}
 

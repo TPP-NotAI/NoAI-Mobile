@@ -94,6 +94,31 @@ class BoostRepository {
           .select('id')
           .single();
 
+      // Persist a lightweight marker on the post so all viewers can render the
+      // Sponsored chip even when boost tables are not readable due to RLS.
+      try {
+        final post = await _client
+            .from('posts')
+            .select('authenticity_notes')
+            .eq('id', postId)
+            .maybeSingle();
+
+        final existingNotes = post?['authenticity_notes'] as String?;
+        final normalized = (existingNotes ?? '').toLowerCase();
+        if (!normalized.contains('boosted:')) {
+          final nextNotes =
+              (existingNotes == null || existingNotes.isEmpty)
+              ? 'BOOSTED: promoted post'
+              : '$existingNotes | BOOSTED: promoted post';
+          await _client
+              .from('posts')
+              .update({'authenticity_notes': nextNotes})
+              .eq('id', postId);
+        }
+      } catch (e) {
+        debugPrint('BoostRepository: Failed to persist boost marker - $e');
+      }
+
       return row['id'] as String;
     } catch (e) {
       debugPrint('BoostRepository: Error creating boost - $e');
@@ -225,10 +250,13 @@ class BoostRepository {
           .eq('author_id', userId);
 
       return (rows as List<dynamic>)
-          .map((r) => r['post_id'] as String)
+          .map((r) => r['post_id'] as String?)
+          .whereType<String>()
           .toSet();
     } catch (e) {
-      debugPrint('BoostRepository: Error fetching boosted post IDs - $e');
+      debugPrint(
+        'BoostRepository: Error fetching boosted post IDs - $e',
+      );
       return {};
     }
   }

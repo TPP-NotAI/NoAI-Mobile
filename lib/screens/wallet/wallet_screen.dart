@@ -230,6 +230,7 @@ class _WalletScreenState extends State<WalletScreen> {
           ),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
           action: SnackBarAction(
             label: 'Verify',
             textColor: Colors.white,
@@ -365,7 +366,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       decoration: InputDecoration(
-                        hintText: 'Enter ROO amount',
+                        hintText: 'Enter ROO amount'.tr(context),
                         suffixText: 'ROO',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -541,8 +542,8 @@ class _WalletScreenState extends State<WalletScreen> {
                             ),
                             Text(
                               walletProvider.isNetworkOnline
-                                  ? 'Online'
-                                  : 'Offline',
+                                  ? 'Online'.tr(context)
+                                  : 'Offline'.tr(context),
                               style: TextStyle(
                                 color: colors.onSurfaceVariant,
                                 fontSize: AppTypography.responsiveFontSize(
@@ -619,7 +620,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       children: [
                         Expanded(
                           child: _buildBreakdownCard(
-                            'AVAILABLE',
+                            'AVAILABLE'.tr(context),
                             wallet?.balanceRc ?? 0,
                             'ROO',
                             colors,
@@ -630,7 +631,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                         Expanded(
                           child: _buildBreakdownCard(
-                            'LIFETIME EARNED',
+                            'LIFETIME EARNED'.tr(context),
                             wallet?.lifetimeEarnedRc ?? 0,
                             'ROO',
                             colors,
@@ -1262,6 +1263,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         content: Text('Please complete identity verification before purchasing ROO.'.tr(context),
                         ),
                         backgroundColor: Colors.orange,
+                        duration: const Duration(seconds: 5),
                         action: SnackBarAction(
                           label: 'Verify',
                           textColor: Colors.white,
@@ -1613,7 +1615,7 @@ class _WalletScreenState extends State<WalletScreen> {
   void _ensureTransactionUsersLoaded({
     required UserProvider userProvider,
     required String currentUserId,
-    required List<RookenTransaction> transactions,
+    required List<RoobitTransaction> transactions,
   }) {
     if (_isResolvingTxUsers) return;
 

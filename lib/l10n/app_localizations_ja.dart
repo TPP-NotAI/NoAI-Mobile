@@ -132,8 +132,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pleaseTypeDelete => '削除と入力して確認してください';
 
   @override
-  String get aboutROOVERSEDescription =>
-      'ROOVERSE – 人間中心のソーシャルプラットフォーム\n\nバージョン 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription => 'ROOVERSE – 人間中心のソーシャルプラットフォーム\n\nバージョン 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'ログイン';
@@ -589,8 +588,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle =>
-      'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -834,4 +832,148 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get paymentFailed => 'Payment Failed';
+
+  @override
+  String get passwordRequired => 'パスワードは必須です';
+
+  @override
+  String get invalidEmailOrPassword => 'メールアドレスまたはパスワードが無効です';
+
+  @override
+  String get unableToStartGoogleLogin => 'Googleログインを開始できません';
+
+  @override
+  String get pleaseEnterPhoneNumber => '電話番号を入力してください';
+
+  @override
+  String get pleaseEnterValidPhoneNumber => '有効な電話番号を入力してください';
+
+  @override
+  String get failedToSendLoginCode => 'ログインコードの送信に失敗しました';
+
+  @override
+  String get verifyAndLogin => '確認してログイン';
+
+  @override
+  String get sendCode => 'コードを送信';
+
+  @override
+  String get failedToSendVerificationCode => '確認コードの送信に失敗しました';
+
+  @override
+  String get verifyCode => 'コードを確認';
+
+  @override
+  String get enterPhone => '電話番号を入力';
+
+  @override
+  String get enterVerificationCode => '確認コードを入力';
+
+  @override
+  String get enterPhoneForSms => 'SMSで確認コードを受け取るために電話番号を入力してください。';
+
+  @override
+  String get forgotPassword => 'パスワードをお忘れですか？';
+
+  @override
+  String get enterYourEmail => 'メールアドレスを入力';
+
+  @override
+  String get enterNewPassword => '新しいパスワードを入力';
+
+  @override
+  String get confirmPassword => 'パスワードを確認';
+
+  @override
+  String get confirmYourPassword => 'パスワードを確認してください';
+
+  @override
+  String get resetPassword => 'パスワードをリセット';
+
+  @override
+  String get passwordReset => 'パスワードがリセットされました！';
+
+  @override
+  String get backToLogin => 'ログインに戻る';
+
+  @override
+  String get online => 'オンライン';
+
+  @override
+  String get offline => 'オフライン';
+
+  @override
+  String get available => '利用可能';
+
+  @override
+  String get lifetimeEarned => '累計獲得';
+
+  @override
+  String get enterRooAmount => 'ROO金額を入力';
+
+  @override
+  String get recipient => '受取人';
+
+  @override
+  String get verificationPendingSendRoo => '確認が保留中です。承認後にROOを送信できます。';
+
+  @override
+  String get completeVerificationToSendRoo => 'ROOを送信するには本人確認を完了してください。';
+
+  @override
+  String get cannotSendRooToSelf => '自分のアカウントにROOを送ることはできません';
+
+  @override
+  String get availableBalance => '利用可能残高';
+
+  @override
+  String get locationPermissionDenied => '位置情報のアクセス許可が拒否されました';
+
+  @override
+  String get locationPermissionPermanentlyDenied => '位置情報のアクセス許可が永久に拒否されました';
+
+  @override
+  String get mustBeLoggedInToBoost => '投稿をブーストするにはログインが必要です。';
+
+  @override
+  String get verificationPendingTip => '確認が保留中です。承認後にチップを送ることができます。';
+
+  @override
+  String get cannotTipOwnPost => '自分の投稿にチップを送ることはできません';
+
+  @override
+  String get enterAmount => '金額を入力';
+
+  @override
+  String get postUnderReview => 'この投稿は審査中です。';
+
+  @override
+  String get sensitiveContent => 'センシティブなコンテンツ';
+
+  @override
+  String get deleteCommentConfirmation => 'このコメントを削除してもよろしいですか？この操作は元に戻せません。';
+
+  @override
+  String get commentUnderReview => 'コメントは審査中です。';
+
+  @override
+  String get storiesEmpty => 'フォローしている人のストーリーがここに表示されます';
+
+  @override
+  String get textStoryWordLimit => 'テキストストーリーは250語に制限されています。';
+
+  @override
+  String get createStory => 'ストーリーを作成';
+
+  @override
+  String get clickToUpload => 'クリックしてアップロード';
+
+  @override
+  String get imageOrVideoMax => '画像または動画（最大15秒）';
+
+  @override
+  String get commentNotPublishedAi => 'あなたのコメントは公開されませんでした。AIがガイドライン違反の可能性を検出しました。';
+
+  @override
+  String get commentUnderReviewExtended => 'あなたのコメントは審査中です。承認後に表示されます。';
 }

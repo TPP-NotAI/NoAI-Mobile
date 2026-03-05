@@ -56,12 +56,12 @@ class _TipModalState extends State<TipModal> {
     final user = authProvider.currentUser;
 
     if (user == null) {
-      _showError('User not logged in');
+      _showError('User not logged in'.tr(context));
       return;
     }
 
     if (user.isVerificationPending) {
-      _showError('Your verification is pending. You can tip once approved.');
+      _showError('Your verification is pending. You can tip once approved.'.tr(context));
       return;
     }
 
@@ -72,6 +72,7 @@ class _TipModalState extends State<TipModal> {
           ),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
           action: SnackBarAction(
             label: 'Verify',
             textColor: Colors.white,
@@ -88,12 +89,12 @@ class _TipModalState extends State<TipModal> {
 
     final availableBalance = walletProvider.wallet?.balanceRc ?? user.balance;
     if (_selectedAmount > availableBalance) {
-      _showError('Insufficient Roobyte balance');
+      _showError('Insufficient Roobyte balance'.tr(context));
       return;
     }
 
     if (widget.post.author.userId == user.id) {
-      _showError('You cannot tip your own post');
+      _showError('You cannot tip your own post'.tr(context));
       return;
     }
 
@@ -435,7 +436,7 @@ class _TipModalState extends State<TipModal> {
                       keyboardType: TextInputType.number,
                       style: TextStyle(color: colors.onSurface),
                       decoration: InputDecoration(
-                        hintText: 'Enter amount',
+                        hintText: 'Enter amount'.tr(context),
                         hintStyle: TextStyle(color: colors.onSurfaceVariant),
                         prefixIcon: Icon(Icons.toll, color: colors.primary),
                         suffixText: 'ROO',

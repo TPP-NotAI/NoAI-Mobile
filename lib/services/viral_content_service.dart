@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/rooken_service.dart';
+import '../services/roobit_service.dart';
 
 /// Service to detect and reward viral content.
 /// Awards 1 ROO per 1,000 engagements milestone (likes + comments + reposts).
@@ -55,7 +55,7 @@ class ViralContentService {
           .eq('to_user_id', authorId)
           .eq('reference_post_id', postId)
           .contains('metadata', {
-            'activityType': RookenActivityType.contentViral,
+            'activityType': RoobitActivityType.contentViral,
           });
 
       final alreadyRewarded = (existingRewards as List).length;
@@ -68,7 +68,7 @@ class ViralContentService {
         final milestone = (alreadyRewarded + i + 1) * engagementsPerMilestone;
         await _walletRepo.earnRoo(
           userId: authorId,
-          activityType: RookenActivityType.contentViral,
+          activityType: RoobitActivityType.contentViral,
           referencePostId: postId,
           metadata: {
             'milestone_engagements': milestone,

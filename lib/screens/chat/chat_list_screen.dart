@@ -49,11 +49,16 @@ class _ChatListScreenState extends State<ChatListScreen> {
         centerTitle: false,
         actions: [
           IconButton(
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ArchivedChatsScreen()),
               );
+              // Reload normal conversations after returning from archived screen,
+              // because ArchivedChatsScreen overwrites the shared conversations list.
+              if (context.mounted) {
+                context.read<ChatProvider>().loadConversations();
+              }
             },
             icon: const Icon(Icons.archive_outlined),
             tooltip: 'Archived Chats',

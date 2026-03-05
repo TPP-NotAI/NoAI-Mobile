@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
 import '../models/notification_model.dart';
@@ -9,18 +10,44 @@ class NotificationRepository {
   final _client = SupabaseService().client;
 
   String _normalizeType(String type) {
-    // DB enum currently supports legacy social/system types.
-    // Map newer AI status variants and unsupported types to `mention` so inserts don't fail.
-    if (type.startsWith('post_') ||
-        type.startsWith('comment_') ||
-        type.startsWith('story_') ||
-        type == 'message' ||
-        type == 'chat' ||
-        type == 'support_chat' ||
-        type == 'repost') {
-      return 'mention';
+    const supported = {
+      'follow',
+      'like',
+      'comment',
+      'mention',
+      'reply',
+      'repost',
+      'message',
+      'system',
+      'moderation',
+      'appeal_update',
+      'verification',
+      'roocoin_received',
+      'roocoin_sent',
+      'staking_reward',
+      'achievement',
+      'warning',
+      'announcement',
+    };
+
+    // Map app-internal/newer types to the existing DB enum values.
+    switch (type) {
+      case 'chat':
+      case 'support_chat':
+        return 'message';
+      case 'post_published':
+      case 'post_review':
+      case 'post_flagged':
+      case 'comment_published':
+      case 'comment_review':
+      case 'comment_flagged':
+      case 'story_published':
+      case 'story_review':
+      case 'story_flagged':
+        return 'moderation';
+      default:
+        return supported.contains(type) ? type : 'mention';
     }
-    return type;
   }
 
   bool _isPreferenceEnabled(
@@ -35,6 +62,20 @@ class NotificationRepository {
     return defaultValue;
   }
 
+  /// Returns true if this notification type is a system/AI status notification
+  /// that should always be shown regardless of user preferences.
+  bool _isSystemType(String rawType) {
+    return rawType.startsWith('post_') ||
+        rawType.startsWith('comment_') ||
+        rawType.startsWith('story_') ||
+        rawType == 'roocoin_received' ||
+        rawType == 'roocoin_sent' ||
+        rawType == 'message' ||
+        rawType == 'chat' ||
+        rawType == 'support_chat' ||
+        rawType == 'repost';
+  }
+
   /// Fetch notifications for a user.
   /// Returns notifications ordered by most recent first.
   Future<List<NotificationModel>> getNotifications({
@@ -47,42 +88,66 @@ class NotificationRepository {
         'NotificationRepository: Fetching notifications for user=$userId',
       );
 
-      var query = _client
-          .from(SupabaseConfig.notificationsTable)
-          .select('''
-            *,
-            actor:profiles!notifications_actor_id_fkey (
-              user_id,
-              username,
-              display_name,
-              avatar_url
-            ),
-            post:posts!notifications_post_id_fkey (
-              id,
-              title,
-              body
-            ),
-            comment:comments!notifications_comment_id_fkey (
-              id,
-              body
-            )
-          ''')
-          .eq('user_id', userId);
+      List<dynamic> response;
+      try {
+        // Full query with joins for actor profile and related content.
+        var query = _client
+            .from(SupabaseConfig.notificationsTable)
+            .select('''
+              *,
+              actor:profiles!notifications_actor_id_fkey (
+                user_id,
+                username,
+                display_name,
+                avatar_url
+              ),
+              post:posts!notifications_post_id_fkey (
+                id,
+                title,
+                body
+              ),
+              comment:comments!notifications_comment_id_fkey (
+                id,
+                body
+              )
+            ''')
+            .eq('user_id', userId);
 
-      if (onlyUnread) {
-        query = query.eq('is_read', false);
+        if (onlyUnread) {
+          query = query.eq('is_read', false);
+        }
+
+        response = await query
+            .order('created_at', ascending: false)
+            .limit(limit);
+      } catch (joinError) {
+        // Fallback: fetch without joins if the FK-joined select fails.
+        debugPrint(
+          'NotificationRepository: Join query failed ($joinError), falling back to plain select',
+        );
+        var fallback = _client
+            .from(SupabaseConfig.notificationsTable)
+            .select('*')
+            .eq('user_id', userId);
+
+        if (onlyUnread) {
+          fallback = fallback.eq('is_read', false);
+        }
+
+        response = await fallback
+            .order('created_at', ascending: false)
+            .limit(limit);
       }
-
-      final response = await query
-          .order('created_at', ascending: false)
-          .limit(limit);
 
       debugPrint(
         'NotificationRepository: Fetched ${response.length} notifications',
       );
 
-      return (response as List<dynamic>)
-          .map((json) => NotificationModel.fromSupabase(json))
+      return response
+          .map(
+            (json) =>
+                NotificationModel.fromSupabase(json as Map<String, dynamic>),
+          )
           .toList();
     } catch (e) {
       debugPrint('NotificationRepository: Error fetching notifications - $e');
@@ -164,64 +229,59 @@ class NotificationRepository {
         return false;
       }
 
-      // Check user's notification preferences
-      try {
-        final prefs = await _client
-            .from(SupabaseConfig.notificationPreferencesTable)
-            .select()
-            .eq('user_id', userId)
-            .maybeSingle();
+      // System/AI status notifications always go through regardless of preferences.
+      if (!_isSystemType(type)) {
+        // Check user's notification preferences
+        try {
+          final prefs = await _client
+              .from(SupabaseConfig.notificationPreferencesTable)
+              .select()
+              .eq('user_id', userId)
+              .maybeSingle();
 
-        if (prefs != null) {
-          bool enabled = true;
-          switch (normalizedType) {
-            case 'follow':
-              enabled = _isPreferenceEnabled(prefs, ['inapp_follows']);
-              break;
-            case 'comment':
-            case 'reply':
-              enabled = _isPreferenceEnabled(prefs, [
-                'inapp_comments',
-                'notify_comments',
-              ]);
-              break;
-            case 'like':
-            case 'reaction':
-              enabled = _isPreferenceEnabled(prefs, [
-                'inapp_reactions',
-                'notify_reactions',
-              ]);
-              break;
-            case 'mention':
-            case 'message':
-            case 'chat':
-            case 'support_chat':
-              enabled = _isPreferenceEnabled(prefs, [
-                'inapp_mentions',
-                'notify_mentions',
-              ]);
-              break;
-            case 'roocoin_received':
-            case 'roocoin_sent':
-              enabled =
-                  true; // Always notify for financial transactions for now
-              break;
+          if (prefs != null) {
+            bool enabled = true;
+            switch (normalizedType) {
+              case 'follow':
+                enabled = _isPreferenceEnabled(prefs, ['inapp_follows']);
+                break;
+              case 'comment':
+              case 'reply':
+                enabled = _isPreferenceEnabled(prefs, [
+                  'inapp_comments',
+                  'notify_comments',
+                ]);
+                break;
+              case 'like':
+              case 'reaction':
+                enabled = _isPreferenceEnabled(prefs, [
+                  'inapp_reactions',
+                  'notify_reactions',
+                ]);
+                break;
+              case 'mention':
+                enabled = _isPreferenceEnabled(prefs, [
+                  'inapp_mentions',
+                  'notify_mentions',
+                ]);
+                break;
+            }
+            if (!enabled) {
+              debugPrint(
+                'NotificationRepository: Notification type=$type disabled by user preferences',
+              );
+              return false;
+            }
           }
-          if (!enabled) {
-            debugPrint(
-              'NotificationRepository: Notification type=$type disabled by user preferences',
-            );
-            return false;
-          }
+        } catch (e) {
+          // If prefs check fails, we proceed anyway (assume enabled)
+          debugPrint(
+            'NotificationRepository: Warning - preferences check failed, proceeding anyway: $e',
+          );
         }
-      } catch (e) {
-        // If prefs check fails, we proceed anyway (assume enabled)
-        debugPrint(
-          'NotificationRepository: Warning - preferences check failed, proceeding anyway: $e',
-        );
       }
 
-      final data = {
+      final data = <String, dynamic>{
         'user_id': userId,
         'type': normalizedType,
         'title': title,
@@ -234,7 +294,33 @@ class NotificationRepository {
         'is_read': false,
       };
 
-      await _client.from(SupabaseConfig.notificationsTable).insert(data);
+      try {
+        await _client.from(SupabaseConfig.notificationsTable).insert(data);
+      } on PostgrestException catch (e) {
+        // Some deployments still have older notification_type enums that don't
+        // include newer AI/system types (e.g. post_published/story_review).
+        // Fallback to an enum-safe type so notifications still insert and
+        // real-time alert/push flow keeps working.
+        final isEnumTypeError =
+            e.code == '22P02' &&
+            e.message.toLowerCase().contains('notification_type');
+
+        if (isEnumTypeError && normalizedType != 'mention') {
+          final fallbackData = <String, dynamic>{
+            ...data,
+            'type': 'mention',
+            'metadata': {'original_type': normalizedType},
+          };
+          await _client
+              .from(SupabaseConfig.notificationsTable)
+              .insert(fallbackData);
+          debugPrint(
+            'NotificationRepository: Fallback insert succeeded with type=mention (original=$normalizedType)',
+          );
+        } else {
+          rethrow;
+        }
+      }
 
       debugPrint('NotificationRepository: Notification created successfully');
       return true;

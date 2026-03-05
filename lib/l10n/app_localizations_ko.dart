@@ -132,8 +132,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get pleaseTypeDelete => '확인하려면 삭제를 입력해 주세요';
 
   @override
-  String get aboutROOVERSEDescription =>
-      'ROOVERSE – 인간 중심 소셜 플랫폼\n\n버전 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription => 'ROOVERSE – 인간 중심 소셜 플랫폼\n\n버전 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => '로그인';
@@ -589,8 +588,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle =>
-      'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -834,4 +832,148 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get paymentFailed => 'Payment Failed';
+
+  @override
+  String get passwordRequired => '비밀번호는 필수입니다';
+
+  @override
+  String get invalidEmailOrPassword => '이메일 또는 비밀번호가 올바르지 않습니다';
+
+  @override
+  String get unableToStartGoogleLogin => 'Google 로그인을 시작할 수 없습니다';
+
+  @override
+  String get pleaseEnterPhoneNumber => '전화번호를 입력해 주세요';
+
+  @override
+  String get pleaseEnterValidPhoneNumber => '유효한 전화번호를 입력해 주세요';
+
+  @override
+  String get failedToSendLoginCode => '로그인 코드 전송에 실패했습니다';
+
+  @override
+  String get verifyAndLogin => '확인 및 로그인';
+
+  @override
+  String get sendCode => '코드 전송';
+
+  @override
+  String get failedToSendVerificationCode => '인증 코드 전송에 실패했습니다';
+
+  @override
+  String get verifyCode => '코드 확인';
+
+  @override
+  String get enterPhone => '전화번호 입력';
+
+  @override
+  String get enterVerificationCode => '인증 코드 입력';
+
+  @override
+  String get enterPhoneForSms => 'SMS로 인증 코드를 받으려면 전화번호를 입력하세요.';
+
+  @override
+  String get forgotPassword => '비밀번호를 잊으셨나요?';
+
+  @override
+  String get enterYourEmail => '이메일을 입력하세요';
+
+  @override
+  String get enterNewPassword => '새 비밀번호 입력';
+
+  @override
+  String get confirmPassword => '비밀번호 확인';
+
+  @override
+  String get confirmYourPassword => '비밀번호를 확인하세요';
+
+  @override
+  String get resetPassword => '비밀번호 재설정';
+
+  @override
+  String get passwordReset => '비밀번호가 재설정되었습니다!';
+
+  @override
+  String get backToLogin => '로그인으로 돌아가기';
+
+  @override
+  String get online => '온라인';
+
+  @override
+  String get offline => '오프라인';
+
+  @override
+  String get available => '사용 가능';
+
+  @override
+  String get lifetimeEarned => '누적 수익';
+
+  @override
+  String get enterRooAmount => 'ROO 금액 입력';
+
+  @override
+  String get recipient => '받는 사람';
+
+  @override
+  String get verificationPendingSendRoo => '인증이 보류 중입니다. 승인 후 ROO를 보낼 수 있습니다.';
+
+  @override
+  String get completeVerificationToSendRoo => 'ROO를 전송하려면 신원 확인을 완료하세요.';
+
+  @override
+  String get cannotSendRooToSelf => '자신의 계정으로 ROO를 보낼 수 없습니다';
+
+  @override
+  String get availableBalance => '사용 가능한 잔액';
+
+  @override
+  String get locationPermissionDenied => '위치 권한이 거부되었습니다';
+
+  @override
+  String get locationPermissionPermanentlyDenied => '위치 권한이 영구적으로 거부되었습니다';
+
+  @override
+  String get mustBeLoggedInToBoost => '게시물을 부스트하려면 로그인해야 합니다.';
+
+  @override
+  String get verificationPendingTip => '인증이 보류 중입니다. 승인 후 팁을 보낼 수 있습니다.';
+
+  @override
+  String get cannotTipOwnPost => '자신의 게시물에 팁을 보낼 수 없습니다';
+
+  @override
+  String get enterAmount => '금액 입력';
+
+  @override
+  String get postUnderReview => '이 게시물은 검토 중입니다.';
+
+  @override
+  String get sensitiveContent => '민감한 콘텐츠';
+
+  @override
+  String get deleteCommentConfirmation => '이 댓글을 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.';
+
+  @override
+  String get commentUnderReview => '댓글이 검토 중입니다.';
+
+  @override
+  String get storiesEmpty => '팔로우하는 사람들의 스토리가 여기에 표시됩니다';
+
+  @override
+  String get textStoryWordLimit => '텍스트 스토리는 250단어로 제한됩니다.';
+
+  @override
+  String get createStory => '스토리 만들기';
+
+  @override
+  String get clickToUpload => '클릭하여 업로드';
+
+  @override
+  String get imageOrVideoMax => '이미지 또는 동영상 (최대 15초)';
+
+  @override
+  String get commentNotPublishedAi => '귀하의 댓글이 게시되지 않았습니다. AI가 가이드라인을 위반할 수 있다고 감지했습니다.';
+
+  @override
+  String get commentUnderReviewExtended => '귀하의 댓글은 검토 중입니다. 승인되면 표시됩니다.';
 }

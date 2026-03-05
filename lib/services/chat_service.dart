@@ -601,9 +601,54 @@ class ChatService {
     }
   }
 
-  /// Delete a message.
-  Future<void> deleteMessage(String messageId) async {
-    await _supabase.from('dm_messages').delete().eq('id', messageId);
+  /// Delete a message. Returns true if deleted successfully.
+  Future<bool> deleteMessage(String messageId) async {
+    try {
+      // Nullify reply_to_id on any messages that reference this one (self-referential FK)
+      await _supabase
+          .from('dm_messages')
+          .update({'reply_to_id': null})
+          .eq('reply_to_id', messageId);
+
+      // Keep moderation case history while detaching FK dependency to this message.
+      await _supabase
+          .from('moderation_cases')
+          .update({'message_id': null})
+          .eq('message_id', messageId);
+
+      // Delete dependent records first to avoid FK constraint violations
+      await _supabase
+          .from('user_reports')
+          .delete()
+          .eq('message_id', messageId);
+      await _supabase
+          .from('dm_read_receipts')
+          .delete()
+          .eq('message_id', messageId);
+      final deletedRows = await _supabase
+          .from('dm_messages')
+          .delete()
+          .eq('id', messageId)
+          .select('id');
+      return (deletedRows as List).isNotEmpty;
+    } catch (e) {
+      debugPrint('ChatService: deleteMessage error - $e');
+      return false;
+    }
+  }
+
+  /// Delete a flagged message using DB-side RPC for stronger FK/RLS handling.
+  Future<bool> deleteFlaggedMessageViaRpc(String messageId) async {
+    try {
+      final result = await _supabase.rpc(
+        'delete_flagged_message',
+        params: {'p_message_id': messageId},
+      );
+      return result == true;
+    } catch (e) {
+      debugPrint('ChatService: deleteFlaggedMessageViaRpc error - $e');
+      return false;
+    }
   }
 
   /// Delete an entire conversation.

@@ -14,6 +14,7 @@ import '../repositories/media_repository.dart';
 import '../repositories/user_interests_repository.dart';
 import '../services/supabase_service.dart';
 import '../services/kyc_verification_service.dart';
+import '../config/global_keys.dart';
 
 enum FeedFilter { forYou, following, trending }
 
@@ -30,6 +31,7 @@ class FeedProvider with ChangeNotifier {
   final KycVerificationService _kycService = KycVerificationService();
 
   RealtimeChannel? _postsChannel;
+  RealtimeChannel? _commentsChannel;
 
   List<Post> _posts = [];
   List<Post>? _cachedFilteredPosts; // cached result of the posts getter
@@ -179,7 +181,8 @@ class FeedProvider with ChangeNotifier {
         currentUserId: userId,
       );
       if (results.isNotEmpty) {
-        final latestTimestamp = results.first.repostedAt ?? results.first.timestamp;
+        final latestTimestamp =
+            results.first.repostedAt ?? results.first.timestamp;
         if (latestTimestamp.compareTo(topTimestamp) > 0) {
           _newPostsAvailable = true;
           notifyListeners();
@@ -198,6 +201,7 @@ class FeedProvider with ChangeNotifier {
     _loadInitialFeed();
     _loadUserInterests();
     _subscribeToNewPosts();
+    _subscribeToCommentInserts();
   }
 
   void _subscribeToNewPosts() {
@@ -227,17 +231,139 @@ class FeedProvider with ChangeNotifier {
               _newPostsAvailable = true;
               notifyListeners();
             } catch (e) {
-              debugPrint('FeedProvider realtime: error fetching post $postId – $e');
+              debugPrint(
+                'FeedProvider realtime: error fetching post $postId – $e',
+              );
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: SupabaseConfig.postsTable,
+          callback: (payload) async {
+            final record = payload.newRecord;
+            final postId = record['id'] as String?;
+            if (postId == null) return;
+            final status = (record['status'] as String?)?.toLowerCase();
+            if (status != null && status != 'published') {
+              final before = _posts.length;
+              _posts = _posts.where((p) => p.id != postId).toList();
+              if (_posts.length != before) {
+                _invalidatePostsCache();
+                notifyListeners();
+              }
+              return;
+            }
+            // If a post just became published and is not yet in local feed,
+            // fetch and insert it so users don't need manual refresh.
+            if (status == 'published' && !_posts.any((p) => p.id == postId)) {
+              try {
+                final fresh = await _postRepository.getPost(
+                  postId,
+                  currentUserId: _currentUserId,
+                );
+                if (fresh == null) return;
+                if (_posts.any((p) => p.id == fresh.id)) return;
+                _posts = [fresh, ..._posts];
+                _invalidatePostsCache();
+                _newPostsAvailable = true;
+                notifyListeners();
+              } catch (e) {
+                debugPrint(
+                  'FeedProvider realtime: error fetching newly-published post $postId - $e',
+                );
+              }
+              return;
+            }
+            // Otherwise refresh only if this post is already in the feed.
+            final index = _posts.indexWhere((p) => p.id == postId);
+            if (index == -1) return;
+            try {
+              final fresh = await _postRepository.getPost(
+                postId,
+                currentUserId: _currentUserId,
+              );
+              if (fresh == null) return;
+              final updated = List<Post>.from(_posts);
+              updated[index] = fresh;
+              _posts = updated;
+              _invalidatePostsCache();
+              notifyListeners();
+            } catch (e) {
+              debugPrint(
+                'FeedProvider realtime: error refreshing post $postId – $e',
+              );
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: SupabaseConfig.postsTable,
+          callback: (payload) {
+            final record = payload.oldRecord;
+            final postId = record['id'] as String?;
+            if (postId == null) return;
+            final before = _posts.length;
+            _posts = _posts.where((p) => p.id != postId).toList();
+            if (_posts.length != before) {
+              _invalidatePostsCache();
+              notifyListeners();
             }
           },
         )
         .subscribe();
   }
 
+  void _subscribeToCommentInserts() {
+    _commentsChannel = SupabaseService().client
+        .channel('feed:comments:inserts')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: SupabaseConfig.commentsTable,
+          callback: (payload) {
+            final record = payload.newRecord;
+            final postId = record['post_id'] as String?;
+            if (postId == null) return;
+
+            // Avoid double increment for comments sent from this same client,
+            // since local optimistic logic already updates counts immediately.
+            final authorId = record['author_id'] as String?;
+            if (authorId != null && authorId == _currentUserId) return;
+
+            _applyCommentDelta(postId, 1);
+          },
+        )
+        .subscribe();
+  }
+
+  void _applyCommentDelta(String postId, int delta) {
+    if (delta == 0) return;
+    var touched = false;
+    final updated = List<Post>.from(_posts);
+    for (var i = 0; i < updated.length; i++) {
+      final post = updated[i];
+      if (post.id != postId) continue;
+      final nextCount = (post.comments + delta).clamp(0, 999999);
+      updated[i] = post.copyWith(comments: nextCount);
+      touched = true;
+    }
+    if (!touched) return;
+
+    _posts = updated;
+    _invalidatePostsCache();
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     if (_postsChannel != null) {
       SupabaseService().client.removeChannel(_postsChannel!);
+    }
+    if (_commentsChannel != null) {
+      SupabaseService().client.removeChannel(_commentsChannel!);
     }
     super.dispose();
   }
@@ -273,7 +399,10 @@ class FeedProvider with ChangeNotifier {
     _invalidatePostsCache();
   }
 
-  Future<List<Post>> _fetchByFilter({required int limit, required int offset}) async {
+  Future<List<Post>> _fetchByFilter({
+    required int limit,
+    required int offset,
+  }) async {
     final userId = _currentUserId;
     switch (_activeFilter) {
       case FeedFilter.following:
@@ -320,7 +449,8 @@ class FeedProvider with ChangeNotifier {
 
       // Record the newest post timestamp for new-content detection
       if (_posts.isNotEmpty) {
-        _newestPostTimestamp = _posts.first.repostedAt ?? _posts.first.timestamp;
+        _newestPostTimestamp =
+            _posts.first.repostedAt ?? _posts.first.timestamp;
       }
 
       if (userId != null && results.length > 1) {
@@ -365,7 +495,8 @@ class FeedProvider with ChangeNotifier {
       _hasMore = _posts.length >= 20;
 
       if (_posts.isNotEmpty) {
-        _newestPostTimestamp = _posts.first.repostedAt ?? _posts.first.timestamp;
+        _newestPostTimestamp =
+            _posts.first.repostedAt ?? _posts.first.timestamp;
       }
 
       // Refresh repost counts
@@ -394,10 +525,7 @@ class FeedProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final newPosts = await _fetchByFilter(
-        limit: 20,
-        offset: _posts.length,
-      );
+      final newPosts = await _fetchByFilter(limit: 20, offset: _posts.length);
 
       if (newPosts.isEmpty) {
         _hasMore = false;
@@ -542,17 +670,15 @@ class FeedProvider with ChangeNotifier {
         body: body,
       );
 
-      // Optimistically update post comment count locally if needed
+      // Update post comment count only after backend confirms save.
       final index = _posts.indexWhere((p) => p.id == postId);
-      if (index != -1) {
+      if (savedComment != null && index != -1) {
         final post = _posts[index];
         _posts[index] = post.copyWith(comments: post.comments + 1);
         notifyListeners(); // Update count immediately
 
         // Update the local comment with the real ID from Supabase if tempId was used
-        if (savedComment != null &&
-            tempId != null &&
-            post.commentList != null) {
+        if (tempId != null && post.commentList != null) {
           final updatedComments = post.commentList!.map((c) {
             if (c.id == tempId) {
               return savedComment;
@@ -629,12 +755,17 @@ class FeedProvider with ChangeNotifier {
 
   // Add comment with media to a post (saves to Supabase)
   /// Throws [KycNotVerifiedException] if user has not completed KYC verification.
+  /// [onAiCheckComplete] is called after AI detection finishes with the outcome:
+  ///   'blocked' – comment was auto-removed (≥95% AI score or hard moderation flag)
+  ///   'under_review' – comment is pending human review (75–95%)
+  ///   'published' – comment passed and is visible
   Future<Comment?> addCommentWithMedia(
     String postId,
     String body, {
     String? tempId,
     String? mediaUrl,
     String? mediaType,
+    void Function(String outcome)? onAiCheckComplete,
   }) async {
     final userId = _currentUserId;
     if (userId == null) return null;
@@ -651,17 +782,15 @@ class FeedProvider with ChangeNotifier {
         mediaType: mediaType,
       );
 
-      // Update post comment count locally
+      // Update post comment count only after backend confirms save.
       final index = _posts.indexWhere((p) => p.id == postId);
-      if (index != -1) {
+      if (savedComment != null && index != -1) {
         final post = _posts[index];
         _posts[index] = post.copyWith(comments: post.comments + 1);
         notifyListeners();
 
         // Update the local comment with the real ID from Supabase if tempId was used
-        if (savedComment != null &&
-            tempId != null &&
-            post.commentList != null) {
+        if (tempId != null && post.commentList != null) {
           final updatedComments = post.commentList!.map((c) {
             if (c.id == tempId) {
               return savedComment;
@@ -697,6 +826,20 @@ class FeedProvider with ChangeNotifier {
                         commentList: updatedComments,
                         comments: (post.comments - 1).clamp(0, 999999),
                       );
+                      notifyListeners();
+                      onAiCheckComplete?.call('blocked');
+                    } else if (aiScore >= 75) {
+                      // Remove from local view — pending human review
+                      final updatedComments = _removeCommentRecursive(
+                        post.commentList!,
+                        savedComment.id,
+                      );
+                      _posts[idx] = post.copyWith(
+                        commentList: updatedComments,
+                        comments: (post.comments - 1).clamp(0, 999999),
+                      );
+                      notifyListeners();
+                      onAiCheckComplete?.call('under_review');
                     } else {
                       final updatedComments = _updateCommentAiScoreRecursive(
                         post.commentList!,
@@ -705,8 +848,9 @@ class FeedProvider with ChangeNotifier {
                         status: 'published',
                       );
                       _posts[idx] = post.copyWith(commentList: updatedComments);
+                      notifyListeners();
+                      onAiCheckComplete?.call('published');
                     }
-                    notifyListeners();
                   }
                 }
               }
@@ -745,10 +889,26 @@ class FeedProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      await _reactionRepository.toggleCommentLike(
+      final persistedIsLiked = await _reactionRepository.toggleCommentLike(
         commentId: commentId,
         userId: userId,
       );
+
+      final persistedLikes = await _reactionRepository.getCommentLikeCount(
+        commentId: commentId,
+      );
+
+      final reconciledComments = _setCommentLikeStateRecursive(
+        _posts[postIndex].commentList ?? const <Comment>[],
+        commentId,
+        isLiked: persistedIsLiked,
+        likes: persistedLikes,
+      );
+      _posts[postIndex] = _posts[postIndex].copyWith(
+        commentList: reconciledComments,
+      );
+      notifyListeners();
+      await loadCommentsForPost(postId);
     } catch (e) {
       // Revert on failure
       _posts[postIndex] = post;
@@ -771,6 +931,29 @@ class FeedProvider with ChangeNotifier {
       } else if (comment.replies != null && comment.replies!.isNotEmpty) {
         return comment.copyWith(
           replies: _toggleCommentLikeRecursive(comment.replies!, commentId),
+        );
+      }
+      return comment;
+    }).toList();
+  }
+
+  List<Comment> _setCommentLikeStateRecursive(
+    List<Comment> comments,
+    String commentId, {
+    required bool isLiked,
+    required int likes,
+  }) {
+    return comments.map((comment) {
+      if (comment.id == commentId) {
+        return comment.copyWith(isLiked: isLiked, likes: likes);
+      } else if (comment.replies != null && comment.replies!.isNotEmpty) {
+        return comment.copyWith(
+          replies: _setCommentLikeStateRecursive(
+            comment.replies!,
+            commentId,
+            isLiked: isLiked,
+            likes: likes,
+          ),
         );
       }
       return comment;
@@ -915,6 +1098,7 @@ class FeedProvider with ChangeNotifier {
     String tempId, {
     String? mediaUrl,
     String? mediaType,
+    void Function(String outcome)? onAiCheckComplete,
   }) async {
     final userId = _currentUserId;
     if (userId == null) return;
@@ -972,6 +1156,20 @@ class FeedProvider with ChangeNotifier {
                           commentList: updatedComments,
                           comments: (post.comments - 1).clamp(0, 999999),
                         );
+                        notifyListeners();
+                        onAiCheckComplete?.call('blocked');
+                      } else if (aiScore >= 75) {
+                        // Remove from local view — pending human review
+                        final updatedComments = _removeCommentRecursive(
+                          post.commentList!,
+                          savedReply.id,
+                        );
+                        _posts[idx] = post.copyWith(
+                          commentList: updatedComments,
+                          comments: (post.comments - 1).clamp(0, 999999),
+                        );
+                        notifyListeners();
+                        onAiCheckComplete?.call('under_review');
                       } else {
                         final updatedComments = _updateCommentAiScoreRecursive(
                           post.commentList!,
@@ -982,8 +1180,9 @@ class FeedProvider with ChangeNotifier {
                         _posts[idx] = post.copyWith(
                           commentList: updatedComments,
                         );
+                        notifyListeners();
+                        onAiCheckComplete?.call('published');
                       }
-                      notifyListeners();
                     }
                   }
                 }
@@ -1233,7 +1432,9 @@ class FeedProvider with ChangeNotifier {
     _isLoadingBookmarks = true;
     notifyListeners();
     try {
-      final posts = await _bookmarkRepository.getBookmarkedPosts(userId: userId);
+      final posts = await _bookmarkRepository.getBookmarkedPosts(
+        userId: userId,
+      );
       _bookmarkedPostsList = posts;
       // Keep IDs in sync
       _bookmarkedPostIds.clear();
@@ -1364,6 +1565,7 @@ class FeedProvider with ChangeNotifier {
     PostAuthor? optimisticAuthor,
     List<PostTag>? optimisticTags,
     bool waitForAi = false,
+
     /// Called when the post is detected as an advertisement requiring an ad
     /// fee payment in ROO. Return true if the user successfully paid.
     Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
@@ -1431,6 +1633,7 @@ class FeedProvider with ChangeNotifier {
         }
         _invalidatePostsCache();
         notifyListeners();
+        postEventBus.notifyPostCreated();
 
         // Run AI detection
         final detectionFuture = _postRepository.runAiDetection(
@@ -1476,6 +1679,7 @@ class FeedProvider with ChangeNotifier {
               }
               if (updatedPost.status == 'published') {
                 await refreshFeed();
+                postEventBus.notifyPostCreated();
               }
               return updatedPost; // Return the final updated post
             }
@@ -1536,6 +1740,7 @@ class FeedProvider with ChangeNotifier {
                   }
                   if (updatedPost.status == 'published') {
                     await refreshFeed();
+                    postEventBus.notifyPostCreated();
                   }
                   _showPostAiReviewResultSnackBar(status: updatedPost.status);
                 }
@@ -1608,6 +1813,7 @@ class FeedProvider with ChangeNotifier {
       _posts.removeWhere((p) => p.id == postId);
       _invalidatePostsCache();
       notifyListeners();
+      postEventBus.notifyPostCreated();
     }
     return success;
   }
@@ -1686,8 +1892,9 @@ class FeedProvider with ChangeNotifier {
       currentUserId: userId,
     );
     if (success) {
-      // Refresh to reflect the new published status
+      // Refresh ads tab and notify profile to reload its posts list
       await loadAdPosts();
+      postEventBus.notifyPostCreated();
     }
     return success;
   }
@@ -1767,6 +1974,14 @@ class FeedProvider with ChangeNotifier {
     required List<String> deletedMediaIds,
     required List<File> newMediaFiles,
     required List<String> newMediaTypes,
+
+    /// The original body text before editing. When provided, AI detection is
+    /// skipped if the body hasn't changed and no new media was added.
+    String? originalBody,
+
+    /// Called when the edited post is detected as an advertisement requiring
+    /// an ad fee payment in ROO. Return true if the user successfully paid.
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
   }) async {
     final userId = _currentUserId;
     if (userId == null) return false;
@@ -1811,7 +2026,22 @@ class FeedProvider with ChangeNotifier {
         }
       }
 
-      // 4. Reload the post to get fresh state
+      // 4. Run AI detection only if the content actually changed.
+      //    Skip if body is identical to the original and no new media was added.
+      final bodyChanged =
+          originalBody == null || body.trim() != originalBody.trim();
+      final hasNewMedia = newMediaFiles.isNotEmpty;
+      if (body.trim().isNotEmpty && (bodyChanged || hasNewMedia)) {
+        await _postRepository.runAiDetection(
+          postId: postId,
+          authorId: userId,
+          body: body,
+          mediaFiles: hasNewMedia ? newMediaFiles : null,
+          onAdFeeRequired: onAdFeeRequired,
+        );
+      }
+
+      // 5. Reload the post to get fresh state after AI check
       final updatedPost = await _postRepository.getPost(
         postId,
         currentUserId: userId,
@@ -1820,9 +2050,22 @@ class FeedProvider with ChangeNotifier {
       if (updatedPost != null) {
         final index = _posts.indexWhere((p) => p.id == postId);
         if (index != -1) {
-          _posts[index] = updatedPost;
+          if (updatedPost.status == 'under_review' ||
+              updatedPost.status == 'deleted' ||
+              updatedPost.status == 'hidden' ||
+              (updatedPost.status == 'draft' &&
+                  (updatedPost.authenticityNotes ?? '').toLowerCase().contains(
+                    'awaiting ad fee payment',
+                  ))) {
+            // Post was flagged or held for ad fee — remove from feed
+            _posts.removeAt(index);
+          } else {
+            _posts[index] = updatedPost;
+          }
+          _invalidatePostsCache();
           notifyListeners();
         }
+        _showPostAiReviewResultSnackBar(status: updatedPost.status);
       }
 
       return true;

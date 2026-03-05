@@ -132,8 +132,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pleaseTypeDelete => '请输入「删除」以确认';
 
   @override
-  String get aboutROOVERSEDescription =>
-      'ROOVERSE – 以人为本的社交平台\n\n版本 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription => 'ROOVERSE – 以人为本的社交平台\n\n版本 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => '登录';
@@ -589,8 +588,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle =>
-      'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -834,4 +832,148 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get paymentFailed => 'Payment Failed';
+
+  @override
+  String get passwordRequired => '密码为必填项';
+
+  @override
+  String get invalidEmailOrPassword => '邮箱或密码无效';
+
+  @override
+  String get unableToStartGoogleLogin => '无法启动 Google 登录';
+
+  @override
+  String get pleaseEnterPhoneNumber => '请输入您的电话号码';
+
+  @override
+  String get pleaseEnterValidPhoneNumber => '请输入有效的电话号码';
+
+  @override
+  String get failedToSendLoginCode => '发送登录验证码失败';
+
+  @override
+  String get verifyAndLogin => '验证并登录';
+
+  @override
+  String get sendCode => '发送验证码';
+
+  @override
+  String get failedToSendVerificationCode => '发送验证码失败';
+
+  @override
+  String get verifyCode => '验证码';
+
+  @override
+  String get enterPhone => '输入手机号';
+
+  @override
+  String get enterVerificationCode => '输入验证码';
+
+  @override
+  String get enterPhoneForSms => '输入您的电话号码以通过短信接收验证码。';
+
+  @override
+  String get forgotPassword => '忘记密码？';
+
+  @override
+  String get enterYourEmail => '输入您的邮箱';
+
+  @override
+  String get enterNewPassword => '输入新密码';
+
+  @override
+  String get confirmPassword => '确认密码';
+
+  @override
+  String get confirmYourPassword => '确认您的密码';
+
+  @override
+  String get resetPassword => '重置密码';
+
+  @override
+  String get passwordReset => '密码已重置！';
+
+  @override
+  String get backToLogin => '返回登录';
+
+  @override
+  String get online => '在线';
+
+  @override
+  String get offline => '离线';
+
+  @override
+  String get available => '可用';
+
+  @override
+  String get lifetimeEarned => '终身收益';
+
+  @override
+  String get enterRooAmount => '输入 ROO 金额';
+
+  @override
+  String get recipient => '收款人';
+
+  @override
+  String get verificationPendingSendRoo => '您的验证正在审核中。批准后您可以发送 ROO。';
+
+  @override
+  String get completeVerificationToSendRoo => '请完成身份验证后再发送 ROO。';
+
+  @override
+  String get cannotSendRooToSelf => '您不能向自己的账户发送 ROO';
+
+  @override
+  String get availableBalance => '可用余额';
+
+  @override
+  String get locationPermissionDenied => '位置权限被拒绝';
+
+  @override
+  String get locationPermissionPermanentlyDenied => '位置权限被永久拒绝';
+
+  @override
+  String get mustBeLoggedInToBoost => '您必须登录才能推广帖子。';
+
+  @override
+  String get verificationPendingTip => '您的验证正在审核中。批准后您可以打赏。';
+
+  @override
+  String get cannotTipOwnPost => '您不能对自己的帖子打赏';
+
+  @override
+  String get enterAmount => '输入金额';
+
+  @override
+  String get postUnderReview => '该帖子正在审核中。';
+
+  @override
+  String get sensitiveContent => '敏感内容';
+
+  @override
+  String get deleteCommentConfirmation => '您确定要删除此评论吗？此操作无法撤销。';
+
+  @override
+  String get commentUnderReview => '评论正在审核中。';
+
+  @override
+  String get storiesEmpty => '您关注的人的动态将显示在此处';
+
+  @override
+  String get textStoryWordLimit => '文字动态限制为 250 个字。';
+
+  @override
+  String get createStory => '创建动态';
+
+  @override
+  String get clickToUpload => '点击上传';
+
+  @override
+  String get imageOrVideoMax => '图片或视频（最长 15 秒）';
+
+  @override
+  String get commentNotPublishedAi => '您的评论未发布。我们的 AI 检测到它可能违反我们的准则。';
+
+  @override
+  String get commentUnderReviewExtended => '您的评论正在审核中。审核通过后将显示。';
 }

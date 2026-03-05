@@ -12,7 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ai_detection_result.dart';
 import '../services/ai_detection_service.dart';
 import 'wallet_repository.dart';
-import '../services/rooken_service.dart';
+import '../services/roobit_service.dart';
 import '../services/activity_log_service.dart';
 
 /// Repository for post-related Supabase operations.
@@ -143,7 +143,10 @@ class PostRepository {
         .order('created_at', ascending: false)
         .range(offset, offset + fetchLimit - 1);
 
-    final results = await Future.wait([postResultsFuture, repostsFuture], eagerError: false);
+    final results = await Future.wait([
+      postResultsFuture,
+      repostsFuture,
+    ], eagerError: false);
     final postData = results[0] as List<dynamic>;
     final repostData = results[1] as List<dynamic>;
 
@@ -322,7 +325,10 @@ class PostRepository {
         .map((json) {
           final originalPostJson = json['posts'] as Map<String, dynamic>;
           final reposterJson = json['reposter'] as Map<String, dynamic>;
-          final post = Post.fromSupabase(originalPostJson, currentUserId: currentUserId);
+          final post = Post.fromSupabase(
+            originalPostJson,
+            currentUserId: currentUserId,
+          );
           return post.copyWith(
             reposter: PostAuthor(
               userId: reposterJson['user_id'] as String?,
@@ -343,7 +349,10 @@ class PostRepository {
       return timeB.compareTo(timeA);
     });
 
-    final filtered = await _filterPostsByPrivacy(allItems, currentUserId: currentUserId);
+    final filtered = await _filterPostsByPrivacy(
+      allItems,
+      currentUserId: currentUserId,
+    );
     return filtered.take(limit).toList();
   }
 
@@ -355,7 +364,9 @@ class PostRepository {
   }) async {
     final fetchLimit = limit * 2;
 
-    final postData = await _client.from(SupabaseConfig.postsTable).select('''
+    final postData = await _client
+        .from(SupabaseConfig.postsTable)
+        .select('''
           *,
           profiles!posts_author_id_fkey (
             user_id,
@@ -397,7 +408,10 @@ class PostRepository {
           )
         ''')
         .eq('status', 'published')
-        .gte('created_at', DateTime.now().subtract(const Duration(days: 7)).toIso8601String())
+        .gte(
+          'created_at',
+          DateTime.now().subtract(const Duration(days: 7)).toIso8601String(),
+        )
         .order('likes_count', ascending: false)
         .range(offset, offset + fetchLimit - 1);
 
@@ -412,7 +426,10 @@ class PostRepository {
       return scoreB.compareTo(scoreA);
     });
 
-    final filtered = await _filterPostsByPrivacy(posts, currentUserId: currentUserId);
+    final filtered = await _filterPostsByPrivacy(
+      posts,
+      currentUserId: currentUserId,
+    );
     return filtered.take(limit).toList();
   }
 
@@ -652,7 +669,10 @@ class PostRepository {
         .order('created_at', ascending: false)
         .range(offset, offset + fetchLimit - 1);
 
-    final results = await Future.wait<dynamic>([postsFuture, repostsFuture], eagerError: false);
+    final results = await Future.wait<dynamic>([
+      postsFuture,
+      repostsFuture,
+    ], eagerError: false);
     final postData = results[0] as List<dynamic>;
     final repostData = results[1] as List<dynamic>;
 
@@ -855,10 +875,75 @@ class PostRepository {
         return false;
       }
 
-      await _client
-          .from(SupabaseConfig.postsTable)
-          .update({'status': 'deleted'})
-          .eq('id', postId);
+      // Hard delete: remove all FK-dependent records first, then the post row.
+      // Comments (and their reactions/mentions/mod cases)
+      final comments = await _client
+          .from(SupabaseConfig.commentsTable)
+          .select('id')
+          .eq('post_id', postId);
+      final commentIds = (comments as List)
+          .map((c) => c['id'] as String)
+          .toList();
+      if (commentIds.isNotEmpty) {
+        // Replies under these comments
+        final replies = await _client
+            .from(SupabaseConfig.commentsTable)
+            .select('id')
+            .inFilter('parent_comment_id', commentIds);
+        final replyIds = (replies as List)
+            .map((r) => r['id'] as String)
+            .toList();
+        if (replyIds.isNotEmpty) {
+          await _client.from(SupabaseConfig.reactionsTable).delete().inFilter('comment_id', replyIds);
+          await _client.from(SupabaseConfig.mentionsTable).delete().inFilter('comment_id', replyIds);
+          // Clear user_reports referencing mod cases before deleting mod cases
+          final replyModCases = await _client.from(SupabaseConfig.moderationCasesTable).select('id').inFilter('comment_id', replyIds) as List<dynamic>;
+          final replyModCaseIds = replyModCases.map((r) => (r as Map<String, dynamic>)['id'] as String).toList();
+          if (replyModCaseIds.isNotEmpty) {
+            await _client.from(SupabaseConfig.userReportsTable).delete().inFilter('moderation_case_id', replyModCaseIds);
+          }
+          await _client.from(SupabaseConfig.moderationCasesTable).delete().inFilter('comment_id', replyIds);
+          await _client.from(SupabaseConfig.userReportsTable).delete().inFilter('comment_id', replyIds);
+          await _client.from(SupabaseConfig.commentsTable).delete().inFilter('parent_comment_id', commentIds);
+        }
+        await _client.from(SupabaseConfig.reactionsTable).delete().inFilter('comment_id', commentIds);
+        await _client.from(SupabaseConfig.mentionsTable).delete().inFilter('comment_id', commentIds);
+        // Clear user_reports referencing mod cases before deleting mod cases
+        final commentModCases = await _client.from(SupabaseConfig.moderationCasesTable).select('id').inFilter('comment_id', commentIds) as List<dynamic>;
+        final commentModCaseIds = commentModCases.map((r) => (r as Map<String, dynamic>)['id'] as String).toList();
+        if (commentModCaseIds.isNotEmpty) {
+          await _client.from(SupabaseConfig.userReportsTable).delete().inFilter('moderation_case_id', commentModCaseIds);
+        }
+        await _client.from(SupabaseConfig.moderationCasesTable).delete().inFilter('comment_id', commentIds);
+        await _client.from(SupabaseConfig.userReportsTable).delete().inFilter('comment_id', commentIds);
+        await _client.from(SupabaseConfig.commentsTable).delete().eq('post_id', postId);
+      }
+      // Other post-level dependents
+      await _client.from(SupabaseConfig.reactionsTable).delete().eq('post_id', postId);
+      await _client.from(SupabaseConfig.mentionsTable).delete().eq('post_id', postId);
+      // Clear user_reports referencing post-level mod cases before deleting mod cases
+      final postModCases = await _client.from(SupabaseConfig.moderationCasesTable).select('id').eq('post_id', postId) as List<dynamic>;
+      final postModCaseIds = postModCases.map((r) => (r as Map<String, dynamic>)['id'] as String).toList();
+      if (postModCaseIds.isNotEmpty) {
+        await _client.from(SupabaseConfig.userReportsTable).delete().inFilter('moderation_case_id', postModCaseIds);
+      }
+      await _client.from(SupabaseConfig.moderationCasesTable).delete().eq('post_id', postId);
+      await _client.from(SupabaseConfig.userReportsTable).delete().eq('post_id', postId);
+      await _client.from(SupabaseConfig.bookmarksTable).delete().eq('post_id', postId);
+      await _client.from(SupabaseConfig.repostsTable).delete().eq('post_id', postId);
+      await _client.from(SupabaseConfig.notificationsTable).delete().eq('post_id', postId);
+      await _client.from(SupabaseConfig.roocoinTransactionsTable).delete().eq('reference_post_id', postId);
+      await _client.from('post_boosts').delete().eq('post_id', postId);
+      await _client.from('post_views').delete().eq('post_id', postId);
+      await _client.from('polls').delete().eq('post_id', postId);
+      await _client.from('collectibles').delete().eq('post_id', postId);
+      await _client.from('circle_posts').delete().eq('post_id', postId);
+      await _client.from('challenge_entries').delete().eq('post_id', postId);
+      await _client.from('subscriber_only_posts').delete().eq('post_id', postId);
+      await _client.from(SupabaseConfig.postTagsTable).delete().eq('post_id', postId);
+      await _client.from(SupabaseConfig.postMediaTable).delete().eq('post_id', postId);
+      // Finally hard-delete the post row
+      await _client.from(SupabaseConfig.postsTable).delete().eq('id', postId);
       return true;
     } catch (e) {
       debugPrint('PostRepository: Error deleting post - $e');
@@ -904,7 +989,7 @@ class PostRepository {
     try {
       final post = await _client
           .from(SupabaseConfig.postsTable)
-          .select('author_id')
+          .select('author_id, title, body')
           .eq('id', postId)
           .maybeSingle();
 
@@ -917,6 +1002,13 @@ class PostRepository {
           .from(SupabaseConfig.postsTable)
           .update({'status': 'published'})
           .eq('id', postId);
+
+      await _notifyAuthorPostPublished(
+        userId: currentUserId,
+        postId: postId,
+        title: post['title'] as String?,
+        body: post['body'] as String?,
+      );
       return true;
     } catch (e) {
       debugPrint('PostRepository: Error republishing post - $e');
@@ -946,7 +1038,8 @@ class PostRepository {
       final status = post['status'] as String?;
       final existingNotes = post['authenticity_notes'] as String?;
       final aiMetadata = post['ai_metadata'];
-      final bool isAwaitingAdPayment = status == 'draft' &&
+      final bool isAwaitingAdPayment =
+          status == 'draft' &&
           (((existingNotes ?? '').toLowerCase().contains(
                 'awaiting ad fee payment',
               )) ||
@@ -987,10 +1080,33 @@ class PostRepository {
           .from(SupabaseConfig.postsTable)
           .update({
             'status': 'published',
+            'is_advertisement': true,
             'authenticity_notes': nextNotes,
             'published_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', postId);
+
+      await _notifyAuthorPostPublished(
+        userId: currentUserId,
+        postId: postId,
+        title: null,
+        body: null,
+      );
+
+      // Mark the matching advertisements row as paid.
+      try {
+        await _client
+            .from('advertisements')
+            .update({
+              'status': 'paid',
+              'paid_at': DateTime.now().toUtc().toIso8601String(),
+            })
+            .eq('content_id', postId)
+            .eq('content_type', 'post')
+            .eq('status', 'pending_payment');
+      } catch (e) {
+        debugPrint('PostRepository: Failed to mark advertisement as paid - $e');
+      }
 
       await _broadcastSponsoredPostNotification(
         postId: postId,
@@ -1106,30 +1222,46 @@ class PostRepository {
         )
       ''';
 
-      // Fetch published ads (paid) and draft ads (pending payment) in parallel
+      // Fetch published ads (paid) and draft ads (pending payment) in parallel.
+      // Uses is_advertisement flag (set by AI detection) as primary filter,
+      // with authenticity_notes fallback for backwards compatibility.
       final results = await Future.wait([
         _client
             .from(SupabaseConfig.postsTable)
             .select(select)
             .eq('author_id', userId)
             .eq('status', 'published')
-            .ilike('authenticity_notes', '%advertisement%')
+            .or(
+              'is_advertisement.eq.true,authenticity_notes.ilike.%advertisement%',
+            )
             .order('created_at', ascending: false),
         _client
             .from(SupabaseConfig.postsTable)
             .select(select)
             .eq('author_id', userId)
             .eq('status', 'draft')
-            .ilike('authenticity_notes', '%awaiting ad fee payment%')
+            .or(
+              'is_advertisement.eq.true,authenticity_notes.ilike.%awaiting ad fee payment%',
+            )
             .order('created_at', ascending: false),
       ]);
 
       final published = (results[0] as List<dynamic>)
-          .map((j) => Post.fromSupabase(j as Map<String, dynamic>, currentUserId: userId))
+          .map(
+            (j) => Post.fromSupabase(
+              j as Map<String, dynamic>,
+              currentUserId: userId,
+            ),
+          )
           .toList();
 
       final pending = (results[1] as List<dynamic>)
-          .map((j) => Post.fromSupabase(j as Map<String, dynamic>, currentUserId: userId))
+          .map(
+            (j) => Post.fromSupabase(
+              j as Map<String, dynamic>,
+              currentUserId: userId,
+            ),
+          )
           .toList();
 
       // Also include drafts with requires_payment flag but no notes yet
@@ -1143,7 +1275,10 @@ class PostRepository {
           .order('created_at', ascending: false);
 
       for (final j in allDraftsResult as List<dynamic>) {
-        final post = Post.fromSupabase(j as Map<String, dynamic>, currentUserId: userId);
+        final post = Post.fromSupabase(
+          j as Map<String, dynamic>,
+          currentUserId: userId,
+        );
         if (pendingIds.contains(post.id)) continue;
         final ad = post.aiMetadata?['advertisement'];
         if (ad is Map && ad['requires_payment'] == true) {
@@ -1264,10 +1399,10 @@ class PostRepository {
   /// Increment the tip total for a post via RPC (bypasses RLS).
   Future<bool> tipPost(String postId, double amount) async {
     try {
-      await _client.rpc('increment_post_tips', params: {
-        'p_post_id': postId,
-        'p_amount': amount,
-      });
+      await _client.rpc(
+        'increment_post_tips',
+        params: {'p_post_id': postId, 'p_amount': amount},
+      );
       return true;
     } catch (e) {
       debugPrint('PostRepository: Error tipping post - $e');
@@ -1326,14 +1461,19 @@ class PostRepository {
   /// Fetch AI-flagged posts belonging to a specific user.
   /// Only returns posts where the AI explicitly flagged or put them under review
   /// (ai_score_status = 'flagged' or 'review'), not posts under review for other reasons.
-  Future<List<Post>> getUserFlaggedPosts(String userId, {int limit = 50}) async {
+  Future<List<Post>> getUserFlaggedPosts(
+    String userId, {
+    int limit = 50,
+  }) async {
     try {
-      final modCases = await _client
-          .from(SupabaseConfig.moderationCasesTable)
-          .select('post_id, created_at')
-          .eq('reported_user_id', userId)
-          .eq('source', 'ai')
-          .order('created_at', ascending: false) as List<dynamic>;
+      final modCases =
+          await _client
+                  .from(SupabaseConfig.moderationCasesTable)
+                  .select('post_id, created_at')
+                  .eq('reported_user_id', userId)
+                  .eq('source', 'ai')
+                  .order('created_at', ascending: false)
+              as List<dynamic>;
 
       final seenPostIds = <String>{};
       final moderatedPostIds = <String>[];
@@ -1348,9 +1488,10 @@ class PostRepository {
 
       final postById = <String, Post>{};
       if (moderatedPostIds.isNotEmpty) {
-        final data = await _client
-            .from(SupabaseConfig.postsTable)
-            .select('''
+        final data =
+            await _client
+                    .from(SupabaseConfig.postsTable)
+                    .select('''
               *,
               profiles!posts_author_id_fkey (
                 user_id,
@@ -1366,7 +1507,8 @@ class PostRepository {
                 mime_type
               )
             ''')
-            .inFilter('id', moderatedPostIds) as List<dynamic>;
+                    .inFilter('id', moderatedPostIds)
+                as List<dynamic>;
 
         for (final json in data) {
           final post = Post.fromSupabase(json as Map<String, dynamic>);
@@ -1375,9 +1517,10 @@ class PostRepository {
       }
 
       // Preserve prior behavior for ad-fee-held drafts (these may not have moderation cases).
-      final adDraftRows = await _client
-          .from(SupabaseConfig.postsTable)
-          .select('''
+      final adDraftRows =
+          await _client
+                  .from(SupabaseConfig.postsTable)
+                  .select('''
             *,
             profiles!posts_author_id_fkey (
               user_id,
@@ -1393,18 +1536,19 @@ class PostRepository {
               mime_type
             )
           ''')
-          .eq('author_id', userId)
-          .eq('status', 'draft')
-          .order('created_at', ascending: false)
-          .limit(limit) as List<dynamic>;
+                  .eq('author_id', userId)
+                  .eq('status', 'draft')
+                  .order('created_at', ascending: false)
+                  .limit(limit)
+              as List<dynamic>;
 
       for (final json in adDraftRows) {
         final post = Post.fromSupabase(json as Map<String, dynamic>);
         if (postById.containsKey(post.id)) continue;
         if (post.status == 'draft' &&
-            (post.authenticityNotes ?? '')
-                .toLowerCase()
-                .contains('awaiting ad fee payment')) {
+            (post.authenticityNotes ?? '').toLowerCase().contains(
+              'awaiting ad fee payment',
+            )) {
           postById[post.id] = post;
         }
       }
@@ -1421,9 +1565,9 @@ class PostRepository {
                 post.aiScoreStatus == 'flagged' ||
                 post.aiScoreStatus == 'review' ||
                 (post.status == 'draft' &&
-                    (post.authenticityNotes ?? '')
-                        .toLowerCase()
-                        .contains('awaiting ad fee payment')),
+                    (post.authenticityNotes ?? '').toLowerCase().contains(
+                      'awaiting ad fee payment',
+                    )),
           )
           .take(limit)
           .toList();
@@ -1581,7 +1725,7 @@ class PostRepository {
           await _awardDailyPostRoo(walletRepo, authorId, postId);
         } catch (e) {
           debugPrint(
-            'PostRepository: Error awarding ROOK on moderation approval - $e',
+            'PostRepository: Error awarding ROO on moderation approval - $e',
           );
         }
       }
@@ -1674,122 +1818,220 @@ class PostRepository {
         '(hasText=$hasText, hasMedia=$hasMedia)',
       );
 
-      // Single call — AI + Moderation + Advertisement in parallel
-      final AiDetectionResult? result = await _aiDetectionService.detectFull(
-        content: hasText ? trimmedBody : null,
-        file: hasMedia ? mediaFiles.first : null,
-        models: detectionModels,
-      );
+      // Check every attached media item. If any item is AI, block the full post.
+      final List<AiDetectionResult> detectionResults = [];
+      if (hasMedia) {
+        final files = mediaFiles;
+        for (int i = 0; i < files.length; i++) {
+          final result = await _aiDetectionService.detectFull(
+            content: hasText && i == 0 ? trimmedBody : null,
+            file: files[i],
+            models: detectionModels,
+          );
+          if (result != null) {
+            detectionResults.add(result);
+          }
+        }
+      } else {
+        final result = await _aiDetectionService.detectFull(
+          content: hasText ? trimmedBody : null,
+          file: null,
+          models: detectionModels,
+        );
+        if (result != null) {
+          detectionResults.add(result);
+        }
+      }
 
-      if (result != null) {
+      if (detectionResults.isNotEmpty) {
+        final aiDetectedResults = detectionResults.where((r) {
+          final normalized = r.result.trim().toUpperCase();
+          return normalized == 'AI-GENERATED' ||
+              normalized == 'LIKELY AI-GENERATED';
+        }).toList();
+        final hasAnyAiDetected = aiDetectedResults.isNotEmpty;
+        final representativeResult = hasAnyAiDetected
+            ? aiDetectedResults.reduce(
+                (a, b) => a.confidence >= b.confidence ? a : b,
+              )
+            : detectionResults.reduce(
+                (a, b) => a.confidence >= b.confidence ? a : b,
+              );
+
         // Result label is normalized to UPPER CASE in fromJson.
         // Confidence is label-specific per NOAI docs.
-        final String normalizedResult = result.result.trim().toUpperCase();
+        final String normalizedResult = representativeResult.result
+            .trim()
+            .toUpperCase();
         final bool isAiResult =
             normalizedResult == 'AI-GENERATED' ||
             normalizedResult == 'LIKELY AI-GENERATED';
-        final double labelConfidence = result.confidence.clamp(0, 100);
+        final double labelConfidence = representativeResult.confidence.clamp(
+          0,
+          100,
+        );
         // Keep an AI-risk score for DB/notifications compatibility.
-        final double aiProbability = isAiResult
-            ? labelConfidence
-            : 100 - labelConfidence;
+        final double aiProbability = hasAnyAiDetected
+            ? aiDetectedResults
+                  .map((r) => r.confidence.clamp(0, 100))
+                  .reduce((a, b) => a >= b ? a : b)
+                  .toDouble()
+            : (isAiResult ? labelConfidence : 100 - labelConfidence);
 
         debugPrint(
-          'PostRepository: AI detection outcome: label=${result.result}, '
-          'labelConfidence=$labelConfidence% -> aiProbability=$aiProbability%',
+          'PostRepository: AI detection outcome: label=${representativeResult.result}, '
+          'labelConfidence=$labelConfidence% -> aiProbability=$aiProbability% '
+          '(items=${detectionResults.length}, aiDetected=${aiDetectedResults.length})',
         );
 
-        // Map AI probability to score status & post status (aligned with API docs ✅)
+        // Map AI probability to score status & post status.
         String scoreStatus;
         String postStatus;
-        String? authenticityNotes = result.rationale;
+        String? authenticityNotes = representativeResult.rationale;
 
-        // Check standalone moderation result first
-        final mod = result.moderation;
-        final bool isModerationFlagged = mod?.flagged ?? false;
+        // Check moderation across all analyzed items.
+        final moderationFlaggedResults = detectionResults.where(
+          (r) => r.moderation?.flagged ?? false,
+        );
+        final bool isModerationFlagged = moderationFlaggedResults.isNotEmpty;
+        final modSource = isModerationFlagged
+            ? moderationFlaggedResults.first
+            : representativeResult;
+        final mod = modSource.moderation;
+        final bool hasModerationHardBlock = detectionResults.any((r) {
+          final action = r.moderation?.recommendedAction;
+          return action == 'block' || action == 'block_and_report';
+        });
 
-        // Best Practice Thresholds from docs: 95 BLOCK, 75 FLAG, 60 LABEL
         if (isModerationFlagged) {
           scoreStatus = 'flagged';
-          // Follow recommended action
-          if (mod?.recommendedAction == 'block' ||
-              mod?.recommendedAction == 'block_and_report') {
+          if (hasModerationHardBlock) {
             postStatus = 'deleted';
           } else {
             postStatus = 'under_review';
           }
           authenticityNotes =
               'CONTENT MODERATION: ${mod?.details ?? "Harmful content detected"}';
+        } else if (hasAnyAiDetected) {
+          scoreStatus = 'flagged';
+          postStatus = 'deleted';
+          authenticityNotes =
+              'AI CONTENT DETECTED IN ATTACHED MEDIA (${aiDetectedResults.length}/${detectionResults.length})';
         } else if (isAiResult && labelConfidence >= 95) {
           scoreStatus = 'flagged';
-          postStatus = 'deleted'; // Auto-block
+          postStatus = 'deleted';
         } else if (isAiResult && labelConfidence >= 75) {
           scoreStatus = 'flagged';
-          postStatus = 'under_review'; // Flag for review
+          postStatus = 'under_review';
         } else if (isAiResult && labelConfidence >= 60) {
           scoreStatus = 'review';
-          postStatus = 'published'; // Label for transparency
+          postStatus = 'published';
           authenticityNotes =
               'POTENTIAL AI CONTENT: ${labelConfidence.toStringAsFixed(1)}% [REVIEW]';
         } else {
           scoreStatus = 'pass';
-          postStatus = 'published'; // Auto-publish
+          postStatus = 'published';
         }
 
-        // --- Advertisement Detection ---
-        // Only applies when content is not already blocked/under_review by
-        // AI or moderation checks.
-        final ad = result.advertisement;
-        final requiresAdPayment =
-            (ad?.requiresPayment ?? false) ||
-            result.policyRequiresPayment ||
-            result.policyAction == 'require_payment';
-        final adFlaggedForReview =
-            (ad?.flaggedForReview ?? false) ||
-            result.policyAction == 'flag_for_review';
+        // Advertisement checks apply only when content is publishable.
+        final adCarrier = detectionResults.firstWhere(
+          (r) =>
+              (r.advertisement?.requiresPayment ?? false) ||
+              r.policyRequiresPayment ||
+              r.policyAction == 'require_payment' ||
+              (r.advertisement?.flaggedForReview ?? false) ||
+              r.policyAction == 'flag_for_review',
+          orElse: () => representativeResult,
+        );
+        final ad = adCarrier.advertisement;
+        final requiresAdPayment = detectionResults.any(
+          (r) =>
+              (r.advertisement?.requiresPayment ?? false) ||
+              r.policyRequiresPayment ||
+              r.policyAction == 'require_payment',
+        );
+        final adFlaggedForReview = detectionResults.any(
+          (r) =>
+              (r.advertisement?.flaggedForReview ?? false) ||
+              r.policyAction == 'flag_for_review',
+        );
         if (postStatus == 'published' && requiresAdPayment) {
           debugPrint(
-            'PostRepository: Advertisement detected — confidence='
+            'PostRepository: Advertisement detected - confidence='
             '${ad?.confidence ?? 0.0}%, type=${ad?.type ?? "advertisement"}, '
-            'action=${ad?.action ?? result.policyAction}',
+            'action=${ad?.action ?? adCarrier.policyAction}',
           );
 
-          // Hold the post until the user pays the ad fee.
-          // DB enum does not support `pending_ad_payment`, so use `draft`.
           await _client
               .from(SupabaseConfig.postsTable)
-              .update({'status': 'draft'})
+              .update({'status': 'draft', 'is_advertisement': true})
               .eq('id', postId);
 
           final adConfidence = ad?.confidence ?? 0.0;
           final adType = ad?.type ?? 'advertisement';
 
-          // Notify the caller so they can show the payment dialog.
+          String? advertisementId;
+          try {
+            final adRow = await _client
+                .from('advertisements')
+                .insert({
+                  'user_id': authorId,
+                  'content_type': 'post',
+                  'content_id': postId,
+                  'status': 'pending_payment',
+                  'amount_paid': 0,
+                  'detection_confidence': adConfidence,
+                  'detection_type': adType,
+                  'detection_evidence': ad?.toJson() != null
+                      ? [ad!.toJson()]
+                      : [],
+                })
+                .select('id')
+                .single();
+            advertisementId = adRow['id'] as String?;
+          } catch (e) {
+            debugPrint(
+              'PostRepository: Failed to insert advertisements row - $e',
+            );
+          }
+
           bool feePaid = false;
           if (onAdFeeRequired != null) {
             feePaid = await onAdFeeRequired(adConfidence, adType);
           }
 
           if (feePaid) {
-            // User paid — publish the post and record the spend.
             postStatus = 'published';
             authenticityNotes =
                 'ADVERTISEMENT: ${adConfidence.toStringAsFixed(1)}% confidence '
-                '($adType) — ad fee paid';
+                '($adType) - ad fee paid';
+            if (advertisementId != null) {
+              try {
+                await _client
+                    .from('advertisements')
+                    .update({
+                      'status': 'paid',
+                      'paid_at': DateTime.now().toUtc().toIso8601String(),
+                    })
+                    .eq('id', advertisementId);
+              } catch (e) {
+                debugPrint(
+                  'PostRepository: Failed to update advertisements row to paid - $e',
+                );
+              }
+            }
             await _broadcastSponsoredPostNotification(
               postId: postId,
               authorId: authorId,
               adType: adType,
             );
           } else {
-            // User declined — keep post held; they can pay later from their profile.
             postStatus = 'draft';
             authenticityNotes =
                 'ADVERTISEMENT: ${adConfidence.toStringAsFixed(1)}% confidence '
-                '($adType) — awaiting ad fee payment';
+                '($adType) - awaiting ad fee payment';
           }
         } else if (postStatus == 'published' && adFlaggedForReview) {
-          // 40-69% — possible ad, label it but still publish.
           final adConfidence = ad?.confidence ?? 0.0;
           authenticityNotes =
               (authenticityNotes != null ? '$authenticityNotes | ' : '') +
@@ -1797,8 +2039,6 @@ class PostRepository {
         }
 
         if (postStatus == 'published') {
-          // Addition: Auto-label as sensitive if moderation flagged categories like 'sexual' or 'violence'
-          // but recommended action was 'allow' or 'warn'.
           final bool shouldAutoLabelSensitive =
               isModerationFlagged &&
               (mod?.categories['sexual'] == true ||
@@ -1819,7 +2059,7 @@ class PostRepository {
             await _awardDailyPostRoo(walletRepo, authorId, postId);
           } catch (e) {
             debugPrint(
-              'PostRepository: Error awarding ROOK on auto-publish - $e',
+              'PostRepository: Error awarding ROO on auto-publish - $e',
             );
           }
         }
@@ -1829,38 +2069,37 @@ class PostRepository {
           confidence: aiProbability,
           scoreStatus: scoreStatus,
           postStatus: postStatus,
-          analysisId: result.analysisId,
-          verificationMethod: result.contentType,
+          analysisId: representativeResult.analysisId,
+          verificationMethod: representativeResult.contentType,
           authenticityNotes: authenticityNotes,
           aiMetadata: {
-            'consensus_strength': result.consensusStrength,
-            'rationale': result.rationale,
-            'combined_evidence': result.combinedEvidence,
-            'classification': result.result,
-            'safety_score': result.safetyScore,
-            'metadata_signals': result.metadataAnalysis?.signals,
-            'metadata_adjustment': result.metadataAnalysis?.adjustment,
-            'model_results': result.modelResults
+            'consensus_strength': representativeResult.consensusStrength,
+            'rationale': representativeResult.rationale,
+            'combined_evidence': representativeResult.combinedEvidence,
+            'classification': representativeResult.result,
+            'safety_score': representativeResult.safetyScore,
+            'metadata_signals': representativeResult.metadataAnalysis?.signals,
+            'metadata_adjustment':
+                representativeResult.metadataAnalysis?.adjustment,
+            'model_results': representativeResult.modelResults
                 ?.map((e) => e.toJson())
                 .toList(),
-            if (result.advertisement != null)
-              'advertisement': result.advertisement!.toJson(),
+            'analyzed_media_count': detectionResults.length,
+            'ai_detected_media_count': aiDetectedResults.length,
+            if (representativeResult.advertisement != null)
+              'advertisement': representativeResult.advertisement!.toJson(),
           },
         );
 
-        // Send notification to author about AI check result
         await _sendAiResultNotification(
           userId: authorId,
           postId: postId,
           postStatus: postStatus,
           aiProbability: aiProbability,
-          isModerationBlock: isModerationFlagged &&
-              (mod?.recommendedAction == 'block' ||
-                  mod?.recommendedAction == 'block_and_report'),
+          isModerationBlock: isModerationFlagged && hasModerationHardBlock,
           moderationDetails: mod?.details,
         );
 
-        // Automatically create a moderation case if flagged or review required
         if (scoreStatus == 'flagged' ||
             scoreStatus == 'review' ||
             isModerationFlagged) {
@@ -1868,17 +2107,19 @@ class PostRepository {
             postId: postId,
             authorId: authorId,
             aiConfidence: aiProbability,
-            aiModel: result.analysisId,
+            aiModel: representativeResult.analysisId,
             aiMetadata: {
-              'model_results': result.modelResults
+              'model_results': representativeResult.modelResults
                   ?.map((e) => e.toJson())
                   .toList(),
-              'consensus_strength': result.consensusStrength,
-              'rationale': result.rationale,
-              'combined_evidence': result.combinedEvidence,
-              'classification': result.result,
-              'moderation': result.moderation?.toJson(),
-              'safety_score': result.safetyScore,
+              'consensus_strength': representativeResult.consensusStrength,
+              'rationale': representativeResult.rationale,
+              'combined_evidence': representativeResult.combinedEvidence,
+              'classification': representativeResult.result,
+              'moderation': representativeResult.moderation?.toJson(),
+              'safety_score': representativeResult.safetyScore,
+              'analyzed_media_count': detectionResults.length,
+              'ai_detected_media_count': aiDetectedResults.length,
             },
           );
         }
@@ -1936,6 +2177,29 @@ class PostRepository {
             .toList();
 
         await _client.from(SupabaseConfig.notificationsTable).insert(payload);
+
+        // Record each notified user in advertisement_recipients.
+        final recipientPayload = users
+            .map(
+              (uid) => {
+                'content_type': 'post',
+                'content_id': postId,
+                'author_id': authorId,
+                'user_id': uid,
+                'match_score': 0,
+                'selection_reason': 'sponsored_broadcast',
+              },
+            )
+            .toList();
+        try {
+          await _client
+              .from('advertisement_recipients')
+              .insert(recipientPayload);
+        } catch (e) {
+          debugPrint(
+            'PostRepository: Failed to insert advertisement_recipients - $e',
+          );
+        }
 
         if (users.length < pageSize) break;
         offset += pageSize;
@@ -2064,6 +2328,39 @@ class PostRepository {
     }
   }
 
+  Future<void> _notifyAuthorPostPublished({
+    required String userId,
+    required String postId,
+    String? title,
+    String? body,
+  }) async {
+    try {
+      final trimmedTitle = title?.trim();
+      final trimmedBody = body?.trim();
+      final preview = (trimmedTitle != null && trimmedTitle.isNotEmpty)
+          ? trimmedTitle
+          : (trimmedBody != null && trimmedBody.isNotEmpty)
+          ? (trimmedBody.length > 50
+                ? '${trimmedBody.substring(0, 50)}...'
+                : trimmedBody)
+          : '';
+
+      await _notificationRepository.createNotification(
+        userId: userId,
+        type: 'post_published',
+        title: 'Post Published',
+        body: preview.isNotEmpty
+            ? 'Your post "$preview" is now live.'
+            : 'Your post is now live.',
+        postId: postId,
+      );
+    } catch (e) {
+      debugPrint(
+        'PostRepository: Failed to notify author for published post $postId - $e',
+      );
+    }
+  }
+
   /// Award 0.01 ROO for the daily post reward — once per calendar day per user.
   /// Skips silently if the user already received the reward today.
   Future<void> _awardDailyPostRoo(
@@ -2085,7 +2382,7 @@ class PostRepository {
     final alreadyRewarded = (todaysTxs as List).any((tx) {
       final metadata = tx['metadata'];
       if (metadata is Map) {
-        return metadata['activityType'] == RookenActivityType.postCreate;
+        return metadata['activityType'] == RoobitActivityType.postCreate;
       }
       return false;
     });
@@ -2099,9 +2396,8 @@ class PostRepository {
 
     await walletRepo.earnRoo(
       userId: userId,
-      activityType: RookenActivityType.postCreate,
+      activityType: RoobitActivityType.postCreate,
       referencePostId: postId,
     );
   }
 }
-

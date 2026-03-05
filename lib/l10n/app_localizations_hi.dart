@@ -126,15 +126,13 @@ class AppLocalizationsHi extends AppLocalizations {
   String get typeDeleteConfirm => 'पुष्टि करने के लिए DELETE टाइप करें।';
 
   @override
-  String get accountDeletionRequested =>
-      'खाता हटाने का अनुरोध किया गया। आपको लॉग आउट कर दिया गया है।';
+  String get accountDeletionRequested => 'खाता हटाने का अनुरोध किया गया। आपको लॉग आउट कर दिया गया है।';
 
   @override
   String get pleaseTypeDelete => 'पुष्टि करने के लिए कृपया DELETE टाइप करें';
 
   @override
-  String get aboutROOVERSEDescription =>
-      'ROOVERSE – मानव-केंद्रित सोशल प्लेटफ़ॉर्म\n\nसंस्करण 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription => 'ROOVERSE – मानव-केंद्रित सोशल प्लेटफ़ॉर्म\n\nसंस्करण 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'लॉग इन';
@@ -590,8 +588,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle =>
-      'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -835,4 +832,148 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get paymentFailed => 'Payment Failed';
+
+  @override
+  String get passwordRequired => 'पासवर्ड आवश्यक है';
+
+  @override
+  String get invalidEmailOrPassword => 'ईमेल या पासवर्ड अमान्य है';
+
+  @override
+  String get unableToStartGoogleLogin => 'Google लॉगिन शुरू नहीं हो सका';
+
+  @override
+  String get pleaseEnterPhoneNumber => 'कृपया अपना फ़ोन नंबर दर्ज करें';
+
+  @override
+  String get pleaseEnterValidPhoneNumber => 'कृपया एक वैध फ़ोन नंबर दर्ज करें';
+
+  @override
+  String get failedToSendLoginCode => 'लॉगिन कोड भेजने में विफल';
+
+  @override
+  String get verifyAndLogin => 'सत्यापित करें और लॉगिन करें';
+
+  @override
+  String get sendCode => 'कोड भेजें';
+
+  @override
+  String get failedToSendVerificationCode => 'सत्यापन कोड भेजने में विफल';
+
+  @override
+  String get verifyCode => 'कोड सत्यापित करें';
+
+  @override
+  String get enterPhone => 'फ़ोन दर्ज करें';
+
+  @override
+  String get enterVerificationCode => 'सत्यापन कोड दर्ज करें';
+
+  @override
+  String get enterPhoneForSms => 'SMS के माध्यम से सत्यापन कोड प्राप्त करने के लिए अपना फ़ोन नंबर दर्ज करें।';
+
+  @override
+  String get forgotPassword => 'पासवर्ड भूल गए?';
+
+  @override
+  String get enterYourEmail => 'अपना ईमेल दर्ज करें';
+
+  @override
+  String get enterNewPassword => 'नया पासवर्ड दर्ज करें';
+
+  @override
+  String get confirmPassword => 'पासवर्ड की पुष्टि करें';
+
+  @override
+  String get confirmYourPassword => 'अपना पासवर्ड कन्फर्म करें';
+
+  @override
+  String get resetPassword => 'पासवर्ड रीसेट करें';
+
+  @override
+  String get passwordReset => 'पासवर्ड रीसेट हो गया!';
+
+  @override
+  String get backToLogin => 'लॉगिन पर वापस जाएं';
+
+  @override
+  String get online => 'ऑनलाइन';
+
+  @override
+  String get offline => 'ऑफ़लाइन';
+
+  @override
+  String get available => 'उपलब्ध';
+
+  @override
+  String get lifetimeEarned => 'जीवनकाल में अर्जित';
+
+  @override
+  String get enterRooAmount => 'ROO राशि दर्ज करें';
+
+  @override
+  String get recipient => 'प्राप्तकर्ता';
+
+  @override
+  String get verificationPendingSendRoo => 'आपका सत्यापन लंबित है। अनुमोदन के बाद आप ROO भेज सकते हैं।';
+
+  @override
+  String get completeVerificationToSendRoo => 'ROO भेजने के लिए कृपया पहचान सत्यापन पूर्ण करें।';
+
+  @override
+  String get cannotSendRooToSelf => 'आप अपने स्वयं के खाते में ROO नहीं भेज सकते';
+
+  @override
+  String get availableBalance => 'उपलब्ध शेष';
+
+  @override
+  String get locationPermissionDenied => 'स्थान अनुमति अस्वीकृत';
+
+  @override
+  String get locationPermissionPermanentlyDenied => 'स्थान अनुमति स्थायी रूप से अस्वीकृत';
+
+  @override
+  String get mustBeLoggedInToBoost => 'पोस्ट को बूस्ट करने के लिए आपको लॉगिन होना चाहिए।';
+
+  @override
+  String get verificationPendingTip => 'आपका सत्यापन लंबित है। अनुमोदन के बाद आप टिप दे सकते हैं।';
+
+  @override
+  String get cannotTipOwnPost => 'आप अपनी खुद की पोस्ट को टिप नहीं दे सकते';
+
+  @override
+  String get enterAmount => 'राशि दर्ज करें';
+
+  @override
+  String get postUnderReview => 'यह पोस्ट समीक्षाधीन है।';
+
+  @override
+  String get sensitiveContent => 'संवेदनशील सामग्री';
+
+  @override
+  String get deleteCommentConfirmation => 'क्या आप वाकई इस टिप्पणी को हटाना चाहते हैं? इसे पूर्ववत नहीं किया जा सकता।';
+
+  @override
+  String get commentUnderReview => 'टिप्पणी समीक्षाधीन है।';
+
+  @override
+  String get storiesEmpty => 'जिन लोगों को आप फ़ॉलो करते हैं उनकी कहानियाँ यहाँ दिखाई देंगी';
+
+  @override
+  String get textStoryWordLimit => 'टेक्स्ट कहानियाँ 250 शब्दों तक सीमित हैं।';
+
+  @override
+  String get createStory => 'कहानी बनाएं';
+
+  @override
+  String get clickToUpload => 'अपलोड करने के लिए क्लिक करें';
+
+  @override
+  String get imageOrVideoMax => 'छवि या वीडियो (अधिकतम 15 सेकंड)';
+
+  @override
+  String get commentNotPublishedAi => 'आपकी टिप्पणी प्रकाशित नहीं की गई। हमारे AI ने पता लगाया कि यह हमारी नीतियों का उल्लंघन कर सकती है।';
+
+  @override
+  String get commentUnderReviewExtended => 'आपकी टिप्पणी समीक्षाधीन है। अनुमोदन के बाद यह दिखाई देगी।';
 }

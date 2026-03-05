@@ -7,8 +7,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'supabase_service.dart';
 
-/// Service for interacting with the Rooken API
-class RookenService {
+/// Service for interacting with the Roobit API
+class RoobitService {
   static const String baseUrl = 'https://roocoin-production.up.railway.app';
   static const Duration _sendTimeout = Duration(seconds: 90);
 
@@ -20,7 +20,7 @@ class RookenService {
     }
     // Don't log full key for security
     debugPrint(
-      'RookenService: Using API key: ${key.substring(0, math.min(10, key.length))}...',
+      'RoobitService: Using API key: ${key.substring(0, math.min(10, key.length))}...',
     );
     return key;
   }
@@ -50,7 +50,7 @@ class RookenService {
       maskedHeaders['Authorization'] = 'Bearer ***';
     }
 
-    debugPrint('RookenService: Computed headers: $maskedHeaders');
+    debugPrint('RoobitService: Computed headers: $maskedHeaders');
     return headers;
   }
 
@@ -129,7 +129,7 @@ class RookenService {
 
         final delay = Duration(milliseconds: 2000 * attempts); // 2s, 4s, 6s...
         debugPrint(
-          'RookenService: $operationName failed (replacement underpriced). Retrying in ${delay.inSeconds}s (Attempt $attempts/$maxRetries)',
+          'RoobitService: $operationName failed (replacement underpriced). Retrying in ${delay.inSeconds}s (Attempt $attempts/$maxRetries)',
         );
         await Future.delayed(delay);
       }
@@ -137,7 +137,7 @@ class RookenService {
   }
 
   /// Give test tokens to a wallet (testnet only)
-  /// Default: 100 ROOK
+  /// Default: 100 ROO
   Future<Map<String, dynamic>> requestFaucet({
     required String address,
     double amount = 100.0,
@@ -177,7 +177,7 @@ class RookenService {
         as Map<String, dynamic>;
   }
 
-  /// Deduct ROOK for platform actions
+  /// Deduct ROO for platform actions
   /// Check balance first
   /// Returns remaining balance
   Future<Map<String, dynamic>> spend({
@@ -212,18 +212,18 @@ class RookenService {
               return data;
             } else {
               throw Exception(
-                'Failed to spend ROOK: ${response.statusCode} - ${response.body}',
+                'Failed to spend ROO: ${response.statusCode} - ${response.body}',
               );
             }
           } catch (e) {
-            debugPrint('Error spending ROOK: $e');
+            debugPrint('Error spending ROO: $e');
             rethrow;
           }
         }, operationName: 'spend')
         as Map<String, dynamic>;
   }
 
-  /// Peer-to-peer transfer - User sends ROOK to another user on the platform
+  /// Peer-to-peer transfer - User sends ROO to another user on the platform
   /// This endpoint is preferred for user-to-user transfers as it handles gas more efficiently.
   Future<Map<String, dynamic>> send({
     required String fromPrivateKey,
@@ -245,9 +245,9 @@ class RookenService {
               if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
             };
 
-            debugPrint('RookenService: Sending ROOK via /api/wallet/send');
+            debugPrint('RoobitService: Sending ROO via /api/wallet/send');
             debugPrint(
-              'RookenService: Request Body: ${json.encode({...body, 'fromPrivateKey': '0x***${fromPrivateKey.substring(math.min(fromPrivateKey.length, 5))}'})}',
+              'RoobitService: Request Body: ${json.encode({...body, 'fromPrivateKey': '0x***${fromPrivateKey.substring(math.min(fromPrivateKey.length, 5))}'})}',
             );
 
             final response = await http.post(
@@ -269,24 +269,24 @@ class RookenService {
               return data;
             } else {
               throw Exception(
-                'Failed to send ROOK: ${response.statusCode} - ${response.body}',
+                'Failed to send ROO: ${response.statusCode} - ${response.body}',
               );
             }
           } on TimeoutException catch (e) {
-            debugPrint('Error sending ROOK (timeout): $e');
+            debugPrint('Error sending ROO (timeout): $e');
             throw Exception(
               'Transfer confirmation is taking longer than expected. '
               'Please check your transaction history shortly.',
             );
           } catch (e) {
-            debugPrint('Error sending ROOK: $e');
+            debugPrint('Error sending ROO: $e');
             rethrow;
           }
         }, operationName: 'send')
         as Map<String, dynamic>;
   }
 
-  /// Transfer ROOK to external wallet (e.g., MetaMask)
+  /// Transfer ROO to external wallet (e.g., MetaMask)
 
   /// Distribute rewards to a user for activities
   Future<Map<String, dynamic>> distributeReward({
@@ -299,7 +299,7 @@ class RookenService {
             final headers = getHeaders();
 
             debugPrint(
-              'RookenService: Requesting reward with headers: $headers',
+              'RoobitService: Requesting reward with headers: $headers',
             );
 
             final response = await http.post(
@@ -313,9 +313,9 @@ class RookenService {
             );
 
             debugPrint(
-              'RookenService: Response status: ${response.statusCode}',
+              'RoobitService: Response status: ${response.statusCode}',
             );
-            debugPrint('RookenService: Response body: ${response.body}');
+            debugPrint('RoobitService: Response body: ${response.body}');
 
             if (response.statusCode == 200) {
               final data = json.decode(response.body) as Map<String, dynamic>;
@@ -330,17 +330,17 @@ class RookenService {
               return data;
             } else if (response.statusCode == 403) {
               debugPrint(
-                'RookenService: API authentication failed. Please check ROOCOIN_API_KEY configuration.',
+                'RoobitService: API authentication failed. Please check ROOCOIN_API_KEY configuration.',
               );
               throw Exception(
-                'Rooken API authentication failed (403 - Invalid Token). Key rejected by server.',
+                'Roobit API authentication failed (403 - Invalid Token). Key rejected by server.',
               );
             } else if (response.statusCode == 401) {
               debugPrint(
-                'RookenService: API authentication failed (401). Header issue?',
+                'RoobitService: API authentication failed (401). Header issue?',
               );
               throw Exception(
-                'Rooken API authentication failed (401 - No token).',
+                'Roobit API authentication failed (401 - No token).',
               );
             } else {
               throw Exception(
@@ -407,15 +407,15 @@ class RookenService {
   }
 }
 
-/// Activity types for Rooken rewards
-class RookenActivityType {
-  static const String postCreate = 'POST_CREATE'; // 0.01 ROOK per day (one reward per calendar day)
-  static const String postLike = 'POST_LIKE'; // 0.01 ROOK (liker earns)
+/// Activity types for Roobit rewards
+class RoobitActivityType {
+  static const String postCreate = 'POST_CREATE'; // 0.01 ROO per day (one reward per calendar day)
+  static const String postLike = 'POST_LIKE'; // 0.01 ROO (liker earns)
   static const String postComment = 'POST_COMMENT'; // engagement reward
   static const String postShare = 'POST_SHARE'; // engagement reward
-  static const String referral = 'REFERRAL'; // 10 ROOK (after full registration + verification)
-  static const String profileComplete = 'PROFILE_COMPLETE'; // 5 ROOK
-  static const String contentViral = 'CONTENT_VIRAL'; // 1 ROOK per 1,000 engagements
+  static const String referral = 'REFERRAL'; // 10 ROO (after full registration + verification)
+  static const String profileComplete = 'PROFILE_COMPLETE'; // 5 ROO
+  static const String contentViral = 'CONTENT_VIRAL'; // 1 ROO per 1,000 engagements
   static const String dailyLogin = 'DAILY_LOGIN'; // daily login bonus
   static const String welcomeBonus = 'WELCOME_BONUS'; // one-time signup bonus
   static const String adFee = 'AD_FEE'; // fee charged when post is detected as advertisement

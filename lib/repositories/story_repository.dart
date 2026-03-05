@@ -230,7 +230,8 @@ class StoryRepository {
             metadata: {
               'media_type': story.mediaType,
               'has_caption': (story.caption?.trim().isNotEmpty ?? false),
-              'has_text_overlay': (story.textOverlay?.trim().isNotEmpty ?? false),
+              'has_text_overlay':
+                  (story.textOverlay?.trim().isNotEmpty ?? false),
             },
           ),
         );
@@ -342,41 +343,78 @@ class StoryRepository {
   }) async {
     try {
       // First verify ownership
-      final story = await _client
+      final storyRows = await _client
           .from(SupabaseConfig.storiesTable)
           .select('user_id')
           .eq('id', storyId)
-          .maybeSingle();
+          .limit(1);
+      final story = (storyRows as List).isNotEmpty
+          ? storyRows.first
+          : null;
 
       if (story == null || story['user_id'] != userId) {
         debugPrint('StoryRepository: Story not found or not owned by user');
         return false;
       }
 
-      // Delete related records first
+      // Delete related records first (order matters for FK constraints)
       // Delete story views
       await _client
           .from(SupabaseConfig.storyViewsTable)
           .delete()
           .eq('story_id', storyId);
 
-      // Delete moderation cases
+      // Delete reactions on this story
       await _client
-          .from(SupabaseConfig.moderationCasesTable)
+          .from(SupabaseConfig.reactionsTable)
           .delete()
           .eq('story_id', storyId);
 
+      // Keep moderation case history while detaching FK dependency to this story.
+      final modCases = await _client
+          .from(SupabaseConfig.moderationCasesTable)
+          .select('id')
+          .eq('story_id', storyId) as List<dynamic>;
+      final modCaseIds = modCases
+          .map((r) => (r as Map<String, dynamic>)['id'] as String)
+          .toList();
+      if (modCaseIds.isNotEmpty) {
+        await _client
+            .from(SupabaseConfig.userReportsTable)
+            .delete()
+            .inFilter('moderation_case_id', modCaseIds);
+      }
+      await _client
+          .from(SupabaseConfig.moderationCasesTable)
+          .update({'story_id': null})
+          .eq('story_id', storyId);
+
       // Finally delete the story
-      final deleted = await _client
+      final deletedRows = await _client
           .from(SupabaseConfig.storiesTable)
           .delete()
           .eq('id', storyId)
-          .select('id')
-          .maybeSingle();
+          .select('id');
 
-      return deleted != null;
+      return (deletedRows as List).isNotEmpty;
     } catch (e) {
       debugPrint('StoryRepository: failed to delete story - $e');
+      return false;
+    }
+  }
+
+  /// Delete a flagged story using DB-side RPC for stronger FK/RLS handling.
+  Future<bool> deleteFlaggedStoryViaRpc({
+    required String storyId,
+  }) async {
+    try {
+      final result = await _client.rpc(
+        'delete_flagged_story',
+        params: {'p_story_id': storyId},
+      );
+      return result == true;
+    } catch (e) {
+      debugPrint('StoryRepository: deleteFlaggedStoryViaRpc error - $e');
       return false;
     }
   }
@@ -443,7 +481,7 @@ class StoryRepository {
       if (!hasText && !hasMedia) {
         // No content to detect, consider it passed
         await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
-        return {'score': 0.0, 'status': 'pass'};
+        return {'score': 0.0, 'status': 'pass', 'isAiDetected': false};
       }
 
       AiDetectionResult? result;
@@ -493,10 +531,8 @@ class StoryRepository {
         String status;
         if (isModerationFlagged) {
           status = 'flagged';
-        } else if (isAi && labelConfidence >= 75) {
+        } else if (isAi) {
           status = 'flagged';
-        } else if (isAi && labelConfidence >= 60) {
-          status = 'review';
         } else {
           status = 'pass';
         }
@@ -504,8 +540,62 @@ class StoryRepository {
           final adConfidence = ad?.confidence ?? 0.0;
           final adType = ad?.type ?? 'advertisement';
 
+          // Mark the story as an advertisement and record it.
+          try {
+            await _client
+                .from('stories')
+                .update({'is_advertisement': true})
+                .eq('id', storyId);
+          } catch (e) {
+            debugPrint(
+              'StoryRepository: Failed to set is_advertisement on story - $e',
+            );
+          }
+
+          // Insert into advertisements table as pending_payment.
+          String? advertisementId;
+          try {
+            final adRow = await _client
+                .from('advertisements')
+                .insert({
+                  'user_id': authorId,
+                  'content_type': 'story',
+                  'content_id': storyId,
+                  'status': 'pending_payment',
+                  'amount_paid': 0,
+                  'detection_confidence': adConfidence,
+                  'detection_type': adType,
+                  'detection_evidence': ad?.toJson() != null
+                      ? [ad!.toJson()]
+                      : [],
+                })
+                .select('id')
+                .single();
+            advertisementId = adRow['id'] as String?;
+          } catch (e) {
+            debugPrint(
+              'StoryRepository: Failed to insert advertisements row - $e',
+            );
+          }
+
           if (onAdFeeRequired != null) {
             adFeePaid = await onAdFeeRequired(adConfidence, adType);
+          }
+
+          if (adFeePaid && advertisementId != null) {
+            try {
+              await _client
+                  .from('advertisements')
+                  .update({
+                    'status': 'paid',
+                    'paid_at': DateTime.now().toUtc().toIso8601String(),
+                  })
+                  .eq('id', advertisementId);
+            } catch (e) {
+              debugPrint(
+                'StoryRepository: Failed to mark advertisement as paid - $e',
+              );
+            }
           }
 
           if (!adFeePaid) {
@@ -537,7 +627,8 @@ class StoryRepository {
             'safety_score': result.safetyScore,
             if (requiresAdPayment) 'ad_fee_required': true,
             if (requiresAdPayment) 'ad_fee_paid': adFeePaid,
-            if (result.policyAction != null) 'policy_action': result.policyAction,
+            if (result.policyAction != null)
+              'policy_action': result.policyAction,
             'policy_requires_payment': result.policyRequiresPayment,
             if (result.advertisement != null)
               'advertisement': result.advertisement!.toJson(),
@@ -577,7 +668,7 @@ class StoryRepository {
           );
         }
 
-        return {'score': aiProbability, 'status': status};
+        return {'score': aiProbability, 'status': status, 'isAiDetected': isAi};
       } else {
         // Failed detection: don't leave stories stuck under review.
         await _updateAiScore(storyId: storyId, confidence: 0.0, status: 'pass');
@@ -587,7 +678,7 @@ class StoryRepository {
           storyStatus: 'pass',
           aiProbability: 0.0,
         );
-        return {'score': 0.0, 'status': 'pass'};
+        return {'score': 0.0, 'status': 'pass', 'isAiDetected': false};
       }
     } catch (e) {
       if (e is TimeoutException) {
@@ -637,7 +728,7 @@ class StoryRepository {
           );
         }
 
-        return {'score': 0.0, 'status': 'review'};
+        return {'score': 0.0, 'status': 'review', 'isAiDetected': false};
       }
 
       debugPrint(
@@ -656,7 +747,24 @@ class StoryRepository {
           'StoryRepository: Failed to apply fallback pass status for story $storyId - $inner',
         );
       }
-      return {'score': 0.0, 'status': 'pass'};
+      return {'score': 0.0, 'status': 'pass', 'isAiDetected': false};
+    }
+  }
+
+  Future<void> blockStoriesBatchForAi({required List<String> storyIds}) async {
+    if (storyIds.isEmpty) return;
+    try {
+      await _client
+          .from(SupabaseConfig.storiesTable)
+          .update({
+            'status': 'flagged',
+            'ai_score_status': 'flagged',
+            'authenticity_notes':
+                'Batch blocked: AI content detected in upload.',
+          })
+          .inFilter('id', storyIds);
+    } catch (e) {
+      debugPrint('StoryRepository: failed to block AI batch stories - $e');
     }
   }
 
@@ -694,12 +802,14 @@ class StoryRepository {
     int limit = 50,
   }) async {
     try {
-      final modCases = await _client
-          .from(SupabaseConfig.moderationCasesTable)
-          .select('story_id, created_at')
-          .eq('reported_user_id', userId)
-          .eq('source', 'ai')
-          .order('created_at', ascending: false) as List<dynamic>;
+      final modCases =
+          await _client
+                  .from(SupabaseConfig.moderationCasesTable)
+                  .select('story_id, created_at')
+                  .eq('reported_user_id', userId)
+                  .eq('source', 'ai')
+                  .order('created_at', ascending: false)
+              as List<dynamic>;
 
       final seenStoryIds = <String>{};
       final storyIds = <String>[];
@@ -742,7 +852,9 @@ class StoryRepository {
       return storyIds
           .where((id) => byId.containsKey(id))
           .map((id) => byId[id]!)
-          .where((story) => story.status == 'flagged' || story.status == 'review')
+          .where(
+            (story) => story.status == 'flagged' || story.status == 'review',
+          )
           .take(limit)
           .toList();
     } catch (e) {
@@ -943,6 +1055,29 @@ class StoryRepository {
             .toList();
 
         await _client.from(SupabaseConfig.notificationsTable).insert(payload);
+
+        // Record each notified user in advertisement_recipients.
+        final recipientPayload = users
+            .map(
+              (uid) => {
+                'content_type': 'story',
+                'content_id': storyId,
+                'author_id': authorId,
+                'user_id': uid,
+                'match_score': 0,
+                'selection_reason': 'sponsored_broadcast',
+              },
+            )
+            .toList();
+        try {
+          await _client
+              .from('advertisement_recipients')
+              .insert(recipientPayload);
+        } catch (e) {
+          debugPrint(
+            'StoryRepository: Failed to insert advertisement_recipients - $e',
+          );
+        }
 
         if (users.length < pageSize) break;
         offset += pageSize;

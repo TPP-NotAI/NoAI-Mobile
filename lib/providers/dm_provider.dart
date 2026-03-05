@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show RealtimeChannel, PostgresChangeEvent;
 
+import '../config/supabase_config.dart';
 import '../models/dm_thread.dart';
 import '../models/dm_message.dart';
 import '../services/dm_service.dart';
+import '../services/supabase_service.dart';
 
 class DmProvider extends ChangeNotifier {
   final _dmService = DmService();
+  RealtimeChannel? _threadsChannel;
+  RealtimeChannel? _messagesChannel;
+  String? _realtimeUserId;
 
   List<DmThread> _threads = [];
   List<DmThread> get threads => _threads;
@@ -15,6 +22,7 @@ class DmProvider extends ChangeNotifier {
 
   /// Fetch DM threads from DB.
   Future<void> loadThreads() async {
+    _ensureRealtimeSubscriptions();
     _isLoading = true;
     notifyListeners();
 
@@ -91,5 +99,59 @@ class DmProvider extends ChangeNotifier {
   /// Subscribe to real-time messages for a thread.
   Stream<List<DmMessage>> getMessageStream(String threadId) {
     return _dmService.subscribeToMessages(threadId);
+  }
+
+  void _ensureRealtimeSubscriptions() {
+    final userId = SupabaseService().currentUser?.id;
+    if (userId == null) return;
+    if (_realtimeUserId == userId &&
+        _threadsChannel != null &&
+        _messagesChannel != null) {
+      return;
+    }
+
+    _clearRealtimeSubscriptions();
+    _realtimeUserId = userId;
+
+    _threadsChannel = SupabaseService().client
+        .channel('dm:threads:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: SupabaseConfig.dmThreadsTable,
+          callback: (_) {
+            loadThreads();
+          },
+        )
+        .subscribe();
+
+    _messagesChannel = SupabaseService().client
+        .channel('dm:messages:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: SupabaseConfig.dmMessagesTable,
+          callback: (_) {
+            loadThreads();
+          },
+        )
+        .subscribe();
+  }
+
+  void _clearRealtimeSubscriptions() {
+    if (_threadsChannel != null) {
+      SupabaseService().client.removeChannel(_threadsChannel!);
+      _threadsChannel = null;
+    }
+    if (_messagesChannel != null) {
+      SupabaseService().client.removeChannel(_messagesChannel!);
+      _messagesChannel = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _clearRealtimeSubscriptions();
+    super.dispose();
   }
 }

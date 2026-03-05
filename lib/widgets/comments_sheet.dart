@@ -5,12 +5,15 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:rooverse/models/moderation_result.dart';
 import 'package:rooverse/services/ai_detection_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/supabase_config.dart';
 import '../models/post.dart';
 import '../models/comment.dart';
 import '../providers/feed_provider.dart';
 import '../providers/user_provider.dart';
 import '../repositories/comment_repository.dart';
 import '../services/kyc_verification_service.dart';
+import '../services/supabase_service.dart';
 import 'comment_card.dart';
 import 'mention_autocomplete_field.dart';
 
@@ -35,18 +38,48 @@ class _CommentsSheetState extends State<CommentsSheet> {
   Timer? _textModerationTimer;
   bool _isModeratingText = false;
   ModerationResult? _textModerationResult;
+  RealtimeChannel? _commentsChannel;
 
   File? _selectedMediaFile;
   String? _selectedMediaType; // 'image' or 'video'
   bool _isLoading = true;
   bool _isUploading = false;
   List<Comment>? _loadedComments;
+  Comment? _replyingTo;
 
   @override
   void initState() {
     super.initState();
     _loadComments();
+    _subscribeToCommentUpdates();
     _commentController.addListener(_onCommentTextChanged);
+  }
+
+  void _subscribeToCommentUpdates() {
+    _commentsChannel = SupabaseService().client
+        .channel('comments_sheet:${widget.post.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: SupabaseConfig.commentsTable,
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'post_id',
+            value: widget.post.id,
+          ),
+          callback: (payload) async {
+            final record = payload.newRecord;
+            final status = record['status'] as String?;
+            if (status != 'published' && status != 'approved') return;
+            if (!mounted) return;
+            final feedProvider = context.read<FeedProvider>();
+            await feedProvider.loadCommentsForPost(widget.post.id);
+            final updated = await feedProvider.fetchCommentsForPost(widget.post.id);
+            if (!mounted) return;
+            setState(() => _loadedComments = updated);
+          },
+        )
+        .subscribe();
   }
 
   void _onCommentTextChanged() {
@@ -97,6 +130,9 @@ class _CommentsSheetState extends State<CommentsSheet> {
   void dispose() {
     _commentController.removeListener(_onCommentTextChanged);
     _textModerationTimer?.cancel();
+    if (_commentsChannel != null) {
+      SupabaseService().client.removeChannel(_commentsChannel!);
+    }
     _commentController.dispose();
     _commentFocus.dispose();
     super.dispose();
@@ -188,6 +224,25 @@ class _CommentsSheetState extends State<CommentsSheet> {
     });
   }
 
+  void _startReply(Comment comment) {
+    final mentionPrefix = '@${comment.author.username} ';
+    setState(() {
+      _replyingTo = comment;
+      _commentController.text = mentionPrefix;
+      _commentController.selection = TextSelection.fromPosition(
+        TextPosition(offset: mentionPrefix.length),
+      );
+    });
+    _commentFocus.requestFocus();
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyingTo = null;
+      _commentController.clear();
+    });
+  }
+
   Future<void> _addComment() async {
     if (_commentController.text.trim().isEmpty) {
       return;
@@ -195,6 +250,9 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
     final user = context.read<UserProvider>().currentUser;
     if (user == null) return;
+
+    // Capture and clear reply state before async work
+    final replyParent = _replyingTo;
 
     setState(() => _isUploading = true);
 
@@ -222,6 +280,126 @@ class _CommentsSheetState extends State<CommentsSheet> {
         ? (mediaType == 'video' ? '📹 Video' : '📷 Photo')
         : _commentController.text.trim();
 
+    if (replyParent != null) {
+      // --- Posting a reply ---
+      final tempId = 'r${DateTime.now().millisecondsSinceEpoch}';
+      final reply = Comment(
+        id: tempId,
+        authorId: user.id,
+        author: CommentAuthor(
+          displayName: user.displayName,
+          username: user.username,
+          isVerified: user.isVerified,
+          avatar: user.avatar,
+        ),
+        text: commentText,
+        timestamp: 'Just now',
+        likes: 0,
+        isLiked: false,
+        mediaUrl: mediaUrl,
+        mediaType: mediaType,
+      );
+
+      context.read<FeedProvider>().addReplyLocally(
+        widget.post.id,
+        replyParent.id,
+        reply,
+      );
+
+      _commentController.clear();
+      _clearSelectedMedia();
+      setState(() {
+        _replyingTo = null;
+        _isUploading = false;
+      });
+      FocusScope.of(context).unfocus();
+
+      try {
+        await context.read<FeedProvider>().addReplyWithMedia(
+          widget.post.id,
+          replyParent.id,
+          commentText,
+          tempId,
+          mediaUrl: mediaUrl,
+          mediaType: mediaType,
+          onAiCheckComplete: (outcome) {
+            if (!mounted) return;
+            if (outcome == 'blocked') {
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Your reply was not published. Our AI detected it may violate our guidelines.',
+                    ),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+            } else if (outcome == 'under_review') {
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Your reply is under review. It will appear once approved.',
+                    ),
+                    backgroundColor: Colors.orange,
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+            }
+          },
+        );
+      } on KycNotVerifiedException catch (e) {
+        await _loadComments();
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(e.message),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 5),
+                action: SnackBarAction(
+                  label: 'Verify',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    if (context.mounted) {
+                      Navigator.pushNamed(context, '/verify');
+                    }
+                  },
+                ),
+              ),
+            );
+        }
+      } on NotActivatedException catch (e) {
+        await _loadComments();
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(e.message),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 5),
+                action: SnackBarAction(
+                  label: 'Buy ROO',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    if (context.mounted) {
+                      Navigator.pushNamed(context, '/wallet');
+                    }
+                  },
+                ),
+              ),
+            );
+        }
+      }
+      return;
+    }
+
+    // --- Posting a top-level comment ---
     final tempId = 'c${DateTime.now().millisecondsSinceEpoch}';
     final newComment = Comment(
       id: tempId,
@@ -241,15 +419,70 @@ class _CommentsSheetState extends State<CommentsSheet> {
     );
 
     context.read<FeedProvider>().addCommentLocally(widget.post.id, newComment);
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('Comment under review.'.tr(context)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+    }
     // Also save to Supabase and update with real ID
+    Comment? savedComment;
     try {
-      await context.read<FeedProvider>().addCommentWithMedia(
+      savedComment = await context.read<FeedProvider>().addCommentWithMedia(
         widget.post.id,
         commentText,
         tempId: tempId,
         mediaUrl: mediaUrl,
         mediaType: mediaType,
+        onAiCheckComplete: (outcome) {
+          if (!mounted) return;
+          if (outcome == 'blocked') {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Your comment was not published. Our AI detected it may violate our guidelines.'.tr(context),
+                  ),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+          } else if (outcome == 'under_review') {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Your comment is under review. It will appear once approved.'.tr(context),
+                  ),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+          }
+        },
       );
+      if (savedComment == null) {
+        // Backend write failed: rollback optimistic UI and notify user.
+        await _loadComments();
+        if (mounted) {
+          setState(() => _isUploading = false);
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text('Failed to post comment'.tr(context)),
+                backgroundColor: Colors.red,
+              ),
+            );
+        }
+        return;
+      }
     } on KycNotVerifiedException catch (e) {
       // Reload comments to clear the optimistic update
       await _loadComments();
@@ -261,6 +494,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
             SnackBar(
               content: Text(e.message),
               backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 5),
               action: SnackBarAction(
                 label: 'Verify',
                 textColor: Colors.white,
@@ -412,409 +646,6 @@ class _CommentsSheetState extends State<CommentsSheet> {
     );
   }
 
-  void _showReplySheet(Comment parentComment) {
-    final mentionPrefix = '@${parentComment.author.username} ';
-    final replyController = TextEditingController(text: mentionPrefix);
-    replyController.selection = TextSelection.fromPosition(
-      TextPosition(offset: mentionPrefix.length),
-    );
-    File? replyMediaFile;
-    String? replyMediaType;
-    bool isReplyUploading = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final theme = Theme.of(context);
-            final colors = theme.colorScheme;
-
-            Future<void> pickReplyMedia(
-              ImageSource source, {
-              bool isVideo = false,
-            }) async {
-              try {
-                XFile? file;
-                if (isVideo) {
-                  file = await _imagePicker.pickVideo(
-                    source: source,
-                    maxDuration: const Duration(minutes: 2),
-                  );
-                } else {
-                  file = await _imagePicker.pickImage(
-                    source: source,
-                    imageQuality: 80,
-                    maxWidth: 1920,
-                    maxHeight: 1920,
-                  );
-                }
-
-                if (file != null) {
-                  setSheetState(() {
-                    replyMediaFile = File(file!.path);
-                    replyMediaType = isVideo ? 'video' : 'image';
-                  });
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to pick media: $e'.tr(context))),
-                  );
-                }
-              }
-            }
-
-            Future<void> submitReply() async {
-              if (replyController.text.trim().isEmpty) {
-                return;
-              }
-
-              final user = context.read<UserProvider>().currentUser;
-              if (user == null) return;
-
-              setSheetState(() => isReplyUploading = true);
-
-              String? mediaUrl;
-              String? mediaType;
-
-              // Upload media if selected
-              if (replyMediaFile != null) {
-                mediaUrl = await _commentRepo.uploadCommentMedia(
-                  file: replyMediaFile!,
-                  userId: user.id,
-                );
-                mediaType = replyMediaType;
-
-                if (mediaUrl == null) {
-                  setSheetState(() => isReplyUploading = false);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to upload media'.tr(context))),
-                    );
-                  }
-                  return;
-                }
-              }
-
-              final replyText = replyController.text.trim().isEmpty
-                  ? (mediaType == 'video' ? '📹 Video' : '📷 Photo')
-                  : replyController.text.trim();
-
-              final tempId = 'r${DateTime.now().millisecondsSinceEpoch}';
-              final reply = Comment(
-                id: tempId,
-                authorId: user.id,
-                author: CommentAuthor(
-                  displayName: user.displayName,
-                  username: user.username,
-                  isVerified: user.isVerified,
-                  avatar: user.avatar,
-                ),
-                text: replyText,
-                timestamp: 'Just now',
-                likes: 0,
-                isLiked: false,
-                mediaUrl: mediaUrl,
-                mediaType: mediaType,
-              );
-
-              context.read<FeedProvider>().addReplyLocally(
-                widget.post.id,
-                parentComment.id,
-                reply,
-              );
-              // Also save to Supabase and update with real ID
-              try {
-                await context.read<FeedProvider>().addReplyWithMedia(
-                  widget.post.id,
-                  parentComment.id,
-                  replyText,
-                  tempId,
-                  mediaUrl: mediaUrl,
-                  mediaType: mediaType,
-                );
-              } on KycNotVerifiedException catch (e) {
-                // Reload comments to clear the optimistic update
-                await context.read<FeedProvider>().loadCommentsForPost(
-                  widget.post.id,
-                );
-                if (mounted) {
-                  setSheetState(() => isReplyUploading = false);
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      SnackBar(
-                        content: Text(e.message),
-                        backgroundColor: Colors.orange,
-                        action: SnackBarAction(
-                          label: 'Verify',
-                          textColor: Colors.white,
-                          onPressed: () {
-                            if (context.mounted) {
-                              Navigator.pushNamed(context, '/verify');
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                }
-                return;
-              } on NotActivatedException catch (e) {
-                // Reload comments to clear the optimistic update
-                await context.read<FeedProvider>().loadCommentsForPost(
-                  widget.post.id,
-                );
-                if (mounted) {
-                  setSheetState(() => isReplyUploading = false);
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      SnackBar(
-                        content: Text(e.message),
-                        backgroundColor: Colors.orange,
-                        duration: const Duration(seconds: 5),
-                        action: SnackBarAction(
-                          label: 'Buy ROO',
-                          textColor: Colors.white,
-                          onPressed: () {
-                            if (context.mounted) {
-                              Navigator.pushNamed(context, '/wallet');
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                }
-                return;
-              }
-
-              Navigator.pop(context);
-              setState(() {});
-            }
-
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: SafeArea(
-                bottom: true,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text('Reply to'.tr(context),
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colors.onSurface,
-                            ),
-                          ),
-                          Spacer(),
-                          IconButton(
-                            icon: Icon(
-                              Icons.close,
-                              color: colors.onSurfaceVariant,
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 12),
-
-                      // Parent comment preview
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colors.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colors.outlineVariant),
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 16,
-                              backgroundImage:
-                                  parentComment.author.avatar != null
-                                  ? NetworkImage(parentComment.author.avatar!)
-                                  : null,
-                              child: parentComment.author.avatar == null
-                                  ? Icon(
-                                      Icons.person,
-                                      color: colors.onSurfaceVariant,
-                                    )
-                                  : null,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    parentComment.author.displayName,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: colors.onSurface,
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    parentComment.text,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colors.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 16),
-
-                      // Media preview for reply
-                      if (replyMediaFile != null) ...[
-                        Container(
-                          height: 120,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: colors.outlineVariant),
-                          ),
-                          child: Stack(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: replyMediaType == 'video'
-                                    ? Container(
-                                        width: double.infinity,
-                                        color: Colors.black,
-                                        child: Center(
-                                          child: Icon(
-                                            Icons.videocam,
-                                            color: Colors.white,
-                                            size: 40,
-                                          ),
-                                        ),
-                                      )
-                                    : Image.file(
-                                        replyMediaFile!,
-                                        fit: BoxFit.cover,
-                                        width: double.infinity,
-                                        height: double.infinity,
-                                      ),
-                              ),
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: GestureDetector(
-                                  onTap: () => setSheetState(() {
-                                    replyMediaFile = null;
-                                    replyMediaType = null;
-                                  }),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Colors.black.withValues(
-                                        alpha: 0.6,
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      Icons.close,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (replyMediaType == 'video')
-                                Positioned(
-                                  bottom: 8,
-                                  left: 8,
-                                  child: Text('Video selected'.tr(context),
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-
-                      // Reply input with media button
-                      Row(
-                        children: [
-                          Expanded(
-                            child: MentionAutocompleteField(
-                              controller: replyController,
-                              autofocus: true,
-                              maxLines: 3,
-                              minLines: 1,
-                              style: TextStyle(color: colors.onSurface),
-                              decoration: InputDecoration(
-                                hintText: 'Write your reply...',
-                                hintStyle: TextStyle(
-                                  color: colors.onSurfaceVariant,
-                                ),
-                                filled: true,
-                                fillColor: colors.surfaceContainerHighest,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: colors.outline),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: colors.primary,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 16),
-
-                      // Reply button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: isReplyUploading ? null : submitReply,
-                          child: isReplyUploading
-                              ? SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text('Reply'.tr(context)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -844,10 +675,19 @@ class _CommentsSheetState extends State<CommentsSheet> {
                   ),
                 ),
                 Spacer(),
-                Text('${widget.post.comments}'.tr(context),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
+                Consumer<FeedProvider>(
+                  builder: (context, feedProvider, _) {
+                    final currentPost = feedProvider.posts.firstWhere(
+                      (p) => p.id == widget.post.id,
+                      orElse: () => widget.post,
+                    );
+                    return Text(
+                      '${currentPost.comments}'.tr(context),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    );
+                  },
                 ),
                 SizedBox(width: 16),
                 IconButton(
@@ -908,8 +748,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                     return CommentCard(
                       comment: comment,
                       postId: widget.post.id,
-                      onReplyTap: (targetComment) =>
-                          _showReplySheet(targetComment),
+                      onReplyTap: _startReply,
                     );
                   },
                 );
@@ -934,6 +773,43 @@ class _CommentsSheetState extends State<CommentsSheet> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Replying-to banner
+                if (_replyingTo != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Replying to ',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                        Text(
+                          '@${_replyingTo!.author.username}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: _cancelReply,
+                          child: Icon(
+                            Icons.close,
+                            size: 16,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Media preview
                 if (_selectedMediaFile != null) ...[
                   Container(

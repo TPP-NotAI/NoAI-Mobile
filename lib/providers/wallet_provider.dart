@@ -4,13 +4,13 @@ import 'package:flutter/foundation.dart';
 import '../core/extensions/exception_extensions.dart';
 import '../models/wallet.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/rooken_service.dart';
+import '../services/roobit_service.dart';
 
 class WalletProvider with ChangeNotifier {
   final WalletRepository _walletRepository;
 
   Wallet? _wallet;
-  List<RookenTransaction> _transactions = [];
+  List<RoobitTransaction> _transactions = [];
   bool _isLoading = false;
   String? _error;
   bool _isNetworkOnline = true;
@@ -20,7 +20,7 @@ class WalletProvider with ChangeNotifier {
     : _walletRepository = walletRepository ?? WalletRepository();
 
   Wallet? get wallet => _wallet;
-  List<RookenTransaction> get transactions => _transactions;
+  List<RoobitTransaction> get transactions => _transactions;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isNetworkOnline => _isNetworkOnline;
@@ -161,7 +161,7 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  /// Spend ROOK (e.g. for creating a post)
+  /// Spend ROO (e.g. for creating a post)
   Future<bool> spendRoo({
     required String userId,
     required double amount,
@@ -193,7 +193,7 @@ class WalletProvider with ChangeNotifier {
       await loadWallet(userId);
       return true;
     } catch (e) {
-      debugPrint('Error spending ROOK: $e');
+      debugPrint('Error spending ROO: $e');
       _error = e.userMessage;
       return false;
     } finally {
@@ -270,7 +270,7 @@ class WalletProvider with ChangeNotifier {
     }
 
     _transactions = [
-      RookenTransaction(
+      RoobitTransaction(
         id: localId,
         txType: txType,
         status: 'pending',
@@ -294,7 +294,7 @@ class WalletProvider with ChangeNotifier {
     if (index == -1) return;
 
     final original = _transactions[index];
-    _transactions[index] = RookenTransaction(
+    _transactions[index] = RoobitTransaction(
       id: original.id,
       txType: original.txType,
       status: 'completed',
@@ -361,7 +361,7 @@ class WalletProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Earn ROOK (e.g. from content creation)
+  /// Earn ROO (e.g. from content creation)
   Future<bool> earnRoo({
     required String userId,
     required double amount,
@@ -386,7 +386,7 @@ class WalletProvider with ChangeNotifier {
       await loadWallet(userId);
       return true;
     } catch (e) {
-      debugPrint('Error earning ROOK: $e');
+      debugPrint('Error earning ROO: $e');
       _error = e.userMessage;
       return false;
     } finally {
@@ -403,7 +403,7 @@ class WalletProvider with ChangeNotifier {
     try {
       await _walletRepository.earnRoo(
         userId: userId,
-        activityType: RookenActivityType.dailyLogin,
+        activityType: RoobitActivityType.dailyLogin,
       );
       await refreshWallet(userId);
     } catch (e) {

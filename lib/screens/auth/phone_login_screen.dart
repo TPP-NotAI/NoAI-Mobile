@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../utils/responsive_extensions.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 class PhoneLoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
 
@@ -25,8 +26,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     6,
     (_) => TextEditingController(),
   );
-  final List<FocusNode> _otpFocusNodes =
-      List.generate(6, (_) => FocusNode());
+  final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
 
   bool _isLoading = false;
   bool _codeSent = false;
@@ -73,12 +73,12 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     final phone = _phoneController.text.trim();
 
     if (phone.isEmpty) {
-      setState(() => _error = 'Please enter your phone number');
+      setState(() => _error = 'Please enter your phone number'.tr(context));
       return;
     }
 
     if (phone.length < 8) {
-      setState(() => _error = 'Please enter a valid phone number');
+      setState(() => _error = 'Please enter a valid phone number'.tr(context));
       return;
     }
 
@@ -100,7 +100,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
       _startResendCooldown();
     } else {
       setState(() {
-        _error = authProvider.error ?? 'Failed to send login code';
+        _error = authProvider.error ?? 'Failed to send login code'.tr(context);
         _isLoading = false;
       });
     }
@@ -109,7 +109,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   Future<void> _verifyCode() async {
     final code = _getOtpCode();
     if (code.length != 6) {
-      setState(() => _error = 'Please enter the 6-digit code');
+      setState(() => _error = 'Please enter the 6-digit code'.tr(context));
       return;
     }
 
@@ -119,10 +119,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     });
 
     final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.verifyLoginOtp(
-      _fullPhoneNumber,
-      code,
-    );
+    final success = await authProvider.verifyLoginOtp(_fullPhoneNumber, code);
 
     if (!mounted) return;
 
@@ -135,7 +132,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
       }
     } else {
       setState(() {
-        _error = authProvider.error ?? 'Invalid verification code';
+        _error = authProvider.error ?? 'Invalid verification code'.tr(context);
         _isLoading = false;
       });
     }
@@ -236,10 +233,13 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
 
                   SizedBox(height: AppSpacing.double_.responsive(context)),
 
-                  Text('Login with Phone'.tr(context),
+                  Text(
+                    'Login with Phone'.tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
-                          context, AppTypography.largeHeading),
+                        context,
+                        AppTypography.largeHeading,
+                      ),
                       fontWeight: FontWeight.bold,
                       color: scheme.onSurface,
                     ),
@@ -247,10 +247,14 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
 
                   SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
 
-                  Text('Enter your number to receive a one-time code. This also completes the human verification requirement.'.tr(context),
+                  Text(
+                    'Enter your number to receive a one-time code. This also completes the human verification requirement.'
+                        .tr(context),
                     style: TextStyle(
                       fontSize: AppTypography.responsiveFontSize(
-                          context, AppTypography.base),
+                        context,
+                        AppTypography.base,
+                      ),
                       color: scheme.onSurface.withOpacity(0.7),
                       height: 1.5,
                     ),
@@ -267,29 +271,37 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
 
                   if (_error != null) ...[
                     Container(
-                      padding:
-                          AppSpacing.responsiveAll(context, AppSpacing.standard),
+                      padding: AppSpacing.responsiveAll(
+                        context,
+                        AppSpacing.standard,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.red.withOpacity(0.1),
                         borderRadius: AppSpacing.responsiveRadius(
-                            context, AppSpacing.radiusMedium),
+                          context,
+                          AppSpacing.radiusMedium,
+                        ),
                         border: Border.all(color: Colors.red.withOpacity(0.5)),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline,
-                              color: Colors.red,
-                              size:
-                                  AppTypography.responsiveIconSize(context, 20)),
+                          Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: AppTypography.responsiveIconSize(context, 20),
+                          ),
                           SizedBox(
-                              width: AppSpacing.mediumSmall.responsive(context)),
+                            width: AppSpacing.mediumSmall.responsive(context),
+                          ),
                           Expanded(
                             child: Text(
                               _error!,
                               style: TextStyle(
                                 color: Colors.red,
                                 fontSize: AppTypography.responsiveFontSize(
-                                    context, AppTypography.small),
+                                  context,
+                                  AppTypography.small,
+                                ),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -307,17 +319,21 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                       onPressed: _isLoading
                           ? null
                           : _codeSent
-                              ? _verifyCode
-                              : _sendCode,
+                          ? _verifyCode
+                          : _sendCode,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: AppSpacing.responsiveRadius(context, 28),
+                          borderRadius: AppSpacing.responsiveRadius(
+                            context,
+                            28,
+                          ),
                         ),
                         elevation: 0,
-                        disabledBackgroundColor:
-                            AppColors.primary.withOpacity(0.6),
+                        disabledBackgroundColor: AppColors.primary.withOpacity(
+                          0.6,
+                        ),
                       ),
                       child: _isLoading
                           ? SizedBox(
@@ -325,27 +341,36 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                               width: 24.responsive(context, min: 20, max: 28),
                               child: const CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             )
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  _codeSent ? 'Verify & Login' : 'Send Code',
+                                  _codeSent ? 'Verify & Login'.tr(context) : 'Send Code'.tr(context),
                                   style: TextStyle(
                                     fontSize: AppTypography.responsiveFontSize(
-                                        context, AppTypography.smallHeading),
+                                      context,
+                                      AppTypography.smallHeading,
+                                    ),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 SizedBox(
-                                    width: AppSpacing.mediumSmall
-                                        .responsive(context)),
-                                Icon(Icons.arrow_forward,
-                                    size: AppTypography.responsiveIconSize(
-                                        context, 20)),
+                                  width: AppSpacing.mediumSmall.responsive(
+                                    context,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_forward,
+                                  size: AppTypography.responsiveIconSize(
+                                    context,
+                                    20,
+                                  ),
+                                ),
                               ],
                             ),
                     ),
@@ -356,19 +381,25 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Didn't receive the code? ".tr(context),
+                        Text(
+                          "Didn't receive the code? ".tr(context),
                           style: TextStyle(
                             fontSize: AppTypography.responsiveFontSize(
-                                context, AppTypography.base),
+                              context,
+                              AppTypography.base,
+                            ),
                             color: scheme.onSurface.withOpacity(0.7),
                           ),
                         ),
                         GestureDetector(
                           onTap: _resendCooldown > 0 ? null : _resendCode,
-                          child: Text('Resend'.tr(context),
+                          child: Text(
+                            'Resend'.tr(context),
                             style: TextStyle(
                               fontSize: AppTypography.responsiveFontSize(
-                                  context, AppTypography.base),
+                                context,
+                                AppTypography.base,
+                              ),
                               color: _resendCooldown > 0
                                   ? Colors.grey
                                   : AppColors.primary,
@@ -380,24 +411,32 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                           ),
                         ),
                         if (_resendCooldown > 0)
-                          Text(' (${_resendCooldown}s)'.tr(context),
+                          Text(
+                            ' (${_resendCooldown}s)'.tr(context),
                             style: TextStyle(
                               fontSize: AppTypography.responsiveFontSize(
-                                  context, AppTypography.base),
+                                context,
+                                AppTypography.base,
+                              ),
                               color: Colors.grey,
                             ),
                           ),
                       ],
                     ),
 
-                    SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
+                    SizedBox(
+                      height: AppSpacing.mediumSmall.responsive(context),
+                    ),
 
                     TextButton(
                       onPressed: _changePhoneNumber,
-                      child: Text('Change phone number'.tr(context),
+                      child: Text(
+                        'Change phone number'.tr(context),
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(
-                              context, AppTypography.extraSmall),
+                            context,
+                            AppTypography.extraSmall,
+                          ),
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
                         ),
@@ -419,45 +458,72 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     return Container(
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
-        borderRadius:
-            AppSpacing.responsiveRadius(context, AppSpacing.radiusLarge),
+        borderRadius: AppSpacing.responsiveRadius(
+          context,
+          AppSpacing.radiusLarge,
+        ),
         border: Border.all(color: scheme.outline.withOpacity(0.3)),
       ),
       child: Row(
         children: [
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppSpacing.standard.responsive(context),
-            ),
-            decoration: BoxDecoration(
-              border: Border(
-                right: BorderSide(color: scheme.outline.withOpacity(0.3)),
+          SizedBox(
+            width: 132.responsive(context, min: 108, max: 148),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.standard.responsive(context),
               ),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedCountryCode,
-                items: _countryCodes.map((country) {
-                  return DropdownMenuItem(
-                    value: country['code'],
-                    child: Text('${country['code']} ${country['country']}',
-                      style: TextStyle(
-                        fontSize: AppTypography.responsiveFontSize(
-                            context, AppTypography.base),
-                        color: scheme.onSurface,
+              decoration: BoxDecoration(
+                border: Border(
+                  right: BorderSide(color: scheme.outline.withOpacity(0.3)),
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedCountryCode,
+                  isExpanded: true,
+                  items: _countryCodes.map((country) {
+                    return DropdownMenuItem(
+                      value: country['code'],
+                      child: Text(
+                        '${country['code']} ${country['country']}',
+                        style: TextStyle(
+                          fontSize: AppTypography.responsiveFontSize(
+                            context,
+                            AppTypography.base,
+                          ),
+                          color: scheme.onSurface,
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedCountryCode = value);
-                  }
-                },
-                dropdownColor: scheme.surface,
-                icon: Icon(
-                  Icons.arrow_drop_down,
-                  color: scheme.onSurface.withOpacity(0.5),
+                    );
+                  }).toList(),
+                  selectedItemBuilder: (context) {
+                    return _countryCodes.map((country) {
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          country['code'] ?? '',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: AppTypography.responsiveFontSize(
+                              context,
+                              AppTypography.base,
+                            ),
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                      );
+                    }).toList();
+                  },
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedCountryCode = value);
+                    }
+                  },
+                  dropdownColor: scheme.surface,
+                  icon: Icon(
+                    Icons.arrow_drop_down,
+                    color: scheme.onSurface.withOpacity(0.5),
+                  ),
                 ),
               ),
             ),
@@ -468,15 +534,15 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
               keyboardType: TextInputType.phone,
               style: TextStyle(
                 fontSize: AppTypography.responsiveFontSize(
-                    context, AppTypography.smallHeading),
+                  context,
+                  AppTypography.smallHeading,
+                ),
                 color: scheme.onSurface,
                 fontWeight: FontWeight.w500,
               ),
               decoration: InputDecoration(
                 hintText: 'Phone number',
-                hintStyle: TextStyle(
-                  color: scheme.onSurface.withOpacity(0.4),
-                ),
+                hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.4)),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.largePlus.responsive(context),
@@ -509,7 +575,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
             maxLength: 1,
             style: TextStyle(
               fontSize: AppTypography.responsiveFontSize(
-                  context, AppTypography.mediumHeading),
+                context,
+                AppTypography.mediumHeading,
+              ),
               fontWeight: FontWeight.bold,
               color: scheme.onSurface,
             ),
@@ -518,31 +586,33 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
               filled: true,
               fillColor: scheme.surfaceContainerHighest,
               hintText: '-',
-              hintStyle: TextStyle(
-                color: scheme.onSurface.withOpacity(0.4),
-              ),
+              hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.4)),
               border: OutlineInputBorder(
                 borderRadius: AppSpacing.responsiveRadius(
-                    context, AppSpacing.radiusLarge),
+                  context,
+                  AppSpacing.radiusLarge,
+                ),
                 borderSide: BorderSide(color: scheme.outline),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: AppSpacing.responsiveRadius(
-                    context, AppSpacing.radiusLarge),
+                  context,
+                  AppSpacing.radiusLarge,
+                ),
                 borderSide: BorderSide(color: scheme.outline),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: AppSpacing.responsiveRadius(
-                    context, AppSpacing.radiusLarge),
+                  context,
+                  AppSpacing.radiusLarge,
+                ),
                 borderSide: const BorderSide(
                   color: AppColors.primary,
                   width: 2,
                 ),
               ),
             ),
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-            ],
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             onChanged: (value) {
               if (value.isNotEmpty && index < 5) {
                 _otpFocusNodes[index + 1].requestFocus();

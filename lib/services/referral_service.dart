@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/rooken_service.dart';
+import '../services/roobit_service.dart';
 
 /// Service to track and reward referrals
 class ReferralService {
@@ -138,7 +138,7 @@ class ReferralService {
     }
   }
 
-  /// Complete a referral and award ROOK when the referred user gets verified.
+  /// Complete a referral and award ROO when the referred user gets verified.
   /// Call this when a new user completes identity verification.
   Future<bool> completeReferral(String referredUserId) async {
     try {
@@ -183,7 +183,7 @@ class ReferralService {
       // Award ROO to the referrer
       await _walletRepo.earnRoo(
         userId: referrerId,
-        activityType: RookenActivityType.referral,
+        activityType: RoobitActivityType.referral,
         metadata: {
           'referred_user_id': referredUserId,
           'reward_amount': rewardAmount,

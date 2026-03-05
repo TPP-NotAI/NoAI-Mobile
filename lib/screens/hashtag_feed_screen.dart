@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/app_colors.dart';
+import '../config/supabase_config.dart';
 import '../models/post.dart';
 import '../providers/auth_provider.dart';
 import '../repositories/tag_repository.dart';
+import '../services/supabase_service.dart';
 import '../widgets/post_card.dart';
 import '../widgets/comments_sheet.dart';
 import '../widgets/tip_modal.dart';
@@ -26,11 +31,40 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
   List<Post> _posts = [];
   bool _isLoading = true;
   String? _error;
+  RealtimeChannel? _hashtagRealtimeChannel;
+  Timer? _realtimeDebounce;
 
   @override
   void initState() {
     super.initState();
     _loadPosts();
+    _bindHashtagRealtime();
+  }
+
+  void _bindHashtagRealtime() {
+    _hashtagRealtimeChannel = SupabaseService().client
+        .channel('hashtag:feed:${widget.hashtag}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: SupabaseConfig.postTagsTable,
+          callback: (_) => _scheduleRealtimeReload(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: SupabaseConfig.postsTable,
+          callback: (_) => _scheduleRealtimeReload(),
+        )
+        .subscribe();
+  }
+
+  void _scheduleRealtimeReload() {
+    _realtimeDebounce?.cancel();
+    _realtimeDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      _loadPosts();
+    });
   }
 
   Future<void> _loadPosts() async {
@@ -260,5 +294,14 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
             ProfileScreen(userId: userIdOrUsername, showAppBar: true),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _realtimeDebounce?.cancel();
+    if (_hashtagRealtimeChannel != null) {
+      SupabaseService().client.removeChannel(_hashtagRealtimeChannel!);
+    }
+    super.dispose();
   }
 }

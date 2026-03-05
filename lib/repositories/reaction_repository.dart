@@ -6,7 +6,7 @@ import '../services/supabase_service.dart';
 import '../services/activity_log_service.dart';
 import 'notification_repository.dart';
 import 'wallet_repository.dart';
-import '../services/rooken_service.dart';
+import '../services/roobit_service.dart';
 import '../services/viral_content_service.dart';
 
 /// Repository for reaction (like/unlike) operations.
@@ -90,9 +90,23 @@ class ReactionRepository {
             .eq('id', commentId)
             .single();
 
+        // Fetch liker's name for the title
+        String likerName = 'Someone';
+        try {
+          final profile = await _client
+              .from('profiles')
+              .select('username, display_name')
+              .eq('user_id', userId)
+              .maybeSingle();
+          likerName = (profile?['display_name'] as String?)?.trim().isNotEmpty == true
+              ? (profile?['display_name'] as String).trim()
+              : ((profile?['username'] as String?) ?? 'Someone');
+        } catch (_) {}
+
         await _notificationRepository.createNotification(
           userId: comment['author_id'],
           type: 'like',
+          title: '$likerName liked your comment',
           body: '"${comment['body']}"',
           actorId: userId,
           commentId: commentId,
@@ -188,27 +202,41 @@ class ReactionRepository {
                 ? '"${postBody.substring(0, postBody.length > 50 ? 50 : postBody.length)}..."'
                 : null;
 
+        // Fetch liker's name for the title
+        String likerName = 'Someone';
+        try {
+          final profile = await _client
+              .from('profiles')
+              .select('username, display_name')
+              .eq('user_id', userId)
+              .maybeSingle();
+          likerName = (profile?['display_name'] as String?)?.trim().isNotEmpty == true
+              ? (profile?['display_name'] as String).trim()
+              : ((profile?['username'] as String?) ?? 'Someone');
+        } catch (_) {}
+
         await _notificationRepository.createNotification(
           userId: postAuthorId,
           type: 'like',
+          title: '$likerName liked your post',
           body: notificationBody,
           actorId: userId,
           postId: postId,
         );
 
-        // Award 0.01 ROOK to the user who liked the post.
+        // Award 0.01 ROO to the user who liked the post.
         // Skip if the user is liking their own post.
         if (postAuthorId != userId) {
           try {
             final walletRepo = WalletRepository();
             await walletRepo.earnRoo(
               userId: userId,
-              activityType: RookenActivityType.postLike,
+              activityType: RoobitActivityType.postLike,
               referencePostId: postId,
             );
           } catch (e) {
             debugPrint(
-              'ReactionRepository: Error awarding ROOK for post like - $e',
+              'ReactionRepository: Error awarding ROO for post like - $e',
             );
           }
         }
@@ -319,9 +347,23 @@ class ReactionRepository {
             .eq('id', storyId)
             .single();
 
+        // Fetch liker's name for the title
+        String likerName = 'Someone';
+        try {
+          final profile = await _client
+              .from('profiles')
+              .select('username, display_name')
+              .eq('user_id', userId)
+              .maybeSingle();
+          likerName = (profile?['display_name'] as String?)?.trim().isNotEmpty == true
+              ? (profile?['display_name'] as String).trim()
+              : ((profile?['username'] as String?) ?? 'Someone');
+        } catch (_) {}
+
         await _notificationRepository.createNotification(
           userId: story['user_id'],
           type: 'like',
+          title: '$likerName liked your story',
           body: 'liked your story',
           actorId: userId,
           storyId: storyId,

@@ -126,15 +126,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get typeDeleteConfirm => 'Type DELETE to confirm.';
 
   @override
-  String get accountDeletionRequested =>
-      'Account deletion requested. You have been logged out.';
+  String get accountDeletionRequested => 'Account deletion requested. You have been logged out.';
 
   @override
   String get pleaseTypeDelete => 'Please type DELETE to confirm';
 
   @override
-  String get aboutROOVERSEDescription =>
-      'ROOVERSE – Human-Centred Social Platform\n\nVersion 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription => 'ROOVERSE – Human-Centred Social Platform\n\nVersion 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'Log In';
@@ -590,8 +588,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle =>
-      'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -835,4 +832,148 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paymentFailed => 'Payment Failed';
+
+  @override
+  String get passwordRequired => 'Password is required';
+
+  @override
+  String get invalidEmailOrPassword => 'Invalid email or password';
+
+  @override
+  String get unableToStartGoogleLogin => 'Unable to start Google login';
+
+  @override
+  String get pleaseEnterPhoneNumber => 'Please enter your phone number';
+
+  @override
+  String get pleaseEnterValidPhoneNumber => 'Please enter a valid phone number';
+
+  @override
+  String get failedToSendLoginCode => 'Failed to send login code';
+
+  @override
+  String get verifyAndLogin => 'Verify & Login';
+
+  @override
+  String get sendCode => 'Send Code';
+
+  @override
+  String get failedToSendVerificationCode => 'Failed to send verification code';
+
+  @override
+  String get verifyCode => 'Verify Code';
+
+  @override
+  String get enterPhone => 'Enter Phone';
+
+  @override
+  String get enterVerificationCode => 'Enter Verification Code';
+
+  @override
+  String get enterPhoneForSms => 'Enter your phone number to receive a verification code via SMS.';
+
+  @override
+  String get forgotPassword => 'Forgot Password?';
+
+  @override
+  String get enterYourEmail => 'Enter your email';
+
+  @override
+  String get enterNewPassword => 'Enter new password';
+
+  @override
+  String get confirmPassword => 'Confirm Password';
+
+  @override
+  String get confirmYourPassword => 'Confirm your password';
+
+  @override
+  String get resetPassword => 'Reset Password';
+
+  @override
+  String get passwordReset => 'Password Reset!';
+
+  @override
+  String get backToLogin => 'Back to Login';
+
+  @override
+  String get online => 'Online';
+
+  @override
+  String get offline => 'Offline';
+
+  @override
+  String get available => 'Available';
+
+  @override
+  String get lifetimeEarned => 'Lifetime Earned';
+
+  @override
+  String get enterRooAmount => 'Enter ROO amount';
+
+  @override
+  String get recipient => 'Recipient';
+
+  @override
+  String get verificationPendingSendRoo => 'Your verification is pending. You can send ROO once approved.';
+
+  @override
+  String get completeVerificationToSendRoo => 'Please complete identity verification to send ROO.';
+
+  @override
+  String get cannotSendRooToSelf => 'You cannot send ROO to your own account';
+
+  @override
+  String get availableBalance => 'Available Balance';
+
+  @override
+  String get locationPermissionDenied => 'Location permission denied';
+
+  @override
+  String get locationPermissionPermanentlyDenied => 'Location permission permanently denied';
+
+  @override
+  String get mustBeLoggedInToBoost => 'You must be logged in to boost a post.';
+
+  @override
+  String get verificationPendingTip => 'Your verification is pending. You can tip once approved.';
+
+  @override
+  String get cannotTipOwnPost => 'You cannot tip your own post';
+
+  @override
+  String get enterAmount => 'Enter amount';
+
+  @override
+  String get postUnderReview => 'This post is under review.';
+
+  @override
+  String get sensitiveContent => 'Sensitive Content';
+
+  @override
+  String get deleteCommentConfirmation => 'Are you sure you want to delete this comment? This cannot be undone.';
+
+  @override
+  String get commentUnderReview => 'Comment under review.';
+
+  @override
+  String get storiesEmpty => 'Stories from people you follow will appear here';
+
+  @override
+  String get textStoryWordLimit => 'Text stories are limited to 250 words.';
+
+  @override
+  String get createStory => 'Create Story';
+
+  @override
+  String get clickToUpload => 'Click to upload';
+
+  @override
+  String get imageOrVideoMax => 'Image or video (max 15s)';
+
+  @override
+  String get commentNotPublishedAi => 'Your comment was not published. Our AI detected it may violate our guidelines.';
+
+  @override
+  String get commentUnderReviewExtended => 'Your comment is under review. It will appear once approved.';
 }

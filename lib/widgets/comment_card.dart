@@ -15,6 +15,7 @@ import 'mention_rich_text.dart';
 import 'report_sheet.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 class CommentCard extends StatefulWidget {
   final Comment comment;
   final String postId;
@@ -38,9 +39,9 @@ class CommentCard extends StatefulWidget {
 class _CommentCardState extends State<CommentCard> {
   bool _showReplies = false;
   bool _isEditing = false;
-  int _visibleRepliesCount = 3;
   late TextEditingController _editController;
-  Comment? _commentOverride;
+  bool? _likeOverride;
+  int? _likesOverride;
 
   @override
   void initState() {
@@ -49,17 +50,20 @@ class _CommentCardState extends State<CommentCard> {
   }
 
   @override
-  void didUpdateWidget(covariant CommentCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.comment.id != widget.comment.id) {
-      _commentOverride = null;
-    }
-  }
-
-  @override
   void dispose() {
     _editController.dispose();
     super.dispose();
+  }
+
+  void _applyVisualLikeToggle(Comment comment) {
+    final nextIsLiked = !comment.isLiked;
+    final nextLikes = nextIsLiked
+        ? comment.likes + 1
+        : (comment.likes - 1).clamp(0, 1 << 30);
+    setState(() {
+      _likeOverride = nextIsLiked;
+      _likesOverride = nextLikes;
+    });
   }
 
   // Helper method to find the latest comment data from provider
@@ -88,19 +92,6 @@ class _CommentCardState extends State<CommentCard> {
       }
     }
     return null;
-  }
-
-  void _applyLocalLikeToggle(Comment comment) {
-    final nextIsLiked = !comment.isLiked;
-    final nextLikes = nextIsLiked
-        ? comment.likes + 1
-        : (comment.likes - 1).clamp(0, 1 << 30);
-    setState(() {
-      _commentOverride = comment.copyWith(
-        isLiked: nextIsLiked,
-        likes: nextLikes,
-      );
-    });
   }
 
   bool _isAuthor(Comment comment) {
@@ -149,7 +140,9 @@ class _CommentCardState extends State<CommentCard> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete Comment'.tr(context)),
-        content: Text('Are you sure you want to delete this comment? This cannot be undone.'.tr(context),
+        content: Text(
+          'Are you sure you want to delete this comment? This cannot be undone.'
+              .tr(context),
         ),
         actions: [
           TextButton(
@@ -185,24 +178,38 @@ class _CommentCardState extends State<CommentCard> {
     final provider = context.watch<FeedProvider>();
 
     // Get the latest comment data from provider
-    final providerComment = _findComment(provider, widget.postId, widget.comment.id);
-    final localOverride = _commentOverride;
-    final currentComment = localOverride != null
-        ? (providerComment ?? widget.comment).copyWith(
-            isLiked: localOverride.isLiked,
-            likes: localOverride.likes,
-          )
-        : (providerComment ?? widget.comment);
+    final providerComment = _findComment(
+      provider,
+      widget.postId,
+      widget.comment.id,
+    );
+    final baseComment = providerComment ?? widget.comment;
+    final currentComment = (_likeOverride != null && _likesOverride != null)
+        ? baseComment.copyWith(isLiked: _likeOverride!, likes: _likesOverride!)
+        : baseComment;
+
+    if (providerComment != null &&
+        _likeOverride != null &&
+        _likesOverride != null &&
+        providerComment.isLiked == _likeOverride &&
+        providerComment.likes == _likesOverride) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _likeOverride = null;
+          _likesOverride = null;
+        });
+      });
+    }
     final hasReplies =
         currentComment.replies != null && currentComment.replies!.isNotEmpty;
-    final canRenderNestedReplies = widget.depth < 3;
+    // Instagram-style: only top-level comments (depth 0) show nested replies
+    final canRenderNestedReplies = widget.depth < 1;
     final replyCount = currentComment.replies?.length ?? 0;
     final replies = currentComment.replies ?? const <Comment>[];
     final showReplies = hasReplies && _showReplies && canRenderNestedReplies;
-    final displayedReplies = showReplies
-        ? replies.take(_visibleRepliesCount).toList()
-        : const <Comment>[];
-    final remainingReplies = replies.length - displayedReplies.length;
+    // Show all replies when expanded (no pagination)
+    final displayedReplies = showReplies ? replies : const <Comment>[];
     final isAuthor = _isAuthor(currentComment);
 
     return Column(
@@ -212,7 +219,11 @@ class _CommentCardState extends State<CommentCard> {
         Padding(
           padding: EdgeInsets.only(
             left: widget.depth > 0
-                ? (widget.depth * 40.0).responsive(context, min: widget.depth * 32.0, max: widget.depth * 48.0)
+                ? (widget.depth * 40.0).responsive(
+                    context,
+                    min: widget.depth * 32.0,
+                    max: widget.depth * 48.0,
+                  )
                 : AppSpacing.medium.responsive(context),
             right: AppSpacing.medium.responsive(context),
             top: AppSpacing.standard.responsive(context),
@@ -333,8 +344,9 @@ class _CommentCardState extends State<CommentCard> {
                               } else if (value == 'report') {
                                 showModalBottomSheet(
                                   context: context,
-                                  backgroundColor:
-                                      Theme.of(context).colorScheme.surface,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.surface,
                                   shape: const RoundedRectangleBorder(
                                     borderRadius: BorderRadius.vertical(
                                       top: Radius.circular(24),
@@ -602,18 +614,19 @@ class _CommentCardState extends State<CommentCard> {
                           child: InkWell(
                             onTap: () async {
                               try {
-                                final feedProvider = context.read<FeedProvider>();
-                                if (mounted) {
-                                  _applyLocalLikeToggle(currentComment);
-                                }
-
+                                final feedProvider = context
+                                    .read<FeedProvider>();
+                                _applyVisualLikeToggle(currentComment);
                                 await feedProvider.toggleCommentLike(
                                   widget.postId,
                                   currentComment.id,
                                 );
                               } on KycNotVerifiedException catch (e) {
                                 if (mounted) {
-                                  _applyLocalLikeToggle(currentComment);
+                                  setState(() {
+                                    _likeOverride = null;
+                                    _likesOverride = null;
+                                  });
                                 }
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context)
@@ -622,6 +635,7 @@ class _CommentCardState extends State<CommentCard> {
                                       SnackBar(
                                         content: Text(e.message),
                                         backgroundColor: Colors.orange,
+                                        duration: const Duration(seconds: 5),
                                         action: SnackBarAction(
                                           label: 'Verify',
                                           textColor: Colors.white,
@@ -639,7 +653,10 @@ class _CommentCardState extends State<CommentCard> {
                                 }
                               } on NotActivatedException catch (e) {
                                 if (mounted) {
-                                  _applyLocalLikeToggle(currentComment);
+                                  setState(() {
+                                    _likeOverride = null;
+                                    _likesOverride = null;
+                                  });
                                 }
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context)
@@ -700,7 +717,8 @@ class _CommentCardState extends State<CommentCard> {
                                         context,
                                       ),
                                     ),
-                                    Text('${currentComment.likes}'.tr(context),
+                                    Text(
+                                      '${currentComment.likes}'.tr(context),
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
                                             fontSize:
@@ -760,7 +778,8 @@ class _CommentCardState extends State<CommentCard> {
                                       context,
                                     ),
                                   ),
-                                  Text('Reply'.tr(context),
+                                  Text(
+                                    'Reply'.tr(context),
                                     style: theme.textTheme.labelSmall?.copyWith(
                                       fontSize:
                                           AppTypography.responsiveFontSize(
@@ -785,84 +804,22 @@ class _CommentCardState extends State<CommentCard> {
           ),
         ),
 
-        // Show/hide replies button
+        // Instagram-style: plain text tap to show/hide replies
         if (canRenderNestedReplies && hasReplies)
           Padding(
             padding: EdgeInsets.only(
-              left: ((widget.depth + 1) * 40.0 + 20).responsive(context,
-                  min: (widget.depth + 1) * 32.0 + 16,
-                  max: (widget.depth + 1) * 48.0 + 20),
+              left: 56.0.responsive(context, min: 48.0, max: 64.0),
               bottom: AppSpacing.mediumSmall.responsive(context),
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => setState(() {
-                  if (_showReplies) {
-                    _showReplies = false;
-                    _visibleRepliesCount = 3;
-                  } else {
-                    _showReplies = true;
-                  }
-                }),
-                borderRadius: AppSpacing.responsiveRadius(
-                  context,
-                  AppSpacing.radiusSmall,
-                ),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppSpacing.mediumSmall.responsive(context),
-                    vertical: AppSpacing.extraSmall.responsive(context),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _showReplies ? Icons.expand_less : Icons.expand_more,
-                        size: AppTypography.responsiveIconSize(context, 16),
-                        color: colors.primary,
-                      ),
-                      SizedBox(
-                        width: AppSpacing.extraSmall.responsive(context),
-                      ),
-                      Text(
-                        _showReplies
-                            ? 'Hide replies'
-                            : 'View $replyCount ${replyCount == 1 ? 'reply' : 'replies'}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontSize: AppTypography.responsiveFontSize(
-                            context,
-                            AppTypography.badgeText,
-                          ),
-                          fontWeight: FontWeight.w600,
-                          color: colors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-        if (showReplies && remainingReplies > 0)
-          Padding(
-            padding: EdgeInsets.only(
-              left: ((widget.depth + 1) * 40.0 + 20).responsive(context,
-                  min: (widget.depth + 1) * 32.0 + 16,
-                  max: (widget.depth + 1) * 48.0 + 20),
-              bottom: AppSpacing.mediumSmall.responsive(context),
-            ),
-            child: TextButton(
-              onPressed: () {
-                setState(() {
-                  _visibleRepliesCount += 3;
-                });
-              },
-              child: Text('View previous replies ($remainingReplies)'.tr(context),
-                style: theme.textTheme.labelSmall?.copyWith(
+            child: GestureDetector(
+              onTap: () => setState(() => _showReplies = !_showReplies),
+              child: Text(
+                _showReplies
+                    ? '──── Hide replies'
+                    : '──── View $replyCount ${replyCount == 1 ? 'reply' : 'replies'}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
-                  color: colors.primary,
                 ),
               ),
             ),
@@ -930,7 +887,8 @@ class _CommentCardState extends State<CommentCard> {
                     horizontal: AppSpacing.standard.responsive(context),
                   ),
                 ),
-                child: Text('Cancel'.tr(context),
+                child: Text(
+                  'Cancel'.tr(context),
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontSize: AppTypography.responsiveFontSize(
                       context,
@@ -951,7 +909,8 @@ class _CommentCardState extends State<CommentCard> {
                     horizontal: AppSpacing.standard.responsive(context),
                   ),
                 ),
-                child: Text('Save'.tr(context),
+                child: Text(
+                  'Save'.tr(context),
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontSize: AppTypography.responsiveFontSize(
                       context,
@@ -986,7 +945,8 @@ class _AiCheckBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final normalizedAiStatus = aiScoreStatus?.toLowerCase();
     final normalizedCommentStatus = commentStatus?.toLowerCase();
-    final bool forcePending = normalizedCommentStatus == 'under_review' &&
+    final bool forcePending =
+        normalizedCommentStatus == 'under_review' &&
         normalizedAiStatus != 'review' &&
         normalizedAiStatus != 'flagged';
     final bool needsReview =
@@ -1071,5 +1031,3 @@ class _AiCheckBadge extends StatelessWidget {
     );
   }
 }
-
-

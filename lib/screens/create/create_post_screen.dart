@@ -30,10 +30,10 @@ import '../../services/kyc_verification_service.dart';
 import '../../utils/verification_utils.dart';
 import '../../widgets/verification_required_widget.dart';
 import '../../config/global_keys.dart';
-import '../post_detail_screen.dart';
 import '../profile/edit_profile_screen.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 class CreatePostScreen extends StatefulWidget {
   final String? initialPostType;
   final VoidCallback? onPostCreated;
@@ -63,7 +63,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   bool _certifyHumanGenerated = false;
 
   // Character limit constant
-  static const int _maxCharacterLimit = 280;
+  static const int _maxCharacterLimit = 1000;
   double _postCostRoo = 10.0; // Default posting reward in ROO
   static const Duration _postCostCacheTtl = Duration(hours: 6);
 
@@ -101,7 +101,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     _postType = widget.initialPostType ?? 'Text';
     _draftService = LocalPostDraftService(storage: _storageService);
     _loadCachedPostCost();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncPostCostFromConfig());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _syncPostCostFromConfig(),
+    );
     _checkForSavedDraft().then((_) {
       _isInitialLoad = false;
       // Add listener after draft count check to avoid early autosave behavior.
@@ -147,7 +149,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       debugPrint('CreatePostScreen: Failed to load cached post cost - $e');
     }
   }
-
 
   @override
   void dispose() {
@@ -198,10 +199,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickMedia({required bool fromCamera}) async {
-    final maxImages = context.read<PlatformConfigProvider>().config.maxImagesPerPost;
+    final maxImages = context
+        .read<PlatformConfigProvider>()
+        .config
+        .maxImagesPerPost;
     if (_selectedMediaFiles.length >= maxImages) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('You can add up to $maxImages media files per post')),
+        SnackBar(
+          content: Text('You can add up to $maxImages media files per post'.tr(context)),
+        ),
       );
       return;
     }
@@ -215,7 +221,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           for (final media in pickedMedia) {
             final mediaType = _detectMediaType(media.path);
             if (mediaType == null) continue;
-            if (_selectedMediaFiles.length + filesToAdd.length >= maxImages) break;
+            if (_selectedMediaFiles.length + filesToAdd.length >= maxImages)
+              break;
             filesToAdd.add(File(media.path));
             typesToAdd.add(mediaType);
           }
@@ -319,9 +326,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e'.tr(context))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pick media: $e'.tr(context))),
+      );
     }
   }
 
@@ -369,7 +376,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 Text('Content Warning'.tr(context)),
               ],
             ),
-            content: Text('Our AI detected potentially harmful content in your ${type}: ${res.details ?? "violation detected"}.\n\n'
+            content: Text(
+              'Our AI detected potentially harmful content in your ${type}: ${res.details ?? "violation detected"}.\n\n'
               'If you post this, it may be hidden or your account could be flagged.',
             ),
             actions: [
@@ -413,12 +421,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          throw Exception('Location permission denied');
+          throw Exception('Location permission denied'.tr(context));
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        throw Exception('Location permission permanently denied');
+        throw Exception('Location permission permanently denied'.tr(context));
       }
 
       // Get current position
@@ -471,9 +479,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to get location: $e'.tr(context))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to get location: $e'.tr(context))),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoadingLocation = false);
@@ -628,7 +636,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         _selectedLocation = selected.location;
         _taggedPeople
           ..clear()
-          ..addAll(selected.taggedPeople.map((e) => Map<String, dynamic>.from(e)));
+          ..addAll(
+            selected.taggedPeople.map((e) => Map<String, dynamic>.from(e)),
+          );
         _selectedMediaFiles
           ..clear()
           ..addAll(restoredFiles);
@@ -646,7 +656,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (missingCount > 0 && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$missingCount draft media file(s) could not be restored and were skipped.'.tr(context),
+            content: Text(
+              '$missingCount draft media file(s) could not be restored and were skipped.'
+                  .tr(context),
             ),
           ),
         );
@@ -684,9 +696,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       });
 
       if (showNotification && context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               allDrafts.length > 1
@@ -742,9 +752,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     });
     await _checkForSavedDraft();
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             hadLoadedDraft
@@ -777,7 +785,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Load another draft?'.tr(context)),
-        content: Text('This will replace your current unsaved changes. Save your current work as a draft first if you want to keep it.'.tr(context),
+        content: Text(
+          'This will replace your current unsaved changes. Save your current work as a draft first if you want to keep it.'
+              .tr(context),
         ),
         actions: [
           TextButton(
@@ -812,7 +822,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: Text('Draft Options'.tr(context),
+              title: Text(
+                'Draft Options'.tr(context),
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
@@ -845,7 +856,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             if (canDeleteLoadedDraft)
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: Text('Delete Loaded Draft'.tr(context),
+                title: Text(
+                  'Delete Loaded Draft'.tr(context),
                   style: TextStyle(color: Colors.red),
                 ),
                 onTap: () async {
@@ -854,7 +866,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     context: context,
                     builder: (context) => AlertDialog(
                       title: Text('Delete draft?'.tr(context)),
-                      content: Text('This removes the currently loaded draft from your saved drafts list.'.tr(context),
+                      content: Text(
+                        'This removes the currently loaded draft from your saved drafts list.'
+                            .tr(context),
                       ),
                       actions: [
                         TextButton(
@@ -863,7 +877,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(context, true),
-                          child: Text('Delete'.tr(context),
+                          child: Text(
+                            'Delete'.tr(context),
                             style: TextStyle(color: Colors.red),
                           ),
                         ),
@@ -896,18 +911,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _handleClose() async {
-    if (_hasUnsavedChanges ||
-        (_isDraftLoaded && _hasComposerContent)) {
+    if (_hasUnsavedChanges || (_isDraftLoaded && _hasComposerContent)) {
       final result = await showDialog<bool>(
         context: context,
         builder: (context) {
           final colors = Theme.of(context).colorScheme;
           return AlertDialog(
             backgroundColor: colors.surface,
-            title: Text('Discard changes?'.tr(context),
+            title: Text(
+              'Discard changes?'.tr(context),
               style: TextStyle(color: colors.onSurface),
             ),
-            content: Text('You have unsaved changes. Do you want to save as draft, discard, or continue editing?'.tr(context),
+            content: Text(
+              'You have unsaved changes. Do you want to save as draft, discard, or continue editing?'
+                  .tr(context),
               style: TextStyle(color: colors.onSurfaceVariant),
             ),
             actions: [
@@ -1085,7 +1102,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                       ],
                                     ],
                                   ),
-                                  Text('Posting to Public Feed'.tr(context),
+                                  Text(
+                                    'Posting to Public Feed'.tr(context),
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Theme.of(
@@ -1123,7 +1141,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             spacing: 8,
                             runSpacing: 4,
                             children: previewPost.tags!.map((tag) {
-                              return Text('#${tag.name}'.tr(context),
+                              return Text(
+                                '#${tag.name}'.tr(context),
                                 style: TextStyle(
                                   color: Theme.of(context).colorScheme.primary,
                                   fontWeight: FontWeight.bold,
@@ -1153,7 +1172,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               ).colorScheme.onSurfaceVariant,
                             ),
                             SizedBox(width: 6),
-                            Text('0'.tr(context),
+                            Text(
+                              '0'.tr(context),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Theme.of(
@@ -1170,7 +1190,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               ).colorScheme.onSurfaceVariant,
                             ),
                             SizedBox(width: 6),
-                            Text('0'.tr(context),
+                            Text(
+                              '0'.tr(context),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Theme.of(
@@ -1270,12 +1291,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Our system detected this post as promotional content '
+            Text(
+              'Our system detected this post as promotional content '
               '(${adConfidence.toStringAsFixed(0)}% confidence'
               '${adType != null ? " · ${adType.replaceAll('_', ' ')}" : ""}).',
             ),
             SizedBox(height: 12),
-            Text('To publish it, an advertising fee is required.'.tr(context),
+            Text(
+              'To publish it, an advertising fee is required.'.tr(context),
               style: TextStyle(fontWeight: FontWeight.w500),
             ),
             SizedBox(height: 16),
@@ -1289,7 +1312,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Ad fee'.tr(context)),
-                  Text('${adFeeRoo.toStringAsFixed(0)} ROO'.tr(context),
+                  Text(
+                    '${adFeeRoo.toStringAsFixed(0)} ROO'.tr(context),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Color(0xFFFF8C00),
@@ -1299,7 +1323,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               ),
             ),
             SizedBox(height: 8),
-            Text('If you decline, your post will be held and you can pay later from your profile.'.tr(context),
+            Text(
+              'If you decline, your post will be held and you can pay later from your profile.'
+                  .tr(context),
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
@@ -1327,15 +1353,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         userId: userId,
         amount: adFeeRoo,
         activityType: 'AD_FEE',
-        metadata: {
-          'ad_confidence': adConfidence,
-          'ad_type': adType,
-        },
+        metadata: {'ad_confidence': adConfidence, 'ad_type': adType},
       );
       if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Insufficient ROO balance to pay the advertising fee.'.tr(context)),
+            content: Text(
+              'Insufficient ROO balance to pay the advertising fee.'.tr(
+                context,
+              ),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -1541,9 +1568,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           message = 'Post sent to review. It will show after review.';
           backgroundColor = Colors.amber.shade700;
         } else if (createdPost.status == 'draft' &&
-            (createdPost.authenticityNotes ?? '')
-                .toLowerCase()
-                .contains('awaiting ad fee payment')) {
+            (createdPost.authenticityNotes ?? '').toLowerCase().contains(
+              'awaiting ad fee payment',
+            )) {
           message =
               'Advertisement detected. Post is held until you pay the 5 ROO ad fee.';
           backgroundColor = Colors.orange.shade700;
@@ -1557,18 +1584,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             SnackBar(
               content: Text(message),
               backgroundColor: backgroundColor,
-              duration: const Duration(seconds: 7),
-              action: SnackBarAction(
-                label: 'VIEW',
-                textColor: Colors.white,
-                onPressed: () {
-                  rootNavigatorKey.currentState?.push(
-                    MaterialPageRoute(
-                      builder: (_) => PostDetailScreen(post: createdPost),
-                    ),
-                  );
-                },
-              ),
+              duration: const Duration(seconds: 4),
             ),
           );
         }
@@ -1576,7 +1592,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         // Keep user on create screen if creation failed.
         rootScaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
-            content: Text('Failed to create post. Please try again.'.tr(context)),
+            content: Text(
+              'Failed to create post. Please try again.'.tr(context),
+            ),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 7),
           ),
@@ -1629,9 +1647,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         setState(() => _isPosting = false);
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Failed to create post: $e'.tr(context))));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to create post: $e'.tr(context))),
+          );
         }
       }
     }
@@ -1678,7 +1696,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return age;
   }
 
-  Future<void> _showCompleteProfileRequiredAlert(List<String> missingFields) async {
+  Future<void> _showCompleteProfileRequiredAlert(
+    List<String> missingFields,
+  ) async {
     if (!mounted) return;
 
     final missingText = missingFields.join(', ');
@@ -1686,7 +1706,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('Complete Your Profile'.tr(context)),
-        content: Text('Finish your profile before creating a post.\n\nRequired: $missingText'.tr(context),
+        content: Text(
+          'Finish your profile before creating a post.\n\nRequired: $missingText'
+              .tr(context),
         ),
         actions: [
           TextButton(
@@ -1724,487 +1746,509 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         floatingActionButton: null,
         body: SafeArea(
           child: Column(
-          children: [
-            // App bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: colors.surface,
-                border: Border(
-                  bottom: BorderSide(color: colors.outlineVariant),
+            children: [
+              // App bar
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: _handleClose,
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  border: Border(
+                    bottom: BorderSide(color: colors.outlineVariant),
                   ),
-                  Flexible(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text('New Post'.tr(context),
-                            style: theme.textTheme.titleMedium,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (_isDraftLoaded) ...[
-                          SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colors.primaryContainer,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text('Draft'.tr(context),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.onPrimaryContainer,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: _handleClose,
                     ),
-                  ),
-                  Spacer(),
-                  IconButton(
-                    tooltip: _savedDraftCount > 0
-                        ? 'Open drafts ($_savedDraftCount)'
-                        : 'No drafts saved',
-                    onPressed:
-                        _savedDraftCount > 0 && !_isLoadingDraft
-                        ? _showDraftsPicker
-                        : null,
-                    icon: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        const Icon(Icons.drafts_outlined),
-                        if (_savedDraftCount > 0)
-                          Positioned(
-                            right: -6,
-                            top: -6,
-                            child: Container(
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'New Post'.tr(context),
+                              style: theme.textTheme.titleMedium,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (_isDraftLoaded) ...[
+                            SizedBox(width: 8),
+                            Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 1,
+                                horizontal: 6,
+                                vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.red,
+                                color: colors.primaryContainer,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              constraints: const BoxConstraints(minWidth: 18),
                               child: Text(
-                                _savedDraftCount > 99
-                                    ? '99+'
-                                    : '$_savedDraftCount',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Draft options',
-                    onPressed: _showDraftActionsSheet,
-                    icon: const Icon(Icons.more_vert),
-                  ),
-                  SizedBox(width: 4),
-                  Builder(
-                    builder: (context) {
-                      final postButton = FilledButton(
-                        onPressed:
-                            !hasContent || _isPosting || !_certifyHumanGenerated
-                            ? null
-                            : _showPreviewDialog,
-                        child: _isPosting
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text('Post'.tr(context)),
-                      );
-
-                      if (_postCostRoo > 0) {
-                        return Tooltip(
-                          message:
-                              'You’ll earn ${_postCostRoo.toStringAsFixed(_postCostRoo % 1 == 0 ? 0 : 10)} ROO',
-                          child: postButton,
-                        );
-                      }
-                      return postButton;
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            // Post type tabs
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  _buildPostTypeTab(context, 'Text'),
-                  SizedBox(width: 12),
-                  _buildPostTypeTab(context, 'Photo'),
-                  SizedBox(width: 12),
-                  _buildPostTypeTab(context, 'Video'),
-                ],
-              ),
-            ),
-
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Author
-                    Consumer<UserProvider>(
-                      builder: (context, userProvider, _) {
-                        final user = userProvider.currentUser;
-                        return Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: colors.primary,
-                                  width: 2,
-                                ),
-                              ),
-                              child: ClipOval(
-                                child: user?.avatar != null
-                                    ? Image.network(
-                                        user!.avatar!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) {
-                                          return Container(
-                                            color:
-                                                colors.surfaceContainerHighest,
-                                            child: Icon(
-                                              Icons.person,
-                                              color: colors.onSurfaceVariant,
-                                            ),
-                                          );
-                                        },
-                                      )
-                                    : Container(
-                                        color: colors.surfaceContainerHighest,
-                                        child: Icon(
-                                          Icons.person,
-                                          color: colors.onSurfaceVariant,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      user?.displayName ?? 'Unknown',
-                                      style: theme.textTheme.bodyLarge
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
-                                    SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text('HUMAN'.tr(context),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Text('Posting to Public Feed'.tr(context),
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-
-                    SizedBox(height: 20),
-
-                    // Optional title
-                    TextField(
-                      controller: _titleController,
-                      textCapitalization: TextCapitalization.sentences,
-                      enableSuggestions: true,
-                      autocorrect: true,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Add a title (optional)',
-                        hintStyle: theme.textTheme.titleMedium?.copyWith(
-                          color: colors.onSurfaceVariant.withOpacity(0.5),
-                        ),
-                        border: InputBorder.none,
-                      ),
-                    ),
-
-                    // Text input
-                    // Text input
-                    if (user?.isVerified == true)
-                      MentionAutocompleteField(
-                        controller: _contentController,
-                        maxLines: null,
-                        minLines: _postType == 'Text' ? 8 : 5,
-                        maxLength: _maxCharacterLimit,
-                        style: theme.textTheme.bodyMedium,
-                        decoration: InputDecoration(
-                          hintText: _postType == 'Text'
-                              ? 'Share your thoughts... use #topics'
-                              : 'Add a caption... use #topics',
-                          hintStyle: theme.textTheme.bodyMedium,
-                          border: InputBorder.none,
-                          counterText: '', // Hide default counter
-                        ),
-                      )
-                    else
-                      VerificationRequiredWidget(
-                        message:
-                            'You need to be a verified human to create posts.',
-                        onVerifyTap: () {
-                          if (context.mounted) {
-                            Navigator.pushNamed(context, '/verify');
-                          }
-                        },
-                      ),
-
-                    // Real-time moderation warning
-                    if (_textModerationResult != null &&
-                        _textModerationResult!.flagged)
-                      Container(
-                        margin: const EdgeInsets.only(top: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.red.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.warning_amber_rounded,
-                              color: Colors.red,
-                              size: 20,
-                            ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Text('Warning: ${_textModerationResult!.details ?? "Content contains potential policy violations."}'.tr(context),
-                                style: const TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                                'Draft'.tr(context),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colors.onPrimaryContainer,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
                           ],
-                        ),
-                      ),
-
-                    if (_isModeratingText)
-                      Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            SizedBox(width: 8),
-                            Text('Checking content safety...'.tr(context),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // Character count
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text('${_contentController.text.length}/$_maxCharacterLimit'.tr(context),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color:
-                              _contentController.text.length >
-                                  _maxCharacterLimit * 0.9
-                              ? Colors.orange
-                              : _contentController.text.length >
-                                    _maxCharacterLimit
-                              ? Colors.red
-                              : colors.onSurfaceVariant,
-                        ),
+                        ],
                       ),
                     ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Tip: Add hashtags like #travel or #flutter in your post.'.tr(context),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-
-                    // Human-generated content certification
-                    SizedBox(height: 8),
-                    CheckboxListTile(
-                      value: _certifyHumanGenerated,
-                      onChanged: (value) {
-                        setState(() {
-                          _certifyHumanGenerated = value ?? false;
-                        });
-                      },
-                      title: Text('I certify this content is human-generated.'.tr(context),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      activeColor: colors.primary,
-                    ),
-
-                    // Media attachment section (only for Photo/Video)
-                    if (_postType != 'Text') ...[
-                      SizedBox(height: 16),
-                      _buildMediaAttachmentSection(context),
-                    ],
-
-                    // Media preview
-                    if (_selectedMediaFiles.isNotEmpty) ...[
-                      SizedBox(height: 16),
-                      _buildMediaPreview(context),
-                    ],
-
-                    SizedBox(height: 24),
-
-                    // Selected tags preview
-                    if (_selectedTags.isNotEmpty) ...[
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _selectedTags.map((tag) {
-                          return Chip(
-                            label: Text('#$tag'.tr(context)),
-                            deleteIcon: const Icon(Icons.close, size: 16),
-                            onDeleted: () {
-                              setState(() => _selectedTags.remove(tag));
-                            },
-                          );
-                        }).toList(),
-                      ),
-                      SizedBox(height: 16),
-                    ],
-
-                    // Selected location preview
-                    if (_selectedLocation != null) ...[
-                      Chip(
-                        avatar: const Icon(Icons.location_on, size: 16),
-                        label: Text(_selectedLocation!),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () {
-                          setState(() => _selectedLocation = null);
-                        },
-                      ),
-                      SizedBox(height: 16),
-                    ],
-
-                    // Tagged people preview
-                    if (_taggedPeople.isNotEmpty) ...[
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _taggedPeople.map((person) {
-                          return Chip(
-                            avatar: const Icon(Icons.person, size: 16),
-                            label: Text('@${person['username']}'),
-                            deleteIcon: const Icon(Icons.close, size: 16),
-                            onDeleted: () {
-                              setState(() => _taggedPeople.remove(person));
-                            },
-                          );
-                        }).toList(),
-                      ),
-                      SizedBox(height: 16),
-                    ],
-
-                    // Option cards
-                    _optionCard(
-                      context,
-                      icon: Icons.people,
-                      title: 'Tag People',
-                      subtitle: _taggedPeople.isNotEmpty
-                          ? '${_taggedPeople.length} people tagged'
+                    Spacer(),
+                    IconButton(
+                      tooltip: _savedDraftCount > 0
+                          ? 'Open drafts ($_savedDraftCount)'
+                          : 'No drafts saved',
+                      onPressed: _savedDraftCount > 0 && !_isLoadingDraft
+                          ? _showDraftsPicker
                           : null,
-                      onTap: _showTagPeoplePicker,
+                      icon: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          const Icon(Icons.drafts_outlined),
+                          if (_savedDraftCount > 0)
+                            Positioned(
+                              right: -6,
+                              top: -6,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: const BoxConstraints(minWidth: 18),
+                                child: Text(
+                                  _savedDraftCount > 99
+                                      ? '99+'
+                                      : '$_savedDraftCount',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                    SizedBox(height: 16),
-                    _optionCard(
-                      context,
-                      icon: Icons.location_on,
-                      title: 'Add Location',
-                      subtitle: _selectedLocation,
-                      onTap: _showLocationPicker,
+                    IconButton(
+                      tooltip: 'Draft options',
+                      onPressed: _showDraftActionsSheet,
+                      icon: const Icon(Icons.more_vert),
                     ),
-                    SizedBox(height: 16),
-                    _optionCard(
-                      context,
-                      icon: Icons.tag,
-                      title: 'Add #Topics',
-                      subtitle: _selectedTags.isNotEmpty
-                          ? '${_selectedTags.length}/${context.read<PlatformConfigProvider>().config.maxTagsPerPost} topics added'
-                          : 'You can also type #topics in your caption',
-                      onTap: _showTopicsPicker,
+                    SizedBox(width: 4),
+                    Builder(
+                      builder: (context) {
+                        final postButton = FilledButton(
+                          onPressed:
+                              !hasContent ||
+                                  _isPosting ||
+                                  !_certifyHumanGenerated
+                              ? null
+                              : _showPreviewDialog,
+                          child: _isPosting
+                              ? SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text('Post'.tr(context)),
+                        );
+
+                        if (_postCostRoo > 0) {
+                          return Tooltip(
+                            message:
+                                'You’ll earn ${_postCostRoo.toStringAsFixed(_postCostRoo % 1 == 0 ? 0 : 10)} ROO',
+                            child: postButton,
+                          );
+                        }
+                        return postButton;
+                      },
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+
+              // Post type tabs
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    _buildPostTypeTab(context, 'Text'),
+                    SizedBox(width: 12),
+                    _buildPostTypeTab(context, 'Photo'),
+                    SizedBox(width: 12),
+                    _buildPostTypeTab(context, 'Video'),
+                  ],
+                ),
+              ),
+
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Author
+                      Consumer<UserProvider>(
+                        builder: (context, userProvider, _) {
+                          final user = userProvider.currentUser;
+                          return Row(
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: colors.primary,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: ClipOval(
+                                  child: user?.avatar != null
+                                      ? Image.network(
+                                          user!.avatar!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) {
+                                            return Container(
+                                              color: colors
+                                                  .surfaceContainerHighest,
+                                              child: Icon(
+                                                Icons.person,
+                                                color: colors.onSurfaceVariant,
+                                              ),
+                                            );
+                                          },
+                                        )
+                                      : Container(
+                                          color: colors.surfaceContainerHighest,
+                                          child: Icon(
+                                            Icons.person,
+                                            color: colors.onSurfaceVariant,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        user?.displayName ?? 'Unknown',
+                                        style: theme.textTheme.bodyLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withOpacity(0.15),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'HUMAN'.tr(context),
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    'Posting to Public Feed'.tr(context),
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+
+                      SizedBox(height: 20),
+
+                      // Optional title
+                      TextField(
+                        controller: _titleController,
+                        textCapitalization: TextCapitalization.sentences,
+                        enableSuggestions: true,
+                        autocorrect: true,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Add a title (optional)',
+                          hintStyle: theme.textTheme.titleMedium?.copyWith(
+                            color: colors.onSurfaceVariant.withOpacity(0.5),
+                          ),
+                          border: InputBorder.none,
+                        ),
+                      ),
+
+                      // Text input
+                      // Text input
+                      if (user?.isVerified == true)
+                        MentionAutocompleteField(
+                          controller: _contentController,
+                          maxLines: null,
+                          minLines: _postType == 'Text' ? 8 : 5,
+                          maxLength: _maxCharacterLimit,
+                          style: theme.textTheme.bodyMedium,
+                          decoration: InputDecoration(
+                            hintText: _postType == 'Text'
+                                ? 'Share your thoughts... use #topics'
+                                : 'Add a caption... use #topics',
+                            hintStyle: theme.textTheme.bodyMedium,
+                            border: InputBorder.none,
+                            counterText: '', // Hide default counter
+                          ),
+                        )
+                      else
+                        VerificationRequiredWidget(
+                          message:
+                              'You need to be a verified human to create posts.',
+                          onVerifyTap: () {
+                            if (context.mounted) {
+                              Navigator.pushNamed(context, '/verify');
+                            }
+                          },
+                        ),
+
+                      // Real-time moderation warning
+                      if (_textModerationResult != null &&
+                          _textModerationResult!.flagged)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.red.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Warning: ${_textModerationResult!.details ?? "Content contains potential policy violations."}'
+                                      .tr(context),
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      if (_isModeratingText)
+                        Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Checking content safety...'.tr(context),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // Character count
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${_contentController.text.length}/$_maxCharacterLimit'
+                              .tr(context),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color:
+                                _contentController.text.length >
+                                    _maxCharacterLimit * 0.9
+                                ? Colors.orange
+                                : _contentController.text.length >
+                                      _maxCharacterLimit
+                                ? Colors.red
+                                : colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Tip: Add hashtags like #travel or #tech in your post.'
+                              .tr(context),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+
+                      // Human-generated content certification
+                      SizedBox(height: 8),
+                      CheckboxListTile(
+                        value: _certifyHumanGenerated,
+                        onChanged: (value) {
+                          setState(() {
+                            _certifyHumanGenerated = value ?? false;
+                          });
+                        },
+                        title: Text(
+                          'I certify this content is human-generated.'.tr(
+                            context,
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        activeColor: colors.primary,
+                      ),
+
+                      // Media attachment section (only for Photo/Video)
+                      if (_postType != 'Text') ...[
+                        SizedBox(height: 16),
+                        _buildMediaAttachmentSection(context),
+                      ],
+
+                      // Media preview
+                      if (_selectedMediaFiles.isNotEmpty) ...[
+                        SizedBox(height: 16),
+                        _buildMediaPreview(context),
+                      ],
+
+                      SizedBox(height: 24),
+
+                      // Selected tags preview
+                      if (_selectedTags.isNotEmpty) ...[
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _selectedTags.map((tag) {
+                            return Chip(
+                              label: Text('#$tag'.tr(context)),
+                              deleteIcon: const Icon(Icons.close, size: 16),
+                              onDeleted: () {
+                                setState(() => _selectedTags.remove(tag));
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        SizedBox(height: 16),
+                      ],
+
+                      // Selected location preview
+                      if (_selectedLocation != null) ...[
+                        Chip(
+                          avatar: const Icon(Icons.location_on, size: 16),
+                          label: Text(_selectedLocation!),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          onDeleted: () {
+                            setState(() => _selectedLocation = null);
+                          },
+                        ),
+                        SizedBox(height: 16),
+                      ],
+
+                      // Tagged people preview
+                      if (_taggedPeople.isNotEmpty) ...[
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _taggedPeople.map((person) {
+                            return Chip(
+                              avatar: const Icon(Icons.person, size: 16),
+                              label: Text('@${person['username']}'),
+                              deleteIcon: const Icon(Icons.close, size: 16),
+                              onDeleted: () {
+                                setState(() => _taggedPeople.remove(person));
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        SizedBox(height: 16),
+                      ],
+
+                      // Option cards
+                      _optionCard(
+                        context,
+                        icon: Icons.people,
+                        title: 'Tag People',
+                        subtitle: _taggedPeople.isNotEmpty
+                            ? '${_taggedPeople.length} people tagged'
+                            : null,
+                        onTap: _showTagPeoplePicker,
+                      ),
+                      SizedBox(height: 16),
+                      _optionCard(
+                        context,
+                        icon: Icons.location_on,
+                        title: 'Add Location',
+                        subtitle: _selectedLocation,
+                        onTap: _showLocationPicker,
+                      ),
+                      SizedBox(height: 16),
+                      _optionCard(
+                        context,
+                        icon: Icons.tag,
+                        title: 'Add #Topics',
+                        subtitle: _selectedTags.isNotEmpty
+                            ? '${_selectedTags.length}/${context.read<PlatformConfigProvider>().config.maxTagsPerPost} topics added'
+                            : 'You can also type #topics in your caption',
+                        onTap: _showTopicsPicker,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -2313,7 +2357,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             children: [
               Icon(Icons.perm_media, color: colors.primary, size: 20),
               SizedBox(width: 8),
-              Text('Add Media'.tr(context),
+              Text(
+                'Add Media'.tr(context),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -2494,7 +2539,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-
   Future<void> _applyFilterToImage(int index, String filterType) async {
     try {
       final imageFile = _selectedMediaFiles[index];
@@ -2539,9 +2583,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to apply filter: $e'.tr(context))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to apply filter: $e'.tr(context))),
+        );
       }
     }
   }
@@ -2562,7 +2606,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Edit Image'.tr(context),
+              Text(
+                'Edit Image'.tr(context),
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
@@ -2649,7 +2694,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Edit Video'.tr(context),
+              Text(
+                'Edit Video'.tr(context),
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
@@ -2729,7 +2775,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   // Trim sliders
                   Column(
                     children: [
-                      Text('Start: ${(startTrim / 1000).toStringAsFixed(1)}s'.tr(context),
+                      Text(
+                        'Start: ${(startTrim / 1000).toStringAsFixed(1)}s'.tr(
+                          context,
+                        ),
                         style: const TextStyle(fontSize: 12),
                       ),
                       Slider(
@@ -2750,7 +2799,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           });
                         },
                       ),
-                      Text('End: ${(endTrim / 1000).toStringAsFixed(1)}s'.tr(context),
+                      Text(
+                        'End: ${(endTrim / 1000).toStringAsFixed(1)}s'.tr(
+                          context,
+                        ),
                         style: const TextStyle(fontSize: 12),
                       ),
                       Slider(
@@ -2770,7 +2822,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ],
                   ),
                   SizedBox(height: 16),
-                  Text('Duration: ${((endTrim - startTrim) / 1000).toStringAsFixed(1)}s'.tr(context),
+                  Text(
+                    'Duration: ${((endTrim - startTrim) / 1000).toStringAsFixed(1)}s'
+                        .tr(context),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -2794,9 +2848,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e'.tr(context))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load video: $e'.tr(context))),
+        );
       }
     } finally {
       controller?.dispose();
@@ -2810,7 +2864,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Video trimming simulation complete! (Full implementation requires FFmpeg)'.tr(context),
+        content: Text(
+          'Video trimming simulation complete! (Full implementation requires FFmpeg)'
+              .tr(context),
         ),
         duration: Duration(seconds: 3),
       ),
@@ -2904,7 +2960,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   if (isMuted && mounted) {
                     ScaffoldMessenger.of(this.context).showSnackBar(
                       SnackBar(
-                        content: Text('Video will be muted when posted'.tr(context)),
+                        content: Text(
+                          'Video will be muted when posted'.tr(context),
+                        ),
                         duration: Duration(seconds: 2),
                       ),
                     );
@@ -2918,9 +2976,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e'.tr(context))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load video: $e'.tr(context))),
+        );
       }
     } finally {
       controller?.dispose();
@@ -3006,7 +3064,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           ).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text('${rotationDegrees % 360}°'.tr(context),
+                        child: Text(
+                          '${rotationDegrees % 360}°'.tr(context),
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -3035,7 +3094,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   if (rotationDegrees != 0 && mounted) {
                     ScaffoldMessenger.of(this.context).showSnackBar(
                       SnackBar(
-                        content: Text('Video will be rotated ${rotationDegrees % 360}° when posted'.tr(context),
+                        content: Text(
+                          'Video will be rotated ${rotationDegrees % 360}° when posted'
+                              .tr(context),
                         ),
                         duration: const Duration(seconds: 2),
                       ),
@@ -3050,9 +3111,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e'.tr(context))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load video: $e'.tr(context))),
+        );
       }
     } finally {
       controller?.dispose();
@@ -3116,7 +3177,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: Text('My Drafts'.tr(context),
+                  title: Text(
+                    'My Drafts'.tr(context),
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   subtitle: Text('${drafts.length} saved drafts'.tr(context)),
@@ -3128,10 +3190,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: drafts.length,
-                    separatorBuilder: (_, __) => Divider(
-                      height: 1,
-                      color: colors.outlineVariant,
-                    ),
+                    separatorBuilder: (_, __) =>
+                        Divider(height: 1, color: colors.outlineVariant),
                     itemBuilder: (context, index) {
                       final draft = drafts[index];
                       final updated = draft.updatedAt.toLocal();
@@ -3171,14 +3231,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
 
     if (selectedId != null) {
-      if (_activeDraftId != selectedId &&
-          !await _confirmLoadDifferentDraft()) {
+      if (_activeDraftId != selectedId && !await _confirmLoadDifferentDraft()) {
         return;
       }
       await _loadDraft(selectedId);
     }
   }
-
 }
 
 // Video Preview Widget
@@ -3333,7 +3391,8 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Add Location'.tr(context),
+            Text(
+              'Add Location'.tr(context),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -3342,7 +3401,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
             TextField(
               controller: _controller,
               decoration: InputDecoration(
-                hintText: 'Enter location...',
+                hintText: 'Enter location...'.tr(context),
                 prefixIcon: const Icon(Icons.location_on_outlined),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -3489,7 +3548,10 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final maxTags = context.read<PlatformConfigProvider>().config.maxTagsPerPost;
+    final maxTags = context
+        .read<PlatformConfigProvider>()
+        .config
+        .maxTagsPerPost;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -3507,25 +3569,28 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Add Topics'.tr(context),
+              Text(
+                'Add Topics'.tr(context),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               SizedBox(height: 8),
-              Text('Topics help people discover your post'.tr(context),
+              Text(
+                'Topics help people discover your post'.tr(context),
                 style: theme.textTheme.bodySmall,
               ),
               SizedBox(height: 20),
               TextField(
                 controller: _controller,
                 decoration: InputDecoration(
-                  hintText: 'Search or add topics...',
+                  hintText: 'Search or add topics...'.tr(context),
                   prefixIcon: const Icon(Icons.tag),
                   suffixIcon: _controller.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.add),
-                          onPressed: () => _addTag(_controller.text, maxTags: maxTags),
+                          onPressed: () =>
+                              _addTag(_controller.text, maxTags: maxTags),
                         )
                       : null,
                   border: OutlineInputBorder(
@@ -3563,7 +3628,10 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                     if (_isLoading)
                       Center(child: CircularProgressIndicator())
                     else if (_suggestions.isNotEmpty) ...[
-                      Text('Suggestions'.tr(context), style: theme.textTheme.titleSmall),
+                      Text(
+                        'Suggestions'.tr(context),
+                        style: theme.textTheme.titleSmall,
+                      ),
                       SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
@@ -3574,7 +3642,10 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                             label: Text('#${suggestion.name}'.tr(context)),
                             onPressed: isSelected
                                 ? null
-                                : () => _addTag(suggestion.name, maxTags: maxTags),
+                                : () => _addTag(
+                                    suggestion.name,
+                                    maxTags: maxTags,
+                                  ),
                             backgroundColor: isSelected
                                 ? colors.primaryContainer
                                 : null,
@@ -3582,7 +3653,10 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                         }).toList(),
                       ),
                     ] else ...[
-                      Text('Popular Topics'.tr(context), style: theme.textTheme.titleSmall),
+                      Text(
+                        'Popular Topics'.tr(context),
+                        style: theme.textTheme.titleSmall,
+                      ),
                       SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
@@ -3591,7 +3665,9 @@ class _TopicsPickerSheetState extends State<_TopicsPickerSheet> {
                           final isSelected = _tags.contains(topic);
                           return ActionChip(
                             label: Text('#$topic'.tr(context)),
-                            onPressed: isSelected ? null : () => _addTag(topic, maxTags: maxTags),
+                            onPressed: isSelected
+                                ? null
+                                : () => _addTag(topic, maxTags: maxTags),
                             backgroundColor: isSelected
                                 ? colors.primaryContainer
                                 : null,
@@ -3726,7 +3802,8 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Tag People'.tr(context),
+              Text(
+                'Tag People'.tr(context),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -3840,5 +3917,3 @@ class _TagPeopleSheetState extends State<_TagPeopleSheet> {
     );
   }
 }
-
-

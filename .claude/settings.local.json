@@ -28,7 +28,14 @@
       "Bash(echo $TEMP)",
       "Bash(python \"D:/noai_org/insert_l10n_block.py\")",
       "Bash(/d/noai_org/insert_l10n_block.py:*)",
-      "Bash(xargs grep -l \"platform_config\\\\|PlatformConfig\")"
+      "Bash(xargs grep -l \"platform_config\\\\|PlatformConfig\")",
+      "Bash(grep -n \"roocoin_received\\\\|roocoin_sent\" /d/noai_org/lib/**/*.dart)",
+      "Bash(/tmp/check_snackbars.sh:*)",
+      "Bash(chmod +x /tmp/check_snackbars.sh)",
+      "Bash(/tmp/check_snackbars.sh)",
+      "Bash(sed 's/.*String get //')",
+      "Bash(sed 's/ =>.*//')",
+      "Bash(flutter gen-l10n)"
     ],
     "additionalDirectories": [
       "\\",

@@ -105,8 +105,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get deleteAccount => 'Supprimer le compte';
 
   @override
-  String get permanentlyDeleteAccount =>
-      'Supprimer définitivement votre compte';
+  String get permanentlyDeleteAccount => 'Supprimer définitivement votre compte';
 
   @override
   String get logOut => 'Se déconnecter';
@@ -127,15 +126,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get typeDeleteConfirm => 'Tapez SUPPRIMER pour confirmer.';
 
   @override
-  String get accountDeletionRequested =>
-      'Suppression du compte demandée. Vous avez été déconnecté.';
+  String get accountDeletionRequested => 'Suppression du compte demandée. Vous avez été déconnecté.';
 
   @override
   String get pleaseTypeDelete => 'Veuillez taper SUPPRIMER pour confirmer';
 
   @override
-  String get aboutROOVERSEDescription =>
-      'ROOVERSE – Plateforme sociale centrée sur l\'humain\n\nVersion 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription => 'ROOVERSE – Plateforme sociale centrée sur l\'humain\n\nVersion 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'Se connecter';
@@ -591,8 +588,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle =>
-      'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -836,4 +832,148 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get paymentFailed => 'Payment Failed';
+
+  @override
+  String get passwordRequired => 'Le mot de passe est requis';
+
+  @override
+  String get invalidEmailOrPassword => 'Email ou mot de passe invalide';
+
+  @override
+  String get unableToStartGoogleLogin => 'Impossible de démarrer la connexion Google';
+
+  @override
+  String get pleaseEnterPhoneNumber => 'Veuillez entrer votre numéro de téléphone';
+
+  @override
+  String get pleaseEnterValidPhoneNumber => 'Veuillez entrer un numéro de téléphone valide';
+
+  @override
+  String get failedToSendLoginCode => 'Échec de l\'envoi du code de connexion';
+
+  @override
+  String get verifyAndLogin => 'Vérifier et se connecter';
+
+  @override
+  String get sendCode => 'Envoyer le code';
+
+  @override
+  String get failedToSendVerificationCode => 'Échec de l\'envoi du code de vérification';
+
+  @override
+  String get verifyCode => 'Vérifier le code';
+
+  @override
+  String get enterPhone => 'Entrer le téléphone';
+
+  @override
+  String get enterVerificationCode => 'Entrer le code de vérification';
+
+  @override
+  String get enterPhoneForSms => 'Entrez votre numéro de téléphone pour recevoir un code de vérification par SMS.';
+
+  @override
+  String get forgotPassword => 'Mot de passe oublié ?';
+
+  @override
+  String get enterYourEmail => 'Entrez votre email';
+
+  @override
+  String get enterNewPassword => 'Entrez le nouveau mot de passe';
+
+  @override
+  String get confirmPassword => 'Confirmer le mot de passe';
+
+  @override
+  String get confirmYourPassword => 'Confirmez votre mot de passe';
+
+  @override
+  String get resetPassword => 'Réinitialiser le mot de passe';
+
+  @override
+  String get passwordReset => 'Mot de passe réinitialisé !';
+
+  @override
+  String get backToLogin => 'Retour à la connexion';
+
+  @override
+  String get online => 'En ligne';
+
+  @override
+  String get offline => 'Hors ligne';
+
+  @override
+  String get available => 'Disponible';
+
+  @override
+  String get lifetimeEarned => 'Gagné à vie';
+
+  @override
+  String get enterRooAmount => 'Entrez le montant ROO';
+
+  @override
+  String get recipient => 'Destinataire';
+
+  @override
+  String get verificationPendingSendRoo => 'Votre vérification est en attente. Vous pouvez envoyer des ROO une fois approuvé.';
+
+  @override
+  String get completeVerificationToSendRoo => 'Veuillez compléter la vérification d\'identité pour envoyer des ROO.';
+
+  @override
+  String get cannotSendRooToSelf => 'Vous ne pouvez pas envoyer des ROO à votre propre compte';
+
+  @override
+  String get availableBalance => 'Solde disponible';
+
+  @override
+  String get locationPermissionDenied => 'Permission de localisation refusée';
+
+  @override
+  String get locationPermissionPermanentlyDenied => 'Permission de localisation définitivement refusée';
+
+  @override
+  String get mustBeLoggedInToBoost => 'Vous devez être connecté pour booster une publication.';
+
+  @override
+  String get verificationPendingTip => 'Votre vérification est en attente. Vous pouvez donner un pourboire une fois approuvé.';
+
+  @override
+  String get cannotTipOwnPost => 'Vous ne pouvez pas donner un pourboire à votre propre publication';
+
+  @override
+  String get enterAmount => 'Entrer le montant';
+
+  @override
+  String get postUnderReview => 'Cette publication est en cours d\'examen.';
+
+  @override
+  String get sensitiveContent => 'Contenu sensible';
+
+  @override
+  String get deleteCommentConfirmation => 'Êtes-vous sûr de vouloir supprimer ce commentaire ? Cette action est irréversible.';
+
+  @override
+  String get commentUnderReview => 'Commentaire en cours d\'examen.';
+
+  @override
+  String get storiesEmpty => 'Les stories des personnes que vous suivez apparaîtront ici';
+
+  @override
+  String get textStoryWordLimit => 'Les stories texte sont limitées à 250 mots.';
+
+  @override
+  String get createStory => 'Créer une story';
+
+  @override
+  String get clickToUpload => 'Cliquez pour télécharger';
+
+  @override
+  String get imageOrVideoMax => 'Image ou vidéo (max 15s)';
+
+  @override
+  String get commentNotPublishedAi => 'Votre commentaire n\'a pas été publié. Notre IA a détecté qu\'il pourrait enfreindre nos directives.';
+
+  @override
+  String get commentUnderReviewExtended => 'Votre commentaire est en cours d\'examen. Il apparaîtra une fois approuvé.';
 }

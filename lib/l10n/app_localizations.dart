@@ -72,8 +72,7 @@ import 'app_localizations_zh.dart';
 /// be consistent with the languages listed in the AppLocalizations.supportedLocales
 /// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -81,8 +80,7 @@ abstract class AppLocalizations {
     return Localizations.of<AppLocalizations>(context, AppLocalizations);
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate =
-      _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -94,13 +92,12 @@ abstract class AppLocalizations {
   /// Additional delegates can be added by appending to this list in
   /// MaterialApp. This list does not have to be used at all if a custom list
   /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
-      <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
@@ -115,7 +112,7 @@ abstract class AppLocalizations {
     Locale('ko'),
     Locale('pt'),
     Locale('ru'),
-    Locale('zh'),
+    Locale('zh')
   ];
 
   /// No description provided for @appName.
@@ -1767,10 +1764,297 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Payment Failed'**
   String get paymentFailed;
+
+  /// No description provided for @passwordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Password is required'**
+  String get passwordRequired;
+
+  /// No description provided for @invalidEmailOrPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid email or password'**
+  String get invalidEmailOrPassword;
+
+  /// No description provided for @unableToStartGoogleLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to start Google login'**
+  String get unableToStartGoogleLogin;
+
+  /// No description provided for @pleaseEnterPhoneNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your phone number'**
+  String get pleaseEnterPhoneNumber;
+
+  /// No description provided for @pleaseEnterValidPhoneNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid phone number'**
+  String get pleaseEnterValidPhoneNumber;
+
+  /// No description provided for @failedToSendLoginCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to send login code'**
+  String get failedToSendLoginCode;
+
+  /// No description provided for @verifyAndLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify & Login'**
+  String get verifyAndLogin;
+
+  /// No description provided for @sendCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Code'**
+  String get sendCode;
+
+  /// No description provided for @failedToSendVerificationCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to send verification code'**
+  String get failedToSendVerificationCode;
+
+  /// No description provided for @verifyCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify Code'**
+  String get verifyCode;
+
+  /// No description provided for @enterPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Phone'**
+  String get enterPhone;
+
+  /// No description provided for @enterVerificationCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Verification Code'**
+  String get enterVerificationCode;
+
+  /// No description provided for @enterPhoneForSms.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your phone number to receive a verification code via SMS.'**
+  String get enterPhoneForSms;
+
+  /// No description provided for @forgotPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot Password?'**
+  String get forgotPassword;
+
+  /// No description provided for @enterYourEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your email'**
+  String get enterYourEmail;
+
+  /// No description provided for @enterNewPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter new password'**
+  String get enterNewPassword;
+
+  /// No description provided for @confirmPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Password'**
+  String get confirmPassword;
+
+  /// No description provided for @confirmYourPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your password'**
+  String get confirmYourPassword;
+
+  /// No description provided for @resetPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset Password'**
+  String get resetPassword;
+
+  /// No description provided for @passwordReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Password Reset!'**
+  String get passwordReset;
+
+  /// No description provided for @backToLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to Login'**
+  String get backToLogin;
+
+  /// No description provided for @online.
+  ///
+  /// In en, this message translates to:
+  /// **'Online'**
+  String get online;
+
+  /// No description provided for @offline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get offline;
+
+  /// No description provided for @available.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get available;
+
+  /// No description provided for @lifetimeEarned.
+  ///
+  /// In en, this message translates to:
+  /// **'Lifetime Earned'**
+  String get lifetimeEarned;
+
+  /// No description provided for @enterRooAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter ROO amount'**
+  String get enterRooAmount;
+
+  /// No description provided for @recipient.
+  ///
+  /// In en, this message translates to:
+  /// **'Recipient'**
+  String get recipient;
+
+  /// No description provided for @verificationPendingSendRoo.
+  ///
+  /// In en, this message translates to:
+  /// **'Your verification is pending. You can send ROO once approved.'**
+  String get verificationPendingSendRoo;
+
+  /// No description provided for @completeVerificationToSendRoo.
+  ///
+  /// In en, this message translates to:
+  /// **'Please complete identity verification to send ROO.'**
+  String get completeVerificationToSendRoo;
+
+  /// No description provided for @cannotSendRooToSelf.
+  ///
+  /// In en, this message translates to:
+  /// **'You cannot send ROO to your own account'**
+  String get cannotSendRooToSelf;
+
+  /// No description provided for @availableBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Available Balance'**
+  String get availableBalance;
+
+  /// No description provided for @locationPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission denied'**
+  String get locationPermissionDenied;
+
+  /// No description provided for @locationPermissionPermanentlyDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission permanently denied'**
+  String get locationPermissionPermanentlyDenied;
+
+  /// No description provided for @mustBeLoggedInToBoost.
+  ///
+  /// In en, this message translates to:
+  /// **'You must be logged in to boost a post.'**
+  String get mustBeLoggedInToBoost;
+
+  /// No description provided for @verificationPendingTip.
+  ///
+  /// In en, this message translates to:
+  /// **'Your verification is pending. You can tip once approved.'**
+  String get verificationPendingTip;
+
+  /// No description provided for @cannotTipOwnPost.
+  ///
+  /// In en, this message translates to:
+  /// **'You cannot tip your own post'**
+  String get cannotTipOwnPost;
+
+  /// No description provided for @enterAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter amount'**
+  String get enterAmount;
+
+  /// No description provided for @postUnderReview.
+  ///
+  /// In en, this message translates to:
+  /// **'This post is under review.'**
+  String get postUnderReview;
+
+  /// No description provided for @sensitiveContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sensitive Content'**
+  String get sensitiveContent;
+
+  /// No description provided for @deleteCommentConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this comment? This cannot be undone.'**
+  String get deleteCommentConfirmation;
+
+  /// No description provided for @commentUnderReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Comment under review.'**
+  String get commentUnderReview;
+
+  /// No description provided for @storiesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Stories from people you follow will appear here'**
+  String get storiesEmpty;
+
+  /// No description provided for @textStoryWordLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Text stories are limited to 250 words.'**
+  String get textStoryWordLimit;
+
+  /// No description provided for @createStory.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Story'**
+  String get createStory;
+
+  /// No description provided for @clickToUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Click to upload'**
+  String get clickToUpload;
+
+  /// No description provided for @imageOrVideoMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Image or video (max 15s)'**
+  String get imageOrVideoMax;
+
+  /// No description provided for @commentNotPublishedAi.
+  ///
+  /// In en, this message translates to:
+  /// **'Your comment was not published. Our AI detected it may violate our guidelines.'**
+  String get commentNotPublishedAi;
+
+  /// No description provided for @commentUnderReviewExtended.
+  ///
+  /// In en, this message translates to:
+  /// **'Your comment is under review. It will appear once approved.'**
+  String get commentUnderReviewExtended;
 }
 
-class _AppLocalizationsDelegate
-    extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -1779,58 +2063,35 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool isSupported(Locale locale) => <String>[
-    'ar',
-    'de',
-    'en',
-    'es',
-    'fr',
-    'hi',
-    'it',
-    'ja',
-    'ko',
-    'pt',
-    'ru',
-    'zh',
-  ].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>['ar', 'de', 'en', 'es', 'fr', 'hi', 'it', 'ja', 'ko', 'pt', 'ru', 'zh'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
+
+
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'ar':
-      return AppLocalizationsAr();
-    case 'de':
-      return AppLocalizationsDe();
-    case 'en':
-      return AppLocalizationsEn();
-    case 'es':
-      return AppLocalizationsEs();
-    case 'fr':
-      return AppLocalizationsFr();
-    case 'hi':
-      return AppLocalizationsHi();
-    case 'it':
-      return AppLocalizationsIt();
-    case 'ja':
-      return AppLocalizationsJa();
-    case 'ko':
-      return AppLocalizationsKo();
-    case 'pt':
-      return AppLocalizationsPt();
-    case 'ru':
-      return AppLocalizationsRu();
-    case 'zh':
-      return AppLocalizationsZh();
+    case 'ar': return AppLocalizationsAr();
+    case 'de': return AppLocalizationsDe();
+    case 'en': return AppLocalizationsEn();
+    case 'es': return AppLocalizationsEs();
+    case 'fr': return AppLocalizationsFr();
+    case 'hi': return AppLocalizationsHi();
+    case 'it': return AppLocalizationsIt();
+    case 'ja': return AppLocalizationsJa();
+    case 'ko': return AppLocalizationsKo();
+    case 'pt': return AppLocalizationsPt();
+    case 'ru': return AppLocalizationsRu();
+    case 'zh': return AppLocalizationsZh();
   }
 
   throw FlutterError(
     'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
     'an issue with the localizations generation tool. Please file an issue '
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
+    'that was used.'
   );
 }

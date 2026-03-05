@@ -606,7 +606,7 @@ class UserProvider with ChangeNotifier {
         );
       }
 
-      // Fetch Rooken transactions
+      // Fetch Roobit transactions
       final txResponse = await _supabase.client
           .from(SupabaseConfig.roocoinTransactionsTable)
           .select(
@@ -666,11 +666,11 @@ class UserProvider with ChangeNotifier {
 
         UserActivityType activityType;
         if (isTransfer && !isReceived) {
-          activityType = UserActivityType.rookenTransferred;
+          activityType = UserActivityType.roobitTransferred;
         } else if (isReceived) {
-          activityType = UserActivityType.rookenEarned;
+          activityType = UserActivityType.roobitEarned;
         } else {
-          activityType = UserActivityType.rookenSpent;
+          activityType = UserActivityType.roobitSpent;
         }
 
         activities.add(
@@ -701,8 +701,8 @@ class UserProvider with ChangeNotifier {
 
       // Only show received ROO (not spent or transferred)
       final filtered = activities.where((a) =>
-        a.type != UserActivityType.rookenSpent &&
-        a.type != UserActivityType.rookenTransferred,
+        a.type != UserActivityType.roobitSpent &&
+        a.type != UserActivityType.roobitTransferred,
       ).toList();
 
       // Limit to the most recent activities

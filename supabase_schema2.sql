@@ -29,6 +29,20 @@ CREATE TABLE public.admin_users (
   CONSTRAINT admin_users_pkey PRIMARY KEY (user_id),
   CONSTRAINT admin_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.advertisement_recipients (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  content_type text NOT NULL,
+  content_id uuid NOT NULL,
+  author_id uuid,
+  user_id uuid NOT NULL,
+  match_score numeric NOT NULL DEFAULT 0,
+  selection_reason text NOT NULL,
+  notified_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT advertisement_recipients_pkey PRIMARY KEY (id),
+  CONSTRAINT advertisement_recipients_author_id_fkey FOREIGN KEY (author_id) REFERENCES auth.users(id),
+  CONSTRAINT advertisement_recipients_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.advertisements (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -419,6 +433,14 @@ CREATE TABLE public.dm_threads (
   CONSTRAINT dm_threads_pkey PRIMARY KEY (id),
   CONSTRAINT dm_threads_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
 );
+CREATE TABLE public.dm_typing (
+  thread_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT dm_typing_pkey PRIMARY KEY (thread_id, user_id),
+  CONSTRAINT dm_typing_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.dm_threads(id),
+  CONSTRAINT dm_typing_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.faq (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   question text NOT NULL,
@@ -635,12 +657,14 @@ CREATE TABLE public.notifications (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   expires_at timestamp with time zone,
   story_id uuid,
+  ticket_id uuid,
   CONSTRAINT notifications_pkey PRIMARY KEY (id),
   CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id),
   CONSTRAINT notifications_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES public.profiles(user_id),
   CONSTRAINT notifications_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
   CONSTRAINT notifications_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id),
-  CONSTRAINT notifications_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.dm_threads(id)
+  CONSTRAINT notifications_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.dm_threads(id),
+  CONSTRAINT notifications_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.support_tickets(id)
 );
 CREATE TABLE public.platform_config (
   id smallint NOT NULL DEFAULT 1 CHECK (id = 1),
@@ -1379,6 +1403,17 @@ CREATE TABLE public.user_fcm_tokens (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT user_fcm_tokens_pkey PRIMARY KEY (id),
   CONSTRAINT user_fcm_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.user_mfa (
+  user_id uuid NOT NULL,
+  secret text NOT NULL,
+  backup_codes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  enabled boolean DEFAULT false,
+  enabled_at timestamp with time zone,
+  disabled_at timestamp with time zone,
+  last_used_at timestamp with time zone,
+  CONSTRAINT user_mfa_pkey PRIMARY KEY (user_id),
+  CONSTRAINT user_mfa_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.user_reports (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/feed_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../../models/post.dart';
 import '../../config/supabase_config.dart';
+import '../../services/supabase_service.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class EditPostScreen extends StatefulWidget {
@@ -93,6 +95,122 @@ class _EditPostScreenState extends State<EditPostScreen> {
     });
   }
 
+  /// Shows a dialog when the edited post is detected as an advertisement.
+  /// Returns true if the user paid the ad fee, false otherwise.
+  Future<bool> _showAdFeeDialog(double adConfidence, String? adType) async {
+    const double adFeeRoo = 5.0;
+
+    if (!mounted) return false;
+
+    final walletProvider = context.read<WalletProvider>();
+    final userId = SupabaseService().currentUser?.id;
+    if (userId == null) return false;
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.campaign_outlined, color: Color(0xFFFF8C00)),
+            const SizedBox(width: 8),
+            Text('Advertisement Detected'.tr(context)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Our system detected this post as promotional content '
+              '(${adConfidence.toStringAsFixed(0)}% confidence'
+              '${adType != null ? " · ${adType.replaceAll('_', ' ')}" : ""}).',
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'To publish it, an advertising fee is required.'.tr(context),
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF8C00).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Ad fee'.tr(context)),
+                  Text(
+                    '${adFeeRoo.toStringAsFixed(0)} ROO'.tr(context),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFFF8C00),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'If you decline, your post will be held and you can pay later from your profile.'.tr(context),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Not now'.tr(context)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF8C00),
+            ),
+            child: Text('Pay ${adFeeRoo.toStringAsFixed(0)} ROO'.tr(context)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return false;
+
+    try {
+      final success = await walletProvider.spendRoo(
+        userId: userId,
+        amount: adFeeRoo,
+        activityType: 'AD_FEE',
+        metadata: {
+          'ad_confidence': adConfidence,
+          'ad_type': adType,
+        },
+      );
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Insufficient ROO balance to pay the advertising fee.'.tr(context),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return success;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment failed: ${e.toString()}'.tr(context)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
   Future<void> _saveChanges() async {
     final text = _contentController.text.trim();
     if (text.isEmpty && _existingMedia.isEmpty && _newMediaFiles.isEmpty) {
@@ -113,9 +231,9 @@ class _EditPostScreenState extends State<EditPostScreen> {
         deletedMediaIds: _deletedMediaIds,
         newMediaFiles: _newMediaFiles,
         newMediaTypes: _newMediaTypes,
-        // Tags not supported in updatePostWithMedia yet?
-        // PostRepository.updatePost doesn't assume tags update.
-        // We'll ignore tags update for now or add it later if needed.
+        originalBody: widget.post.content,
+        onAdFeeRequired: (adConfidence, adType) =>
+            _showAdFeeDialog(adConfidence, adType),
       );
 
       if (success && mounted) {
@@ -198,8 +316,8 @@ class _EditPostScreenState extends State<EditPostScreen> {
               controller: _contentController,
               maxLines: null,
               minLines: 5,
-              decoration: const InputDecoration(
-                hintText: 'What\'s on your mind?',
+              decoration: InputDecoration(
+                hintText: 'What\'s on your mind?'.tr(context),
                 border: InputBorder.none,
               ),
             ),

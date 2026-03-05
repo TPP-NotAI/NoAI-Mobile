@@ -7,7 +7,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
 import '../services/chat_service.dart';
-import '../services/push_notification_service.dart';
 import '../services/supabase_service.dart';
 
 class ChatProvider extends ChangeNotifier {
@@ -19,6 +18,8 @@ class ChatProvider extends ChangeNotifier {
   final _supabase = SupabaseService().client;
   final Map<String, DateTime> _recentlyReadAt = {};
   final Set<String> _locallyDeletedMessageIds = {};
+  // Conversation IDs hidden by the user (deleted/archived) — suppressed from realtime reloads.
+  final Set<String> _hiddenConversationIds = {};
   // Pending messages keyed by conversationId for optimistic UI
   final Map<String, List<Message>> _pendingMessages = {};
   Future<void>? _cacheInit;
@@ -145,6 +146,10 @@ class ChatProvider extends ChangeNotifier {
     final aiScoreStatus = messageData['ai_score_status'] as String?;
 
     if (threadId == null) return;
+
+    // Don't resurface conversations the user has explicitly hidden.
+    if (_hiddenConversationIds.contains(threadId)) return;
+
     final isFromOther = senderId != _currentUserId;
 
     // Never surface flagged messages, and keep review messages sender-only.
@@ -173,25 +178,9 @@ class ChatProvider extends ChangeNotifier {
       _conversations.insert(0, updatedConversation);
       notifyListeners();
 
-      // Show local notification for incoming messages
-      if (isFromOther) {
-        final sender = conversation.participants.firstWhere(
-          (u) => u.id == senderId,
-          orElse: () => conversation.otherParticipant(_currentUserId ?? ''),
-        );
-        final senderName = sender.displayName.isNotEmpty
-            ? sender.displayName
-            : sender.username;
-        final body = newMessage.mediaType != null
-            ? '📎 ${newMessage.displayContent}'
-            : newMessage.displayContent;
-        PushNotificationService().showLocalNotification(
-          title: senderName,
-          body: body.isNotEmpty ? body : 'Sent you a message',
-          type: 'message',
-          data: {'type': 'message', 'thread_id': threadId},
-        );
-      }
+      // Local push + snackbar are handled by NotificationProvider's realtime
+      // listener when ChatService inserts the notification row to DB.
+      // No direct showLocalNotification call here to avoid duplicates.
     } else {
       // New conversation we don't have yet - refresh the list
       loadConversations();
@@ -202,6 +191,9 @@ class ChatProvider extends ChangeNotifier {
   void _handleThreadUpdate(Map<String, dynamic> threadData) {
     final threadId = threadData['id'] as String?;
     if (threadId == null) return;
+
+    // Don't reload if this thread was hidden by the user.
+    if (_hiddenConversationIds.contains(threadId)) return;
 
     final index = _conversations.indexWhere((c) => c.id == threadId);
     if (index != -1) {
@@ -232,6 +224,7 @@ class ChatProvider extends ChangeNotifier {
     _conversations = [];
     _recentlyReadAt.clear();
     _locallyDeletedMessageIds.clear();
+    _hiddenConversationIds.clear();
     notifyListeners();
   }
 
@@ -249,6 +242,10 @@ class ChatProvider extends ChangeNotifier {
       );
       final adjusted = <Conversation>[];
       for (final conversation in fetched) {
+        // Skip any conversation the user has explicitly hidden this session.
+        if (!showArchived && _hiddenConversationIds.contains(conversation.id)) {
+          continue;
+        }
         adjusted.add(_applyRecentReadOverride(conversation));
       }
       _conversations = adjusted;
@@ -353,26 +350,32 @@ class ChatProvider extends ChangeNotifier {
 
   Future<void> deleteConversation(String conversationId) async {
     try {
+      _hiddenConversationIds.add(conversationId);
       await _chatService.deleteConversation(conversationId);
       _conversations.removeWhere((c) => c.id == conversationId);
       notifyListeners();
     } catch (e) {
+      _hiddenConversationIds.remove(conversationId);
       debugPrint('Error deleting conversation: $e');
     }
   }
 
   Future<void> archiveConversation(String conversationId) async {
     try {
+      _hiddenConversationIds.add(conversationId);
       await _chatService.archiveConversation(conversationId);
       _conversations.removeWhere((c) => c.id == conversationId);
       notifyListeners();
     } catch (e) {
+      _hiddenConversationIds.remove(conversationId);
       debugPrint('Error archiving conversation: $e');
     }
   }
 
   Future<void> unarchiveConversation(String conversationId) async {
     try {
+      // No longer hidden — it moves to the active list.
+      _hiddenConversationIds.remove(conversationId);
       await _chatService.unarchiveConversation(conversationId);
       _conversations.removeWhere((c) => c.id == conversationId);
       notifyListeners();
@@ -383,11 +386,13 @@ class ChatProvider extends ChangeNotifier {
 
   Future<void> deleteConversationForUser(String conversationId) async {
     try {
+      _hiddenConversationIds.add(conversationId);
       await _chatService.deleteConversationForUser(conversationId);
       _chatService.invalidateLeftAtCache(conversationId);
       _conversations.removeWhere((c) => c.id == conversationId);
       notifyListeners();
     } catch (e) {
+      _hiddenConversationIds.remove(conversationId);
       debugPrint('Error deleting conversation for user: $e');
     }
   }

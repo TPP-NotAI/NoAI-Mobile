@@ -118,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
     // Validate password
     if (password.isEmpty) {
       setState(() {
-        _passwordError = 'Password is required';
+        _passwordError = 'Password is required'.tr(context);
       });
       hasError = true;
     }
@@ -141,7 +141,12 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       SnackBarUtils.showError(context, e);
-      setState(() => _isLoading = false);
+      final message = authProvider.error ?? 'Invalid email or password'.tr(context);
+      setState(() {
+        _loginError = message;
+        _isRateLimited = message.toLowerCase().contains('too many');
+        _isLoading = false;
+      });
     }
   }
 
@@ -162,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!launched) {
         setState(() {
-          _loginError = authProvider.error ?? 'Unable to start Google login';
+          _loginError = authProvider.error ?? 'Unable to start Google login'.tr(context);
           _isLoading = false;
         });
         return;

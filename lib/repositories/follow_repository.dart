@@ -51,9 +51,26 @@ class FollowRepository {
 
       // Notify followed user
       try {
+        // Fetch follower's display name for the notification title
+        String followerName = 'Someone';
+        try {
+          final profile = await _client
+              .from('profiles')
+              .select('username, display_name')
+              .eq('user_id', followerId)
+              .maybeSingle();
+          followerName = (profile?['display_name'] as String?)
+                      ?.trim()
+                      .isNotEmpty ==
+                  true
+              ? (profile?['display_name'] as String).trim()
+              : ((profile?['username'] as String?) ?? 'Someone');
+        } catch (_) {}
+
         await _notificationRepository.createNotification(
           userId: followingId,
           type: 'follow',
+          title: '$followerName started following you',
           actorId: followerId,
         );
       } catch (e) {

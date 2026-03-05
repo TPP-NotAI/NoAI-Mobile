@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:rooverse/models/user.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show RealtimeChannel, PostgresChangeEvent;
 import '../../models/post.dart';
 import 'package:rooverse/models/user_activity.dart';
 import '../../repositories/post_repository.dart';
@@ -25,8 +29,14 @@ import 'follow_list_screen.dart';
 import '../../providers/wallet_provider.dart';
 import '../wallet/send_roo_screen.dart';
 import '../moderation/my_flagged_content_screen.dart';
+import '../../config/global_keys.dart';
+import '../../config/supabase_config.dart';
+import '../../services/supabase_service.dart';
+import '../bookmarks/bookmarks_screen.dart';
+import '../settings_screen.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 class ProfileScreen extends StatefulWidget {
   final String? userId;
   final bool showAppBar;
@@ -46,13 +56,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _approvedPostsCount = 0;
   int _totalLikes = 0;
   int _totalComments = 0;
+  RealtimeChannel? _profilePostsChannel;
+  Timer? _profileRealtimeDebounce;
 
   @override
   void initState() {
     super.initState();
+    postEventBus.addListener(_onPostCreated);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadProfileData();
     });
+  }
+
+  void _onPostCreated() {
+    refreshPosts();
+  }
+
+  void _bindProfilePostsRealtime(String userId) {
+    if (_profilePostsChannel != null) return;
+    _profilePostsChannel = SupabaseService().client
+        .channel('profile:posts:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: SupabaseConfig.postsTable,
+          callback: (payload) {
+            final newAuthor = payload.newRecord['author_id'] as String?;
+            final oldAuthor = payload.oldRecord['author_id'] as String?;
+            if (newAuthor != userId && oldAuthor != userId) return;
+            _scheduleProfileRealtimeRefresh();
+          },
+        )
+        .subscribe();
+  }
+
+  void _scheduleProfileRealtimeRefresh() {
+    _profileRealtimeDebounce?.cancel();
+    _profileRealtimeDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      refreshPosts();
+    });
+  }
+
+  Future<void> refreshPosts() async {
+    if (!mounted) return;
+    final authProvider = context.read<AuthProvider>();
+    final userProvider = context.read<UserProvider>();
+    final String? target = widget.userId ?? authProvider.currentUser?.id;
+    if (target == null) return;
+
+    final resolvedUser = userProvider.getUser(widget.userId);
+    final resolvedId = resolvedUser?.id ?? target;
+
+    setState(() => _isLoadingPosts = true);
+    try {
+      final results = await Future.wait([
+        _postRepository.getPostsByUser(
+          resolvedId,
+          currentUserId: authProvider.currentUser?.id,
+        ),
+        _postRepository.countApprovedPosts(resolvedId),
+        _postRepository.getTotalLikes(resolvedId),
+        _postRepository.getTotalComments(resolvedId),
+      ]);
+      if (mounted) {
+        setState(() {
+          _profilePosts = results[0] as List<Post>;
+          _approvedPostsCount = results[1] as int;
+          _totalLikes = results[2] as int;
+          _totalComments = results[3] as int;
+          _isLoadingPosts = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingPosts = false);
+    }
   }
 
   Future<void> _loadProfileData() async {
@@ -68,6 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final resolvedUser = userProvider.getUser(widget.userId);
     final resolvedId = resolvedUser?.id ?? target;
+    _bindProfilePostsRealtime(resolvedId);
 
     final isOwnProfile = resolvedId == authProvider.currentUser?.id;
 
@@ -114,7 +193,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    postEventBus.removeListener(_onPostCreated);
     _scrollController.dispose();
+    _profileRealtimeDebounce?.cancel();
+    if (_profilePostsChannel != null) {
+      SupabaseService().client.removeChannel(_profilePostsChannel!);
+    }
     super.dispose();
   }
 
@@ -196,7 +280,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: Icon(Icons.arrow_back, color: colors.onSurface),
                   onPressed: () => Navigator.pop(context),
                 ),
-                title: Text('@${user.username}'.tr(context),
+                title: Text(
+                  '@${user.username}'.tr(context),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: colors.onSurface,
@@ -275,101 +360,104 @@ class _ProfileScreenState extends State<ProfileScreen> {
             )
           : null,
       body: SafeArea(
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            // ───────── PROFILE CARD
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: AppSpacing.responsiveAll(
-                  context,
-                  AppSpacing.extraLarge,
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerHighest.withValues(
-                      alpha: 0.3,
-                    ),
-                    borderRadius: AppSpacing.responsiveRadius(
-                      context,
-                      AppSpacing.radiusModal,
-                    ),
-                    border: Border.all(
-                      color: colors.outlineVariant.withValues(alpha: 0.5),
-                      width: 1,
-                    ),
+        child: RefreshIndicator(
+          onRefresh: _loadProfileData,
+          child: CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              // ───────── PROFILE CARD
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: AppSpacing.responsiveAll(
+                    context,
+                    AppSpacing.extraLarge,
                   ),
-                  child: Padding(
-                    padding: AppSpacing.responsiveAll(
-                      context,
-                      AppSpacing.extraLarge,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHighest.withValues(
+                        alpha: 0.3,
+                      ),
+                      borderRadius: AppSpacing.responsiveRadius(
+                        context,
+                        AppSpacing.radiusModal,
+                      ),
+                      border: Border.all(
+                        color: colors.outlineVariant.withValues(alpha: 0.5),
+                        width: 1,
+                      ),
                     ),
-                    child: Column(
-                      children: [
-                        _ProfileHeader(
-                          user: user,
-                          isOwn: isActuallyOwnProfile,
-                          isFollowing: isFollowing,
-                        ),
-                        _RoobyteBalance(
-                          user: user,
-                          colors: colors,
-                          isVisible: isActuallyOwnProfile,
-                        ),
-                        SizedBox(height: 16),
-                        _ActionRow(
-                          isOwn: isActuallyOwnProfile,
-                          isFollowing: isFollowing,
-                          isBlocked: isBlocked,
-                          user: user,
-                          onEdit: () =>
-                              _open(context, const EditProfileScreen()),
-                          onFollow: () => userProvider.toggleFollow(user.id),
-                          onBlock: () => _handleBlock(context, user, isBlocked),
-                          onReport: () => _handleReport(context, user),
-                          onSend: () => _handleSendRoo(context, user),
-                        ),
-                      ],
+                    child: Padding(
+                      padding: AppSpacing.responsiveAll(
+                        context,
+                        AppSpacing.extraLarge,
+                      ),
+                      child: Column(
+                        children: [
+                          _ProfileHeader(
+                            user: user,
+                            isOwn: isActuallyOwnProfile,
+                            isFollowing: isFollowing,
+                          ),
+                          _RoobyteBalance(
+                            user: user,
+                            colors: colors,
+                            isVisible: isActuallyOwnProfile,
+                          ),
+                          SizedBox(height: 16),
+                          _ActionRow(
+                            isOwn: isActuallyOwnProfile,
+                            isFollowing: isFollowing,
+                            isBlocked: isBlocked,
+                            user: user,
+                            onEdit: () =>
+                                _open(context, const EditProfileScreen()),
+                            onFollow: () => userProvider.toggleFollow(user.id),
+                            onBlock: () =>
+                                _handleBlock(context, user, isBlocked),
+                            onReport: () => _handleReport(context, user),
+                            onSend: () => _handleSendRoo(context, user),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
 
-            // ───────── HUMANITY METRICS
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.extraLarge.responsive(context),
+              // ───────── HUMANITY METRICS
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.extraLarge.responsive(context),
+                  ),
+                  child: _HumanityMetricsCompact(user: user, colors: colors),
                 ),
-                child: _HumanityMetricsCompact(user: user, colors: colors),
               ),
-            ),
 
-            // ───────── STICKY TABS
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _StickyTabBarDelegate(
-                child: _TabBar(
-                  currentIndex: _tabIndex,
-                  onTabChanged: (index) {
-                    setState(() => _tabIndex = index);
-                    _scrollToTabs();
-                  },
+              // ───────── STICKY TABS
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _StickyTabBarDelegate(
+                  child: _TabBar(
+                    currentIndex: _tabIndex,
+                    onTabChanged: (index) {
+                      setState(() => _tabIndex = index);
+                      _scrollToTabs();
+                    },
+                    colors: colors,
+                    isOwnProfile: isActuallyOwnProfile,
+                  ),
+                ),
+              ),
+
+              // ───────── TAB CONTENT
+              if (_tabIndex == 0 && isActuallyOwnProfile)
+                _ActivityLog(
+                  activities: userProvider.userActivities,
                   colors: colors,
-                  isOwnProfile: isActuallyOwnProfile,
-                ),
-              ),
-            ),
-
-            // ───────── TAB CONTENT
-            if (_tabIndex == 0 && isActuallyOwnProfile)
-              _ActivityLog(
-                activities: userProvider.userActivities,
-                colors: colors,
-              )
-            else if (_tabIndex == 1 ||
-                (_tabIndex == 0 && !isActuallyOwnProfile))
+                )
+              else if (_tabIndex == 1 ||
+                  (_tabIndex == 0 && !isActuallyOwnProfile))
                 _Statistics(
                   user: user,
                   colors: colors,
@@ -378,48 +466,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   totalLikes: _totalLikes,
                   totalComments: _totalComments,
                 )
-            else if (_tabIndex == 2)
-              if (_isLoadingPosts)
-                SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else
-                _PostsGrid(
-                  posts: posts,
+              else if (_tabIndex == 2)
+                if (_isLoadingPosts)
+                  SliverFillRemaining(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  _PostsGrid(
+                    posts: posts,
+                    colors: colors,
+                    onPostUpdated: _updateProfilePost,
+                  )
+              else if (_tabIndex == 3 && isActuallyOwnProfile)
+                _AdsTab(
+                  paidAds: feedProvider.paidAdPosts,
+                  pendingAds: feedProvider.pendingAdPosts,
                   colors: colors,
-                  onPostUpdated: _updateProfilePost,
-                )
-            else if (_tabIndex == 3 && isActuallyOwnProfile)
-              _AdsTab(
-                paidAds: feedProvider.paidAdPosts,
-                pendingAds: feedProvider.pendingAdPosts,
-                colors: colors,
-                onPayFee: (postId) async {
-                  final success =
-                      await feedProvider.publishPendingAdPost(postId);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          success
-                              ? 'Ad published successfully!'
-                              : 'Failed to publish ad. Please try again.',
-                        ),
-                      ),
+                  onPayFee: (postId) async {
+                    final success = await feedProvider.publishPendingAdPost(
+                      postId,
                     );
-                  }
-                },
-              ),
-            // Added bottom safe padding to ensure last item is fully accessible
-            const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
-          ],
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            success
+                                ? 'Ad published successfully!'
+                                : 'Failed to publish ad. Please try again.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              // Added bottom safe padding to ensure last item is fully accessible
+              const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _open(BuildContext context, Widget page) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  Future<void> _open(BuildContext context, Widget page) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+    if (mounted) {
+      _loadProfileData();
+    }
   }
 
   Future<void> _handleBlock(
@@ -621,7 +714,8 @@ class _ProfileHeader extends StatelessWidget {
         if (user.displayName.isNotEmpty &&
             user.displayName.toLowerCase() != user.username.toLowerCase()) ...[
           SizedBox(height: AppSpacing.extraSmall.responsive(context)),
-          Text('@${user.username}'.tr(context),
+          Text(
+            '@${user.username}'.tr(context),
             style: theme.textTheme.titleMedium?.copyWith(
               fontSize: AppTypography.responsiveFontSize(
                 context,
@@ -673,11 +767,31 @@ class _ProfileHeader extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _ProfileStatColumn(label: 'Followers'.tr(context), value: user.followersCount, colors: colors),
-            Container(width: 1, height: 32, color: colors.outlineVariant.withValues(alpha: 0.4)),
-            _ProfileStatColumn(label: 'Following'.tr(context), value: user.followingCount, colors: colors),
-            Container(width: 1, height: 32, color: colors.outlineVariant.withValues(alpha: 0.4)),
-            _ProfileStatColumn(label: 'Posts'.tr(context), value: user.postsCount, colors: colors),
+            _ProfileStatColumn(
+              label: 'Followers'.tr(context),
+              value: user.followersCount,
+              colors: colors,
+            ),
+            Container(
+              width: 1,
+              height: 32,
+              color: colors.outlineVariant.withValues(alpha: 0.4),
+            ),
+            _ProfileStatColumn(
+              label: 'Following'.tr(context),
+              value: user.followingCount,
+              colors: colors,
+            ),
+            Container(
+              width: 1,
+              height: 32,
+              color: colors.outlineVariant.withValues(alpha: 0.4),
+            ),
+            _ProfileStatColumn(
+              label: 'Posts'.tr(context),
+              value: user.postsCount,
+              colors: colors,
+            ),
           ],
         ),
       ],
@@ -798,7 +912,7 @@ class _AchievementBadge extends StatelessWidget {
   }
 }
 
-/* ───────────────── ROOKEN BALANCE ───────────────── */
+/* ───────────────── ROOBIT BALANCE ───────────────── */
 
 class _RoobyteBalance extends StatelessWidget {
   final dynamic user;
@@ -822,7 +936,8 @@ class _RoobyteBalance extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(height: 16),
-        Text('Roobyte Balance'.tr(context),
+        Text(
+          'Roobyte Balance'.tr(context),
           style: TextStyle(
             fontSize: 13,
             color: colors.onSurfaceVariant,
@@ -845,7 +960,8 @@ class _RoobyteBalance extends StatelessWidget {
               ),
             ),
             SizedBox(width: 6),
-            Text('R00'.tr(context),
+            Text(
+              'R00'.tr(context),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -982,10 +1098,7 @@ class _HumanityMetricRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colors.onSurfaceVariant,
-                ),
+                style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
               ),
               SizedBox(height: 4),
               Text(
@@ -1035,28 +1148,108 @@ class _ActionRow extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
 
     if (isOwn) {
-      return SizedBox(
-        width: double.infinity,
-        height: 48,
-        child: FilledButton(
-          onPressed: onEdit,
-          style: FilledButton.styleFrom(
+      return Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 48,
+              child: FilledButton(
+                onPressed: onEdit,
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.edit_outlined, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      _profileText(context, 'editProfile'),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 8),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: colors.onSurfaceVariant),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.edit_outlined, size: 18),
-              SizedBox(width: 8),
-              Text(
-                _profileText(context, 'editProfile'),
-                style: const TextStyle(fontWeight: FontWeight.w600),
+            onSelected: (value) {
+              switch (value) {
+                case 'bookmarks':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BookmarksScreen()),
+                  );
+                  break;
+                case 'settings':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  );
+                  break;
+                case 'flagged':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MyFlaggedContentScreen(),
+                    ),
+                  );
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'bookmarks',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.bookmark_outline,
+                      size: 20,
+                      color: colors.onSurface,
+                    ),
+                    SizedBox(width: 12),
+                    Text('Bookmarks'.tr(context)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.settings_outlined,
+                      size: 20,
+                      color: colors.onSurface,
+                    ),
+                    SizedBox(width: 12),
+                    Text('Settings'.tr(context)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'flagged',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.flag_outlined,
+                      size: 20,
+                      color: colors.onSurface,
+                    ),
+                    SizedBox(width: 12),
+                    Text('Flagged Content'.tr(context)),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
+        ],
       );
     }
 
@@ -1213,7 +1406,12 @@ class _ActivityLog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (activities.isEmpty) {
+    final visibleActivities = activities.where((activity) {
+      if (activity.type != UserActivityType.roobitEarned) return true;
+      return (activity.amount ?? 0) > 0;
+    }).toList();
+
+    if (visibleActivities.isEmpty) {
       return SliverFillRemaining(
         child: Center(child: Text(_profileText(context, 'noActivityYet'))),
       );
@@ -1224,8 +1422,10 @@ class _ActivityLog extends StatelessWidget {
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
           (context, i) =>
-              _ActivityItem(activity: activities[i], colors: colors),
-          childCount: activities.length > 20 ? 20 : activities.length,
+              _ActivityItem(activity: visibleActivities[i], colors: colors),
+          childCount: visibleActivities.length > 20
+              ? 20
+              : visibleActivities.length,
         ),
       ),
     );
@@ -1252,11 +1452,11 @@ class _ActivityItem extends StatelessWidget {
         return Icons.repeat;
       case UserActivityType.userFollowed:
         return Icons.person_add;
-      case UserActivityType.rookenEarned:
+      case UserActivityType.roobitEarned:
         return Icons.add_circle;
-      case UserActivityType.rookenSpent:
+      case UserActivityType.roobitSpent:
         return Icons.remove_circle;
-      case UserActivityType.rookenTransferred:
+      case UserActivityType.roobitTransferred:
         return Icons.send;
       case UserActivityType.storyCreated:
         return Icons.auto_stories;
@@ -1277,11 +1477,11 @@ class _ActivityItem extends StatelessWidget {
         return const Color(0xFF10B981); // green
       case UserActivityType.userFollowed:
         return const Color(0xFFF59E0B); // amber
-      case UserActivityType.rookenEarned:
+      case UserActivityType.roobitEarned:
         return const Color(0xFF10B981); // green
-      case UserActivityType.rookenSpent:
+      case UserActivityType.roobitSpent:
         return const Color(0xFFEF4444); // red
-      case UserActivityType.rookenTransferred:
+      case UserActivityType.roobitTransferred:
         return const Color(0xFFF59E0B); // amber
       case UserActivityType.storyCreated:
         return const Color(0xFFEC4899); // pink
@@ -1351,21 +1551,6 @@ class _ActivityItem extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: 4),
-                // Preview content if available (not for comments)
-                if (activity.previewContent != null &&
-                    activity.type != UserActivityType.postCommented) ...[
-                  Text(
-                    activity.previewContent!,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colors.onSurfaceVariant,
-                      height: 1.4,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 6),
-                ],
                 // Target user info for follow activities
                 if (activity.type == UserActivityType.userFollowed &&
                     activity.targetUsername != null) ...[
@@ -1389,7 +1574,8 @@ class _ActivityItem extends StatelessWidget {
                           ),
                         ),
                       SizedBox(width: 6),
-                      Text('@${activity.targetUsername}'.tr(context),
+                      Text(
+                        '@${activity.targetUsername}'.tr(context),
                         style: TextStyle(
                           fontSize: 12,
                           color: colors.primary,
@@ -1409,7 +1595,8 @@ class _ActivityItem extends StatelessWidget {
                       color: colors.onSurfaceVariant,
                     ),
                     SizedBox(width: 4),
-                    Text('$dateStr ${_profileText(context, 'at')} $timeStr',
+                    Text(
+                      '$dateStr ${_profileText(context, 'at')} $timeStr',
                       style: TextStyle(
                         fontSize: 11,
                         color: colors.onSurfaceVariant,
@@ -1671,10 +1858,7 @@ class _AdsTab extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 'No adverts yet',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colors.onSurfaceVariant,
-                ),
+                style: TextStyle(fontSize: 16, color: colors.onSurfaceVariant),
               ),
             ],
           ),
@@ -1815,7 +1999,9 @@ class _AdSectionHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isPending ? Icons.pending_outlined : Icons.check_circle_outline,
+                  isPending
+                      ? Icons.pending_outlined
+                      : Icons.check_circle_outline,
                   size: 14,
                   color: color,
                 ),
@@ -1909,8 +2095,9 @@ class _AdCardState extends State<_AdCard> {
             // ── Media thumbnail (if any) ──
             if (hasMedia)
               ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(14)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(14),
+                ),
                 child: SizedBox(
                   height: 160,
                   width: double.infinity,
@@ -1948,20 +2135,28 @@ class _AdCardState extends State<_AdCard> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF8C00).withValues(alpha: 0.12),
+                          color: const Color(
+                            0xFFFF8C00,
+                          ).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: const Color(0xFFFF8C00)
-                                .withValues(alpha: 0.5),
+                            color: const Color(
+                              0xFFFF8C00,
+                            ).withValues(alpha: 0.5),
                           ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.campaign,
-                                size: 12, color: Color(0xFFFF8C00)),
+                            const Icon(
+                              Icons.campaign,
+                              size: 12,
+                              color: Color(0xFFFF8C00),
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               _adType.toUpperCase(),
@@ -1978,7 +2173,9 @@ class _AdCardState extends State<_AdCard> {
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: accentColor.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(6),
@@ -2032,19 +2229,22 @@ class _AdCardState extends State<_AdCard> {
                     Row(
                       children: [
                         _AdStat(
-                            icon: Icons.visibility_outlined,
-                            value: post.views.toString(),
-                            colors: colors),
+                          icon: Icons.visibility_outlined,
+                          value: post.views.toString(),
+                          colors: colors,
+                        ),
                         const SizedBox(width: 16),
                         _AdStat(
-                            icon: Icons.favorite_border,
-                            value: post.likes.toString(),
-                            colors: colors),
+                          icon: Icons.favorite_border,
+                          value: post.likes.toString(),
+                          colors: colors,
+                        ),
                         const SizedBox(width: 16),
                         _AdStat(
-                            icon: Icons.chat_bubble_outline,
-                            value: post.comments.toString(),
-                            colors: colors),
+                          icon: Icons.chat_bubble_outline,
+                          value: post.comments.toString(),
+                          colors: colors,
+                        ),
                       ],
                     ),
 
@@ -2067,7 +2267,9 @@ class _AdCardState extends State<_AdCard> {
                                 ),
                               )
                             : const Icon(Icons.payment, size: 18),
-                        label: Text(_paying ? 'Processing...' : 'Pay & Publish'),
+                        label: Text(
+                          _paying ? 'Processing...' : 'Pay & Publish',
+                        ),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.orange.shade700,
                           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -2104,7 +2306,8 @@ class _AdCardState extends State<_AdCard> {
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
-                backgroundColor: Colors.orange.shade700),
+              backgroundColor: Colors.orange.shade700,
+            ),
             child: const Text('Pay & Publish'),
           ),
         ],
@@ -2170,7 +2373,9 @@ class _AdGridItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final primaryMediaUrl = post.primaryMediaUrl;
     final hasMedia = primaryMediaUrl != null && primaryMediaUrl.isNotEmpty;
-    final accentColor = isPending ? Colors.orange.shade700 : Colors.green.shade700;
+    final accentColor = isPending
+        ? Colors.orange.shade700
+        : Colors.green.shade700;
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -2221,10 +2426,7 @@ class _AdGridItem extends StatelessWidget {
                       post.content,
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: colors.onSurface,
-                      ),
+                      style: TextStyle(fontSize: 10, color: colors.onSurface),
                     ),
                   ),
                 ),
@@ -2232,7 +2434,10 @@ class _AdGridItem extends StatelessWidget {
                 top: 4,
                 right: 4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: accentColor.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(6),
@@ -2494,7 +2699,10 @@ class _PostGridItem extends StatelessWidget {
                   top: 6,
                   left: 6,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(4),

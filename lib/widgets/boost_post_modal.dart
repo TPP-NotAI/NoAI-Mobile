@@ -9,7 +9,6 @@ import '../providers/auth_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../repositories/boost_repository.dart';
 import '../repositories/notification_repository.dart';
-import '../services/push_notification_service.dart';
 import '../utils/snackbar_utils.dart';
 import 'post_card.dart' show PostBoostCache;
 
@@ -18,7 +17,7 @@ import 'package:rooverse/l10n/hardcoded_l10n.dart';
 const double _kRooPerUser = 0.1;
 
 /// Min / max reach on the slider.
-const double _kMinUsers = 100;
+const double _kMinUsers = 10;
 const double _kMaxUsers = 10000;
 
 class BoostPostModal extends StatefulWidget {
@@ -31,7 +30,7 @@ class BoostPostModal extends StatefulWidget {
 }
 
 class _BoostPostModalState extends State<BoostPostModal> {
-  double _targetUsers = 500;
+  double _targetUsers = 10;
   bool _isProcessing = false;
 
   double get _cost => (_targetUsers * _kRooPerUser).ceilToDouble();
@@ -57,14 +56,14 @@ class _BoostPostModalState extends State<BoostPostModal> {
     final user = authProvider.currentUser;
 
     if (user == null) {
-      _showError('You must be logged in to boost a post.');
+      _showError('You must be logged in to boost a post.'.tr(context));
       return;
     }
 
     final availableBalance = walletProvider.wallet?.balanceRc ?? user.balance;
     if (_cost > availableBalance) {
       _showError(
-        'Insufficient Roobyte balance. You need ${_cost.toStringAsFixed(0)} ROO.',
+        'Insufficient Roobyte balance. You need ${_cost.toStringAsFixed(0)} ROO.'.tr(context),
       );
       return;
     }
@@ -95,13 +94,15 @@ class _BoostPostModalState extends State<BoostPostModal> {
     // Close modal immediately for snappy UX
     if (mounted) Navigator.pop(context);
 
-    rootScaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: Text(confirmingText),
-        backgroundColor: Colors.blue.shade700,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    rootScaffoldMessengerKey.currentState
+      ?..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(confirmingText),
+          backgroundColor: Colors.blue.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
 
     unawaited(
       _performBoost(
@@ -148,13 +149,15 @@ class _BoostPostModalState extends State<BoostPostModal> {
           localTxId,
           errorMessage: walletProvider.error ?? 'Payment failed',
         );
-        rootScaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            content: Text(walletProvider.error ?? 'Boost payment failed.'),
-            backgroundColor: Colors.red.shade600,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        rootScaffoldMessengerKey.currentState
+          ?..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(walletProvider.error ?? 'Boost payment failed.'),
+              backgroundColor: Colors.red.shade600,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
         return;
       }
 
@@ -184,11 +187,13 @@ class _BoostPostModalState extends State<BoostPostModal> {
         );
       }
 
-      // 4. Fire a local push notification
-      await PushNotificationService().showLocalNotification(
+      // 4. Log boost notification to DB — realtime listener handles local push + snackbar.
+      await NotificationRepository().createNotification(
+        userId: userId,
+        type: 'mention',
         title: 'Post Boosted! 🚀',
         body: 'Your post was successfully boosted to $targetUsers users.',
-        type: 'social',
+        postId: widget.post.id,
       );
 
       // 5. Show an in-app success dialog
@@ -214,12 +219,14 @@ class _BoostPostModalState extends State<BoostPostModal> {
         localTxId,
         errorMessage: e.toString(),
       );
-      rootScaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text('$boostFailedPrefix${e.toString()}'),
-          backgroundColor: Colors.red.shade600,
-          behavior: SnackBarBehavior.floating,
-        ),
+      rootScaffoldMessengerKey.currentState
+        ?..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('$boostFailedPrefix${e.toString()}'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+          ),
       );
     }
   }
@@ -429,7 +436,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
                               ),
                             ),
                             TextSpan(
-                              text: ' users',
+                              text: ' ${'users'.tr(context)}',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 color: colors.onSurfaceVariant,
                               ),
@@ -453,9 +460,9 @@ class _BoostPostModalState extends State<BoostPostModal> {
                         value: _targetUsers,
                         min: _kMinUsers,
                         max: _kMaxUsers,
-                        divisions: 99, // steps of 100
+                        divisions: 999, // steps of 10
                         onChanged: (v) =>
-                            setState(() => _targetUsers = (v / 100).round() * 100.0),
+                            setState(() => _targetUsers = (v / 10).round() * 10.0),
                       ),
                     ),
 

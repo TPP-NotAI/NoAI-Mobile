@@ -262,7 +262,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTitleSection('Forgot Password?'),
+        _buildTitleSection('Forgot Password?'.tr(context)),
         SizedBox(height: AppSpacing.largePlus.responsive(context)),
         RichText(
           text: TextSpan(
@@ -294,8 +294,8 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         _buildTextField(
           controller: _emailController,
           focusNode: _emailFocusNode,
-          label: 'Email Address',
-          hint: 'Enter your email',
+          label: 'Email Address'.tr(context),
+          hint: 'Enter your email'.tr(context),
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
           scheme: scheme,
@@ -303,7 +303,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         if (_error != null) _buildErrorMessage(),
         SizedBox(height: AppSpacing.double_.responsive(context)),
         _buildButton(
-          text: 'Send Code',
+          text: 'Send Code'.tr(context),
           onPressed: _handleSendEmail,
           isLoading: _isLoading,
         ),
@@ -333,7 +333,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTitleSection('Verify Code'),
+        _buildTitleSection('Verify Code'.tr(context)),
         SizedBox(height: AppSpacing.largePlus.responsive(context)),
         Text('We\'ve sent a 6-digit verification code to ${authProvider.pendingEmail ?? 'your email'.tr(context)}. Please enter it below to proceed.',
           style: TextStyle(
@@ -349,8 +349,8 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         _buildTextField(
           controller: _otpController,
           focusNode: _otpFocusNode,
-          label: 'Verification Code',
-          hint: 'Enter 6-digit code',
+          label: 'Verification Code'.tr(context),
+          hint: 'Enter 6-digit code'.tr(context),
           icon: Icons.security,
           keyboardType: TextInputType.number,
           scheme: scheme,
@@ -358,7 +358,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         if (_error != null) _buildErrorMessage(),
         SizedBox(height: AppSpacing.double_.responsive(context)),
         _buildButton(
-          text: 'Verify Code',
+          text: 'Verify Code'.tr(context),
           onPressed: _handleVerifyOtp,
           isLoading: _isLoading,
         ),
@@ -388,7 +388,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTitleSection('New Password'),
+        _buildTitleSection('New Password'.tr(context)),
         SizedBox(height: AppSpacing.largePlus.responsive(context)),
         Text('Verification successful! Create a strong new password for your account.'.tr(context),
           style: TextStyle(
@@ -404,8 +404,8 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         _buildTextField(
           controller: _passwordController,
           focusNode: _passwordFocusNode,
-          label: 'New Password',
-          hint: 'Enter new password',
+          label: 'New Password'.tr(context),
+          hint: 'Enter new password'.tr(context),
           icon: Icons.lock_outline,
           isPassword: true,
           obscureText: _obscurePassword,
@@ -417,8 +417,8 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         _buildTextField(
           controller: _confirmPasswordController,
           focusNode: _confirmPasswordFocusNode,
-          label: 'Confirm Password',
-          hint: 'Confirm your password',
+          label: 'Confirm Password'.tr(context),
+          hint: 'Confirm your password'.tr(context),
           icon: Icons.lock_reset,
           isPassword: true,
           obscureText: _obscureConfirmPassword,
@@ -430,7 +430,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         if (_error != null) _buildErrorMessage(),
         SizedBox(height: AppSpacing.triple.responsive(context)),
         _buildButton(
-          text: 'Reset Password',
+          text: 'Reset Password'.tr(context),
           onPressed: _handleResetPassword,
           isLoading: _isLoading,
         ),
@@ -471,7 +471,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('ROOKEN PROTECTED'.tr(context),
+                Text('ROOBIT PROTECTED'.tr(context),
                   style: TextStyle(
                     fontSize: AppTypography.responsiveFontSize(context, 10),
                     fontWeight: FontWeight.bold,
@@ -535,7 +535,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         ),
         SizedBox(height: 48.responsive(context, min: 36, max: 56)),
         _buildButton(
-          text: 'Back to Login',
+          text: 'Back to Login'.tr(context),
           onPressed: () {
             authProvider.resetRecoveryFlow();
             widget.onBack();

@@ -19,6 +19,7 @@ import '../providers/wallet_provider.dart';
 import '../utils/file_upload_utils.dart';
 import '../utils/verification_utils.dart';
 import '../services/supabase_service.dart';
+import '../l10n/hardcoded_l10n.dart';
 import 'story_card.dart';
 import 'story_viewer.dart';
 
@@ -52,11 +53,11 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.campaign_outlined, color: Color(0xFFFF8C00)),
-            SizedBox(width: 8),
-            Text('Advertisement Detected'),
+            const Icon(Icons.campaign_outlined, color: Color(0xFFFF8C00)),
+            const SizedBox(width: 8),
+            Text('Advertisement Detected'.tr(context)),
           ],
         ),
         content: Column(
@@ -69,9 +70,9 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
               '${adType != null ? " · ${adType.replaceAll('_', ' ')}" : ""}).',
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'To publish it, an advertising fee is required.',
-              style: TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 16),
             Container(
@@ -83,7 +84,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Ad fee'),
+                  Text('Ad fee'.tr(context)),
                   Text(
                     '${adFeeRoo.toStringAsFixed(0)} ROO',
                     style: const TextStyle(
@@ -95,16 +96,16 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'If you decline, your story will remain unpublished.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Not now'),
+            child: Text('Not now'.tr(context)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -309,7 +310,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
       cards.add(
         Center(
           child: Text(
-            'Stories from people you follow will appear here',
+            'Stories from people you follow will appear here'.tr(context),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(
                 context,
@@ -404,7 +405,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
               if (!mounted) return;
               setState(() => isUploading = false);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to capture photo: $e')),
+                SnackBar(content: Text('Failed to capture photo: $e'.tr(context))),
               );
             }
           }
@@ -419,7 +420,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
               (captionController.text.trim().isNotEmpty && wordCount <= 250);
           String? textError;
           if (captionController.text.trim().isNotEmpty && wordCount > 250) {
-            textError = 'Text stories are limited to 250 words.';
+            textError = 'Text stories are limited to 250 words.'.tr(context);
           }
           return AlertDialog(
             shape: RoundedRectangleBorder(
@@ -431,7 +432,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
             title: Row(
               children: [
                 Text(
-                  'Create Story',
+                  'Create Story'.tr(context),
                   style: textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -490,14 +491,14 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                                       ),
                                       const SizedBox(height: 12),
                                       Text(
-                                        'Click to upload',
+                                        'Click to upload'.tr(context),
                                         style: textTheme.titleMedium?.copyWith(
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Image or video (max 15s)',
+                                        'Image or video (max 15s)'.tr(context),
                                         style: textTheme.bodySmall?.copyWith(
                                           color: colors.onSurfaceVariant,
                                         ),
@@ -751,13 +752,25 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                         );
                         if (!mounted) return;
                         Navigator.of(dialogContext).pop();
+                        final providerError = storyProvider.error;
+                        final blockedForAi =
+                            success.isEmpty &&
+                            providerError != null &&
+                            providerError.toLowerCase().contains(
+                              'ai content detected',
+                            );
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
                               success.isNotEmpty
                                   ? 'Story submitted. It will appear after verification.'
-                                  : 'Failed to share story',
+                                  : (blockedForAi
+                                        ? 'Story blocked: AI content detected in your upload.'
+                                        : 'Failed to share story'),
                             ),
+                            backgroundColor: blockedForAi
+                                ? Colors.red
+                                : null,
                           ),
                         );
                       },

@@ -41,6 +41,7 @@ import 'screens/wallet/wallet_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/create/create_post_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/bookmarks/bookmarks_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/chat/chat_list_screen.dart';
 import 'screens/chat/conversation_thread_page.dart';
@@ -195,8 +196,9 @@ class MyApp extends StatelessWidget {
             },
             home: const AuthWrapper(),
             builder: (context, child) {
-              final platformConfig =
-                  context.watch<PlatformConfigProvider>().config;
+              final platformConfig = context
+                  .watch<PlatformConfigProvider>()
+                  .config;
               Widget content = ConnectivityOverlay(
                 child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
               );
@@ -347,6 +349,9 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _deepLinkHandled = false;
   bool _handlingPendingNotificationTap = false;
+  String? _activeNotificationUserId;
+  String? _activeChatUserId;
+  String? _initializedWalletUserId;
 
   @override
   void initState() {
@@ -385,30 +390,43 @@ class _AuthWrapperState extends State<AuthWrapper> {
           feedProvider.setMutedUserIds(muted);
         };
 
-        if (authProvider.currentUser != null &&
-            userProvider.currentUser?.id != authProvider.currentUser!.id) {
-          userProvider.setCurrentUser(authProvider.currentUser!);
-          // Refresh and start listening for notifications
+        if (authProvider.currentUser != null) {
+          final currentUserId = authProvider.currentUser!.id;
+
+          if (userProvider.currentUser?.id != currentUserId) {
+            userProvider.setCurrentUser(authProvider.currentUser!);
+          }
+
+          // Always ensure realtime notification listener is active for the
+          // authenticated user (once per user id).
           final notificationProvider = context.read<NotificationProvider>();
-          notificationProvider.refreshNotifications(
-            authProvider.currentUser!.id,
-          );
-          notificationProvider.startListening(authProvider.currentUser!.id);
+          if (_activeNotificationUserId != currentUserId) {
+            notificationProvider.startListening(currentUserId);
+            notificationProvider.refreshNotifications(currentUserId);
+            _activeNotificationUserId = currentUserId;
+          }
 
-          // Load conversations and start listening for real-time chat updates
+          // Always ensure realtime chat listener is active (once per user id).
           final chatProvider = context.read<ChatProvider>();
-          chatProvider.loadConversations();
-          chatProvider.startListening(authProvider.currentUser!.id);
+          if (_activeChatUserId != currentUserId) {
+            chatProvider.loadConversations();
+            chatProvider.startListening(currentUserId);
+            _activeChatUserId = currentUserId;
+          }
 
-          // Initialize wallet
-          context.read<WalletProvider>().initWallet(
-            authProvider.currentUser!.id,
-          );
+          // Initialize wallet once per authenticated user.
+          if (_initializedWalletUserId != currentUserId) {
+            context.read<WalletProvider>().initWallet(currentUserId);
+            _initializedWalletUserId = currentUserId;
+          }
         } else if (authProvider.status == AuthStatus.unauthenticated &&
             userProvider.currentUser != null) {
           userProvider.clearCurrentUser();
           context.read<NotificationProvider>().clear();
           context.read<ChatProvider>().clear();
+          _activeNotificationUserId = null;
+          _activeChatUserId = null;
+          _initializedWalletUserId = null;
         }
 
         // Sync blocked user IDs to FeedProvider for filtering
@@ -452,7 +470,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
             initialView: ViewType.verify,
           );
         }
-        // Show splash while checking auth state
+        // Keep auth flow visible during login/signup attempts so failed auth
+        // does not look like an app restart.
+        if (authProvider.currentUser == null) {
+          return const AppNavigator();
+        }
+        // Existing session is being hydrated.
         return SplashScreen(onComplete: () {});
       case AuthStatus.authenticated:
         final user = authProvider.currentUser;
@@ -745,6 +768,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
   bool _updateCheckTriggered = false;
+  final ValueNotifier<int> _feedReturnToTopNotifier = ValueNotifier(0);
 
   @override
   void initState() {
@@ -754,6 +778,12 @@ class _MainShellState extends State<MainShell> {
       await _checkWelcomeBonus();
       await _checkForAppUpdate();
     });
+  }
+
+  @override
+  void dispose() {
+    _feedReturnToTopNotifier.dispose();
+    super.dispose();
   }
 
   Future<void> _checkForAppUpdate() async {
@@ -790,7 +820,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   List<Widget> get _screens => [
-    const FeedScreen(),
+    FeedScreen(returnToTopNotifier: _feedReturnToTopNotifier),
     const ExploreScreen(),
     CreatePostScreen(onPostCreated: _onPostCreated),
     const WalletScreen(),
@@ -858,7 +888,14 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: AdaptiveNavigationBar(
         currentIndex: _index,
         destinations: _destinations(context),
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: (i) {
+          if (i == 0 && _index == 0) {
+            // Home tapped while already on home — scroll to top and refresh
+            _feedReturnToTopNotifier.value++;
+          } else {
+            setState(() => _index = i);
+          }
+        },
       ),
     );
   }
@@ -1053,8 +1090,9 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
 
   @override
   Widget build(BuildContext context) {
+    final avatarUrl = widget.user?.avatar?.toString().trim();
     // If no avatar URL, show icon only
-    if (widget.user?.avatar == null) {
+    if (avatarUrl == null || avatarUrl.isEmpty) {
       return CircleAvatar(
         radius: widget.radius,
         backgroundColor: widget.colors.surfaceContainerHighest,
@@ -1083,7 +1121,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
           // Actual image
           ClipOval(
             child: Image.network(
-              widget.user!.avatar,
+              avatarUrl,
               width: widget.radius * 2,
               height: widget.radius * 2,
               fit: BoxFit.cover,
@@ -1121,20 +1159,64 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
 /* PROFILE MENU (WEB DROPDOWN → MOBILE SHEET)     */
 /* ───────────────────────────────────────────── */
 
-void _showProfileSheet(BuildContext parentContext) {
-  final colors = Theme.of(parentContext).colorScheme;
-  final l10n = AppLocalizations.of(parentContext)!;
-  final user = parentContext.read<UserProvider>().currentUser;
-  final themeProvider = parentContext.read<ThemeProvider>();
+bool _isProfileSheetOpen = false;
 
-  showModalBottomSheet(
-    context: parentContext,
-    isScrollControlled: true,
-    backgroundColor: colors.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
-    builder: (sheetContext) => SafeArea(
+Future<void> _showProfileSheet(BuildContext parentContext) async {
+  if (!parentContext.mounted || _isProfileSheetOpen) return;
+  _isProfileSheetOpen = true;
+
+  final user = parentContext.read<UserProvider>().currentUser;
+  final nav = rootNavigatorKey.currentState!;
+
+  try {
+    await showModalBottomSheet(
+      context: nav.context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => _ProfileSheet(user: user, nav: nav),
+    );
+  } finally {
+    _isProfileSheetOpen = false;
+  }
+}
+
+/// Sheet content as a proper StatefulWidget so it has a stable element
+/// and survives provider-driven rebuilds in the widget tree above it.
+class _ProfileSheet extends StatefulWidget {
+  final dynamic user;
+  final NavigatorState nav;
+
+  const _ProfileSheet({required this.user, required this.nav});
+
+  @override
+  State<_ProfileSheet> createState() => _ProfileSheetState();
+}
+
+class _ProfileSheetState extends State<_ProfileSheet> {
+  void _close() {
+    if (widget.nav.canPop()) widget.nav.pop();
+  }
+
+  void _push(Widget screen) {
+    _close();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.nav.push(MaterialPageRoute(builder: (_) => screen));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
+    final avatarUrl = widget.user?.avatar?.toString().trim();
+
+    return SafeArea(
       top: false,
       child: SingleChildScrollView(
         child: Padding(
@@ -1142,7 +1224,7 @@ void _showProfileSheet(BuildContext parentContext) {
             20,
             16,
             20,
-            MediaQuery.of(sheetContext).padding.bottom + 16,
+            MediaQuery.of(context).padding.bottom + 16,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1156,19 +1238,17 @@ void _showProfileSheet(BuildContext parentContext) {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              // Profile header with avatar
-              if (user != null)
+              if (widget.user != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
                   child: Row(
                     children: [
                       GestureDetector(
                         onTap: () {
-                          final avatarUrl = user.avatar?.trim();
                           if (avatarUrl != null && avatarUrl.isNotEmpty) {
-                            Navigator.pop(sheetContext);
+                            _close();
                             ProfileImagePreview.show(
-                              parentContext,
+                              context,
                               imageUrl: avatarUrl,
                             );
                           }
@@ -1176,31 +1256,26 @@ void _showProfileSheet(BuildContext parentContext) {
                         child: CircleAvatar(
                           radius: 24,
                           backgroundColor: colors.surfaceContainerHighest,
-                          child: user.avatar != null
+                          child: avatarUrl != null && avatarUrl.isNotEmpty
                               ? ClipOval(
                                   child: Image.network(
-                                    user.avatar!,
+                                    avatarUrl,
                                     width: 48,
                                     height: 48,
                                     fit: BoxFit.cover,
-                                    loadingBuilder:
-                                        (imageContext, child, loadingProgress) {
-                                          if (loadingProgress == null) {
-                                            return child;
-                                          }
-                                          return Icon(
+                                    loadingBuilder: (_, child, progress) =>
+                                        progress == null
+                                        ? child
+                                        : Icon(
                                             Icons.person,
                                             size: 24,
                                             color: colors.onSurface,
-                                          );
-                                        },
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Icon(
-                                        Icons.person,
-                                        size: 24,
-                                        color: colors.onSurface,
-                                      );
-                                    },
+                                          ),
+                                    errorBuilder: (_, __, ___) => Icon(
+                                      Icons.person,
+                                      size: 24,
+                                      color: colors.onSurface,
+                                    ),
                                   ),
                                 )
                               : Icon(
@@ -1216,7 +1291,7 @@ void _showProfileSheet(BuildContext parentContext) {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              user.displayName,
+                              widget.user.displayName,
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -1225,7 +1300,7 @@ void _showProfileSheet(BuildContext parentContext) {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '@${user.username}'.tr(parentContext),
+                              '@${widget.user.username}'.tr(context),
                               style: TextStyle(
                                 fontSize: 14,
                                 color: colors.onSurfaceVariant,
@@ -1240,46 +1315,32 @@ void _showProfileSheet(BuildContext parentContext) {
               _ProfileItem(
                 icon: Icons.person_outline,
                 label: l10n.profile,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  Navigator.push(
-                    parentContext,
-                    MaterialPageRoute(
-                      builder: (_) => const ProfileScreen(showAppBar: true),
-                    ),
-                  );
-                },
+                onTap: () => _push(const ProfileScreen(showAppBar: true)),
+              ),
+              _ProfileItem(
+                icon: Icons.bookmark_border,
+                label: l10n.bookmarks,
+                onTap: () => _push(const BookmarksScreen()),
               ),
               _ProfileItem(
                 icon: Icons.settings_outlined,
                 label: l10n.settings,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  Navigator.push(
-                    parentContext,
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                  );
-                },
+                onTap: () => _push(const SettingsScreen()),
               ),
               _ProfileItem(
-                icon: themeProvider.isDarkMode
+                icon: isDark
                     ? Icons.light_mode_outlined
                     : Icons.dark_mode_outlined,
-                label: themeProvider.isDarkMode ? 'Light Mode' : l10n.darkMode,
-                onTap: () => themeProvider.toggleTheme(),
+                label: isDark ? 'Light Mode' : l10n.darkMode,
+                onTap: () {
+                  context.read<ThemeProvider>().toggleTheme();
+                  _close();
+                },
               ),
               _ProfileItem(
                 icon: Icons.headset_mic,
                 label: l10n.contactSupport,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  Navigator.push(
-                    parentContext,
-                    MaterialPageRoute(
-                      builder: (_) => const SupportChatScreen(),
-                    ),
-                  );
-                },
+                onTap: () => _push(const SupportChatScreen()),
               ),
               const Divider(height: 28),
               _ProfileItem(
@@ -1287,22 +1348,25 @@ void _showProfileSheet(BuildContext parentContext) {
                 label: l10n.logOut,
                 destructive: true,
                 onTap: () {
-                  // Close bottom sheet first
-                  Navigator.pop(sheetContext);
-
-                  // Show confirmation dialog
+                  _close();
                   showDialog(
-                    context: parentContext,
+                    context: widget.nav.context,
                     builder: (dialogContext) => AlertDialog(
-                      backgroundColor: colors.surface,
+                      backgroundColor: Theme.of(
+                        dialogContext,
+                      ).colorScheme.surface,
                       title: Text(
                         l10n.logOut,
-                        style: TextStyle(color: colors.onSurface),
+                        style: TextStyle(
+                          color: Theme.of(dialogContext).colorScheme.onSurface,
+                        ),
                       ),
                       content: Text(
                         l10n.areYouSureLogOut,
                         style: TextStyle(
-                          color: colors.onSurface.withOpacity(0.7),
+                          color: Theme.of(
+                            dialogContext,
+                          ).colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
                       ),
                       actions: [
@@ -1312,17 +1376,9 @@ void _showProfileSheet(BuildContext parentContext) {
                         ),
                         TextButton(
                           onPressed: () async {
-                            // Read from a stable ancestor context (not the sheet context).
-                            final auth = parentContext.read<AuthProvider>();
-
-                            // Pop the dialog first
-                            if (dialogContext.mounted) {
+                            final auth = dialogContext.read<AuthProvider>();
+                            if (dialogContext.mounted)
                               Navigator.pop(dialogContext);
-                            }
-
-                            // Then perform signout
-                            // The auth state change will trigger a rebuild,
-                            // but we've already captured the reference safely
                             await auth.signOut();
                           },
                           child: Text(
@@ -1339,8 +1395,8 @@ void _showProfileSheet(BuildContext parentContext) {
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ProfileItem extends StatelessWidget {
