@@ -476,8 +476,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${_editProfileText(context, 'failedPickImage')}: ${e.toString().replaceAll('Exception: ', '')}',
-            ),
+            content: Text(_editProfileText(context, 'failedPickImage')),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -522,8 +521,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${_editProfileText(context, 'failedUploadImage')}: $e',
-            ),
+            content: Text(_editProfileText(context, 'failedUploadImage')),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );

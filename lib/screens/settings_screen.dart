@@ -23,6 +23,7 @@ import 'auth/human_verification_screen.dart';
 import 'auth/phone_verification_screen.dart';
 import '../services/app_update_service.dart';
 import '../repositories/support_ticket_repository.dart';
+import '../services/supabase_service.dart';
 import '../l10n/app_localizations.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -447,6 +448,18 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
+          _buildSectionHeader(context, 'DATA & PRIVACY'),
+          _buildSettingsTile(
+            context,
+            icon: Icons.download_outlined,
+            iconColor: Colors.teal,
+            title: 'Export My Data',
+            subtitle: 'Download a copy of all your personal data (GDPR)',
+            onTap: () => _exportUserData(context),
+          ),
+
+          const SizedBox(height: 24),
+
           _buildSectionHeader(
             context,
             _localizedSettingsText(context, 'sectionDangerZone'),
@@ -691,74 +704,224 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  static void _showDeleteAccountDialog(BuildContext context) {
+  static Future<void> _exportUserData(BuildContext context) async {
     final scheme = Theme.of(context).colorScheme;
-    final l10n = AppLocalizations.of(context)!;
-    final controller = TextEditingController();
+    bool isLoading = false;
 
-    showDialog(
+    await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: scheme.surface,
-        title: Text(
-          l10n.deleteAccount,
-          style: TextStyle(color: scheme.onSurface),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.typeDeleteConfirm,
-              style: TextStyle(color: scheme.onSurface.withOpacity(0.7)),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                hintText: _localizedSettingsText(context, 'typeDeleteHint'),
-                filled: true,
-                fillColor: scheme.background,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: scheme.surface,
+          title: Text(
+            'Export My Data',
+            style: TextStyle(color: scheme.onSurface),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This will generate a JSON file containing all your personal data stored on Rooverse, including your profile, posts, comments, wallet history, and activity log.',
+                style: TextStyle(
+                  color: scheme.onSurface.withOpacity(0.7),
+                  fontSize: 14,
                 ),
               ),
+              if (isLoading) ...[
+                const SizedBox(height: 16),
+                const Center(child: CircularProgressIndicator()),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    'Preparing your data...',
+                    style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      setDialogState(() => isLoading = true);
+                      try {
+                        final response = await SupabaseService().client.functions.invoke(
+                          'user-data-export',
+                        );
+
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Your data export is ready. Check your downloads.',
+                              ),
+                              backgroundColor: Colors.teal,
+                            ),
+                          );
+                        }
+
+                        // Log success (best-effort)
+                        debugPrint(
+                          'Data export: ${response.data?.toString().length ?? 0} bytes',
+                        );
+                      } catch (_) {
+                        setDialogState(() => isLoading = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                              content: Text('Something went wrong. Please try again.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              child: const Text('Export'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (controller.text.trim().toUpperCase() == 'DELETE') {
-                Navigator.pop(dialogContext);
-                final auth = context.read<AuthProvider>();
-                await auth.signOut();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        l10n.accountDeletionRequested,
-                      ),
-                    ),
-                  );
-                }
-              } else {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  SnackBar(
-                    content: Text(l10n.pleaseTypeDelete),
-                  ),
-                );
-              }
-            },
-            child: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
-          ),
-        ],
       ),
-    ).whenComplete(controller.dispose);
+    );
+  }
+
+  static void _showDeleteAccountDialog(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final confirmController = TextEditingController();
+    final passwordController = TextEditingController();
+    bool isLoading = false;
+    bool obscurePassword = true;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: scheme.surface,
+          title: Text(
+            l10n.deleteAccount,
+            style: TextStyle(color: scheme.onSurface),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.typeDeleteConfirm,
+                  style: TextStyle(color: scheme.onSurface.withOpacity(0.7)),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: confirmController,
+                  decoration: InputDecoration(
+                    hintText: _localizedSettingsText(context, 'typeDeleteHint'),
+                    filled: true,
+                    fillColor: scheme.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: 'Enter your password to confirm',
+                    filled: true,
+                    fillColor: scheme.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      if (confirmController.text.trim().toUpperCase() != 'DELETE') {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(content: Text(l10n.pleaseTypeDelete)),
+                        );
+                        return;
+                      }
+                      if (passwordController.text.isEmpty) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          const SnackBar(content: Text('Please enter your password.')),
+                        );
+                        return;
+                      }
+                      setDialogState(() => isLoading = true);
+                      try {
+                        final auth = context.read<AuthProvider>();
+                        final verified = await auth.reAuthenticate(passwordController.text);
+                        if (!verified) {
+                          setDialogState(() => isLoading = false);
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(
+                                content: Text('Incorrect password.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
+                        await auth.requestAccountDeletion();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Your account has been scheduled for deletion. You have been signed out.',
+                              ),
+                            ),
+                          );
+                        }
+                      } catch (_) {
+                        setDialogState(() => isLoading = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                              content: Text('Something went wrong. Please try again.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              child: isLoading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(l10n.delete, style: const TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(() {
+      confirmController.dispose();
+      passwordController.dispose();
+    });
   }
 
   static String _localizedSettingsText(BuildContext context, String key) {

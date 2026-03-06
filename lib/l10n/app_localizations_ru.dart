@@ -126,13 +126,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get typeDeleteConfirm => 'Введите УДАЛИТЬ для подтверждения.';
 
   @override
-  String get accountDeletionRequested => 'Запрос на удаление аккаунта отправлен. Вы вышли из системы.';
+  String get accountDeletionRequested =>
+      'Запрос на удаление аккаунта отправлен. Вы вышли из системы.';
 
   @override
-  String get pleaseTypeDelete => 'Пожалуйста, введите УДАЛИТЬ для подтверждения';
+  String get pleaseTypeDelete =>
+      'Пожалуйста, введите УДАЛИТЬ для подтверждения';
 
   @override
-  String get aboutROOVERSEDescription => 'ROOVERSE – Социальная платформа, ориентированная на человека\n\nВерсия 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription =>
+      'ROOVERSE – Социальная платформа, ориентированная на человека\n\nВерсия 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'Войти';
@@ -588,7 +591,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle =>
+      'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -846,7 +850,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get pleaseEnterPhoneNumber => 'Пожалуйста, введите номер телефона';
 
   @override
-  String get pleaseEnterValidPhoneNumber => 'Пожалуйста, введите корректный номер телефона';
+  String get pleaseEnterValidPhoneNumber =>
+      'Пожалуйста, введите корректный номер телефона';
 
   @override
   String get failedToSendLoginCode => 'Не удалось отправить код входа';
@@ -858,7 +863,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get sendCode => 'Отправить код';
 
   @override
-  String get failedToSendVerificationCode => 'Не удалось отправить код подтверждения';
+  String get failedToSendVerificationCode =>
+      'Не удалось отправить код подтверждения';
 
   @override
   String get verifyCode => 'Подтвердить код';
@@ -870,7 +876,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get enterVerificationCode => 'Введите код подтверждения';
 
   @override
-  String get enterPhoneForSms => 'Введите номер телефона для получения кода подтверждения по SMS.';
+  String get enterPhoneForSms =>
+      'Введите номер телефона для получения кода подтверждения по SMS.';
 
   @override
   String get forgotPassword => 'Забыли пароль?';
@@ -915,13 +922,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get recipient => 'Получатель';
 
   @override
-  String get verificationPendingSendRoo => 'Ваша верификация ожидает. Вы сможете отправить ROO после одобрения.';
+  String get verificationPendingSendRoo =>
+      'Ваша верификация ожидает. Вы сможете отправить ROO после одобрения.';
 
   @override
-  String get completeVerificationToSendRoo => 'Пожалуйста, пройдите верификацию личности для отправки ROO.';
+  String get completeVerificationToSendRoo =>
+      'Пожалуйста, пройдите верификацию личности для отправки ROO.';
 
   @override
-  String get cannotSendRooToSelf => 'Вы не можете отправить ROO на свой собственный счёт';
+  String get cannotSendRooToSelf =>
+      'Вы не можете отправить ROO на свой собственный счёт';
 
   @override
   String get availableBalance => 'Доступный баланс';
@@ -930,16 +940,20 @@ class AppLocalizationsRu extends AppLocalizations {
   String get locationPermissionDenied => 'Разрешение на геолокацию отклонено';
 
   @override
-  String get locationPermissionPermanentlyDenied => 'Разрешение на геолокацию отклонено навсегда';
+  String get locationPermissionPermanentlyDenied =>
+      'Разрешение на геолокацию отклонено навсегда';
 
   @override
-  String get mustBeLoggedInToBoost => 'Вы должны войти в систему, чтобы продвигать публикацию.';
+  String get mustBeLoggedInToBoost =>
+      'Вы должны войти в систему, чтобы продвигать публикацию.';
 
   @override
-  String get verificationPendingTip => 'Ваша верификация ожидает. Вы сможете давать чаевые после одобрения.';
+  String get verificationPendingTip =>
+      'Ваша верификация ожидает. Вы сможете давать чаевые после одобрения.';
 
   @override
-  String get cannotTipOwnPost => 'Вы не можете давать чаевые за собственную публикацию';
+  String get cannotTipOwnPost =>
+      'Вы не можете давать чаевые за собственную публикацию';
 
   @override
   String get enterAmount => 'Введите сумму';
@@ -951,13 +965,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get sensitiveContent => 'Чувствительный контент';
 
   @override
-  String get deleteCommentConfirmation => 'Вы уверены, что хотите удалить этот комментарий? Это действие нельзя отменить.';
+  String get deleteCommentConfirmation =>
+      'Вы уверены, что хотите удалить этот комментарий? Это действие нельзя отменить.';
 
   @override
   String get commentUnderReview => 'Комментарий на проверке.';
 
   @override
-  String get storiesEmpty => 'Здесь появятся истории людей, на которых вы подписаны';
+  String get storiesEmpty =>
+      'Здесь появятся истории людей, на которых вы подписаны';
 
   @override
   String get textStoryWordLimit => 'Текстовые истории ограничены 250 словами.';
@@ -972,8 +988,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get imageOrVideoMax => 'Изображение или видео (макс. 15с)';
 
   @override
-  String get commentNotPublishedAi => 'Ваш комментарий не был опубликован. Наш ИИ обнаружил, что он может нарушать наши правила.';
+  String get commentNotPublishedAi =>
+      'Ваш комментарий не был опубликован. Наш ИИ обнаружил, что он может нарушать наши правила.';
 
   @override
-  String get commentUnderReviewExtended => 'Ваш комментарий находится на проверке. Он появится после одобрения.';
+  String get commentUnderReviewExtended =>
+      'Ваш комментарий находится на проверке. Он появится после одобрения.';
 }

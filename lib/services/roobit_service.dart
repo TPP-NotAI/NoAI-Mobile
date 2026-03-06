@@ -1,185 +1,180 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
-import 'package:http/http.dart' as http;
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
 
-/// Service for interacting with the Roobit API
 class RoobitService {
-  static const String baseUrl = 'https://roocoin-production.up.railway.app';
   static const Duration _sendTimeout = Duration(seconds: 90);
 
-  // Read API key from environment
-  static String getApiKey() {
-    final key = dotenv.env['ROOCOIN_API_KEY']?.trim() ?? '';
-    if (key.isEmpty) {
-      throw Exception('ROOCOIN_API_KEY is missing. Set it in .env.');
-    }
-    // Don't log full key for security
-    debugPrint(
-      'RoobitService: Using API key: ${key.substring(0, math.min(10, key.length))}...',
-    );
-    return key;
-  }
+  final SupabaseService _supabase = SupabaseService();
 
-  // Headers helper
-  static Map<String, String> getHeaders() {
-    final key = getApiKey();
-    final session = SupabaseService().currentSession;
-    final token = session?.accessToken ?? '';
-
-    final headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'x-api-key': key,
+  Future<Map<String, dynamic>> _proxy(
+    String path, {
+    String method = 'GET',
+    Map<String, dynamic>? body,
+  }) async {
+    final payload = <String, dynamic>{
+      'path': path,
+      'method': method.toUpperCase(),
     };
 
-    if (token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
+    if (body != null) {
+      payload['body'] = body;
     }
 
-    final maskedHeaders = Map<String, String>.from(headers);
-    if (maskedHeaders.containsKey('x-api-key')) {
-      maskedHeaders['x-api-key'] =
-          '***${key.substring(math.min(key.length, 5))}';
-    }
-    if (maskedHeaders.containsKey('Authorization')) {
-      maskedHeaders['Authorization'] = 'Bearer ***';
+    final session = _supabase.client.auth.currentSession;
+    final accessToken = session?.accessToken;
+
+    debugPrint(
+      'RoobitService: current user = ${_supabase.client.auth.currentUser?.id}',
+    );
+    debugPrint(
+      'RoobitService: has access token = ${accessToken != null && accessToken.isNotEmpty}',
+    );
+    debugPrint('RoobitService: proxy path = $path');
+
+    if (accessToken == null || accessToken.isEmpty) {
+      throw Exception('User is not authenticated');
     }
 
-    debugPrint('RoobitService: Computed headers: $maskedHeaders');
-    return headers;
-  }
-
-  /// Create a new custodial wallet for a user
-  /// Returns address, privateKey, and mnemonic
-  /// IMPORTANT: Store privateKey encrypted in your database
-  Future<Map<String, dynamic>> createWallet() async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/wallet/create'),
-        headers: getHeaders(),
-        body: json.encode({}),
+      final response = await _supabase.client.functions.invoke(
+        'roocoin-proxy',
+        body: payload,
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Content-Type': 'application/json',
+        },
       );
 
-      if (response.statusCode == 200) {
-        return json.decode(response.body) as Map<String, dynamic>;
-      } else {
+      debugPrint('RoobitService: proxy status = ${response.status}');
+      debugPrint('RoobitService: proxy raw data = ${response.data}');
+
+      if (response.data == null) {
+        throw Exception('roocoin-proxy returned no data');
+      }
+
+      final Map<String, dynamic> data = response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : json.decode(response.data.toString()) as Map<String, dynamic>;
+
+      if (response.status >= 400) {
         throw Exception(
-          'Failed to create wallet: ${response.statusCode} - ${response.body}',
+          data['details']?.toString() ??
+              data['error']?.toString() ??
+              'Request failed with status ${response.status}',
         );
       }
+
+      if (data['error'] != null) {
+        throw Exception(
+          data['details']?.toString() ?? data['error'].toString(),
+        );
+      }
+
+      return data;
+    } on FunctionException catch (e) {
+      debugPrint('RoobitService FunctionException: ${e.details}');
+      throw Exception(
+        e.details?.toString().isNotEmpty == true
+            ? e.details.toString()
+            : 'Edge Function error: ${e.reasonPhrase ?? 'Unknown error'}',
+      );
     } catch (e) {
-      debugPrint('Error creating wallet: $e');
+      debugPrint('RoobitService proxy error: $e');
       rethrow;
     }
   }
 
-  /// Get wallet balance for an address
-  Future<Map<String, dynamic>> getBalance(String address) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/wallet/balance/$address'),
-        headers: getHeaders(),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as Map<String, dynamic>;
-        if (data['error'] != null) {
-          throw Exception('Failed to get balance: ${data['error']}');
-        }
-        if (data['success'] == false) {
-          throw Exception('Failed to get balance: Operation unsuccessful');
-        }
-        return data;
-      } else {
-        throw Exception(
-          'Failed to get balance: ${response.statusCode} - ${response.body}',
-        );
-      }
-    } catch (e) {
-      debugPrint('Error getting balance: $e');
-      rethrow;
-    }
-  }
-
-  /// Generic retry helper for blockchain transactions
   Future<dynamic> _retryRequest(
     Future<dynamic> Function() requestFn, {
     int maxRetries = 3,
     String operationName = 'Request',
   }) async {
     int attempts = 0;
+
     while (true) {
       try {
         attempts++;
         return await requestFn();
       } catch (e) {
-        // specific check for replacement underpriced error
+        final errorText = e.toString().toLowerCase();
+
         final isReplacementError =
-            e.toString().contains('replacement fee too low') ||
-            e.toString().contains('replacement transaction underpriced');
+            errorText.contains('replacement fee too low') ||
+            errorText.contains('replacement transaction underpriced');
 
         if (attempts >= maxRetries || !isReplacementError) {
           rethrow;
         }
 
-        final delay = Duration(milliseconds: 2000 * attempts); // 2s, 4s, 6s...
+        final delay = Duration(milliseconds: 2000 * attempts);
         debugPrint(
-          'RoobitService: $operationName failed (replacement underpriced). Retrying in ${delay.inSeconds}s (Attempt $attempts/$maxRetries)',
+          'RoobitService: $operationName failed (replacement underpriced). '
+          'Retrying in ${delay.inSeconds}s ($attempts/$maxRetries)',
         );
         await Future.delayed(delay);
       }
     }
   }
 
-  /// Give test tokens to a wallet (testnet only)
-  /// Default: 100 ROO
+  Future<Map<String, dynamic>> createWallet() async {
+    try {
+      return await _proxy('/api/wallet/create', method: 'POST', body: {});
+    } catch (e) {
+      debugPrint('RoobitService createWallet error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> getBalance(String address) async {
+    try {
+      final trimmedAddress = address.trim();
+      if (trimmedAddress.isEmpty) {
+        throw Exception('Wallet address is required');
+      }
+
+      final data = await _proxy('/api/wallet/balance/$trimmedAddress');
+
+      if (data['success'] == false) {
+        throw Exception('Failed to get balance: Operation unsuccessful');
+      }
+
+      return data;
+    } catch (e) {
+      debugPrint('RoobitService getBalance error: $e');
+      rethrow;
+    }
+  }
+
   Future<Map<String, dynamic>> requestFaucet({
     required String address,
     double amount = 100.0,
   }) async {
     return await _retryRequest(() async {
-          try {
-            final response = await http.post(
-              Uri.parse('$baseUrl/api/wallet/faucet'),
-              headers: getHeaders(),
-              body: json.encode({
-                'address': address,
-                'amount': amount.toString(),
-              }),
-            );
-
-            if (response.statusCode == 200) {
-              final data = json.decode(response.body) as Map<String, dynamic>;
-              if (data['error'] != null) {
-                throw Exception('Faucet request failed: ${data['error']}');
-              }
-              if (data['success'] == false) {
-                throw Exception(
-                  'Faucet request failed: Operation unsuccessful',
-                );
-              }
-              return data;
-            } else {
-              throw Exception(
-                'Failed to request faucet: ${response.statusCode} - ${response.body}',
-              );
-            }
-          } catch (e) {
-            debugPrint('Error requesting faucet: $e');
-            rethrow;
+          final trimmedAddress = address.trim();
+          if (trimmedAddress.isEmpty) {
+            throw Exception('Wallet address is required');
           }
+
+          final data = await _proxy(
+            '/api/wallet/faucet',
+            method: 'POST',
+            body: {'address': trimmedAddress, 'amount': amount.toString()},
+          );
+
+          if (data['success'] == false) {
+            throw Exception('Faucet request failed: Operation unsuccessful');
+          }
+
+          return data;
         }, operationName: 'requestFaucet')
         as Map<String, dynamic>;
   }
 
-  /// Deduct ROO for platform actions
-  /// Check balance first
-  /// Returns remaining balance
   Future<Map<String, dynamic>> spend({
     required String userPrivateKey,
     required double amount,
@@ -187,44 +182,36 @@ class RoobitService {
     Map<String, dynamic>? metadata,
   }) async {
     return await _retryRequest(() async {
-          try {
-            final response = await http.post(
-              Uri.parse('$baseUrl/api/wallet/spend'),
-              headers: getHeaders(),
-              body: json.encode({
-                'userPrivateKey': userPrivateKey,
-                'amount': amount.toString(),
-                'activityType': activityType,
-                if (metadata != null) 'metadata': metadata,
-              }),
-            );
-
-            if (response.statusCode == 200) {
-              final data = json.decode(response.body) as Map<String, dynamic>;
-              if (data['error'] != null) {
-                throw Exception('Spend operation failed: ${data['error']}');
-              }
-              if (data['success'] == false) {
-                throw Exception(
-                  'Spend operation failed: Operation unsuccessful',
-                );
-              }
-              return data;
-            } else {
-              throw Exception(
-                'Failed to spend ROO: ${response.statusCode} - ${response.body}',
-              );
-            }
-          } catch (e) {
-            debugPrint('Error spending ROO: $e');
-            rethrow;
+          if (userPrivateKey.trim().isEmpty) {
+            throw Exception('User private key is required');
           }
+          if (activityType.trim().isEmpty) {
+            throw Exception('Activity type is required');
+          }
+          if (amount <= 0) {
+            throw Exception('Amount must be greater than zero');
+          }
+
+          final data = await _proxy(
+            '/api/wallet/spend',
+            method: 'POST',
+            body: {
+              'userPrivateKey': userPrivateKey,
+              'amount': amount.toString(),
+              'activityType': activityType,
+              if (metadata != null) 'metadata': metadata,
+            },
+          );
+
+          if (data['success'] == false) {
+            throw Exception('Spend operation failed: Operation unsuccessful');
+          }
+
+          return data;
         }, operationName: 'spend')
         as Map<String, dynamic>;
   }
 
-  /// Peer-to-peer transfer - User sends ROO to another user on the platform
-  /// This endpoint is preferred for user-to-user transfers as it handles gas more efficiently.
   Future<Map<String, dynamic>> send({
     required String fromPrivateKey,
     required String toAddress,
@@ -232,202 +219,144 @@ class RoobitService {
     Map<String, dynamic>? metadata,
   }) async {
     return await _retryRequest(() async {
-          try {
-            // Format amount as string, removing trailing .0 if present
-            final amountStr = amount % 1 == 0
-                ? amount.toInt().toString()
-                : amount.toString();
-
-            final body = {
-              'fromPrivateKey': fromPrivateKey,
-              'toAddress': toAddress,
-              'amount': amountStr,
-              if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
-            };
-
-            debugPrint('RoobitService: Sending ROO via /api/wallet/send');
-            debugPrint(
-              'RoobitService: Request Body: ${json.encode({...body, 'fromPrivateKey': '0x***${fromPrivateKey.substring(math.min(fromPrivateKey.length, 5))}'})}',
-            );
-
-            final response = await http.post(
-              Uri.parse('$baseUrl/api/wallet/send'),
-              headers: {'Content-Type': 'application/json'},
-              body: json.encode(body),
-            ).timeout(_sendTimeout);
-
-            if (response.statusCode == 200) {
-              final data = json.decode(response.body) as Map<String, dynamic>;
-              if (data['error'] != null) {
-                throw Exception('Send operation failed: ${data['error']}');
-              }
-              if (data['success'] == false) {
-                throw Exception(
-                  'Send operation failed: Operation unsuccessful',
-                );
-              }
-              return data;
-            } else {
-              throw Exception(
-                'Failed to send ROO: ${response.statusCode} - ${response.body}',
-              );
-            }
-          } on TimeoutException catch (e) {
-            debugPrint('Error sending ROO (timeout): $e');
-            throw Exception(
-              'Transfer confirmation is taking longer than expected. '
-              'Please check your transaction history shortly.',
-            );
-          } catch (e) {
-            debugPrint('Error sending ROO: $e');
-            rethrow;
+          if (fromPrivateKey.trim().isEmpty) {
+            throw Exception('Sender private key is required');
           }
+
+          final cleanedToAddress = toAddress.trim();
+          if (cleanedToAddress.isEmpty) {
+            throw Exception('Recipient address is required');
+          }
+
+          final ethAddressRegex = RegExp(r'^0x[a-fA-F0-9]{40}$');
+          if (!ethAddressRegex.hasMatch(cleanedToAddress)) {
+            throw Exception('Recipient wallet address is invalid');
+          }
+
+          if (amount <= 0) {
+            throw Exception('Amount must be greater than zero');
+          }
+
+          final amountStr = amount % 1 == 0
+              ? amount.toInt().toString()
+              : amount.toString();
+
+          debugPrint(
+            'RoobitService send payload: '
+            'toAddress=$cleanedToAddress, amount=$amountStr',
+          );
+
+          final data = await _proxy(
+            '/api/wallet/send',
+            method: 'POST',
+            body: {
+              'fromPrivateKey': fromPrivateKey.trim(),
+              'privateKey': fromPrivateKey.trim(),
+              'toAddress': cleanedToAddress,
+              'to': cleanedToAddress,
+              'target': cleanedToAddress,
+              'recipientAddress': cleanedToAddress,
+              'recipient': cleanedToAddress,
+              'destination': cleanedToAddress,
+              'toWalletAddress': cleanedToAddress,
+              'amount': amountStr,
+              'value': amountStr,
+              if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
+            },
+          ).timeout(_sendTimeout);
+
+          if (data['success'] == false) {
+            throw Exception('Send operation failed: Operation unsuccessful');
+          }
+
+          return data;
         }, operationName: 'send')
         as Map<String, dynamic>;
   }
 
-  /// Transfer ROO to external wallet (e.g., MetaMask)
-
-  /// Distribute rewards to a user for activities
   Future<Map<String, dynamic>> distributeReward({
     required String userAddress,
     required String activityType,
     Map<String, dynamic>? metadata,
   }) async {
     return await _retryRequest(() async {
-          try {
-            final headers = getHeaders();
-
-            debugPrint(
-              'RoobitService: Requesting reward with headers: $headers',
-            );
-
-            final response = await http.post(
-              Uri.parse('$baseUrl/api/rewards/distribute'),
-              headers: headers,
-              body: json.encode({
-                'userAddress': userAddress,
-                'activityType': activityType,
-                if (metadata != null) 'metadata': metadata,
-              }),
-            );
-
-            debugPrint(
-              'RoobitService: Response status: ${response.statusCode}',
-            );
-            debugPrint('RoobitService: Response body: ${response.body}');
-
-            if (response.statusCode == 200) {
-              final data = json.decode(response.body) as Map<String, dynamic>;
-              if (data['error'] != null) {
-                throw Exception('Reward distribution failed: ${data['error']}');
-              }
-              if (data['success'] == false) {
-                throw Exception(
-                  'Reward distribution failed: Operation unsuccessful',
-                );
-              }
-              return data;
-            } else if (response.statusCode == 403) {
-              debugPrint(
-                'RoobitService: API authentication failed. Please check ROOCOIN_API_KEY configuration.',
-              );
-              throw Exception(
-                'Roobit API authentication failed (403 - Invalid Token). Key rejected by server.',
-              );
-            } else if (response.statusCode == 401) {
-              debugPrint(
-                'RoobitService: API authentication failed (401). Header issue?',
-              );
-              throw Exception(
-                'Roobit API authentication failed (401 - No token).',
-              );
-            } else {
-              throw Exception(
-                'Failed to distribute reward: ${response.statusCode} - ${response.body}',
-              );
-            }
-          } catch (e) {
-            debugPrint('Error distributing reward: $e');
-            rethrow;
+          if (userAddress.trim().isEmpty) {
+            throw Exception('User address is required');
           }
+          if (activityType.trim().isEmpty) {
+            throw Exception('Activity type is required');
+          }
+
+          final data = await _proxy(
+            '/api/rewards/distribute',
+            method: 'POST',
+            body: {
+              'userAddress': userAddress.trim(),
+              'activityType': activityType,
+              if (metadata != null) 'metadata': metadata,
+            },
+          );
+
+          if (data['success'] == false) {
+            throw Exception(
+              'Reward distribution failed: Operation unsuccessful',
+            );
+          }
+
+          return data;
         }, operationName: 'distributeReward')
         as Map<String, dynamic>;
   }
 
-  /// Batch distribute rewards to multiple users (more gas-efficient)
   Future<Map<String, dynamic>> batchDistributeRewards({
     required List<Map<String, dynamic>> distributions,
   }) async {
-    try {
-      final headers = getHeaders();
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/rewards/batch-distribute'),
-        headers: headers,
-        body: json.encode({'distributions': distributions}),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as Map<String, dynamic>;
-        if (data['error'] != null) {
-          throw Exception('Batch distribution failed: ${data['error']}');
-        }
-        if (data['success'] == false) {
-          throw Exception('Batch distribution failed: Operation unsuccessful');
-        }
-        return data;
-      } else {
-        throw Exception(
-          'Failed to batch distribute rewards: ${response.statusCode} - ${response.body}',
-        );
-      }
-    } catch (e) {
-      debugPrint('Error batch distributing rewards: $e');
-      rethrow;
+    if (distributions.isEmpty) {
+      throw Exception('Distributions list cannot be empty');
     }
+
+    final data = await _proxy(
+      '/api/rewards/batch-distribute',
+      method: 'POST',
+      body: {'distributions': distributions},
+    );
+
+    if (data['success'] == false) {
+      throw Exception('Batch distribution failed: Operation unsuccessful');
+    }
+
+    return data;
   }
 
-  /// Check API health status
   Future<Map<String, dynamic>> checkHealth() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/health'));
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body) as Map<String, dynamic>;
-      } else {
-        throw Exception(
-          'Failed to check health: ${response.statusCode} - ${response.body}',
-        );
-      }
+      return await _proxy('/health');
     } catch (e) {
-      debugPrint('Error checking health: $e');
+      debugPrint('RoobitService checkHealth error: $e');
       rethrow;
     }
   }
 }
 
-/// Activity types for Roobit rewards
 class RoobitActivityType {
-  static const String postCreate = 'POST_CREATE'; // 0.01 ROO per day (one reward per calendar day)
-  static const String postLike = 'POST_LIKE'; // 0.01 ROO (liker earns)
-  static const String postComment = 'POST_COMMENT'; // engagement reward
-  static const String postShare = 'POST_SHARE'; // engagement reward
-  static const String referral = 'REFERRAL'; // 10 ROO (after full registration + verification)
-  static const String profileComplete = 'PROFILE_COMPLETE'; // 5 ROO
-  static const String contentViral = 'CONTENT_VIRAL'; // 1 ROO per 1,000 engagements
-  static const String dailyLogin = 'DAILY_LOGIN'; // daily login bonus
-  static const String welcomeBonus = 'WELCOME_BONUS'; // one-time signup bonus
-  static const String adFee = 'AD_FEE'; // fee charged when post is detected as advertisement
+  static const String postCreate = 'POST_CREATE';
+  static const String postLike = 'POST_LIKE';
+  static const String postComment = 'POST_COMMENT';
+  static const String postShare = 'POST_SHARE';
+  static const String referral = 'REFERRAL';
+  static const String profileComplete = 'PROFILE_COMPLETE';
+  static const String contentViral = 'CONTENT_VIRAL';
+  static const String dailyLogin = 'DAILY_LOGIN';
+  static const String welcomeBonus = 'WELCOME_BONUS';
+  static const String adFee = 'AD_FEE';
 
   static const Map<String, double> rewards = {
     postCreate: 0.01,
     postLike: 0.01,
-    // postComment and postShare rewards removed — no reward for comments/shares
     referral: 10.0,
     profileComplete: 5.0,
-    contentViral: 1.0, // awarded per 1,000 engagements milestone
+    contentViral: 1.0,
     dailyLogin: 1.0,
-    welcomeBonus: 0.0, // amount set dynamically
+    welcomeBonus: 0.0,
   };
 }

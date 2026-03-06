@@ -143,7 +143,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Verification error: ${e.toString()}'.tr(context)),
+            content: Text('Verification failed. Please try again.'.tr(context)),
             backgroundColor: Colors.red,
           ),
         );
@@ -220,7 +220,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error checking status: ${e.toString()}'.tr(context)),
+            content: Text('Unable to check status. Please try again.'.tr(context)),
             backgroundColor: Colors.red,
           ),
         );

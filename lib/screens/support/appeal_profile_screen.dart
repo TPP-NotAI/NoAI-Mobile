@@ -75,7 +75,7 @@ class _AppealProfileScreenState extends State<AppealProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to submit appeal: $e'.tr(context))));
+        ).showSnackBar(SnackBar(content: Text('Failed to submit appeal. Please try again.'.tr(context))));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);

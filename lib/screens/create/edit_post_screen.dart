@@ -76,7 +76,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to pick media: $e'.tr(context))));
+      ).showSnackBar(SnackBar(content: Text('Failed to pick media. Please try again.'.tr(context))));
     }
   }
 
@@ -202,7 +202,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Payment failed: ${e.toString()}'.tr(context)),
+            content: Text('Payment failed. Please try again.'.tr(context)),
             backgroundColor: Colors.red,
           ),
         );
@@ -250,7 +250,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e'.tr(context))));
+        ).showSnackBar(SnackBar(content: Text('Something went wrong. Please try again.'.tr(context))));
       }
     } finally {
       if (mounted) {

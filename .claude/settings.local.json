@@ -35,7 +35,10 @@
       "Bash(/tmp/check_snackbars.sh)",
       "Bash(sed 's/.*String get //')",
       "Bash(sed 's/ =>.*//')",
-      "Bash(flutter gen-l10n)"
+      "Bash(flutter gen-l10n)",
+      "Bash(ls -la /d/noai_org/.env*)",
+      "Bash(ls -la /d/noai_org/supabase/functions/*/)",
+      "Bash(xargs cat)"
     ],
     "additionalDirectories": [
       "\\",

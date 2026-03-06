@@ -139,7 +139,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error submitting appeal: $e'.tr(context))),
+          SnackBar(content: Text('Failed to submit appeal. Please try again.'.tr(context))),
         );
       }
     } finally {

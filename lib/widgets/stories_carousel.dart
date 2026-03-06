@@ -144,7 +144,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Payment failed: $e'),
+            content: Text('Payment failed. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -405,7 +405,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
               if (!mounted) return;
               setState(() => isUploading = false);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to capture photo: $e'.tr(context))),
+                SnackBar(content: Text('Failed to capture photo. Please try again.'.tr(context))),
               );
             }
           }
@@ -993,7 +993,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to apply filter: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to apply filter. Please try again.')));
       }
     }
   }
@@ -1163,7 +1163,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to load video. Please try again.')));
       }
     } finally {
       controller?.dispose();
@@ -1280,7 +1280,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to load video. Please try again.')));
       }
     } finally {
       controller?.dispose();
@@ -1415,7 +1415,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to load video. Please try again.')));
       }
     } finally {
       controller?.dispose();

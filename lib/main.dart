@@ -199,8 +199,11 @@ class MyApp extends StatelessWidget {
               final platformConfig = context
                   .watch<PlatformConfigProvider>()
                   .config;
-              Widget content = ConnectivityOverlay(
-                child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
+              Widget content = Listener(
+                onPointerDown: (_) => context.read<AuthProvider>().resetInactivityTimer(),
+                child: ConnectivityOverlay(
+                  child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
+                ),
               );
               if (platformConfig.maintenanceMode) {
                 content = Stack(

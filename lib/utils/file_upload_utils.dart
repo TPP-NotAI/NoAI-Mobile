@@ -31,6 +31,9 @@ class FileUploadUtils {
     'bmp',
   };
 
+  static const int _maxImageBytes = 10 * 1024 * 1024;  // 10 MB
+  static const int _maxVideoBytes = 100 * 1024 * 1024; // 100 MB
+
   static bool _isVideo(String extension) =>
       _videoExtensions.contains(extension.toLowerCase());
 
@@ -62,6 +65,15 @@ class FileUploadUtils {
       if (pickedFile == null) return null;
 
       final file = File(pickedFile.path);
+      if (await file.length() > _maxImageBytes) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Image must be under 10 MB.'.tr(context))),
+          );
+        }
+        return null;
+      }
+
       final fileName =
           '${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
 
@@ -81,7 +93,7 @@ class FileUploadUtils {
       debugPrint('FileUploadUtils: Failed to upload image - $e');
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to upload image: $e'.tr(context))));
+      ).showSnackBar(SnackBar(content: Text('Failed to upload image. Please try again.'.tr(context))));
       return null;
     }
   }
@@ -100,6 +112,15 @@ class FileUploadUtils {
       if (result == null || result.files.isEmpty) return null;
 
       final file = File(result.files.first.path!);
+      if (await file.length() > _maxVideoBytes) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Video must be under 100 MB.'.tr(context))),
+          );
+        }
+        return null;
+      }
+
       final fileName =
           '${DateTime.now().millisecondsSinceEpoch}_${result.files.first.name}';
 
@@ -119,7 +140,7 @@ class FileUploadUtils {
       debugPrint('FileUploadUtils: Failed to upload video - $e');
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to upload video: $e'.tr(context))));
+      ).showSnackBar(SnackBar(content: Text('Failed to upload video. Please try again.'.tr(context))));
       return null;
     }
   }
@@ -144,6 +165,17 @@ class FileUploadUtils {
 
       final file = File(result.files.first.path!);
       final ext = (result.files.first.extension ?? '').toLowerCase();
+      final maxBytes = _isVideo(ext) ? _maxVideoBytes : _maxImageBytes;
+      if (await file.length() > maxBytes) {
+        if (context.mounted) {
+          final limit = _isVideo(ext) ? '100 MB' : '10 MB';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('File must be under $limit.'.tr(context))),
+          );
+        }
+        return null;
+      }
+
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_${result.files.first.name}';
 
       final response = await _client.storage
@@ -160,7 +192,7 @@ class FileUploadUtils {
       debugPrint('FileUploadUtils: Failed to upload media - $e');
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to upload media: $e'.tr(context))));
+      ).showSnackBar(SnackBar(content: Text('Failed to upload media. Please try again.'.tr(context))));
       return null;
     }
   }
@@ -187,6 +219,8 @@ class FileUploadUtils {
         if (file.path == null) continue;
         final path = file.path!;
         final ext = (file.extension ?? '').toLowerCase();
+        final maxBytes = _isVideo(ext) ? _maxVideoBytes : _maxImageBytes;
+        if (await File(path).length() > maxBytes) continue; // skip oversized files silently
         final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
 
         final response = await _client.storage
@@ -203,7 +237,7 @@ class FileUploadUtils {
       debugPrint('FileUploadUtils: Failed to upload media list - $e');
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to upload media: $e'.tr(context))));
+      ).showSnackBar(SnackBar(content: Text('Failed to upload media. Please try again.'.tr(context))));
       return uploads;
     }
   }

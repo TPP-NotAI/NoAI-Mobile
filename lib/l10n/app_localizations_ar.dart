@@ -132,7 +132,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get pleaseTypeDelete => 'الرجاء كتابة DELETE للتأكيد';
 
   @override
-  String get aboutROOVERSEDescription => 'ROOVERSE – منصة اجتماعية تتمحور حول الإنسان\n\nالإصدار 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription =>
+      'ROOVERSE – منصة اجتماعية تتمحور حول الإنسان\n\nالإصدار 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'تسجيل الدخول';
@@ -588,7 +589,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle =>
+      'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -837,7 +839,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get passwordRequired => 'كلمة المرور مطلوبة';
 
   @override
-  String get invalidEmailOrPassword => 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
+  String get invalidEmailOrPassword =>
+      'البريد الإلكتروني أو كلمة المرور غير صحيحة';
 
   @override
   String get unableToStartGoogleLogin => 'تعذر بدء تسجيل الدخول بـ Google';
@@ -870,7 +873,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get enterVerificationCode => 'أدخل رمز التحقق';
 
   @override
-  String get enterPhoneForSms => 'أدخل رقم هاتفك لتلقي رمز التحقق عبر الرسائل القصيرة.';
+  String get enterPhoneForSms =>
+      'أدخل رقم هاتفك لتلقي رمز التحقق عبر الرسائل القصيرة.';
 
   @override
   String get forgotPassword => 'هل نسيت كلمة المرور؟';
@@ -915,10 +919,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get recipient => 'المستلم';
 
   @override
-  String get verificationPendingSendRoo => 'تحققك معلق. يمكنك إرسال ROO بعد الموافقة.';
+  String get verificationPendingSendRoo =>
+      'تحققك معلق. يمكنك إرسال ROO بعد الموافقة.';
 
   @override
-  String get completeVerificationToSendRoo => 'يرجى إكمال التحقق من الهوية لإرسال ROO.';
+  String get completeVerificationToSendRoo =>
+      'يرجى إكمال التحقق من الهوية لإرسال ROO.';
 
   @override
   String get cannotSendRooToSelf => 'لا يمكنك إرسال ROO إلى حسابك الخاص';
@@ -936,7 +942,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get mustBeLoggedInToBoost => 'يجب تسجيل الدخول لتعزيز منشور.';
 
   @override
-  String get verificationPendingTip => 'تحققك معلق. يمكنك إرسال إكرامية بعد الموافقة.';
+  String get verificationPendingTip =>
+      'تحققك معلق. يمكنك إرسال إكرامية بعد الموافقة.';
 
   @override
   String get cannotTipOwnPost => 'لا يمكنك إرسال إكرامية لمنشورك الخاص';
@@ -951,7 +958,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get sensitiveContent => 'محتوى حساس';
 
   @override
-  String get deleteCommentConfirmation => 'هل أنت متأكد أنك تريد حذف هذا التعليق؟ لا يمكن التراجع عن هذا.';
+  String get deleteCommentConfirmation =>
+      'هل أنت متأكد أنك تريد حذف هذا التعليق؟ لا يمكن التراجع عن هذا.';
 
   @override
   String get commentUnderReview => 'التعليق قيد المراجعة.';
@@ -972,8 +980,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get imageOrVideoMax => 'صورة أو فيديو (بحد أقصى 15 ثانية)';
 
   @override
-  String get commentNotPublishedAi => 'لم يتم نشر تعليقك. اكتشف الذكاء الاصطناعي لدينا أنه قد ينتهك إرشاداتنا.';
+  String get commentNotPublishedAi =>
+      'لم يتم نشر تعليقك. اكتشف الذكاء الاصطناعي لدينا أنه قد ينتهك إرشاداتنا.';
 
   @override
-  String get commentUnderReviewExtended => 'تعليقك قيد المراجعة. سيظهر بمجرد الموافقة عليه.';
+  String get commentUnderReviewExtended =>
+      'تعليقك قيد المراجعة. سيظهر بمجرد الموافقة عليه.';
 }

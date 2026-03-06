@@ -132,7 +132,8 @@ class AppLocalizationsKo extends AppLocalizations {
   String get pleaseTypeDelete => '확인하려면 삭제를 입력해 주세요';
 
   @override
-  String get aboutROOVERSEDescription => 'ROOVERSE – 인간 중심 소셜 플랫폼\n\n버전 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription =>
+      'ROOVERSE – 인간 중심 소셜 플랫폼\n\n버전 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => '로그인';
@@ -588,7 +589,8 @@ class AppLocalizationsKo extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle =>
+      'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -972,7 +974,8 @@ class AppLocalizationsKo extends AppLocalizations {
   String get imageOrVideoMax => '이미지 또는 동영상 (최대 15초)';
 
   @override
-  String get commentNotPublishedAi => '귀하의 댓글이 게시되지 않았습니다. AI가 가이드라인을 위반할 수 있다고 감지했습니다.';
+  String get commentNotPublishedAi =>
+      '귀하의 댓글이 게시되지 않았습니다. AI가 가이드라인을 위반할 수 있다고 감지했습니다.';
 
   @override
   String get commentUnderReviewExtended => '귀하의 댓글은 검토 중입니다. 승인되면 표시됩니다.';

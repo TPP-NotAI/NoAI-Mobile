@@ -4,10 +4,20 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const FCM_SERVER_KEY = Deno.env.get('FCM_SERVER_KEY')!;
+// Shared secret set in Supabase dashboard → Webhooks → Secret and as edge function secret WEBHOOK_SECRET
+const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET') ?? '';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 serve(async (req) => {
+  // ── Verify webhook shared secret ─────────────────────────────────────────
+  if (WEBHOOK_SECRET) {
+    const incoming = req.headers.get('x-webhook-secret') ?? '';
+    if (incoming !== WEBHOOK_SECRET) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+  }
+
   try {
     const payload = await req.json();
 

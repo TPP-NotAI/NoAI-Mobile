@@ -327,7 +327,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick media: $e'.tr(context))),
+        SnackBar(content: Text('Failed to pick media. Please try again.'.tr(context))),
       );
     }
   }
@@ -480,7 +480,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to get location: $e'.tr(context))),
+        SnackBar(content: Text('Failed to get location. Please try again.'.tr(context))),
       );
     } finally {
       if (mounted) {
@@ -1372,7 +1372,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Payment failed: ${e.toString()}'.tr(context)),
+            content: Text('Payment failed. Please try again.'.tr(context)),
             backgroundColor: Colors.red,
           ),
         );
@@ -1648,7 +1648,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         setState(() => _isPosting = false);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to create post: $e'.tr(context))),
+            SnackBar(content: Text('Failed to create post. Please try again.'.tr(context))),
           );
         }
       }
@@ -2584,7 +2584,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to apply filter: $e'.tr(context))),
+          SnackBar(content: Text('Failed to apply filter. Please try again.'.tr(context))),
         );
       }
     }
@@ -2849,7 +2849,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load video: $e'.tr(context))),
+          SnackBar(content: Text('Failed to load video. Please try again.'.tr(context))),
         );
       }
     } finally {
@@ -2977,7 +2977,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load video: $e'.tr(context))),
+          SnackBar(content: Text('Failed to load video. Please try again.'.tr(context))),
         );
       }
     } finally {
@@ -3112,7 +3112,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load video: $e'.tr(context))),
+          SnackBar(content: Text('Failed to load video. Please try again.'.tr(context))),
         );
       }
     } finally {

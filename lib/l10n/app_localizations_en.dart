@@ -126,13 +126,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get typeDeleteConfirm => 'Type DELETE to confirm.';
 
   @override
-  String get accountDeletionRequested => 'Account deletion requested. You have been logged out.';
+  String get accountDeletionRequested =>
+      'Account deletion requested. You have been logged out.';
 
   @override
   String get pleaseTypeDelete => 'Please type DELETE to confirm';
 
   @override
-  String get aboutROOVERSEDescription => 'ROOVERSE – Human-Centred Social Platform\n\nVersion 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription =>
+      'ROOVERSE – Human-Centred Social Platform\n\nVersion 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'Log In';
@@ -588,7 +590,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle =>
+      'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -870,7 +873,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get enterVerificationCode => 'Enter Verification Code';
 
   @override
-  String get enterPhoneForSms => 'Enter your phone number to receive a verification code via SMS.';
+  String get enterPhoneForSms =>
+      'Enter your phone number to receive a verification code via SMS.';
 
   @override
   String get forgotPassword => 'Forgot Password?';
@@ -915,10 +919,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recipient => 'Recipient';
 
   @override
-  String get verificationPendingSendRoo => 'Your verification is pending. You can send ROO once approved.';
+  String get verificationPendingSendRoo =>
+      'Your verification is pending. You can send ROO once approved.';
 
   @override
-  String get completeVerificationToSendRoo => 'Please complete identity verification to send ROO.';
+  String get completeVerificationToSendRoo =>
+      'Please complete identity verification to send ROO.';
 
   @override
   String get cannotSendRooToSelf => 'You cannot send ROO to your own account';
@@ -930,13 +936,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get locationPermissionDenied => 'Location permission denied';
 
   @override
-  String get locationPermissionPermanentlyDenied => 'Location permission permanently denied';
+  String get locationPermissionPermanentlyDenied =>
+      'Location permission permanently denied';
 
   @override
   String get mustBeLoggedInToBoost => 'You must be logged in to boost a post.';
 
   @override
-  String get verificationPendingTip => 'Your verification is pending. You can tip once approved.';
+  String get verificationPendingTip =>
+      'Your verification is pending. You can tip once approved.';
 
   @override
   String get cannotTipOwnPost => 'You cannot tip your own post';
@@ -951,7 +959,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sensitiveContent => 'Sensitive Content';
 
   @override
-  String get deleteCommentConfirmation => 'Are you sure you want to delete this comment? This cannot be undone.';
+  String get deleteCommentConfirmation =>
+      'Are you sure you want to delete this comment? This cannot be undone.';
 
   @override
   String get commentUnderReview => 'Comment under review.';
@@ -972,8 +981,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageOrVideoMax => 'Image or video (max 15s)';
 
   @override
-  String get commentNotPublishedAi => 'Your comment was not published. Our AI detected it may violate our guidelines.';
+  String get commentNotPublishedAi =>
+      'Your comment was not published. Our AI detected it may violate our guidelines.';
 
   @override
-  String get commentUnderReviewExtended => 'Your comment is under review. It will appear once approved.';
+  String get commentUnderReviewExtended =>
+      'Your comment is under review. It will appear once approved.';
 }

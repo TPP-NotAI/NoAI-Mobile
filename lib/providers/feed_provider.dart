@@ -474,8 +474,8 @@ class FeedProvider with ChangeNotifier {
       _error = null;
       _hasMore = _posts.length >= 20;
     } catch (e) {
-      _error = 'Failed to load feed: $e';
-      debugPrint(_error);
+      debugPrint('FeedProvider: Failed to load feed: $e');
+      _error = 'Failed to load feed. Please try again.';
     }
 
     _isLoading = false;
@@ -509,8 +509,8 @@ class FeedProvider with ChangeNotifier {
         _repostCounts.addAll(counts);
       }
     } catch (e) {
-      _error = 'Failed to refresh feed: $e';
-      debugPrint(_error);
+      debugPrint('FeedProvider: Failed to refresh feed: $e');
+      _error = 'Failed to refresh feed. Please try again.';
     }
 
     _isRefreshing = false;
@@ -542,8 +542,8 @@ class FeedProvider with ChangeNotifier {
         _repostCounts.addAll(counts);
       }
     } catch (e) {
-      _error = 'Failed to load more posts: $e';
-      debugPrint(_error);
+      debugPrint('FeedProvider: Failed to load more posts: $e');
+      _error = 'Failed to load more posts. Please try again.';
     }
 
     _isLoading = false;

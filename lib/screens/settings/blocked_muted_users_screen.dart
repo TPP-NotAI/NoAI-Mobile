@@ -50,7 +50,7 @@ class _BlockedMutedUsersScreenState extends State<BlockedMutedUsersScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Failed to load users: $e';
+          _error = 'Failed to load users. Please try again.';
         });
       }
     } finally {

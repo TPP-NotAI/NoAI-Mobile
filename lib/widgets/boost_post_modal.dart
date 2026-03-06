@@ -223,7 +223,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
         ?..clearSnackBars()
         ..showSnackBar(
           SnackBar(
-            content: Text('$boostFailedPrefix${e.toString()}'),
+            content: Text('Boost failed. Please try again.'),
             backgroundColor: Colors.red.shade600,
             behavior: SnackBarBehavior.floating,
           ),

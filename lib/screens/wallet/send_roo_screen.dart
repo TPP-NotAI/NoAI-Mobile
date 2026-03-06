@@ -212,6 +212,11 @@ class _SendRooScreenState extends State<SendRooScreen> {
 
     if (confirmed != true) return;
 
+    // Step-up authentication: verify identity before executing transfer
+    if (!mounted) return;
+    final authed = await _showStepUpAuthDialog(context);
+    if (!mounted || authed != true) return;
+
     setState(() => _isProcessing = true);
 
     final authProvider = context.read<AuthProvider>();
@@ -360,25 +365,120 @@ class _SendRooScreenState extends State<SendRooScreen> {
               );
             })
             .catchError((e) {
-              final error = e.toString().replaceAll('Exception: ', '');
               walletProvider.rollbackOptimisticTransaction(
                 localTxId,
-                errorMessage: error,
+                errorMessage: e.toString(),
               );
               rootScaffoldMessengerKey.currentState?.showSnackBar(
-                SnackBar(
-                  content: Text(error),
+                const SnackBar(
+                  content: Text('Transfer failed. Please try again.'),
                   backgroundColor: AppColors.error,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
             }),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      _showError('Transfer failed. Please try again.');
       setState(() => _isProcessing = false);
     }
+  }
+
+  /// Shows a password prompt to re-authenticate before executing a transfer.
+  /// Returns true if authentication succeeded, false if cancelled or wrong password.
+  Future<bool> _showStepUpAuthDialog(BuildContext context) async {
+    final colors = Theme.of(context).colorScheme;
+    final passwordController = TextEditingController();
+    bool obscure = true;
+    bool isLoading = false;
+    bool? result;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: colors.surface,
+          title: Text('Confirm your identity'.tr(context),
+            style: TextStyle(color: colors.onSurface),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Enter your password to authorise this transfer.'.tr(context),
+                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: obscure,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  filled: true,
+                  fillColor: colors.surfaceContainerHighest,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  suffixIcon: IconButton(
+                    icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setDialogState(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () { result = false; Navigator.pop(dialogContext); },
+              child: Text('Cancel'.tr(context)),
+            ),
+            FilledButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      if (passwordController.text.isEmpty) return;
+                      setDialogState(() => isLoading = true);
+                      try {
+                        final authProvider = ctx.read<AuthProvider>();
+                        final verified = await authProvider.reAuthenticate(passwordController.text);
+                        if (!verified) {
+                          setDialogState(() => isLoading = false);
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text('Incorrect password.'.tr(context)),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+                        result = true;
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      } catch (_) {
+                        setDialogState(() => isLoading = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text('Something went wrong. Please try again.'.tr(context)),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              child: isLoading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text('Confirm'.tr(context)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    passwordController.dispose();
+    return result == true;
   }
 
   void _showError(String message) {

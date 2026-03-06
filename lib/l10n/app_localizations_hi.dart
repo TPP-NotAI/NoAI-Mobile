@@ -126,13 +126,15 @@ class AppLocalizationsHi extends AppLocalizations {
   String get typeDeleteConfirm => 'पुष्टि करने के लिए DELETE टाइप करें।';
 
   @override
-  String get accountDeletionRequested => 'खाता हटाने का अनुरोध किया गया। आपको लॉग आउट कर दिया गया है।';
+  String get accountDeletionRequested =>
+      'खाता हटाने का अनुरोध किया गया। आपको लॉग आउट कर दिया गया है।';
 
   @override
   String get pleaseTypeDelete => 'पुष्टि करने के लिए कृपया DELETE टाइप करें';
 
   @override
-  String get aboutROOVERSEDescription => 'ROOVERSE – मानव-केंद्रित सोशल प्लेटफ़ॉर्म\n\nसंस्करण 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription =>
+      'ROOVERSE – मानव-केंद्रित सोशल प्लेटफ़ॉर्म\n\nसंस्करण 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'लॉग इन';
@@ -588,7 +590,8 @@ class AppLocalizationsHi extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle =>
+      'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -870,7 +873,8 @@ class AppLocalizationsHi extends AppLocalizations {
   String get enterVerificationCode => 'सत्यापन कोड दर्ज करें';
 
   @override
-  String get enterPhoneForSms => 'SMS के माध्यम से सत्यापन कोड प्राप्त करने के लिए अपना फ़ोन नंबर दर्ज करें।';
+  String get enterPhoneForSms =>
+      'SMS के माध्यम से सत्यापन कोड प्राप्त करने के लिए अपना फ़ोन नंबर दर्ज करें।';
 
   @override
   String get forgotPassword => 'पासवर्ड भूल गए?';
@@ -915,13 +919,16 @@ class AppLocalizationsHi extends AppLocalizations {
   String get recipient => 'प्राप्तकर्ता';
 
   @override
-  String get verificationPendingSendRoo => 'आपका सत्यापन लंबित है। अनुमोदन के बाद आप ROO भेज सकते हैं।';
+  String get verificationPendingSendRoo =>
+      'आपका सत्यापन लंबित है। अनुमोदन के बाद आप ROO भेज सकते हैं।';
 
   @override
-  String get completeVerificationToSendRoo => 'ROO भेजने के लिए कृपया पहचान सत्यापन पूर्ण करें।';
+  String get completeVerificationToSendRoo =>
+      'ROO भेजने के लिए कृपया पहचान सत्यापन पूर्ण करें।';
 
   @override
-  String get cannotSendRooToSelf => 'आप अपने स्वयं के खाते में ROO नहीं भेज सकते';
+  String get cannotSendRooToSelf =>
+      'आप अपने स्वयं के खाते में ROO नहीं भेज सकते';
 
   @override
   String get availableBalance => 'उपलब्ध शेष';
@@ -930,13 +937,16 @@ class AppLocalizationsHi extends AppLocalizations {
   String get locationPermissionDenied => 'स्थान अनुमति अस्वीकृत';
 
   @override
-  String get locationPermissionPermanentlyDenied => 'स्थान अनुमति स्थायी रूप से अस्वीकृत';
+  String get locationPermissionPermanentlyDenied =>
+      'स्थान अनुमति स्थायी रूप से अस्वीकृत';
 
   @override
-  String get mustBeLoggedInToBoost => 'पोस्ट को बूस्ट करने के लिए आपको लॉगिन होना चाहिए।';
+  String get mustBeLoggedInToBoost =>
+      'पोस्ट को बूस्ट करने के लिए आपको लॉगिन होना चाहिए।';
 
   @override
-  String get verificationPendingTip => 'आपका सत्यापन लंबित है। अनुमोदन के बाद आप टिप दे सकते हैं।';
+  String get verificationPendingTip =>
+      'आपका सत्यापन लंबित है। अनुमोदन के बाद आप टिप दे सकते हैं।';
 
   @override
   String get cannotTipOwnPost => 'आप अपनी खुद की पोस्ट को टिप नहीं दे सकते';
@@ -951,13 +961,15 @@ class AppLocalizationsHi extends AppLocalizations {
   String get sensitiveContent => 'संवेदनशील सामग्री';
 
   @override
-  String get deleteCommentConfirmation => 'क्या आप वाकई इस टिप्पणी को हटाना चाहते हैं? इसे पूर्ववत नहीं किया जा सकता।';
+  String get deleteCommentConfirmation =>
+      'क्या आप वाकई इस टिप्पणी को हटाना चाहते हैं? इसे पूर्ववत नहीं किया जा सकता।';
 
   @override
   String get commentUnderReview => 'टिप्पणी समीक्षाधीन है।';
 
   @override
-  String get storiesEmpty => 'जिन लोगों को आप फ़ॉलो करते हैं उनकी कहानियाँ यहाँ दिखाई देंगी';
+  String get storiesEmpty =>
+      'जिन लोगों को आप फ़ॉलो करते हैं उनकी कहानियाँ यहाँ दिखाई देंगी';
 
   @override
   String get textStoryWordLimit => 'टेक्स्ट कहानियाँ 250 शब्दों तक सीमित हैं।';
@@ -972,8 +984,10 @@ class AppLocalizationsHi extends AppLocalizations {
   String get imageOrVideoMax => 'छवि या वीडियो (अधिकतम 15 सेकंड)';
 
   @override
-  String get commentNotPublishedAi => 'आपकी टिप्पणी प्रकाशित नहीं की गई। हमारे AI ने पता लगाया कि यह हमारी नीतियों का उल्लंघन कर सकती है।';
+  String get commentNotPublishedAi =>
+      'आपकी टिप्पणी प्रकाशित नहीं की गई। हमारे AI ने पता लगाया कि यह हमारी नीतियों का उल्लंघन कर सकती है।';
 
   @override
-  String get commentUnderReviewExtended => 'आपकी टिप्पणी समीक्षाधीन है। अनुमोदन के बाद यह दिखाई देगी।';
+  String get commentUnderReviewExtended =>
+      'आपकी टिप्पणी समीक्षाधीन है। अनुमोदन के बाद यह दिखाई देगी।';
 }

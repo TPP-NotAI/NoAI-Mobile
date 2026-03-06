@@ -79,7 +79,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error loading queue: $e'.tr(context))));
+        ).showSnackBar(SnackBar(content: Text('Failed to load moderation queue. Please try again.'.tr(context))));
       }
     }
   }

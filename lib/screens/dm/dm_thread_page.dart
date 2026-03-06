@@ -364,7 +364,7 @@ class _DmThreadPageState extends State<DmThreadPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _sendError = 'Failed to send voice message: $e';
+          _sendError = 'Failed to send voice message. Please try again.';
         });
       }
     } finally {
@@ -1088,7 +1088,7 @@ class _DmThreadPageState extends State<DmThreadPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Payment failed: ${e.toString()}'.tr(context)),
+            content: Text('Payment failed. Please try again.'.tr(context)),
             backgroundColor: Colors.red,
           ),
         );

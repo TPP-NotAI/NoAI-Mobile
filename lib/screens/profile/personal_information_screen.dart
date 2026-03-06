@@ -90,7 +90,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating information: $e'.tr(context))),
+          SnackBar(content: Text('Failed to update information. Please try again.'.tr(context))),
         );
       }
     }

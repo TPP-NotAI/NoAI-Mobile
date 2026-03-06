@@ -351,7 +351,7 @@ class _StoryViewerState extends State<StoryViewer>
       }
     } catch (e) {
       if (mounted) {
-        SnackBarUtils.showErrorMessage(context, 'Failed to send reply: $e');
+        SnackBarUtils.showErrorMessage(context, 'Failed to send reply. Please try again.');
       }
     } finally {
       if (mounted) setState(() => _isSending = false);

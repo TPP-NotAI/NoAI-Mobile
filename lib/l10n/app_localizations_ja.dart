@@ -132,7 +132,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pleaseTypeDelete => '削除と入力して確認してください';
 
   @override
-  String get aboutROOVERSEDescription => 'ROOVERSE – 人間中心のソーシャルプラットフォーム\n\nバージョン 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription =>
+      'ROOVERSE – 人間中心のソーシャルプラットフォーム\n\nバージョン 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'ログイン';
@@ -588,7 +589,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle =>
+      'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -972,7 +974,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageOrVideoMax => '画像または動画（最大15秒）';
 
   @override
-  String get commentNotPublishedAi => 'あなたのコメントは公開されませんでした。AIがガイドライン違反の可能性を検出しました。';
+  String get commentNotPublishedAi =>
+      'あなたのコメントは公開されませんでした。AIがガイドライン違反の可能性を検出しました。';
 
   @override
   String get commentUnderReviewExtended => 'あなたのコメントは審査中です。承認後に表示されます。';

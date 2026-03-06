@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/auth_service.dart';
 import '../../config/app_colors.dart';
 
@@ -70,6 +72,16 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
             title: 'Two-Factor Authentication (2FA)',
             subtitle: 'Add an extra layer of security with email-based 2FA',
             onTap: () => _show2FASetupDialog(context),
+          ),
+          SizedBox(height: 24),
+          _buildSectionHeader(context, 'ACTIVE SESSIONS'),
+          _buildSettingsTile(
+            context,
+            icon: Icons.devices_outlined,
+            iconColor: Colors.orange,
+            title: 'Sign Out All Other Sessions',
+            subtitle: 'Revoke access from all other devices immediately',
+            onTap: () => _showSignOutOtherSessionsDialog(context),
           ),
           SizedBox(height: 24),
           _buildSectionHeader(context, 'SECURITY'),
@@ -207,6 +219,96 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
     );
   }
 
+  void _showSignOutOtherSessionsDialog(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final passwordController = TextEditingController();
+    bool isLoading = false;
+    bool obscurePassword = true;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: colors.surface,
+            title: Text('Sign Out Other Sessions'.tr(context),
+              style: TextStyle(color: colors.onSurface),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Enter your password to sign out all other active sessions on other devices.',
+                  style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: 'Password'.tr(context),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+                child: Text('Cancel'.tr(context)),
+              ),
+              ElevatedButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        if (passwordController.text.isEmpty) return;
+                        setDialogState(() => isLoading = true);
+                        try {
+                          final authProvider = context.read<AuthProvider>();
+                          final ok = await authProvider.reAuthenticate(passwordController.text);
+                          if (!ok) {
+                            setDialogState(() => isLoading = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                SnackBar(content: Text('Incorrect password. Please try again.'.tr(this.context))),
+                              );
+                            }
+                            return;
+                          }
+                          await Supabase.instance.client.auth.signOut(
+                            scope: SignOutScope.others,
+                          );
+                          if (mounted) {
+                            Navigator.pop(dialogContext);
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(content: Text('All other sessions have been signed out.'.tr(this.context))),
+                            );
+                          }
+                        } catch (_) {
+                          setDialogState(() => isLoading = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(content: Text('Something went wrong. Please try again.'.tr(this.context))),
+                            );
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                child: isLoading
+                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text('Sign Out Others'.tr(context), style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
+    ).whenComplete(() => passwordController.dispose());
+  }
+
   void _show2FASetupDialog(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final supabase = Supabase.instance.client;
@@ -325,7 +427,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Failed to resend: ${e.toString()}'.tr(context)),
+                                        content: Text('Something went wrong. Please try again.'.tr(context)),
                                         backgroundColor: Colors.red,
                                       ),
                                     );
@@ -398,7 +500,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Failed to send code: ${e.toString()}'.tr(context)),
+                                  content: Text('Something went wrong. Please try again.'.tr(context)),
                                   backgroundColor: Colors.red,
                                 ),
                               );
@@ -441,7 +543,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Invalid code: ${e.toString()}'.tr(context)),
+                                  content: Text('Invalid code. Please try again.'.tr(context)),
                                   backgroundColor: Colors.red,
                                 ),
                               );
@@ -509,9 +611,11 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
 
   void _showChangePasswordDialog(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final currentPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
     bool isLoading = false;
+    bool obscureCurrent = true;
     bool obscureNew = true;
     bool obscureConfirm = true;
 
@@ -527,6 +631,27 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                TextField(
+                  controller: currentPasswordController,
+                  obscureText: obscureCurrent,
+                  decoration: InputDecoration(
+                    labelText: 'Current Password',
+                    filled: true,
+                    fillColor: colors.surfaceContainerHighest,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureCurrent ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setDialogState(() => obscureCurrent = !obscureCurrent);
+                      },
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
                 TextField(
                   controller: newPasswordController,
                   obscureText: obscureNew,
@@ -571,7 +696,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                   ),
                 ),
                 SizedBox(height: 8),
-                Text('Password must be at least 6 characters'.tr(context),
+                Text('At least 8 characters with uppercase, lowercase and a number'.tr(context),
                   style: TextStyle(
                     fontSize: 12,
                     color: colors.onSurfaceVariant,
@@ -589,13 +714,23 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
               onPressed: isLoading
                   ? null
                   : () async {
+                      final currentPassword = currentPasswordController.text;
                       final newPassword = newPasswordController.text;
                       final confirmPassword = confirmPasswordController.text;
 
-                      if (newPassword.length < 6) {
+                      if (currentPassword.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Password must be at least 6 characters'.tr(context)),
+                            content: Text('Please enter your current password'.tr(context)),
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (newPassword.length < 8) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Password must be at least 8 characters'.tr(context)),
                           ),
                         );
                         return;
@@ -613,6 +748,22 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                       setDialogState(() => isLoading = true);
 
                       try {
+                        // Verify current password before allowing change
+                        final authProvider = context.read<AuthProvider>();
+                        final verified = await authProvider.reAuthenticate(currentPassword);
+                        if (!verified) {
+                          setDialogState(() => isLoading = false);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Current password is incorrect'.tr(context)),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
                         await _authService.updatePassword(newPassword);
                         if (dialogContext.mounted) {
                           Navigator.pop(dialogContext);
@@ -625,22 +776,22 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                             ),
                           );
                         }
-                      } on AuthException catch (e) {
+                      } on AuthException catch (_) {
                         setDialogState(() => isLoading = false);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(e.message),
+                              content: Text('Something went wrong. Please try again.'.tr(context)),
                               backgroundColor: Colors.red,
                             ),
                           );
                         }
-                      } catch (e) {
+                      } catch (_) {
                         setDialogState(() => isLoading = false);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Failed to update password'.tr(context)),
+                              content: Text('Something went wrong. Please try again.'.tr(context)),
                               backgroundColor: Colors.red,
                             ),
                           );

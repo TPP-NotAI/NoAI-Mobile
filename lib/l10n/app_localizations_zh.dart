@@ -132,7 +132,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pleaseTypeDelete => '请输入「删除」以确认';
 
   @override
-  String get aboutROOVERSEDescription => 'ROOVERSE – 以人为本的社交平台\n\n版本 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription =>
+      'ROOVERSE – 以人为本的社交平台\n\n版本 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => '登录';
@@ -588,7 +589,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle =>
+      'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';

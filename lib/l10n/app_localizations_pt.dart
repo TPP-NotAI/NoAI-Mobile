@@ -126,13 +126,15 @@ class AppLocalizationsPt extends AppLocalizations {
   String get typeDeleteConfirm => 'Digite EXCLUIR para confirmar.';
 
   @override
-  String get accountDeletionRequested => 'Exclusão de conta solicitada. Você foi desconectado.';
+  String get accountDeletionRequested =>
+      'Exclusão de conta solicitada. Você foi desconectado.';
 
   @override
   String get pleaseTypeDelete => 'Por favor, digite EXCLUIR para confirmar';
 
   @override
-  String get aboutROOVERSEDescription => 'ROOVERSE – Plataforma social centrada no ser humano\n\nVersão 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription =>
+      'ROOVERSE – Plataforma social centrada no ser humano\n\nVersão 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'Entrar';
@@ -588,7 +590,8 @@ class AppLocalizationsPt extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle =>
+      'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -840,13 +843,16 @@ class AppLocalizationsPt extends AppLocalizations {
   String get invalidEmailOrPassword => 'Email ou senha inválidos';
 
   @override
-  String get unableToStartGoogleLogin => 'Não foi possível iniciar o login com Google';
+  String get unableToStartGoogleLogin =>
+      'Não foi possível iniciar o login com Google';
 
   @override
-  String get pleaseEnterPhoneNumber => 'Por favor, insira seu número de telefone';
+  String get pleaseEnterPhoneNumber =>
+      'Por favor, insira seu número de telefone';
 
   @override
-  String get pleaseEnterValidPhoneNumber => 'Por favor, insira um número de telefone válido';
+  String get pleaseEnterValidPhoneNumber =>
+      'Por favor, insira um número de telefone válido';
 
   @override
   String get failedToSendLoginCode => 'Falha ao enviar o código de login';
@@ -858,7 +864,8 @@ class AppLocalizationsPt extends AppLocalizations {
   String get sendCode => 'Enviar código';
 
   @override
-  String get failedToSendVerificationCode => 'Falha ao enviar o código de verificação';
+  String get failedToSendVerificationCode =>
+      'Falha ao enviar o código de verificação';
 
   @override
   String get verifyCode => 'Verificar código';
@@ -870,7 +877,8 @@ class AppLocalizationsPt extends AppLocalizations {
   String get enterVerificationCode => 'Inserir código de verificação';
 
   @override
-  String get enterPhoneForSms => 'Insira seu número de telefone para receber um código de verificação por SMS.';
+  String get enterPhoneForSms =>
+      'Insira seu número de telefone para receber um código de verificação por SMS.';
 
   @override
   String get forgotPassword => 'Esqueceu a senha?';
@@ -915,13 +923,16 @@ class AppLocalizationsPt extends AppLocalizations {
   String get recipient => 'Destinatário';
 
   @override
-  String get verificationPendingSendRoo => 'Sua verificação está pendente. Você pode enviar ROO após a aprovação.';
+  String get verificationPendingSendRoo =>
+      'Sua verificação está pendente. Você pode enviar ROO após a aprovação.';
 
   @override
-  String get completeVerificationToSendRoo => 'Por favor, conclua a verificação de identidade para enviar ROO.';
+  String get completeVerificationToSendRoo =>
+      'Por favor, conclua a verificação de identidade para enviar ROO.';
 
   @override
-  String get cannotSendRooToSelf => 'Você não pode enviar ROO para sua própria conta';
+  String get cannotSendRooToSelf =>
+      'Você não pode enviar ROO para sua própria conta';
 
   @override
   String get availableBalance => 'Saldo disponível';
@@ -930,16 +941,20 @@ class AppLocalizationsPt extends AppLocalizations {
   String get locationPermissionDenied => 'Permissão de localização negada';
 
   @override
-  String get locationPermissionPermanentlyDenied => 'Permissão de localização negada permanentemente';
+  String get locationPermissionPermanentlyDenied =>
+      'Permissão de localização negada permanentemente';
 
   @override
-  String get mustBeLoggedInToBoost => 'Você precisa estar logado para impulsionar uma publicação.';
+  String get mustBeLoggedInToBoost =>
+      'Você precisa estar logado para impulsionar uma publicação.';
 
   @override
-  String get verificationPendingTip => 'Sua verificação está pendente. Você pode dar gorjeta após a aprovação.';
+  String get verificationPendingTip =>
+      'Sua verificação está pendente. Você pode dar gorjeta após a aprovação.';
 
   @override
-  String get cannotTipOwnPost => 'Você não pode dar gorjeta à sua própria publicação';
+  String get cannotTipOwnPost =>
+      'Você não pode dar gorjeta à sua própria publicação';
 
   @override
   String get enterAmount => 'Inserir valor';
@@ -951,16 +966,19 @@ class AppLocalizationsPt extends AppLocalizations {
   String get sensitiveContent => 'Conteúdo sensível';
 
   @override
-  String get deleteCommentConfirmation => 'Tem certeza de que deseja excluir este comentário? Isso não pode ser desfeito.';
+  String get deleteCommentConfirmation =>
+      'Tem certeza de que deseja excluir este comentário? Isso não pode ser desfeito.';
 
   @override
   String get commentUnderReview => 'Comentário em análise.';
 
   @override
-  String get storiesEmpty => 'Os stories das pessoas que você segue aparecerão aqui';
+  String get storiesEmpty =>
+      'Os stories das pessoas que você segue aparecerão aqui';
 
   @override
-  String get textStoryWordLimit => 'Stories de texto são limitados a 250 palavras.';
+  String get textStoryWordLimit =>
+      'Stories de texto são limitados a 250 palavras.';
 
   @override
   String get createStory => 'Criar story';
@@ -972,8 +990,10 @@ class AppLocalizationsPt extends AppLocalizations {
   String get imageOrVideoMax => 'Imagem ou vídeo (máx. 15s)';
 
   @override
-  String get commentNotPublishedAi => 'Seu comentário não foi publicado. Nossa IA detectou que pode violar nossas diretrizes.';
+  String get commentNotPublishedAi =>
+      'Seu comentário não foi publicado. Nossa IA detectou que pode violar nossas diretrizes.';
 
   @override
-  String get commentUnderReviewExtended => 'Seu comentário está sob revisão. Ele aparecerá assim que for aprovado.';
+  String get commentUnderReviewExtended =>
+      'Seu comentário está sob revisão. Ele aparecerá assim que for aprovado.';
 }

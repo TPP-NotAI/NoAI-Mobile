@@ -183,14 +183,13 @@ class _TipModalState extends State<TipModal> {
               );
             })
             .catchError((e) {
-              final error = 'Failed to send tip: ${e.toString()}';
               walletProvider.rollbackOptimisticTransaction(
                 localTxId,
-                errorMessage: error,
+                errorMessage: 'Failed to send tip',
               );
               rootScaffoldMessengerKey.currentState?.showSnackBar(
                 SnackBar(
-                  content: Text(error),
+                  content: Text('Failed to send tip. Please try again.'),
                   backgroundColor: Colors.red.shade600,
                   behavior: SnackBarBehavior.floating,
                 ),
@@ -199,7 +198,7 @@ class _TipModalState extends State<TipModal> {
       );
     } catch (e) {
       if (mounted) {
-        _showError('Failed to send tip: ${e.toString()}');
+        _showError('Failed to send tip. Please try again.');
         setState(() => _isProcessing = false);
       }
     }

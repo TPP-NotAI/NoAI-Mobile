@@ -200,7 +200,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send voice message: $e'.tr(context))),
+          SnackBar(content: Text('Failed to send voice message. Please try again.'.tr(context))),
         );
       }
     } finally {
@@ -1379,7 +1379,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Payment failed: ${e.toString()}'.tr(context)),
+            content: Text('Payment failed. Please try again.'.tr(context)),
             backgroundColor: Colors.red,
           ),
         );

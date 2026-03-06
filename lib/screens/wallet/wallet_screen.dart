@@ -295,7 +295,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Could not start Stripe checkout: $e'.tr(context)),
+                    content: Text('Could not start checkout. Please try again.'.tr(context)),
                     backgroundColor: AppColors.error,
                     behavior: SnackBarBehavior.floating,
                   ),

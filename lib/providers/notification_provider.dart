@@ -378,7 +378,7 @@ class NotificationProvider with ChangeNotifier {
       _notifications = notifications;
       _error = null;
     } catch (e) {
-      _error = 'Failed to load notifications: $e';
+      _error = 'Failed to load notifications. Please try again.';
       debugPrint('NotificationProvider: Error loading notifications - $e');
     } finally {
       _isLoading = false;

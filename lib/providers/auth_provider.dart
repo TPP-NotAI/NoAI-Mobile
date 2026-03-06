@@ -31,6 +31,10 @@ class AuthProvider with ChangeNotifier {
   bool _isPasswordResetPending = false; // For recovery flow
   RecoveryStep _recoveryStep = RecoveryStep.email;
 
+  // Inactivity auto-logout
+  Timer? _inactivityTimer;
+  static const _inactivityDuration = Duration(minutes: 30);
+
   // Realtime subscription for profile changes (verified_human, etc.)
   RealtimeChannel? _profileChannel;
   String? _subscribedUserId;
@@ -91,6 +95,7 @@ class AuthProvider with ChangeNotifier {
               ),
             );
             _loadCurrentUser(event.session!.user.id);
+            resetInactivityTimer();
           }
           break;
         case AuthChangeEvent.signedOut:
@@ -477,8 +482,47 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// Re-authenticate the current user with their password.
+  /// Returns true on success, false on wrong password, throws on network error.
+  Future<bool> reAuthenticate(String password) async {
+    final email = _supabase.auth.currentUser?.email ?? '';
+    if (email.isEmpty) return false;
+    try {
+      await _supabase.auth.signInWithPassword(email: email, password: password);
+      return true;
+    } on AuthException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('invalid') || msg.contains('credentials')) return false;
+      rethrow;
+    }
+  }
+
+  /// Mark account for deletion and sign out.
+  /// Requires `deletion_requested_at` column on `profiles` table.
+  Future<void> requestAccountDeletion() async {
+    final userId = _currentUser?.id;
+    if (userId == null) return;
+    await _supabase.client.from('profiles').update({
+      'deletion_requested_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('user_id', userId);
+    await signOut();
+  }
+
+  /// Reset the 30-minute inactivity timer. Call on any user interaction.
+  void resetInactivityTimer() {
+    if (!isAuthenticated) return;
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(_inactivityDuration, () => signOut());
+  }
+
+  void _stopInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = null;
+  }
+
   /// Sign out the current user.
   Future<void> signOut() async {
+    _stopInactivityTimer();
     // Cancel profile realtime subscription before signing out.
     _unsubscribeFromProfileChanges();
     final signingOutUserId = _currentUser?.id;

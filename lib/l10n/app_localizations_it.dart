@@ -105,7 +105,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get deleteAccount => 'Elimina account';
 
   @override
-  String get permanentlyDeleteAccount => 'Elimina definitivamente il tuo account';
+  String get permanentlyDeleteAccount =>
+      'Elimina definitivamente il tuo account';
 
   @override
   String get logOut => 'Esci';
@@ -126,13 +127,15 @@ class AppLocalizationsIt extends AppLocalizations {
   String get typeDeleteConfirm => 'Digita ELIMINA per confermare.';
 
   @override
-  String get accountDeletionRequested => 'Eliminazione account richiesta. Sei stato disconnesso.';
+  String get accountDeletionRequested =>
+      'Eliminazione account richiesta. Sei stato disconnesso.';
 
   @override
   String get pleaseTypeDelete => 'Digita ELIMINA per confermare';
 
   @override
-  String get aboutROOVERSEDescription => 'ROOVERSE – Piattaforma sociale centrata sull\'uomo\n\nVersione 1.0.2\n\n© 2026 ROOVERSE Inc.';
+  String get aboutROOVERSEDescription =>
+      'ROOVERSE – Piattaforma sociale centrata sull\'uomo\n\nVersione 1.0.2\n\n© 2026 ROOVERSE Inc.';
 
   @override
   String get login => 'Accedi';
@@ -588,7 +591,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get resetPasswordViaEmail => 'Reset Password Via Email';
 
   @override
-  String get resetPasswordViaEmailSubtitle => 'Reset Password Via Email Subtitle';
+  String get resetPasswordViaEmailSubtitle =>
+      'Reset Password Via Email Subtitle';
 
   @override
   String get twoFactorAuth => 'Two Factor Auth';
@@ -840,16 +844,19 @@ class AppLocalizationsIt extends AppLocalizations {
   String get invalidEmailOrPassword => 'Email o password non validi';
 
   @override
-  String get unableToStartGoogleLogin => 'Impossibile avviare il login con Google';
+  String get unableToStartGoogleLogin =>
+      'Impossibile avviare il login con Google';
 
   @override
   String get pleaseEnterPhoneNumber => 'Inserisci il tuo numero di telefono';
 
   @override
-  String get pleaseEnterValidPhoneNumber => 'Inserisci un numero di telefono valido';
+  String get pleaseEnterValidPhoneNumber =>
+      'Inserisci un numero di telefono valido';
 
   @override
-  String get failedToSendLoginCode => 'Invio del codice di accesso non riuscito';
+  String get failedToSendLoginCode =>
+      'Invio del codice di accesso non riuscito';
 
   @override
   String get verifyAndLogin => 'Verifica e accedi';
@@ -858,7 +865,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get sendCode => 'Invia codice';
 
   @override
-  String get failedToSendVerificationCode => 'Invio del codice di verifica non riuscito';
+  String get failedToSendVerificationCode =>
+      'Invio del codice di verifica non riuscito';
 
   @override
   String get verifyCode => 'Verifica codice';
@@ -870,7 +878,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get enterVerificationCode => 'Inserisci il codice di verifica';
 
   @override
-  String get enterPhoneForSms => 'Inserisci il tuo numero di telefono per ricevere un codice di verifica via SMS.';
+  String get enterPhoneForSms =>
+      'Inserisci il tuo numero di telefono per ricevere un codice di verifica via SMS.';
 
   @override
   String get forgotPassword => 'Password dimenticata?';
@@ -915,13 +924,16 @@ class AppLocalizationsIt extends AppLocalizations {
   String get recipient => 'Destinatario';
 
   @override
-  String get verificationPendingSendRoo => 'La tua verifica è in sospeso. Puoi inviare ROO una volta approvato.';
+  String get verificationPendingSendRoo =>
+      'La tua verifica è in sospeso. Puoi inviare ROO una volta approvato.';
 
   @override
-  String get completeVerificationToSendRoo => 'Completa la verifica dell\'identità per inviare ROO.';
+  String get completeVerificationToSendRoo =>
+      'Completa la verifica dell\'identità per inviare ROO.';
 
   @override
-  String get cannotSendRooToSelf => 'Non puoi inviare ROO al tuo stesso account';
+  String get cannotSendRooToSelf =>
+      'Non puoi inviare ROO al tuo stesso account';
 
   @override
   String get availableBalance => 'Saldo disponibile';
@@ -930,13 +942,16 @@ class AppLocalizationsIt extends AppLocalizations {
   String get locationPermissionDenied => 'Autorizzazione posizione negata';
 
   @override
-  String get locationPermissionPermanentlyDenied => 'Autorizzazione posizione negata definitivamente';
+  String get locationPermissionPermanentlyDenied =>
+      'Autorizzazione posizione negata definitivamente';
 
   @override
-  String get mustBeLoggedInToBoost => 'Devi essere connesso per promuovere un post.';
+  String get mustBeLoggedInToBoost =>
+      'Devi essere connesso per promuovere un post.';
 
   @override
-  String get verificationPendingTip => 'La tua verifica è in sospeso. Puoi dare una mancia una volta approvato.';
+  String get verificationPendingTip =>
+      'La tua verifica è in sospeso. Puoi dare una mancia una volta approvato.';
 
   @override
   String get cannotTipOwnPost => 'Non puoi dare una mancia al tuo stesso post';
@@ -951,16 +966,19 @@ class AppLocalizationsIt extends AppLocalizations {
   String get sensitiveContent => 'Contenuto sensibile';
 
   @override
-  String get deleteCommentConfirmation => 'Sei sicuro di voler eliminare questo commento? Non è possibile annullare questa operazione.';
+  String get deleteCommentConfirmation =>
+      'Sei sicuro di voler eliminare questo commento? Non è possibile annullare questa operazione.';
 
   @override
   String get commentUnderReview => 'Commento in fase di revisione.';
 
   @override
-  String get storiesEmpty => 'Le storie delle persone che segui appariranno qui';
+  String get storiesEmpty =>
+      'Le storie delle persone che segui appariranno qui';
 
   @override
-  String get textStoryWordLimit => 'Le storie di testo sono limitate a 250 parole.';
+  String get textStoryWordLimit =>
+      'Le storie di testo sono limitate a 250 parole.';
 
   @override
   String get createStory => 'Crea storia';
@@ -972,8 +990,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get imageOrVideoMax => 'Immagine o video (max 15s)';
 
   @override
-  String get commentNotPublishedAi => 'Il tuo commento non è stato pubblicato. La nostra IA ha rilevato che potrebbe violare le nostre linee guida.';
+  String get commentNotPublishedAi =>
+      'Il tuo commento non è stato pubblicato. La nostra IA ha rilevato che potrebbe violare le nostre linee guida.';
 
   @override
-  String get commentUnderReviewExtended => 'Il tuo commento è in fase di revisione. Apparirà una volta approvato.';
+  String get commentUnderReviewExtended =>
+      'Il tuo commento è in fase di revisione. Apparirà una volta approvato.';
 }

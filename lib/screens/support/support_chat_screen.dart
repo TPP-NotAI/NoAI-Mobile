@@ -74,7 +74,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to open support chat: $e';
+        _errorMessage = 'Failed to open support chat. Please try again.';
       });
     }
   }
@@ -141,7 +141,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text('Failed to send message. Please try again.')),
       );
     } finally {
       if (mounted) {
