@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_colors.dart';
+import '../../providers/platform_config_provider.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class TermsOfServiceScreen extends StatelessWidget {
@@ -7,6 +10,17 @@ class TermsOfServiceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tosUrl = context.watch<PlatformConfigProvider>().config.tosUrl;
+    if (tosUrl != null && tosUrl.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final uri = Uri.tryParse(tosUrl);
+        if (uri != null && await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+        if (context.mounted) Navigator.pop(context);
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(

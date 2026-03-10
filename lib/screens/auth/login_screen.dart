@@ -4,12 +4,14 @@ import '../../config/app_colors.dart';
 import '../../config/app_spacing.dart';
 import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/platform_config_provider.dart';
 import '../../services/storage_service.dart';
 import '../../services/secure_storage_service.dart';
 import '../../utils/validators.dart';
 import '../../utils/responsive_extensions.dart';
 import '../../utils/snackbar_utils.dart';
 import 'phone_login_screen.dart';
+import '../../widgets/app_logo.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class LoginScreen extends StatefulWidget {
@@ -186,6 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final platformName = context.watch<PlatformConfigProvider>().config.platformName;
 
     return Scaffold(
       backgroundColor: scheme.background,
@@ -200,10 +203,11 @@ class _LoginScreenState extends State<LoginScreen> {
               SizedBox(height: 80.responsive(context, min: 60, max: 100)),
 
               // Logo and title
-              Container(
-                width: 64.responsive(context, min: 56, max: 72),
-                height: 64.responsive(context, min: 56, max: 72),
-                decoration: BoxDecoration(
+              AppLogo(
+                size: 64.responsive(context, min: 56, max: 72),
+                fallbackIcon: Icons.fingerprint,
+                fallbackIconColor: Colors.white,
+                containerDecoration: BoxDecoration(
                   borderRadius: AppSpacing.responsiveRadius(
                     context,
                     AppSpacing.radiusExtraLarge,
@@ -221,16 +225,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                child: Icon(
-                  Icons.fingerprint,
-                  size: AppTypography.responsiveIconSize(context, 32),
-                  color: Colors.white,
-                ),
               ),
 
               SizedBox(height: AppSpacing.largePlus.responsive(context)),
 
-              Text('ROOVERSE'.tr(context),
+              Text(platformName,
                 style: TextStyle(
                   fontSize: AppTypography.responsiveFontSize(
                     context,

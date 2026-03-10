@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'faq_screen.dart';
 import 'support_chat_screen.dart';
+import '../../providers/platform_config_provider.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class HelpSupportScreen extends StatelessWidget {
@@ -9,6 +12,7 @@ class HelpSupportScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final adminEmail = context.watch<PlatformConfigProvider>().config.adminContactEmail;
 
     return Scaffold(
       appBar: AppBar(
@@ -43,6 +47,18 @@ class HelpSupportScreen extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const SupportChatScreen()),
             ),
           ),
+          if (adminEmail != null && adminEmail.isNotEmpty)
+            _buildTile(
+              context,
+              icon: Icons.email_outlined,
+              iconColor: Colors.teal,
+              title: 'Email Support',
+              subtitle: adminEmail,
+              onTap: () async {
+                final uri = Uri(scheme: 'mailto', path: adminEmail);
+                if (await canLaunchUrl(uri)) await launchUrl(uri);
+              },
+            ),
         ],
       ),
     );

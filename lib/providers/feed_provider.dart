@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
@@ -78,12 +79,25 @@ class FeedProvider with ChangeNotifier {
   List<Post> get posts {
     if (_cachedFilteredPosts != null) return _cachedFilteredPosts!;
 
-    // First filter by blocked and muted users
-    List<Post> filtered = _posts;
+    // Filter out posts that are under review, flagged, deleted, or hidden
+    // (except the current user's own posts so they can see their pending content)
+    final myId = _currentUserId;
+    List<Post> filtered = _posts.where((post) {
+      final status = post.status?.toLowerCase() ?? '';
+      if (status == 'under_review' ||
+          status == 'flagged' ||
+          status == 'deleted' ||
+          status == 'hidden') {
+        return post.author.userId == myId;
+      }
+      return true;
+    }).toList();
+
+    // Filter by blocked and muted users
     if (_blockedUserIds.isNotEmpty ||
         _blockedByUserIds.isNotEmpty ||
         _mutedUserIds.isNotEmpty) {
-      filtered = _posts.where((post) {
+      filtered = filtered.where((post) {
         final authorId = post.author.userId;
         if (authorId == null) return true;
         return !_blockedUserIds.contains(authorId) &&
@@ -473,6 +487,10 @@ class FeedProvider with ChangeNotifier {
 
       _error = null;
       _hasMore = _posts.length >= 20;
+
+      // Re-run AI checks for any posts that got stuck under_review
+      // (e.g. app was killed before AI finished)
+      if (userId != null) unawaited(_resumePendingAiChecks(userId));
     } catch (e) {
       debugPrint('FeedProvider: Failed to load feed: $e');
       _error = 'Failed to load feed. Please try again.';
@@ -480,6 +498,42 @@ class FeedProvider with ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  /// Re-queues AI detection for the current user's posts that are still
+  /// under_review after 2+ minutes — meaning the app was killed mid-check.
+  Future<void> _resumePendingAiChecks(String userId) async {
+    try {
+      final cutoff = DateTime.now()
+          .subtract(const Duration(minutes: 2))
+          .toUtc()
+          .toIso8601String();
+      final stuck = await SupabaseService().client
+          .from('posts')
+          .select('id, body, status')
+          .eq('author_id', userId)
+          .eq('status', 'under_review')
+          .lt('created_at', cutoff);
+
+      if ((stuck as List).isEmpty) return;
+
+      debugPrint(
+        'FeedProvider: Resuming AI check for ${stuck.length} stuck post(s)',
+      );
+      for (final row in stuck) {
+        final postId = row['id'] as String;
+        final body = row['body'] as String? ?? '';
+        unawaited(
+          _postRepository.runAiDetection(
+            postId: postId,
+            authorId: userId,
+            body: body,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('FeedProvider: _resumePendingAiChecks error - $e');
+    }
   }
 
   // Refresh feed (pull-to-refresh)
@@ -1569,6 +1623,7 @@ class FeedProvider with ChangeNotifier {
     /// Called when the post is detected as an advertisement requiring an ad
     /// fee payment in ROO. Return true if the user successfully paid.
     Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
+    void Function(double progress)? onUploadProgress,
   }) async {
     final userId = _currentUserId;
     if (userId == null) return null;
@@ -1605,6 +1660,7 @@ class FeedProvider with ChangeNotifier {
         tags: tags,
         location: location,
         mentionedUserIds: mentionedUserIds,
+        onUploadProgress: onUploadProgress,
       );
 
       if (newPost != null) {
@@ -2005,19 +2061,23 @@ class FeedProvider with ChangeNotifier {
 
       // 3. Add new media
       for (var i = 0; i < newMediaFiles.length; i++) {
-        final storagePath = await _mediaRepository.uploadMedia(
+        final uploadResult = await _mediaRepository.uploadMedia(
           file: newMediaFiles[i],
           userId: userId,
           postId: postId,
           mediaType: newMediaTypes[i],
           index: i,
         );
+        // Clean up any compressed temp file — edit flow doesn't run AI detection
+        if (uploadResult.aiFile != null) {
+          try { await uploadResult.aiFile!.delete(); } catch (_) {}
+        }
 
-        if (storagePath != null) {
+        if (uploadResult.path != null) {
           await _mediaRepository.createPostMedia(
             postId: postId,
             mediaType: newMediaTypes[i],
-            storagePath: storagePath,
+            storagePath: uploadResult.path!,
             mimeType: _mediaRepository.getMimeType(
               newMediaFiles[i].path.split('.').last,
               newMediaTypes[i],

@@ -19,6 +19,7 @@ import '../../services/roo_purchase_service.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+import '../../providers/platform_config_provider.dart';
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
 
@@ -1161,6 +1162,8 @@ class _WalletScreenState extends State<WalletScreen> {
   ) {
     final balance = wallet?.balanceRc ?? 0.0;
     final usdValue = balance * 0.16;
+    final tradingEnabled =
+        context.watch<PlatformConfigProvider>().config.roocoinTradingEnabled;
 
     return Container(
       padding: AppSpacing.responsiveAll(context, AppSpacing.double_),
@@ -1283,6 +1286,12 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
               SizedBox(width: 6),
               _buildActionButton('Send', Icons.send, null, false, colors, () {
+                if (!tradingEnabled) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Trading is currently disabled.')),
+                  );
+                  return;
+                }
                 if (!_ensureVerifiedForWalletActions(context)) return;
                 if (wallet != null) {
                   Navigator.push(

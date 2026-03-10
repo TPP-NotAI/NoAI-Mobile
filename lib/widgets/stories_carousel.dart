@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +9,7 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:image/image.dart' as img;
 
+import 'package:video_compress/video_compress.dart';
 import '../config/supabase_config.dart';
 import '../config/app_spacing.dart';
 import '../utils/responsive_extensions.dart';
@@ -345,7 +347,10 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
     if (!isActivated) return;
 
     final List<MediaUploadResult> selectedMedia = [];
+    // Parallel list: compressed File for AI analysis (null = use original/URL download)
+    final List<File?> selectedAiFiles = [];
     bool isUploading = false;
+    double? uploadProgress; // null = indeterminate, 0.0–1.0 = known progress
     final captionController = TextEditingController();
 
     showDialog(
@@ -359,6 +364,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
           Future<void> pickMediaFromGallery() async {
             setState(() {
               isUploading = true;
+              uploadProgress = null;
             });
 
             final result = await FileUploadUtils.pickAndUploadMediaList(
@@ -370,8 +376,11 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
 
             setState(() {
               isUploading = false;
+              uploadProgress = null;
               if (result.isNotEmpty) {
                 selectedMedia.addAll(result);
+                // Gallery path has no local compressed file
+                selectedAiFiles.addAll(List.filled(result.length, null));
               }
             });
           }
@@ -379,6 +388,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
           Future<void> capturePhotoFromCamera() async {
             setState(() {
               isUploading = true;
+              uploadProgress = null;
             });
 
             try {
@@ -387,23 +397,30 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
               );
               if (picked == null) {
                 if (!mounted) return;
-                setState(() => isUploading = false);
+                setState(() { isUploading = false; uploadProgress = null; });
                 return;
               }
 
               final file = File(picked.path);
-              final uploaded = await _uploadStoryMediaFile(file);
+              final uploadResult = await _uploadStoryMediaFile(
+                file,
+                onProgress: (p) {
+                  if (mounted) setState(() => uploadProgress = p);
+                },
+              );
 
               if (!mounted) return;
               setState(() {
                 isUploading = false;
-                if (uploaded != null) {
-                  selectedMedia.add(uploaded);
+                uploadProgress = null;
+                if (uploadResult != null) {
+                  selectedMedia.add(uploadResult.media);
+                  selectedAiFiles.add(uploadResult.aiFile);
                 }
               });
             } catch (e) {
               if (!mounted) return;
-              setState(() => isUploading = false);
+              setState(() { isUploading = false; uploadProgress = null; });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Failed to capture photo. Please try again.'.tr(context))),
               );
@@ -725,6 +742,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                     : () async {
                         setState(() {
                           isUploading = true;
+                          uploadProgress = null;
                         });
                         final storyProvider = context.read<StoryProvider>();
                         final List<StoryMediaInput> mediaInputs = selectedMedia
@@ -747,8 +765,9 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                           backgroundColor: mediaInputs.isEmpty
                               ? '#000000'
                               : null,
-                          waitForAi: true,
+                          waitForAi: false,
                           onAdFeeRequired: _showAdFeeDialog,
+                          aiFiles: selectedAiFiles,
                         );
                         if (!mounted) return;
                         Navigator.of(dialogContext).pop();
@@ -779,10 +798,39 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                     horizontal: 12,
                     vertical: 6,
                   ),
-                  child: Text(
-                    isUploading ? 'Uploading…' : 'Share Story',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                  child: isUploading
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: 8,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                value: uploadProgress,
+                                strokeWidth: 2,
+                                color: uploadProgress != null && uploadProgress! < 0.20
+                                    ? Colors.amber
+                                    : Colors.white,
+                              ),
+                            ),
+                            Text(
+                              uploadProgress != null
+                                  ? '${(uploadProgress! * 100).toInt()}%'
+                                  : '…',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: uploadProgress != null && uploadProgress! < 0.20
+                                    ? Colors.amber
+                                    : Colors.white,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          'Share Story',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                 ),
               ),
             ],
@@ -792,28 +840,88 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
     );
   }
 
-  Future<MediaUploadResult?> _uploadStoryMediaFile(File file) async {
+  Future<({MediaUploadResult media, File? aiFile})?> _uploadStoryMediaFile(
+    File file, {
+    void Function(double progress)? onProgress,
+  }) async {
+    File uploadFile = file;
+    File? compressedFile;
     try {
       final extension = file.path.split('.').last.toLowerCase();
+      final isVideo = <String>{'mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv'}.contains(extension);
+
+      // Compress video before upload if >10MB
+      if (isVideo && await file.length() > 10 * 1024 * 1024) {
+        debugPrint('StoriesCarousel: Compressing video...');
+        double compressProgress = 0.0;
+        final compressTimer = onProgress == null ? null : Timer.periodic(
+          const Duration(milliseconds: 300),
+          (_) {
+            if (compressProgress < 0.18) {
+              compressProgress = (compressProgress + 0.01).clamp(0.0, 0.18);
+              onProgress(compressProgress);
+            }
+          },
+        );
+        final origSize = await file.length();
+        final info = await VideoCompress.compressVideo(
+          file.path,
+          quality: VideoQuality.MediumQuality,
+          deleteOrigin: false,
+          includeAudio: true,
+        );
+        compressTimer?.cancel();
+        final compressedPath = info?.file?.path;
+        if (compressedPath != null) {
+          final candidate = File(compressedPath);
+          final compSize = await candidate.length();
+          if (compSize < origSize) {
+            compressedFile = candidate;
+            uploadFile = compressedFile;
+            debugPrint('StoriesCarousel: Using compressed file (${((1 - compSize / origSize) * 100).toStringAsFixed(0)}% smaller)');
+          } else {
+            try { candidate.delete(); } catch (_) {}
+          }
+        }
+        onProgress?.call(0.20);
+      }
+
       final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('\\').last}';
+          '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('\\').last.split('/').last}';
       final bucket = SupabaseConfig.postMediaBucket;
+      final mimeType = FileUploadUtils.getMimeTypeStatic(extension);
 
-      final response = await SupabaseService().client.storage
-          .from(bucket)
-          .upload(fileName, file);
+      String? url;
+      if (onProgress != null) {
+        final uploadStart = isVideo ? 0.20 : 0.0;
+        url = await FileUploadUtils.uploadFileWithProgress(
+          file: uploadFile,
+          bucket: bucket,
+          fileName: fileName,
+          mimeType: mimeType,
+          // Map [0,1] from the upload timer into [uploadStart, 1.0]
+          onProgress: (p) => onProgress(uploadStart + p * (1.0 - uploadStart)),
+        );
+      } else {
+        final response = await SupabaseService().client.storage
+            .from(bucket)
+            .upload(fileName, uploadFile)
+            .timeout(const Duration(minutes: 10));
+        if (response.isNotEmpty) {
+          url = SupabaseService().client.storage.from(bucket).getPublicUrl(fileName);
+        }
+      }
 
-      if (response.isEmpty) return null;
-
-      final publicUrl = SupabaseService().client.storage
-          .from(bucket)
-          .getPublicUrl(fileName);
-      return FileUploadUtils.mediaResult(
-        url: publicUrl,
-        fileExtension: extension,
-      );
+      if (url == null) {
+        if (compressedFile != null) try { await compressedFile.delete(); } catch (_) {}
+        return null;
+      }
+      final media = FileUploadUtils.mediaResult(url: url, fileExtension: extension);
+      // Return compressed file for AI; caller deletes it after AI completes
+      return (media: media, aiFile: compressedFile);
     } catch (e) {
       debugPrint('StoriesCarousel: Failed to upload camera media - $e');
+      if (compressedFile != null) try { await compressedFile.delete(); } catch (_) {}
       return null;
     }
   }

@@ -10,6 +10,7 @@ class VideoPlayerWidget extends StatefulWidget {
   final bool autoPlay;
   final bool looping;
   final bool showControls;
+  final BoxFit boxFit;
 
   const VideoPlayerWidget({
     super.key,
@@ -18,6 +19,7 @@ class VideoPlayerWidget extends StatefulWidget {
     this.autoPlay = false,
     this.looping = false,
     this.showControls = false,
+    this.boxFit = BoxFit.contain,
   }) : assert(
          videoUrl != null || videoFile != null,
          'Either videoUrl or videoFile must be provided',
@@ -139,14 +141,22 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     }
 
     // Play/pause icon only mode (post card & post detail)
-    return AspectRatio(
-      aspectRatio: _videoPlayerController.value.aspectRatio,
+    return SizedBox.expand(
       child: GestureDetector(
         onTap: _togglePlayPause,
         child: Stack(
           alignment: Alignment.center,
           children: [
-            VideoPlayer(_videoPlayerController),
+            SizedBox.expand(
+              child: FittedBox(
+                fit: widget.boxFit,
+                child: SizedBox(
+                  width: _videoPlayerController.value.size.width,
+                  height: _videoPlayerController.value.size.height,
+                  child: VideoPlayer(_videoPlayerController),
+                ),
+              ),
+            ),
             AnimatedOpacity(
               opacity: _showIcon || !_videoPlayerController.value.isPlaying
                   ? 1.0

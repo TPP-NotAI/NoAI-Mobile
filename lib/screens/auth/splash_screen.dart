@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
+import '../../providers/platform_config_provider.dart';
+import '../../widgets/app_logo.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SplashScreen extends StatelessWidget {
@@ -10,6 +13,11 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final config = context.watch<PlatformConfigProvider>().config;
+    final platformName = config.platformName;
+    final tagline = (config.platformDescription != null && config.platformDescription!.isNotEmpty)
+        ? config.platformDescription!
+        : 'Verifiably Human.';
 
     // Auto-navigate after 2.5 seconds
     Future.delayed(const Duration(milliseconds: 2500), onComplete);
@@ -65,11 +73,10 @@ class SplashScreen extends StatelessWidget {
                   ),
                   child: Stack(
                     children: [
-                      const Center(
-                        child: Icon(
-                          Icons.hub,
-                          size: 64,
-                          color: AppColors.primary,
+                      Center(
+                        child: AppLogo(
+                          size: 80,
+                          fallbackIcon: Icons.hub,
                         ),
                       ),
                       Positioned(
@@ -99,7 +106,7 @@ class SplashScreen extends StatelessWidget {
 
                 const SizedBox(height: 32),
 
-                Text('ROOVERSE'.tr(context),
+                Text(platformName,
                   style: TextStyle(
                     fontSize: 42,
                     fontWeight: FontWeight.bold,
@@ -110,7 +117,7 @@ class SplashScreen extends StatelessWidget {
 
                 const SizedBox(height: 8),
 
-                Text('Verifiably Human.'.tr(context),
+                Text(tagline,
                   style: TextStyle(
                     fontSize: 18,
                     color: scheme.onBackground.withOpacity(0.7),

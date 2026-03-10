@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/didit_service.dart';
 import '../../services/kyc_verification_service.dart';
 import '../../utils/responsive_extensions.dart';
+import '../../widgets/app_logo.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class HumanVerificationScreen extends StatefulWidget {
@@ -494,10 +495,11 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
   }
 
   Widget _buildTopIcon() {
-    return Container(
-      width: 96.responsive(context, min: 80, max: 112),
-      height: 96.responsive(context, min: 80, max: 112),
-      decoration: BoxDecoration(
+    return AppLogo(
+      size: 96.responsive(context, min: 80, max: 112),
+      fallbackIcon: Icons.fingerprint,
+      fallbackIconColor: Colors.white,
+      containerDecoration: BoxDecoration(
         borderRadius: AppSpacing.responsiveRadius(context, 32),
         gradient: const LinearGradient(
           colors: [AppColors.primary, Color(0xFF3B82F6)],
@@ -511,11 +513,6 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
             offset: Offset(0, 10.responsive(context)),
           ),
         ],
-      ),
-      child: Icon(
-        Icons.fingerprint,
-        size: AppTypography.responsiveIconSize(context, 48),
-        color: Colors.white,
       ),
     );
   }

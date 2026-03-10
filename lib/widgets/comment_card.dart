@@ -37,17 +37,29 @@ class CommentCard extends StatefulWidget {
 }
 
 class _CommentCardState extends State<CommentCard> {
+    @override
+    void didUpdateWidget(covariant CommentCard oldWidget) {
+      super.didUpdateWidget(oldWidget);
+      _debugReplies();
+    }
+
+    @override
+    void initState() {
+      super.initState();
+      _editController = TextEditingController();
+      _debugReplies();
+    }
+
+    void _debugReplies() {
+      final replies = widget.comment.replies;
+      debugPrint('CommentCard: commentId=${widget.comment.id}, repliesCount=${replies?.length ?? 0}, replyIds=${replies?.map((r) => r.id).toList()}');
+    }
   bool _showReplies = false;
   bool _isEditing = false;
   late TextEditingController _editController;
   bool? _likeOverride;
   int? _likesOverride;
 
-  @override
-  void initState() {
-    super.initState();
-    _editController = TextEditingController();
-  }
 
   @override
   void dispose() {
@@ -92,6 +104,18 @@ class _CommentCardState extends State<CommentCard> {
       }
     }
     return null;
+  }
+
+  // Flatten nested replies so grandchild replies always appear (Instagram-style flat threads)
+  List<Comment> _flattenReplies(List<Comment> replies) {
+    final flat = <Comment>[];
+    for (final reply in replies) {
+      flat.add(reply);
+      if (reply.replies != null && reply.replies!.isNotEmpty) {
+        flat.addAll(_flattenReplies(reply.replies!));
+      }
+    }
+    return flat;
   }
 
   bool _isAuthor(Comment comment) {
@@ -201,15 +225,13 @@ class _CommentCardState extends State<CommentCard> {
         });
       });
     }
-    final hasReplies =
-        currentComment.replies != null && currentComment.replies!.isNotEmpty;
     // Instagram-style: only top-level comments (depth 0) show nested replies
     final canRenderNestedReplies = widget.depth < 1;
-    final replyCount = currentComment.replies?.length ?? 0;
-    final replies = currentComment.replies ?? const <Comment>[];
+    // Flatten all nested replies so grandchild replies are never lost
+    final replies = _flattenReplies(currentComment.replies ?? const <Comment>[]);
+    final hasReplies = replies.isNotEmpty;
+    final replyCount = replies.length;
     final showReplies = hasReplies && _showReplies && canRenderNestedReplies;
-    // Show all replies when expanded (no pagination)
-    final displayedReplies = showReplies ? replies : const <Comment>[];
     final isAuthor = _isAuthor(currentComment);
 
     return Column(
@@ -804,7 +826,7 @@ class _CommentCardState extends State<CommentCard> {
           ),
         ),
 
-        // Instagram-style: plain text tap to show/hide replies
+        // Instagram-style: show 'View more replies' if more than 2
         if (canRenderNestedReplies && hasReplies)
           Padding(
             padding: EdgeInsets.only(
@@ -816,7 +838,9 @@ class _CommentCardState extends State<CommentCard> {
               child: Text(
                 _showReplies
                     ? '──── Hide replies'
-                    : '──── View $replyCount ${replyCount == 1 ? 'reply' : 'replies'}',
+                    : replyCount > 1
+                        ? '──── View $replyCount replies'
+                        : '──── View replies',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colors.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
@@ -827,7 +851,7 @@ class _CommentCardState extends State<CommentCard> {
 
         // Nested replies (Instagram-style: top-level comment can expand one reply level)
         if (showReplies)
-          ...displayedReplies.map(
+          ...replies.map(
             (reply) => CommentCard(
               comment: reply,
               postId: widget.postId,

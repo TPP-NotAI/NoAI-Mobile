@@ -23,7 +23,6 @@ import '../../widgets/mention_autocomplete_field.dart';
 import '../../models/post.dart';
 import '../../models/local_post_draft.dart';
 import '../../services/supabase_service.dart';
-import '../../config/supabase_config.dart';
 import '../../services/local_post_draft_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/kyc_verification_service.dart';
@@ -37,8 +36,18 @@ import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class CreatePostScreen extends StatefulWidget {
   final String? initialPostType;
   final VoidCallback? onPostCreated;
+  /// Pre-filled text/URL from an incoming share intent.
+  final String? initialText;
+  /// Pre-filled media file paths from an incoming share intent.
+  final List<String>? initialMediaPaths;
 
-  const CreatePostScreen({super.key, this.initialPostType, this.onPostCreated});
+  const CreatePostScreen({
+    super.key,
+    this.initialPostType,
+    this.onPostCreated,
+    this.initialText,
+    this.initialMediaPaths,
+  });
 
   @override
   State<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -60,10 +69,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   late String _postType;
   bool _isPosting = false;
+  double? _uploadProgress; // null = not uploading, 0.0–1.0 during upload
   bool _certifyHumanGenerated = false;
 
-  // Character limit constant
-  static const int _maxCharacterLimit = 1000;
+  // Character limit — loaded from platform_config, falls back to 1000
+  int get _maxCharacterLimit =>
+      context.read<PlatformConfigProvider>().config.maxPostLength;
   double _postCostRoo = 10.0; // Default posting reward in ROO
   static const Duration _postCostCacheTtl = Duration(hours: 6);
 
@@ -104,6 +115,25 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _syncPostCostFromConfig(),
     );
+
+    // Pre-fill from share intent
+    if (widget.initialText != null && widget.initialText!.isNotEmpty) {
+      _contentController.text = widget.initialText!;
+    }
+    if (widget.initialMediaPaths != null && widget.initialMediaPaths!.isNotEmpty) {
+      for (final path in widget.initialMediaPaths!) {
+        final file = File(path);
+        if (file.existsSync()) {
+          final isVideo = path.toLowerCase().endsWith('.mp4') ||
+              path.toLowerCase().endsWith('.mov') ||
+              path.toLowerCase().endsWith('.avi') ||
+              path.toLowerCase().endsWith('.mkv');
+          _selectedMediaFiles.add(file);
+          _selectedMediaTypes.add(isVideo ? 'video' : 'image');
+        }
+      }
+    }
+
     _checkForSavedDraft().then((_) {
       _isInitialLoad = false;
       // Add listener after draft count check to avoid early autosave behavior.
@@ -1502,10 +1532,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         mentionedUserIds: taggedIds,
         optimisticAuthor: optimisticAuthor,
         optimisticTags: optimisticTags,
-        waitForAi:
-            true, // Keep screen active so ad-fee modal can be shown before leaving
+        waitForAi: false,
         onAdFeeRequired: (adConfidence, adType) =>
             _showAdFeeDialog(adConfidence, adType),
+        onUploadProgress: (p) {
+          if (mounted) setState(() => _uploadProgress = p);
+        },
       );
 
       if (!mounted) return;
@@ -1523,6 +1555,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       setState(() {
         _isPosting = false;
+        _uploadProgress = null;
         _hasUnsavedChanges = false;
       });
 
@@ -1602,7 +1635,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
     } on KycNotVerifiedException catch (e) {
       if (!mounted) return;
-      setState(() => _isPosting = false);
+      setState(() { _isPosting = false; _uploadProgress = null; });
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1623,7 +1656,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
     } on NotActivatedException catch (e) {
       if (!mounted) return;
-      setState(() => _isPosting = false);
+      setState(() { _isPosting = false; _uploadProgress = null; });
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1645,7 +1678,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (e) {
       debugPrint('Error creating post: $e');
       if (mounted) {
-        setState(() => _isPosting = false);
+        setState(() { _isPosting = false; _uploadProgress = null; });
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to create post. Please try again.'.tr(context))),
@@ -1857,13 +1890,34 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               ? null
                               : _showPreviewDialog,
                           child: _isPosting
-                              ? SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  spacing: 6,
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        value: _uploadProgress,
+                                        strokeWidth: 2,
+                                        color: _uploadProgress != null && _uploadProgress! < 0.20
+                                            ? Colors.amber
+                                            : Colors.white,
+                                      ),
+                                    ),
+                                    Text(
+                                      _uploadProgress != null
+                                          ? '${(_uploadProgress! * 100).toInt()}%'
+                                          : '…',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: _uploadProgress != null && _uploadProgress! < 0.20
+                                            ? Colors.amber
+                                            : Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 )
                               : Text('Post'.tr(context)),
                         );

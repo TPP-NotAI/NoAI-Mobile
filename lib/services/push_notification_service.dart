@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../firebase_options.dart';
 import 'supabase_service.dart';
+import '../providers/platform_config_provider.dart';
 
 /// Background message handler - must be top-level function
 @pragma('vm:entry-point')
@@ -201,7 +202,7 @@ class PushNotificationService {
 
     await _localNotifications.show(
       notification.hashCode,
-      notification.title ?? 'ROOVERSE',
+      notification.title ?? PlatformConfigProvider.current.platformName,
       notification.body ?? '',
       NotificationDetails(
         android: AndroidNotificationDetails(

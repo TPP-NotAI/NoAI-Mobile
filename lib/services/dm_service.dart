@@ -8,6 +8,7 @@ import '../models/dm_message.dart';
 import '../models/user.dart';
 import '../repositories/notification_repository.dart';
 import 'ai_detection_service.dart';
+import '../providers/platform_config_provider.dart';
 
 class DmService {
   static final DmService _instance = DmService._internal();
@@ -189,7 +190,8 @@ class DmService {
   }
 
   static const double _aiReviewThreshold = 50;
-  static const double _aiFlagThreshold = 75;
+  static double get _aiFlagThreshold =>
+      PlatformConfigProvider.current.aiFlagThreshold;
 
   /// Send a message in a DM thread.
   /// Runs AI detection pre-check before inserting; blocks flagged content.

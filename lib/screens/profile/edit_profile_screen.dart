@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 import '../../providers/auth_provider.dart';
+import '../../providers/platform_config_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../config/supabase_config.dart';
 import '../../services/supabase_service.dart';
@@ -629,6 +630,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final user = context.watch<AuthProvider>().currentUser;
+    final platformConfig = context.watch<PlatformConfigProvider>().config;
 
     return Scaffold(
       appBar: AppBar(
@@ -792,7 +794,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     icon: Icons.info_outline,
                     hint: 'Tell us about yourself...',
                     maxLines: 4,
-                    maxLength: 160,
+                    maxLength: platformConfig.maxBioLength,
                   ),
                   const SizedBox(height: 20),
                   _buildInputField(

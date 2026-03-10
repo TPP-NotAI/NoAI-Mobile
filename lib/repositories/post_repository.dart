@@ -26,6 +26,10 @@ class PostRepository {
   final AiDetectionService _aiDetectionService = AiDetectionService();
   final ActivityLogService _activityLogService = ActivityLogService();
 
+  /// Temporary store of compressed video files awaiting AI analysis.
+  /// Key: postId. Cleared by [runAiDetection] after use.
+  final Map<String, List<File>> _pendingAiFiles = {};
+
   /// Fetch paginated feed of published posts.
   /// Respects privacy settings: filters posts based on author's posts_visibility setting.
   Future<List<Post>> getFeed({
@@ -743,6 +747,7 @@ class PostRepository {
     String? sensitiveReason,
     String? scheduledAt,
     String? status,
+    void Function(double progress)? onUploadProgress,
   }) async {
     try {
       // Create the post first to get the postId
@@ -771,25 +776,35 @@ class PostRepository {
 
       // Upload media files and create post_media records
       if (mediaFiles != null && mediaFiles.isNotEmpty) {
+        final aiFiles = <File>[];
         for (var i = 0; i < mediaFiles.length; i++) {
           final mediaType = (mediaTypes != null && i < mediaTypes.length)
               ? mediaTypes[i]
               : 'image';
-          final storagePath = await _mediaRepository.uploadMedia(
+          // Per-file progress: map file i's [0,1] into overall [i/n, (i+1)/n]
+          final n = mediaFiles.length;
+          final result = await _mediaRepository.uploadMedia(
             file: mediaFiles[i],
             userId: authorId,
             postId: postId,
             mediaType: mediaType,
             index: i,
+            onProgress: onUploadProgress == null
+                ? null
+                : (p) => onUploadProgress((i + p) / n),
           );
-          if (storagePath != null) {
+          if (result.path != null) {
             await _mediaRepository.createPostMedia(
               postId: postId,
               mediaType: mediaType,
-              storagePath: storagePath,
+              storagePath: result.path!,
             );
           }
+          // Use compressed file for AI if available, otherwise original
+          aiFiles.add(result.aiFile ?? mediaFiles[i]);
         }
+        // Store AI files so runAiDetection can use the smaller compressed versions
+        _pendingAiFiles[postId] = aiFiles;
       }
 
       // Add tags
@@ -1801,10 +1816,16 @@ class PostRepository {
     List<File>? mediaFiles,
     Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
   }) async {
+    // Prefer compressed files stored during upload (smaller = faster AI check).
+    // Fall back to the original files passed by the caller.
+    final pendingFiles = _pendingAiFiles.remove(postId);
+    final effectiveMediaFiles = pendingFiles ?? mediaFiles;
+
     try {
       final trimmedBody = body.trim();
       final hasText = trimmedBody.isNotEmpty;
-      final hasMedia = mediaFiles != null && mediaFiles.isNotEmpty;
+      final hasMedia =
+          effectiveMediaFiles != null && effectiveMediaFiles.isNotEmpty;
       final detectionModels = hasMedia ? 'gpt-4.1' : 'gpt-5.2,o3';
 
       if (!hasText && !hasMedia) {
@@ -1815,13 +1836,14 @@ class PostRepository {
       }
       debugPrint(
         'PostRepository: Running AI detection with models=$detectionModels '
-        '(hasText=$hasText, hasMedia=$hasMedia)',
+        '(hasText=$hasText, hasMedia=$hasMedia, '
+        'usingCompressed=${pendingFiles != null})',
       );
 
       // Check every attached media item. If any item is AI, block the full post.
       final List<AiDetectionResult> detectionResults = [];
       if (hasMedia) {
-        final files = mediaFiles;
+        final files = effectiveMediaFiles;
         for (int i = 0; i < files.length; i++) {
           final result = await _aiDetectionService.detectFull(
             content: hasText && i == 0 ? trimmedBody : null,
@@ -2131,9 +2153,32 @@ class PostRepository {
         );
         return null;
       }
+    } on TimeoutException {
+      debugPrint(
+        'PostRepository: AI detection timed out for post $postId — auto-publishing as pass',
+      );
+      await _updateAiScore(
+        postId: postId,
+        confidence: 0.0,
+        scoreStatus: 'pass',
+        postStatus: 'published',
+        authenticityNotes: 'AI detection timed out — auto-approved',
+      );
+      return 0.0;
     } catch (e) {
       debugPrint('PostRepository: AI detection failed for post $postId - $e');
       return null;
+    } finally {
+      // Delete any compressed temp files that were used for AI analysis.
+      // These differ from the original mediaFiles — originals are never deleted.
+      if (pendingFiles != null) {
+        final originalPaths = mediaFiles?.map((f) => f.path).toSet() ?? {};
+        for (final f in pendingFiles) {
+          if (!originalPaths.contains(f.path)) {
+            try { await f.delete(); } catch (_) {}
+          }
+        }
+      }
     }
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -109,12 +111,56 @@ class StoryProvider extends ChangeNotifier {
       _stories = await _storyRepository.fetchFeedStories(currentUserId: userId);
       _logStoryVisibilityDiagnostics(source: 'loadStories');
       _error = null;
+
+      // Re-run AI checks for stories stuck in review (app killed mid-check)
+      unawaited(_resumePendingAiChecks(userId));
     } catch (e) {
       _error = 'Failed to load stories';
       debugPrint('StoryProvider: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Re-queues AI detection for the current user's stories still in 'review'
+  /// after 2+ minutes — meaning the app was killed mid-check.
+  Future<void> _resumePendingAiChecks(String userId) async {
+    try {
+      final cutoff = DateTime.now()
+          .subtract(const Duration(minutes: 2))
+          .toUtc()
+          .toIso8601String();
+      final stuck =
+          await _supabase.client
+                  .from('stories')
+                  .select('id, media_url, media_type, caption')
+                  .eq('user_id', userId)
+                  .eq('status', 'review')
+                  .lt('created_at', cutoff)
+              as List;
+
+      if (stuck.isEmpty) return;
+
+      debugPrint(
+        'StoryProvider: Resuming AI check for ${stuck.length} stuck story/stories',
+      );
+      for (final row in stuck) {
+        final storyId = row['id'] as String;
+        final mediaUrl = row['media_url'] as String? ?? '';
+        final mediaType = row['media_type'] as String? ?? 'image';
+        final caption = row['caption'] as String?;
+        // Only re-trigger if the story is already in our loaded list
+        final story = _stories.cast<Story?>().firstWhere(
+          (s) => s!.id == storyId,
+          orElse: () => null,
+        );
+        if (story != null) {
+          unawaited(_triggerAiDetection(story, mediaUrl, mediaType, caption));
+        }
+      }
+    } catch (e) {
+      debugPrint('StoryProvider: _resumePendingAiChecks error - $e');
     }
   }
 
@@ -193,6 +239,10 @@ class StoryProvider extends ChangeNotifier {
     Map<String, dynamic>? textPosition,
     bool waitForAi = false,
     Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
+    /// Pre-compressed local files aligned with [mediaItems] by index.
+    /// Used to skip the storage download step during AI analysis.
+    /// Caller is responsible for deleting these after stories are created.
+    List<File?>? aiFiles,
   }) async {
     final userId = _supabase.currentUser?.id;
     if (userId == null) return [];
@@ -228,12 +278,14 @@ class StoryProvider extends ChangeNotifier {
           final mediaType = i < mediaItems.length
               ? mediaItems[i].mediaType
               : 'text';
+          final localFile = (aiFiles != null && i < aiFiles.length) ? aiFiles[i] : null;
           if (waitForAi) {
             final result = await _triggerAiDetection(
               story,
               mediaUrl,
               mediaType,
               caption ?? textOverlay,
+              localFile: localFile,
               onAdFeeRequired: onAdFeeRequired,
             );
             if (result?['isAiDetected'] == true) {
@@ -245,6 +297,7 @@ class StoryProvider extends ChangeNotifier {
               mediaUrl,
               mediaType,
               caption ?? textOverlay,
+              localFile: localFile,
               onAdFeeRequired: onAdFeeRequired,
             );
           }
@@ -296,6 +349,7 @@ class StoryProvider extends ChangeNotifier {
     String mediaUrl,
     String mediaType,
     String? caption, {
+    File? localFile,
     Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
   }) async {
     try {
@@ -305,8 +359,13 @@ class StoryProvider extends ChangeNotifier {
         mediaUrl: mediaUrl,
         mediaType: mediaType,
         caption: caption,
+        localFile: localFile,
         onAdFeeRequired: onAdFeeRequired,
       );
+      // Clean up local compressed file after AI analysis completes
+      if (localFile != null) {
+        try { await localFile.delete(); } catch (_) {}
+      }
 
       if (result != null) {
         final score = result['score'] as double;

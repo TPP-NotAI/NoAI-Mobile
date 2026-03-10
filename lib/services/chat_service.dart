@@ -13,6 +13,7 @@ import '../models/ai_detection_result.dart';
 import '../config/supabase_config.dart';
 import 'ai_detection_service.dart';
 import '../repositories/notification_repository.dart';
+import '../providers/platform_config_provider.dart';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
@@ -26,7 +27,8 @@ class ChatService {
   static const Set<String> _videoMediaTypes = {'video'};
   static const Set<String> _aiScannableMediaTypes = {'image', 'video'};
   static const double _aiReviewThreshold = 50;
-  static const double _aiFlagThreshold = 75;
+  static double get _aiFlagThreshold =>
+      PlatformConfigProvider.current.aiFlagThreshold;
   static const Duration _signedUrlTtl = Duration(hours: 6);
   static const Duration _sharedUploadSignedUrlTtl = Duration(days: 7);
   final Map<String, _SignedUrlCacheEntry> _signedUrlCache = {};

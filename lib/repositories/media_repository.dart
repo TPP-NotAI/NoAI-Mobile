@@ -1,45 +1,161 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:video_compress/video_compress.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
+
 
 /// Repository for handling media uploads and post_media operations.
 class MediaRepository {
   final _client = SupabaseService().client;
 
-  /// Upload a media file to Supabase Storage and return the relative storage path.
-  Future<String?> uploadMedia({
+  /// Upload a media file to Supabase Storage.
+  ///
+  /// Returns a record with:
+  /// - [path]: the relative Supabase storage path, or null on failure.
+  /// - [aiFile]: the compressed [File] to use for AI analysis (smaller = faster
+  ///   AI check). Null if no compression was applied (use the original file).
+  ///   The **caller must delete [aiFile]** once AI analysis is done.
+  Future<({String? path, File? aiFile})> uploadMedia({
     required File file,
     required String userId,
     required String postId,
     required String mediaType, // 'image' or 'video'
     int index = 0,
+    void Function(double progress)? onProgress,
   }) async {
+    File uploadFile = file;
+    File? compressedFile;
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final extension = file.path.split('.').last.toLowerCase();
+
+      // Compress video before upload (0–20% of progress bar)
+      // Only attempt if file is over 10MB — smaller files rarely benefit.
+      if (mediaType == 'video' && await file.length() > 10 * 1024 * 1024) {
+        debugPrint('MediaRepository: Compressing video...');
+
+        // Animate 0→18% while compression runs
+        double compressProgress = 0.0;
+        final compressTimer = onProgress == null ? null : Timer.periodic(
+          const Duration(milliseconds: 300),
+          (_) {
+            if (compressProgress < 0.18) {
+              compressProgress = (compressProgress + 0.01).clamp(0.0, 0.18);
+              onProgress(compressProgress);
+            }
+          },
+        );
+
+        final origSize = await file.length();
+        final info = await VideoCompress.compressVideo(
+          file.path,
+          quality: VideoQuality.MediumQuality,
+          deleteOrigin: false,
+          includeAudio: true,
+        );
+        compressTimer?.cancel();
+        final compressedPath = info?.file?.path;
+
+        if (compressedPath != null) {
+          final candidate = File(compressedPath);
+          final compSize = await candidate.length();
+          final origMB = origSize / 1024 / 1024;
+          final compMB = compSize / 1024 / 1024;
+          debugPrint('MediaRepository: Compressed ${origMB.toStringAsFixed(1)}MB → ${compMB.toStringAsFixed(1)}MB');
+          // Only use compressed file if it actually reduced the size
+          if (compSize < origSize) {
+            compressedFile = candidate;
+            uploadFile = compressedFile;
+            debugPrint('MediaRepository: Using compressed file (${((1 - compSize / origSize) * 100).toStringAsFixed(0)}% smaller)');
+          } else {
+            debugPrint('MediaRepository: Compression did not reduce size — using original');
+            try { candidate.delete(); } catch (_) {}
+          }
+        }
+        onProgress?.call(0.20);
+      }
+
+      final extension = uploadFile.path.split('.').last.toLowerCase();
       final fileName = '$timestamp-$index.$extension';
       final storagePath = '$postId/$userId/$fileName';
+      final mimeType = getMimeType(extension, mediaType);
 
-      // Upload to Supabase Storage bucket configured for post media
+      if (onProgress != null) {
+        // Upload covers 20–100% of progress bar
+        await _uploadWithProgress(
+          file: uploadFile,
+          storagePath: storagePath,
+          mimeType: mimeType,
+          startProgress: mediaType == 'video' ? 0.20 : 0.0,
+          onProgress: onProgress,
+        );
+      } else {
+        await _client.storage
+            .from(SupabaseConfig.postMediaBucket)
+            .upload(
+              storagePath,
+              uploadFile,
+              fileOptions: FileOptions(contentType: mimeType),
+            )
+            .timeout(const Duration(minutes: 10));
+      }
+
+      debugPrint('MediaRepository: Uploaded media to $storagePath');
+      // Return the compressed file so the caller can pass it to AI detection.
+      // Caller is responsible for deleting it after AI analysis completes.
+      return (path: storagePath, aiFile: compressedFile);
+    } catch (e) {
+      debugPrint('MediaRepository: Error uploading media - $e');
+      // Clean up compressed file on upload failure
+      if (compressedFile != null) {
+        try { await compressedFile.delete(); } catch (_) {}
+      }
+      return (path: null, aiFile: null);
+    }
+  }
+
+  /// Uploads via the Supabase SDK while animating progress with a timer.
+  /// [startProgress] is the value already reported (e.g. 0.20 after compression).
+  Future<void> _uploadWithProgress({
+    required File file,
+    required String storagePath,
+    required String mimeType,
+    required void Function(double progress) onProgress,
+    double startProgress = 0.0,
+  }) async {
+    final fileSize = await file.length();
+    // Estimate duration: ~1 MB/s on a typical mobile connection.
+    final estimatedSeconds = (fileSize / (1024 * 1024)).clamp(5.0, 540.0);
+    // Animate from startProgress up to 95%, leaving the last 5% for server ack.
+    final remaining = 0.95 - startProgress;
+    double simulatedProgress = startProgress;
+    const tickInterval = Duration(milliseconds: 300);
+    final ticksTotal = estimatedSeconds * 1000 / tickInterval.inMilliseconds;
+    final increment = remaining / ticksTotal;
+
+    final timer = Timer.periodic(tickInterval, (_) {
+      if (simulatedProgress < 0.95) {
+        simulatedProgress = (simulatedProgress + increment).clamp(0.0, 0.95);
+        onProgress(simulatedProgress);
+      }
+    });
+
+    try {
       await _client.storage
           .from(SupabaseConfig.postMediaBucket)
           .upload(
             storagePath,
             file,
-            fileOptions: FileOptions(
-              contentType: getMimeType(extension, mediaType),
-            ),
-          );
-
-      debugPrint('MediaRepository: Uploaded media to $storagePath');
-      // Return the relative storage path (not full URL)
-      // The display layer constructs the full public URL from this path
-      return storagePath;
+            fileOptions: FileOptions(contentType: mimeType),
+          )
+          .timeout(const Duration(minutes: 10));
+      timer.cancel();
+      onProgress(1.0);
     } catch (e) {
-      debugPrint('MediaRepository: Error uploading media - $e');
-      return null;
+      timer.cancel();
+      rethrow;
     }
   }
 

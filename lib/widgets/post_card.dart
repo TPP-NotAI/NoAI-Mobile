@@ -11,6 +11,7 @@ import '../config/app_typography.dart';
 import '../models/post.dart';
 import '../providers/feed_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/platform_config_provider.dart';
 import '../config/supabase_config.dart';
 import '../screens/bookmarks/bookmarks_screen.dart';
 import '../screens/create/edit_post_screen.dart';
@@ -24,6 +25,9 @@ import 'report_sheet.dart';
 import 'shimmer_loading.dart';
 import 'mention_rich_text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../repositories/boost_repository.dart';
 import '../repositories/mention_repository.dart';
@@ -1479,8 +1483,11 @@ class _MediaTile extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Video thumbnail - could be first frame
-                    VideoPlayerWidget(videoUrl: item.url),
+                    // Video thumbnail — contain keeps aspect ratio, black bars on sides
+                    VideoPlayerWidget(
+                      videoUrl: item.url,
+                      boxFit: BoxFit.contain,
+                    ),
                     // Play button overlay
                     Center(
                       child: Container(
@@ -1892,15 +1899,36 @@ class _ActionsState extends State<_Actions> {
 
   void _handleShare(BuildContext context) async {
     try {
+      final appName = PlatformConfigProvider.current.platformName;
+      final postUrl = 'https://rooverse.com/post/${widget.post.id}';
+      final subject = widget.post.title ?? 'Check out this post on $appName';
       final shareText =
           widget.post.title != null && widget.post.title!.isNotEmpty
-          ? '${widget.post.title}\n\n${widget.post.content}\n\nShared from ROOVERSE'
-          : '${widget.post.content}\n\nShared from ROOVERSE';
+          ? '${widget.post.title}\n\n${widget.post.content}\n\n$postUrl'
+          : '${widget.post.content}\n\n$postUrl';
 
-      await Share.share(
-        shareText,
-        subject: widget.post.title ?? 'Check out this post on ROOVERSE',
-      );
+      final imageUrl = widget.post.primaryMediaUrl;
+      if (imageUrl != null && !imageUrl.contains('.mp4') && !imageUrl.contains('.mov')) {
+        try {
+          final response = await http.get(Uri.parse(imageUrl));
+          if (response.statusCode == 200) {
+            final dir = await getTemporaryDirectory();
+            final ext = imageUrl.split('.').last.split('?').first;
+            final file = File('${dir.path}/share_${widget.post.id}.$ext');
+            await file.writeAsBytes(response.bodyBytes);
+            await Share.shareXFiles(
+              [XFile(file.path)],
+              text: shareText,
+              subject: subject,
+            );
+            return;
+          }
+        } catch (_) {
+          // Fall through to text-only share
+        }
+      }
+
+      await Share.share(shareText, subject: subject);
     } catch (e) {
       debugPrint('Error sharing post: $e');
     }

@@ -1,9 +1,9 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
@@ -31,14 +31,67 @@ class FileUploadUtils {
     'bmp',
   };
 
-  static const int _maxImageBytes = 10 * 1024 * 1024;  // 10 MB
-  static const int _maxVideoBytes = 100 * 1024 * 1024; // 100 MB
+  static const int _maxImageBytes = 10 * 1024 * 1024;   // 10 MB
+  static const int _maxVideoBytes = 200 * 1024 * 1024; // 200 MB
 
   static bool _isVideo(String extension) =>
       _videoExtensions.contains(extension.toLowerCase());
 
   static bool _isImage(String extension) =>
       _imageExtensions.contains(extension.toLowerCase());
+
+  static String getMimeTypeStatic(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'mp4': return 'video/mp4';
+      case 'mov': return 'video/quicktime';
+      case 'avi': return 'video/x-msvideo';
+      case 'webm': return 'video/webm';
+      case 'mkv': return 'video/x-matroska';
+      case 'jpg':
+      case 'jpeg': return 'image/jpeg';
+      case 'png': return 'image/png';
+      case 'gif': return 'image/gif';
+      case 'bmp': return 'image/bmp';
+      default: return _isVideo(extension) ? 'video/mp4' : 'image/jpeg';
+    }
+  }
+
+  /// Upload a file via the Supabase SDK with timer-based progress animation.
+  /// Returns the public URL on success, null on failure.
+  static Future<String?> uploadFileWithProgress({
+    required File file,
+    required String bucket,
+    required String fileName,
+    required String mimeType,
+    required void Function(double progress) onProgress,
+  }) async {
+    final fileSize = await file.length();
+    final estimatedSeconds = (fileSize / (1024 * 1024)).clamp(5.0, 540.0);
+    double simulatedProgress = 0.0;
+    const tickInterval = Duration(milliseconds: 300);
+    final ticksTotal = estimatedSeconds * 1000 / tickInterval.inMilliseconds;
+    final increment = 0.95 / ticksTotal;
+
+    final timer = Timer.periodic(tickInterval, (_) {
+      if (simulatedProgress < 0.95) {
+        simulatedProgress = (simulatedProgress + increment).clamp(0.0, 0.95);
+        onProgress(simulatedProgress);
+      }
+    });
+
+    try {
+      await _client.storage
+          .from(bucket)
+          .upload(fileName, file, fileOptions: FileOptions(contentType: mimeType))
+          .timeout(const Duration(minutes: 10));
+      timer.cancel();
+      onProgress(1.0);
+      return _client.storage.from(bucket).getPublicUrl(fileName);
+    } catch (e) {
+      timer.cancel();
+      rethrow;
+    }
+  }
 
   /// Container object for the chosen upload.
   static MediaUploadResult mediaResult({
@@ -115,7 +168,7 @@ class FileUploadUtils {
       if (await file.length() > _maxVideoBytes) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Video must be under 100 MB.'.tr(context))),
+            SnackBar(content: Text('Video must be under 200 MB.'.tr(context))),
           );
         }
         return null;
@@ -127,7 +180,8 @@ class FileUploadUtils {
       // Upload to Supabase storage
       final response = await _client.storage
           .from(bucket)
-          .upload(fileName, file);
+          .upload(fileName, file)
+          .timeout(const Duration(minutes: 10));
 
       if (response.isNotEmpty) {
         // Get public URL
@@ -168,7 +222,7 @@ class FileUploadUtils {
       final maxBytes = _isVideo(ext) ? _maxVideoBytes : _maxImageBytes;
       if (await file.length() > maxBytes) {
         if (context.mounted) {
-          final limit = _isVideo(ext) ? '100 MB' : '10 MB';
+          final limit = _isVideo(ext) ? '200 MB' : '10 MB';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('File must be under $limit.'.tr(context))),
           );
@@ -180,7 +234,8 @@ class FileUploadUtils {
 
       final response = await _client.storage
           .from(bucket)
-          .upload(fileName, file);
+          .upload(fileName, file)
+          .timeout(const Duration(minutes: 10));
 
       if (response.isNotEmpty) {
         final publicUrl = _client.storage.from(bucket).getPublicUrl(fileName);
@@ -225,7 +280,8 @@ class FileUploadUtils {
 
         final response = await _client.storage
             .from(bucket)
-            .upload(fileName, File(path));
+            .upload(fileName, File(path))
+            .timeout(const Duration(minutes: 10));
 
         if (response.isNotEmpty) {
           final publicUrl = _client.storage.from(bucket).getPublicUrl(fileName);

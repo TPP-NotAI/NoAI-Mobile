@@ -23,6 +23,10 @@ import 'auth/human_verification_screen.dart';
 import 'auth/phone_verification_screen.dart';
 import '../services/app_update_service.dart';
 import '../repositories/support_ticket_repository.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/supabase_service.dart';
 import '../l10n/app_localizations.dart';
 
@@ -752,33 +756,43 @@ class SettingsScreen extends StatelessWidget {
                   : () async {
                       setDialogState(() => isLoading = true);
                       try {
+                        final session = SupabaseService().currentSession;
+                        final accessToken = session?.accessToken;
+                        if (accessToken == null) throw Exception('Not authenticated');
+
                         final response = await SupabaseService().client.functions.invoke(
                           'user-data-export',
+                          headers: {'Authorization': 'Bearer $accessToken'},
                         );
+
+                        // Check for errors returned by the function
+                        if (response.data is Map && response.data['error'] != null) {
+                          throw Exception(response.data['error']);
+                        }
+
+                        // Serialize the response data to JSON string
+                        final jsonString = jsonEncode(response.data);
+
+                        // Write to a temp file
+                        final dir = await getTemporaryDirectory();
+                        final userId = SupabaseService().currentUser?.id ?? 'unknown';
+                        final fileName = 'data-export-$userId.json';
+                        final file = File('${dir.path}/$fileName');
+                        await file.writeAsString(jsonString);
 
                         if (dialogContext.mounted) Navigator.pop(dialogContext);
 
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Your data export is ready. Check your downloads.',
-                              ),
-                              backgroundColor: Colors.teal,
-                            ),
-                          );
-                        }
-
-                        // Log success (best-effort)
-                        debugPrint(
-                          'Data export: ${response.data?.toString().length ?? 0} bytes',
+                        // Share/save the file
+                        await Share.shareXFiles(
+                          [XFile(file.path, mimeType: 'application/json')],
+                          subject: 'My Data Export',
                         );
-                      } catch (_) {
+                      } catch (e) {
                         setDialogState(() => isLoading = false);
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(
-                              content: Text('Something went wrong. Please try again.'),
+                            SnackBar(
+                              content: Text('Export failed: $e'),
                               backgroundColor: Colors.red,
                             ),
                           );

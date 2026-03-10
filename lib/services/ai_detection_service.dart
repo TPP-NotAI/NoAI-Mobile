@@ -12,7 +12,7 @@ import '../models/moderation_result.dart';
 class AiDetectionService {
   static const String _baseUrl = 'https://detectorllm.rooverse.app';
   static const Duration _timeout = Duration(seconds: 60);
-  static const Duration _mediaTimeout = Duration(seconds: 180);
+  static const Duration _mediaTimeout = Duration(minutes: 10);
 
   static final AiDetectionService _instance = AiDetectionService._internal();
   factory AiDetectionService() => _instance;
@@ -310,8 +310,8 @@ class AiDetectionService {
       );
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      final streamedResponse = await request.send().timeout(_timeout);
+      final response = await http.Response.fromStream(streamedResponse).timeout(_timeout);
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
         return ModerationResult.fromJson(data);
@@ -332,8 +332,8 @@ class AiDetectionService {
       );
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      final streamedResponse = await request.send().timeout(_mediaTimeout);
+      final response = await http.Response.fromStream(streamedResponse).timeout(_mediaTimeout);
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
         return ModerationResult.fromJson(data);

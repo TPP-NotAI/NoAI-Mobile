@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
+import '../../providers/platform_config_provider.dart';
+import '../../widgets/app_logo.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class OnboardingScreen extends StatefulWidget {
@@ -15,19 +18,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
   final PageController _pageController = PageController();
 
-  final List<OnboardingSlide> _slides = [
+  List<OnboardingSlide> _buildSlides(String platformName) => [
     OnboardingSlide(
       stepName: 'The Mission',
       title: 'Humans Only.',
       highlight: 'Zero Bots.',
       description:
-          'Tired of AI spam? ROOVERSE is a verified-human sanctuary where every voice is real and every connection is authentic.',
+          'Tired of AI spam? $platformName is a verified-human sanctuary where every voice is real and every connection is authentic.',
       image:
           'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop',
       icon: Icons.people_outline_rounded,
     ),
     OnboardingSlide(
-      stepName: 'Why ROOVERSE',
+      stepName: 'Why $platformName',
       title: 'Humanity',
       highlight: 'Verified.',
       description:
@@ -41,7 +44,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'Earn Real',
       highlight: 'Value.',
       description:
-          'Your attention is valuable. Get rewarded in Roobyte for authentic engagement and high-quality human content.',
+          'Your attention is valuable. Get rewarded in $platformName for authentic engagement and high-quality human content.',
       image:
           'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?q=80&w=2070&auto=format&fit=crop',
       icon: Icons.account_balance_wallet_outlined,
@@ -58,8 +61,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
   ];
 
-  void _nextPage() {
-    if (_currentPage < _slides.length - 1) {
+  void _nextPage(int slideCount) {
+    if (_currentPage < slideCount - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -72,6 +75,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final platformName = context.watch<PlatformConfigProvider>().config.platformName;
+    final slides = _buildSlides(platformName);
 
     return Scaffold(
       backgroundColor: scheme.background,
@@ -88,10 +93,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   children: [
                     Row(
                       children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
+                        AppLogo(
+                          size: 32,
+                          fallbackIcon: Icons.fingerprint,
+                          fallbackIconColor: Colors.white,
+                          containerDecoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
                             gradient: const LinearGradient(
                               colors: [AppColors.primary, Color(0xFF3B82F6)],
@@ -99,14 +105,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               end: Alignment.bottomRight,
                             ),
                           ),
-                          child: const Icon(
-                            Icons.fingerprint,
-                            size: 18,
-                            color: Colors.white,
-                          ),
                         ),
                         const SizedBox(width: 8),
-                        Text('ROOVERSE'.tr(context),
+                        Text(platformName,
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -137,9 +138,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   onPageChanged: (index) {
                     setState(() => _currentPage = index);
                   },
-                  itemCount: _slides.length,
+                  itemCount: slides.length,
                   itemBuilder: (context, index) {
-                    return _buildSlide(context, _slides[index]);
+                    return _buildSlide(context, slides[index]);
                   },
                 ),
               ),
@@ -151,7 +152,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   children: [
                     // Indicators
                     // Progress Text
-                    Text('STEP ${_currentPage + 1} OF ${_slides.length}: ${_slides[_currentPage].stepName.toUpperCase()}'.tr(context),
+                    Text('STEP ${_currentPage + 1} OF ${slides.length}: ${slides[_currentPage].stepName.toUpperCase()}'.tr(context),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -164,7 +165,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(
-                        _slides.length,
+                        slides.length,
                         (index) => AnimatedContainer(
                           duration: const Duration(milliseconds: 300),
                           margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -187,7 +188,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: _nextPage,
+                        onPressed: () => _nextPage(slides.length),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -200,7 +201,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              _currentPage == _slides.length - 1
+                              _currentPage == slides.length - 1
                                   ? 'Get Started'
                                   : 'Next',
                               style: const TextStyle(

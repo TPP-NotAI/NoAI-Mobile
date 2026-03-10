@@ -4,7 +4,9 @@ import '../../config/app_spacing.dart';
 import '../../config/app_typography.dart';
 import '../../repositories/user_interests_repository.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/platform_config_provider.dart';
 import '../../utils/responsive_extensions.dart';
+import '../../widgets/app_logo.dart';
 import 'package:provider/provider.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -227,6 +229,7 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final platformName = context.watch<PlatformConfigProvider>().config.platformName;
 
     return Scaffold(
       backgroundColor: scheme.background,
@@ -247,10 +250,11 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                         children: [
                           Row(
                             children: [
-                              Container(
-                                width: 32.responsive(context, min: 28, max: 36),
-                                height: 32.responsive(context, min: 28, max: 36),
-                                decoration: BoxDecoration(
+                              AppLogo(
+                                size: 32.responsive(context, min: 28, max: 36),
+                                fallbackIcon: Icons.fingerprint,
+                                fallbackIconColor: Colors.white,
+                                containerDecoration: BoxDecoration(
                                   borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.standard),
                                   gradient: const LinearGradient(
                                     colors: [
@@ -261,14 +265,9 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                     end: Alignment.bottomRight,
                                   ),
                                 ),
-                                child: Icon(
-                                  Icons.fingerprint,
-                                  size: AppTypography.responsiveIconSize(context, 18),
-                                  color: Colors.white,
-                                ),
                               ),
                               SizedBox(width: AppSpacing.small.responsive(context)),
-                              Text('ROOVERSE'.tr(context),
+                              Text(platformName,
                                 style: TextStyle(
                                   fontSize: AppTypography.responsiveFontSize(context, AppTypography.mediumHeading),
                                   fontWeight: FontWeight.bold,

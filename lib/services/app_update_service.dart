@@ -8,6 +8,7 @@ import '../config/supabase_config.dart';
 import 'supabase_service.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+import '../providers/platform_config_provider.dart';
 class AppUpdateService {
   AppUpdateService._();
   static final AppUpdateService instance = AppUpdateService._();
@@ -104,8 +105,8 @@ class AppUpdateService {
                 title: Text('Update available'.tr(context)),
                 content: Text(
                   force
-                      ? 'A required update is available. You must update ROOVERSE to continue.'
-                      : 'A newer version of ROOVERSE is available. Update now for the latest improvements.',
+                      ? 'A required update is available. You must update ${PlatformConfigProvider.current.platformName} to continue.'
+                      : 'A newer version of ${PlatformConfigProvider.current.platformName} is available. Update now for the latest improvements.',
                 ),
                 actions: [
                   if (!force)

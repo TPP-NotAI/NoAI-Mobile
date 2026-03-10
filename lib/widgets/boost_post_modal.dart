@@ -10,6 +10,7 @@ import '../providers/wallet_provider.dart';
 import '../repositories/boost_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../utils/snackbar_utils.dart';
+import '../providers/platform_config_provider.dart';
 import 'post_card.dart' show PostBoostCache;
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -349,7 +350,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text('Notify users across ROOVERSE about your post'.tr(context),
+                    Text('Notify users across ${PlatformConfigProvider.current.platformName} about your post'.tr(context),
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
@@ -582,7 +583,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
 
               const SizedBox(height: 12),
 
-              Text('${(_kRooPerUser * 100).toStringAsFixed(0)} ROO per 10 users · Random selection across ROOVERSE'.tr(context),
+              Text('${(_kRooPerUser * 100).toStringAsFixed(0)} ROO per 10 users · Random selection across ${PlatformConfigProvider.current.platformName}'.tr(context),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colors.onSurfaceVariant,
                 ),

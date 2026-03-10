@@ -7,6 +7,7 @@ import '../models/post.dart';
 import '../models/comment.dart';
 import '../providers/auth_provider.dart';
 import '../providers/feed_provider.dart';
+import '../providers/platform_config_provider.dart';
 import '../services/supabase_service.dart';
 import '../widgets/report_sheet.dart';
 import '../utils/time_utils.dart';
@@ -29,6 +30,9 @@ import '../widgets/post_card.dart'
 import '../widgets/tip_modal.dart';
 import '../screens/boost/boost_analytics_page.dart';
 import '../screens/ads/ad_insights_page.dart';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -1326,14 +1330,44 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   void _handleShare(BuildContext context) async {
     try {
+      final appName = PlatformConfigProvider.current.platformName;
+      final postUrl = 'https://rooverse.com/post/${_post.id}';
+      final subject = _post.title ?? 'Check out this post on $appName';
       final shareText = _post.title != null && _post.title!.isNotEmpty
-          ? '${_post.title}\n\n${_post.content}\n\nShared from ROOVERSE'
-          : '${_post.content}\n\nShared from ROOVERSE';
+          ? '${_post.title}\n\n${_post.content}\n\n$postUrl'
+          : '${_post.content}\n\n$postUrl';
 
-      await Share.share(
-        shareText,
-        subject: _post.title ?? 'Check out this post on ROOVERSE',
-      );
+      final imageUrl = _post.primaryMediaUrl;
+      if (imageUrl != null && !imageUrl.contains('.mp4') && !imageUrl.contains('.mov')) {
+        try {
+          final response = await http.get(Uri.parse(imageUrl));
+          if (response.statusCode == 200) {
+            final dir = await getTemporaryDirectory();
+            final ext = imageUrl.split('.').last.split('?').first;
+            final file = File('${dir.path}/share_${_post.id}.$ext');
+            await file.writeAsBytes(response.bodyBytes);
+            await Share.shareXFiles(
+              [XFile(file.path)],
+              text: shareText,
+              subject: subject,
+            );
+            if (context.mounted) {
+              ScaffoldMessenger.of(context)
+                ..clearSnackBars()
+                ..showSnackBar(SnackBar(
+                  content: Text('Post shared!'.tr(context)),
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                ));
+            }
+            return;
+          }
+        } catch (_) {
+          // Fall through to text-only share
+        }
+      }
+
+      await Share.share(shareText, subject: subject);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context)

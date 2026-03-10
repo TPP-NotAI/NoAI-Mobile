@@ -14,6 +14,7 @@ import '../../widgets/tip_modal.dart';
 import '../../widgets/shimmer_loading.dart';
 import '../../widgets/stories_carousel.dart';
 import '../profile/profile_screen.dart';
+import '../../providers/platform_config_provider.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 
@@ -126,7 +127,9 @@ class _FeedScreenState extends State<FeedScreen> {
                             top: AppSpacing.standard.responsive(context),
                             bottom: 0,
                           ),
-                          child: const StoriesCarousel(),
+                          child: context.watch<PlatformConfigProvider>().config.enableStories
+                              ? const StoriesCarousel()
+                              : const SizedBox.shrink(),
                         ),
                       ),
                     ),
@@ -298,32 +301,35 @@ class _FeedFilterTabs extends StatelessWidget {
         horizontal: AppSpacing.largePlus.responsive(context),
         vertical: AppSpacing.small.responsive(context),
       ),
-      child: Row(
-        children: [
-          _FilterTab(
-            label: 'For You'.tr(context),
-            icon: Icons.auto_awesome_outlined,
-            isActive: activeFilter == FeedFilter.forYou,
-            onTap: () => onFilterChanged(FeedFilter.forYou),
-            colors: colors,
-          ),
-          SizedBox(width: AppSpacing.standard.responsive(context)),
-          _FilterTab(
-            label: 'Following'.tr(context),
-            icon: Icons.people_outline,
-            isActive: activeFilter == FeedFilter.following,
-            onTap: () => onFilterChanged(FeedFilter.following),
-            colors: colors,
-          ),
-          SizedBox(width: AppSpacing.standard.responsive(context)),
-          _FilterTab(
-            label: 'Trending'.tr(context),
-            icon: Icons.trending_up,
-            isActive: activeFilter == FeedFilter.trending,
-            onTap: () => onFilterChanged(FeedFilter.trending),
-            colors: colors,
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _FilterTab(
+              label: 'For You'.tr(context),
+              icon: Icons.auto_awesome_outlined,
+              isActive: activeFilter == FeedFilter.forYou,
+              onTap: () => onFilterChanged(FeedFilter.forYou),
+              colors: colors,
+            ),
+            SizedBox(width: AppSpacing.standard.responsive(context)),
+            _FilterTab(
+              label: 'Following'.tr(context),
+              icon: Icons.people_outline,
+              isActive: activeFilter == FeedFilter.following,
+              onTap: () => onFilterChanged(FeedFilter.following),
+              colors: colors,
+            ),
+            SizedBox(width: AppSpacing.standard.responsive(context)),
+            _FilterTab(
+              label: 'Trending'.tr(context),
+              icon: Icons.trending_up,
+              isActive: activeFilter == FeedFilter.trending,
+              onTap: () => onFilterChanged(FeedFilter.trending),
+              colors: colors,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -9,6 +9,7 @@ import '../services/supabase_service.dart';
 import '../services/push_notification_service.dart';
 import '../config/supabase_config.dart';
 import '../config/global_keys.dart';
+import 'platform_config_provider.dart';
 
 class NotificationProvider with ChangeNotifier {
   final NotificationRepository _repository = NotificationRepository();
@@ -60,7 +61,7 @@ class NotificationProvider with ChangeNotifier {
 
             // Show local push notification with sound
             final newRecord = payload.newRecord;
-            final title = newRecord['title'] as String? ?? 'ROOVERSE';
+            final title = newRecord['title'] as String? ?? PlatformConfigProvider.current.platformName;
             final body = newRecord['body'] as String? ?? 'You have a new notification';
             final type = newRecord['type'] as String? ?? 'social';
 

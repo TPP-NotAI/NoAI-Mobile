@@ -303,7 +303,9 @@ class StoryRepository {
           'story_${DateTime.now().millisecondsSinceEpoch}.$extension';
       final filePath = '${tempDir.path}/$fileName';
 
-      final response = await http.get(Uri.parse(_resolveUrl(mediaUrl)));
+      final response = await http
+          .get(Uri.parse(_resolveUrl(mediaUrl)))
+          .timeout(const Duration(seconds: 120));
       if (response.statusCode != 200) return null;
 
       final file = File(filePath);
@@ -468,6 +470,10 @@ class StoryRepository {
     required String mediaUrl,
     required String mediaType,
     String? caption,
+    /// Pre-compressed local file to use instead of downloading from storage.
+    /// Speeds up AI analysis by skipping the download step and using a smaller file.
+    /// The caller is responsible for deleting it after this call returns.
+    File? localFile,
     Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
     int retryAttempt = 0,
     bool allowDeferredRetry = true,
@@ -485,13 +491,24 @@ class StoryRepository {
       }
 
       AiDetectionResult? result;
-      File? mediaFile;
+      // Use the pre-compressed local file if available; otherwise download from storage.
+      final bool usingLocalFile = localFile != null && await localFile.exists();
+      File? downloadedFile;
       try {
+        final File? mediaFile;
         if (hasMedia) {
-          mediaFile = await _downloadStoryMediaToTempFile(
-            mediaUrl: mediaUrl,
-            mediaType: mediaType,
-          );
+          if (usingLocalFile) {
+            debugPrint('StoryRepository: Using local compressed file for AI (skipping download)');
+            mediaFile = localFile;
+          } else {
+            downloadedFile = await _downloadStoryMediaToTempFile(
+              mediaUrl: mediaUrl,
+              mediaType: mediaType,
+            );
+            mediaFile = downloadedFile;
+          }
+        } else {
+          mediaFile = null;
         }
         final detectionModels = hasMedia ? 'gpt-4.1' : 'gpt-5.2,o3';
         result = await _aiDetectionService.detectFull(
@@ -500,9 +517,10 @@ class StoryRepository {
           models: detectionModels,
         );
       } finally {
-        if (mediaFile != null) {
+        // Only delete the downloaded temp file — never delete the caller's localFile
+        if (downloadedFile != null) {
           try {
-            await mediaFile.delete();
+            await downloadedFile.delete();
           } catch (e) {
             debugPrint('StoryRepository: Failed to clean up temp file - $e');
           }

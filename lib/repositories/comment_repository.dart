@@ -204,7 +204,7 @@ class CommentRepository {
           )
         ''')
         .eq('parent_comment_id', parentCommentId)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: true);
 
     // Filter out replies from blocked users
     final filteredReplies = <Comment>[];

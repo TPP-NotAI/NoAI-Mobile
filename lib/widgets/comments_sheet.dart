@@ -16,6 +16,7 @@ import '../services/kyc_verification_service.dart';
 import '../services/supabase_service.dart';
 import 'comment_card.dart';
 import 'mention_autocomplete_field.dart';
+import '../providers/platform_config_provider.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class CommentsSheet extends StatefulWidget {
@@ -149,7 +150,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
       } else {
         file = await _imagePicker.pickImage(
           source: source,
-          imageQuality: 80,
+          imageQuality: 90,
           maxWidth: 1920,
           maxHeight: 1920,
         );
@@ -224,6 +225,24 @@ class _CommentsSheetState extends State<CommentsSheet> {
     });
   }
 
+  // Instagram-style: find the top-level comment that owns this reply (for flat threading)
+  String _getTopLevelParentId(String commentId, List<Comment> comments) {
+    for (final comment in comments) {
+      if (comment.id == commentId) return comment.id;
+      if (_existsInReplies(commentId, comment.replies)) return comment.id;
+    }
+    return commentId;
+  }
+
+  bool _existsInReplies(String id, List<Comment>? replies) {
+    if (replies == null) return false;
+    for (final reply in replies) {
+      if (reply.id == id) return true;
+      if (_existsInReplies(id, reply.replies)) return true;
+    }
+    return false;
+  }
+
   void _startReply(Comment comment) {
     final mentionPrefix = '@${comment.author.username} ';
     setState(() {
@@ -282,6 +301,15 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
     if (replyParent != null) {
       // --- Posting a reply ---
+      // Instagram-style: always reply to the top-level comment so threads stay flat
+      final feedProvider = context.read<FeedProvider>();
+      final currentPost = feedProvider.posts.firstWhere(
+        (p) => p.id == widget.post.id,
+        orElse: () => widget.post,
+      );
+      final currentComments = currentPost.commentList ?? _loadedComments ?? [];
+      final topLevelParentId = _getTopLevelParentId(replyParent.id, currentComments);
+
       final tempId = 'r${DateTime.now().millisecondsSinceEpoch}';
       final reply = Comment(
         id: tempId,
@@ -300,9 +328,9 @@ class _CommentsSheetState extends State<CommentsSheet> {
         mediaType: mediaType,
       );
 
-      context.read<FeedProvider>().addReplyLocally(
+      feedProvider.addReplyLocally(
         widget.post.id,
-        replyParent.id,
+        topLevelParentId,
         reply,
       );
 
@@ -315,9 +343,9 @@ class _CommentsSheetState extends State<CommentsSheet> {
       FocusScope.of(context).unfocus();
 
       try {
-        await context.read<FeedProvider>().addReplyWithMedia(
+        await feedProvider.addReplyWithMedia(
           widget.post.id,
-          replyParent.id,
+          topLevelParentId,
           commentText,
           tempId,
           mediaUrl: mediaUrl,
@@ -898,6 +926,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                           MentionAutocompleteField(
                             controller: _commentController,
                             focusNode: _commentFocus,
+                            maxLength: context.watch<PlatformConfigProvider>().config.maxCommentLength,
                             style: TextStyle(color: colors.onSurface),
                             decoration: InputDecoration(
                               hintText: 'Add a comment...',

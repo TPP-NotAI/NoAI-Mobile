@@ -13,6 +13,7 @@ import 'package:rooverse/screens/legal/privacy_policy_screen.dart';
 import 'package:rooverse/utils/validators.dart';
 import 'package:rooverse/services/referral_service.dart';
 import 'package:rooverse/services/supabase_service.dart';
+import 'package:rooverse/widgets/app_logo.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SignupScreen extends StatefulWidget {
@@ -169,14 +170,14 @@ class _SignupScreenState extends State<SignupScreen> {
         _usernameError = 'Please enter a username';
       });
       hasError = true;
-    } else if (username.length < 3) {
+    } else if (username.length < context.read<PlatformConfigProvider>().config.usernameMinLength) {
       setState(() {
-        _usernameError = 'Username must be at least 3 characters';
+        _usernameError = 'Username must be at least ${context.read<PlatformConfigProvider>().config.usernameMinLength} characters';
       });
       hasError = true;
-    } else if (username.length > 32) {
+    } else if (username.length > context.read<PlatformConfigProvider>().config.usernameMaxLength) {
       setState(() {
-        _usernameError = 'Username must be 32 characters or less';
+        _usernameError = 'Username must be ${context.read<PlatformConfigProvider>().config.usernameMaxLength} characters or less';
       });
       hasError = true;
     }
@@ -294,6 +295,7 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final platformName = context.watch<PlatformConfigProvider>().config.platformName;
 
     return Scaffold(
       backgroundColor: scheme.background,
@@ -307,10 +309,10 @@ class _SignupScreenState extends State<SignupScreen> {
               SizedBox(height: 48.responsive(context, min: 36, max: 56)),
 
               // Header
-              Container(
-                width: 64.responsive(context, min: 56, max: 72),
-                height: 64.responsive(context, min: 56, max: 72),
-                decoration: BoxDecoration(
+              AppLogo(
+                size: 64.responsive(context, min: 56, max: 72),
+                fallbackIcon: Icons.fingerprint,
+                containerDecoration: BoxDecoration(
                   color: scheme.surface,
                   borderRadius: AppSpacing.responsiveRadius(context, 32),
                   border: Border.all(color: scheme.outline),
@@ -321,11 +323,6 @@ class _SignupScreenState extends State<SignupScreen> {
                       offset: Offset(0, 4.responsive(context)),
                     ),
                   ],
-                ),
-                child: Icon(
-                  Icons.fingerprint,
-                  size: AppTypography.responsiveIconSize(context, 32),
-                  color: AppColors.primary,
                 ),
               ),
 
@@ -355,16 +352,16 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     color: scheme.onBackground.withOpacity(0.7),
                   ),
-                  children: const [
-                    TextSpan(text: 'Secure your identity on '),
+                  children: [
+                    const TextSpan(text: 'Secure your identity on '),
                     TextSpan(
-                      text: 'ROOVERSE',
-                      style: TextStyle(
+                      text: platformName,
+                      style: const TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    TextSpan(text: ' and start earning Roobyte.'),
+                    const TextSpan(text: ' and start earning Roobyte.'),
                   ],
                 ),
               ),

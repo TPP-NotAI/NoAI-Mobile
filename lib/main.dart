@@ -23,6 +23,8 @@ import 'services/supabase_service.dart';
 import 'services/presence_service.dart';
 import 'services/connectivity_service.dart';
 import 'services/deep_link_service.dart';
+import 'services/share_intent_service.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'core/extensions/exception_extensions.dart';
 import 'models/view_enum.dart';
 import 'screens/auth/splash_screen.dart';
@@ -56,6 +58,7 @@ import 'services/push_notification_service.dart';
 import 'services/app_update_service.dart';
 import 'widgets/connectivity_overlay.dart';
 import 'widgets/welcome_dialog.dart';
+import 'widgets/app_logo.dart';
 import 'utils/responsive_utils.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -113,6 +116,7 @@ void main() async {
       await PushNotificationService().initialize();
       await ConnectivityService().initialize();
       PresenceService().start();
+      ShareIntentService().initialize();
 
       runApp(const MyApp());
     },
@@ -206,46 +210,41 @@ class MyApp extends StatelessWidget {
                 ),
               );
               if (platformConfig.maintenanceMode) {
-                content = Stack(
+                content = Column(
                   children: [
-                    content,
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: Material(
-                        color: Colors.orange.shade800,
-                        child: SafeArea(
-                          bottom: false,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.build_circle_outlined,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    platformConfig.maintenanceMessage ??
-                                        'The app is currently under maintenance. Some features may be unavailable.',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
+                    Material(
+                      color: Colors.orange.shade800,
+                      child: SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.build_circle_outlined,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  platformConfig.maintenanceMessage ??
+                                      'The app is currently under maintenance. Some features may be unavailable.',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
+                    Expanded(child: content),
                   ],
                 );
               }
@@ -367,6 +366,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeHandleDeepLink());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeHandleShareIntent());
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _maybeHandlePendingNotificationTap(),
     );
@@ -514,6 +514,36 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // Default auth flow
         return const AppNavigator();
     }
+  }
+
+  void _maybeHandleShareIntent() {
+    if (!mounted) return;
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.status != AuthStatus.authenticated) return;
+
+    final shared = ShareIntentService().consumePendingSharedMedia();
+    if (shared == null || shared.isEmpty) return;
+
+    String? text;
+    List<String> mediaPaths = [];
+
+    for (final item in shared) {
+      if (item.type == SharedMediaType.text || item.type == SharedMediaType.url) {
+        text = (text != null ? '$text\n' : '') + item.path;
+      } else {
+        mediaPaths.add(item.path);
+      }
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreatePostScreen(
+          initialText: text,
+          initialMediaPaths: mediaPaths.isNotEmpty ? mediaPaths : null,
+        ),
+      ),
+    );
   }
 
   void _maybeHandleDeepLink() {
@@ -969,6 +999,7 @@ class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
     final themeProvider = context.watch<ThemeProvider>();
     final user = context.watch<UserProvider>().currentUser;
     final isCompact = ResponsiveUtils.isCompact(context);
+    final platformName = context.watch<PlatformConfigProvider>().config.platformName;
 
     return AppBar(
       elevation: 0,
@@ -977,10 +1008,14 @@ class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
       titleSpacing: isCompact ? 8 : 16,
       title: Row(
         children: [
-          Text('🛡️'.tr(context), style: TextStyle(fontSize: 22)),
+          AppLogo(
+            size: isCompact ? 28 : 32,
+            fallbackIcon: Icons.hub,
+            fallbackIconColor: colors.onSurface,
+          ),
           SizedBox(width: isCompact ? 4 : 8),
           Text(
-            isCompact ? 'ROO' : 'ROOVERSE',
+            isCompact ? (platformName.length > 3 ? platformName.substring(0, 3).toUpperCase() : platformName.toUpperCase()) : platformName,
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: isCompact ? 15 : 18,
