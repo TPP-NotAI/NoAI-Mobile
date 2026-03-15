@@ -60,6 +60,20 @@ class PushNotificationService {
         enableVibration: true,
       );
 
+  static const AndroidNotificationChannel _uploadChannel =
+      AndroidNotificationChannel(
+        'rooverse_upload',
+        'Upload Progress',
+        description: 'Shows media upload progress for posts',
+        importance: Importance.low,
+        playSound: false,
+        enableVibration: false,
+      );
+
+  // Fixed notification ID for the ongoing upload notification so updates
+  // replace the same item in the shade rather than stacking.
+  static const int _uploadNotificationId = 9001;
+
   bool _isFirebaseAvailable = false;
 
   /// Initialize push notification service
@@ -182,6 +196,7 @@ class PushNotificationService {
         await androidPlugin.createNotificationChannel(_socialChannel);
         await androidPlugin.createNotificationChannel(_messageChannel);
         await androidPlugin.createNotificationChannel(_walletChannel);
+        await androidPlugin.createNotificationChannel(_uploadChannel);
         _channelsReady = true;
       }
     } else {
@@ -428,6 +443,58 @@ class PushNotificationService {
     } catch (e) {
       debugPrint('PushNotificationService: Failed to get token - $e');
       return null;
+    }
+  }
+
+  /// Show or update a persistent upload-progress notification (Android only).
+  /// [progress] is 0–100. Call with progress=100 to show a "complete" state,
+  /// then call [cancelUploadNotification] to dismiss it.
+  Future<void> showUploadProgress({
+    required int progress,
+    required String title,
+    String body = '',
+  }) async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    await _ensureLocalNotificationsReady();
+    if (!_localNotificationsReady) return;
+
+    final bool indeterminate = progress <= 0;
+    try {
+      await _localNotifications.show(
+        _uploadNotificationId,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _uploadChannel.id,
+            _uploadChannel.name,
+            channelDescription: _uploadChannel.description,
+            importance: Importance.low,
+            priority: Priority.low,
+            ongoing: progress < 100,
+            autoCancel: false,
+            showProgress: true,
+            maxProgress: 100,
+            progress: indeterminate ? 0 : progress,
+            indeterminate: indeterminate,
+            playSound: false,
+            enableVibration: false,
+            icon: '@mipmap/ic_launcher',
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('PushNotificationService: Failed to show upload progress - $e');
+    }
+  }
+
+  /// Cancel the upload-progress notification.
+  Future<void> cancelUploadNotification() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      await _localNotifications.cancel(_uploadNotificationId);
+    } catch (e) {
+      debugPrint('PushNotificationService: Failed to cancel upload notification - $e');
     }
   }
 

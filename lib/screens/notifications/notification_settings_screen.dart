@@ -155,13 +155,46 @@ class _NotificationSettingsScreenState
                   ),
                   icon: Icons.alternate_email,
                 ),
+                _buildSwitchTile(
+                  title: 'Reposts',
+                  subtitle: 'When someone reposts your content',
+                  value: settings.notifyReposts,
+                  onChanged: (val) => _updateSetting(
+                    settings,
+                    settings.copyWith(notifyReposts: val),
+                  ),
+                  icon: Icons.repeat,
+                ),
+                _buildSwitchTile(
+                  title: 'Tips',
+                  subtitle: 'When someone sends you a tip',
+                  value: settings.notifyTips,
+                  onChanged: (val) => _updateSetting(
+                    settings,
+                    settings.copyWith(notifyTips: val),
+                  ),
+                  icon: Icons.toll_outlined,
+                ),
+
+                const SizedBox(height: 24),
+                _buildSectionHeader(context, 'MESSAGES'),
+                _buildSwitchTile(
+                  title: 'Direct Messages',
+                  subtitle: 'When someone sends you a message',
+                  value: settings.notifyMessages,
+                  onChanged: (val) => _updateSetting(
+                    settings,
+                    settings.copyWith(notifyMessages: val),
+                  ),
+                  icon: Icons.chat_outlined,
+                ),
 
                 const SizedBox(height: 40),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Text('Note: These settings control which activities spark a notification. Email and push delivery depends on your global device and account settings.'.tr(context),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant.withOpacity(0.6),
+                      color: colors.onSurfaceVariant.withValues(alpha: 0.6),
                       height: 1.5,
                     ),
                     textAlign: TextAlign.center,
@@ -201,7 +234,7 @@ class _NotificationSettingsScreenState
       secondary: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: colors.surfaceVariant.withOpacity(0.5),
+          color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: colors.onSurfaceVariant, size: 20),
@@ -213,13 +246,14 @@ class _NotificationSettingsScreenState
       subtitle: Text(
         subtitle,
         style: TextStyle(
-          color: colors.onSurfaceVariant.withOpacity(0.7),
+          color: colors.onSurfaceVariant.withValues(alpha: 0.7),
           fontSize: 13,
         ),
       ),
       value: value,
       onChanged: onChanged,
-      activeColor: colors.primary,
+      activeThumbColor: colors.primary,
+      activeTrackColor: colors.primary.withValues(alpha: 0.5),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
   }

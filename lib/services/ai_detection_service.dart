@@ -14,6 +14,10 @@ class AiDetectionService {
   static const Duration _timeout = Duration(seconds: 60);
   static const Duration _mediaTimeout = Duration(minutes: 10);
 
+  /// Files larger than this go through the chunked upload API (matches server).
+  static const int _chunkThresholdBytes = 25 * 1024 * 1024; // 25 MB
+  static const int _chunkSizeBytes = 20 * 1024 * 1024; // 20 MB per chunk
+
   static final AiDetectionService _instance = AiDetectionService._internal();
   factory AiDetectionService() => _instance;
   AiDetectionService._internal();
@@ -224,6 +228,7 @@ class AiDetectionService {
   /// single parallel call. Use this instead of the individual endpoints.
   ///
   /// Pass [content] for text, [file] for media, or both.
+  /// Files > 25 MB are automatically uploaded via the chunked upload API.
   Future<AiDetectionResult?> detectFull({
     String? content,
     File? file,
@@ -235,6 +240,15 @@ class AiDetectionService {
     );
 
     try {
+      // Route large files through the chunked upload API.
+      if (file != null && await file.length() > _chunkThresholdBytes) {
+        debugPrint(
+          'AiDetectionService: File exceeds ${_chunkThresholdBytes ~/ (1024 * 1024)} MB, '
+          'using chunked upload.',
+        );
+        return await _detectFullChunked(file: file, content: content, models: models);
+      }
+
       final extension = file?.path.split('.').last.toLowerCase() ?? '';
       final isVideo = <String>{
         'mp4',
@@ -273,6 +287,112 @@ class AiDetectionService {
       rethrow;
     } catch (e) {
       debugPrint('AiDetectionService: /detect/full error - $e');
+      return null;
+    }
+  }
+
+  /// Uploads a large file in 20 MB chunks then triggers detection.
+  /// Flow: POST /upload/init → POST /upload/chunk (×N) → POST /upload/complete
+  Future<AiDetectionResult?> _detectFullChunked({
+    required File file,
+    String? content,
+    required String models,
+  }) async {
+    try {
+      final fileSize = await file.length();
+      final fileName = file.path.split(Platform.pathSeparator).last;
+      final extension = fileName.split('.').last.toLowerCase();
+      final isVideo = <String>{
+        'mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv',
+      }.contains(extension);
+      final mimeType = isVideo ? 'video/$extension' : 'image/$extension';
+
+      // 1. Init
+      debugPrint(
+        'AiDetectionService: chunked init – file=$fileName size=$fileSize',
+      );
+      final initReq = http.MultipartRequest(
+        'POST',
+        Uri.parse('$_baseUrl/api/v1/upload/init'),
+      );
+      initReq.fields['filename'] = fileName;
+      initReq.fields['total_size'] = fileSize.toString();
+      initReq.fields['content_type'] = mimeType;
+      final initStream = await initReq.send().timeout(_timeout);
+      final initResp = await http.Response.fromStream(initStream).timeout(_timeout);
+      if (initResp.statusCode != 200) {
+        debugPrint(
+          'AiDetectionService: chunked init failed ${initResp.statusCode} – ${initResp.body}',
+        );
+        return null;
+      }
+      final uploadId = (json.decode(initResp.body) as Map<String, dynamic>)['upload_id'] as String;
+      debugPrint('AiDetectionService: chunked upload_id=$uploadId');
+
+      // 2. Chunks
+      final raf = await file.open();
+      int chunkIndex = 0;
+      int offset = 0;
+      try {
+        while (offset < fileSize) {
+          final remaining = fileSize - offset;
+          final chunkLen = remaining < _chunkSizeBytes ? remaining : _chunkSizeBytes;
+          final bytes = await raf.read(chunkLen);
+          offset += bytes.length;
+
+          final chunkReq = http.MultipartRequest(
+            'POST',
+            Uri.parse('$_baseUrl/api/v1/upload/chunk'),
+          );
+          chunkReq.fields['upload_id'] = uploadId;
+          chunkReq.fields['chunk_index'] = chunkIndex.toString();
+          chunkReq.files.add(http.MultipartFile.fromBytes(
+            'chunk',
+            bytes,
+            filename: 'chunk_$chunkIndex',
+          ));
+
+          debugPrint(
+            'AiDetectionService: sending chunk $chunkIndex '
+            '(${bytes.length} bytes, offset $offset/$fileSize)',
+          );
+          final chunkStream = await chunkReq.send().timeout(_mediaTimeout);
+          final chunkResp = await http.Response.fromStream(chunkStream).timeout(_mediaTimeout);
+          if (chunkResp.statusCode != 200) {
+            debugPrint(
+              'AiDetectionService: chunk $chunkIndex failed '
+              '${chunkResp.statusCode} – ${chunkResp.body}',
+            );
+            return null;
+          }
+          chunkIndex++;
+        }
+      } finally {
+        await raf.close();
+      }
+
+      // 3. Complete
+      debugPrint('AiDetectionService: chunked complete – $chunkIndex chunks sent');
+      final completeReq = http.MultipartRequest(
+        'POST',
+        Uri.parse('$_baseUrl/api/v1/upload/complete'),
+      );
+      completeReq.fields['upload_id'] = uploadId;
+      completeReq.fields['models'] = models;
+      if (content != null && content.isNotEmpty) {
+        completeReq.fields['content'] = content;
+      }
+      final completeStream = await completeReq.send().timeout(_mediaTimeout);
+      final completeResp = await http.Response.fromStream(completeStream).timeout(_mediaTimeout);
+      debugPrint(
+        'AiDetectionService: chunked complete response ${completeResp.statusCode}',
+      );
+      return _parseResponse(completeResp);
+    } on TimeoutException catch (e) {
+      debugPrint('AiDetectionService: chunked upload timed out - $e');
+      rethrow;
+    } catch (e) {
+      debugPrint('AiDetectionService: chunked upload error - $e');
       return null;
     }
   }
@@ -397,6 +517,22 @@ class AiDetectionService {
         'confidence=${parsed.confidence}, analysisId=${parsed.analysisId}',
       );
       return parsed;
+    }
+    // 413 means the file is too large for the detection server's current
+    // upload limit. We cannot analyse it, so we pass it through as human-
+    // generated rather than blocking the post or silently returning null.
+    if (response.statusCode == 413) {
+      debugPrint(
+        'AiDetectionService: 413 – file too large for detection server, '
+        'treating as HUMAN-GENERATED (pass-through).',
+      );
+      return AiDetectionResult(
+        result: 'HUMAN-GENERATED',
+        confidence: 0.0,
+        analysisId: 'skipped_413',
+        contentType: 'unknown',
+        rationale: 'File too large for AI detection – passed through.',
+      );
     }
     debugPrint(
       'AiDetectionService: API returned ${response.statusCode} - ${response.body}',

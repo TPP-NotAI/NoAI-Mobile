@@ -25,8 +25,8 @@ class PresenceService with WidgetsBindingObserver {
 
   void _startTimer() {
     _updateTimer?.cancel();
-    // Back off if we keep getting errors: 30s, 60s, 120s, max 5min
-    final intervalSeconds = 30 * (1 << _consecutiveErrors.clamp(0, 3));
+    // Back off if we keep getting errors: 60s, 120s, 240s, max 480s
+    final intervalSeconds = 60 * (1 << _consecutiveErrors.clamp(0, 3));
     _updateTimer = Timer.periodic(Duration(seconds: intervalSeconds), (timer) {
       _updateStatus();
     });

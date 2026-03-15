@@ -36,6 +36,7 @@ class FeedProvider with ChangeNotifier {
 
   List<Post> _posts = [];
   List<Post>? _cachedFilteredPosts; // cached result of the posts getter
+  Map<String, int>? _postIndexCache; // lazy id→index map, cleared with _invalidatePostsCache
   List<Post> _draftPosts = [];
   List<String>? _userInterests;
   bool _isLoading = false;
@@ -46,6 +47,9 @@ class FeedProvider with ChangeNotifier {
   // Feed filter
   FeedFilter _activeFilter = FeedFilter.forYou;
   FeedFilter get activeFilter => _activeFilter;
+
+  // Guard so initializeFeed() only runs once even if called multiple times
+  bool _feedInitialized = false;
 
   // New content indicator — set to true when a background check finds newer posts
   bool _newPostsAvailable = false;
@@ -142,6 +146,24 @@ class FeedProvider with ChangeNotifier {
   /// or block/mute sets change.
   void _invalidatePostsCache() {
     _cachedFilteredPosts = null;
+    _postIndexCache = null;
+  }
+
+  /// O(1) index lookup for a post by id. Builds the map lazily on first call.
+  int _postIndex(String id) {
+    if (_postIndexCache == null) {
+      _postIndexCache = {};
+      for (var i = 0; i < _posts.length; i++) {
+        _postIndexCache![_posts[i].id] = i;
+      }
+    }
+    return _postIndexCache![id] ?? -1;
+  }
+
+  /// O(1) synchronous post lookup by id (feed list only, no network fallback).
+  Post? getPostFromFeed(String id) {
+    final idx = _postIndex(id);
+    return idx != -1 ? _posts[idx] : null;
   }
 
   /// Get draft (unpublished) posts for the current user.
@@ -212,10 +234,17 @@ class FeedProvider with ChangeNotifier {
   }
 
   FeedProvider() {
-    _loadInitialFeed();
-    _loadUserInterests();
     _subscribeToNewPosts();
     _subscribeToCommentInserts();
+  }
+
+  /// Call once from the first widget that owns the feed (FeedScreen.initState).
+  /// Subsequent calls are no-ops so re-mounts don't re-fetch.
+  void initializeFeed() {
+    if (_feedInitialized) return;
+    _feedInitialized = true;
+    _loadInitialFeed();
+    _loadUserInterests();
   }
 
   void _subscribeToNewPosts() {
@@ -291,7 +320,7 @@ class FeedProvider with ChangeNotifier {
               return;
             }
             // Otherwise refresh only if this post is already in the feed.
-            final index = _posts.indexWhere((p) => p.id == postId);
+            final index = _postIndex(postId);
             if (index == -1) return;
             try {
               final fresh = await _postRepository.getPost(
@@ -487,10 +516,6 @@ class FeedProvider with ChangeNotifier {
 
       _error = null;
       _hasMore = _posts.length >= 20;
-
-      // Re-run AI checks for any posts that got stuck under_review
-      // (e.g. app was killed before AI finished)
-      if (userId != null) unawaited(_resumePendingAiChecks(userId));
     } catch (e) {
       debugPrint('FeedProvider: Failed to load feed: $e');
       _error = 'Failed to load feed. Please try again.';
@@ -500,41 +525,6 @@ class FeedProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Re-queues AI detection for the current user's posts that are still
-  /// under_review after 2+ minutes — meaning the app was killed mid-check.
-  Future<void> _resumePendingAiChecks(String userId) async {
-    try {
-      final cutoff = DateTime.now()
-          .subtract(const Duration(minutes: 2))
-          .toUtc()
-          .toIso8601String();
-      final stuck = await SupabaseService().client
-          .from('posts')
-          .select('id, body, status')
-          .eq('author_id', userId)
-          .eq('status', 'under_review')
-          .lt('created_at', cutoff);
-
-      if ((stuck as List).isEmpty) return;
-
-      debugPrint(
-        'FeedProvider: Resuming AI check for ${stuck.length} stuck post(s)',
-      );
-      for (final row in stuck) {
-        final postId = row['id'] as String;
-        final body = row['body'] as String? ?? '';
-        unawaited(
-          _postRepository.runAiDetection(
-            postId: postId,
-            authorId: userId,
-            body: body,
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('FeedProvider: _resumePendingAiChecks error - $e');
-    }
-  }
 
   // Refresh feed (pull-to-refresh)
   Future<void> refreshFeed() async {
@@ -638,7 +628,7 @@ class FeedProvider with ChangeNotifier {
     // Require KYC verification before liking
     await _kycService.requireActivation(currentBalance: _currentUserBalance);
 
-    final first = _posts.indexWhere((p) => p.id == postId);
+    final first = _postIndex(postId);
     if (first == -1) return;
 
     final wasLiked = _posts[first].isLiked;
@@ -679,7 +669,7 @@ class FeedProvider with ChangeNotifier {
   // Add tip to a post — updates the post tip counter after a successful transfer.
   // KYC is verified by the caller before the blockchain transfer; no re-check needed here.
   Future<void> tipPost(String postId, double amount) async {
-    final first = _posts.indexWhere((p) => p.id == postId);
+    final first = _postIndex(postId);
     if (first == -1) return;
 
     // Optimistic update across all feed instances (original + repost cards)
@@ -725,7 +715,7 @@ class FeedProvider with ChangeNotifier {
       );
 
       // Update post comment count only after backend confirms save.
-      final index = _posts.indexWhere((p) => p.id == postId);
+      final index = _postIndex(postId);
       if (savedComment != null && index != -1) {
         final post = _posts[index];
         _posts[index] = post.copyWith(comments: post.comments + 1);
@@ -754,7 +744,7 @@ class FeedProvider with ChangeNotifier {
             )
             .then((aiScore) {
               if (aiScore != null) {
-                final idx = _posts.indexWhere((p) => p.id == postId);
+                final idx = _postIndex(postId);
                 if (idx != -1) {
                   final post = _posts[idx];
                   if (post.commentList != null) {
@@ -793,7 +783,7 @@ class FeedProvider with ChangeNotifier {
 
   // Add comment locally (for optimistic updates from UI)
   void addCommentLocally(String postId, Comment newComment) {
-    final index = _posts.indexWhere((p) => p.id == postId);
+    final index = _postIndex(postId);
     if (index == -1) return;
 
     final post = _posts[index];
@@ -837,7 +827,7 @@ class FeedProvider with ChangeNotifier {
       );
 
       // Update post comment count only after backend confirms save.
-      final index = _posts.indexWhere((p) => p.id == postId);
+      final index = _postIndex(postId);
       if (savedComment != null && index != -1) {
         final post = _posts[index];
         _posts[index] = post.copyWith(comments: post.comments + 1);
@@ -866,7 +856,7 @@ class FeedProvider with ChangeNotifier {
             )
             .then((aiScore) {
               if (aiScore != null) {
-                final idx = _posts.indexWhere((p) => p.id == postId);
+                final idx = _postIndex(postId);
                 if (idx != -1) {
                   final post = _posts[idx];
                   if (post.commentList != null) {
@@ -927,7 +917,7 @@ class FeedProvider with ChangeNotifier {
     // Require KYC verification before liking
     await _kycService.requireActivation(currentBalance: _currentUserBalance);
 
-    final postIndex = _posts.indexWhere((p) => p.id == postId);
+    final postIndex = _postIndex(postId);
     if (postIndex == -1) return;
 
     final post = _posts[postIndex];
@@ -1038,7 +1028,7 @@ class FeedProvider with ChangeNotifier {
 
       // Update the local reply with the real ID from Supabase
       if (savedReply != null) {
-        final index = _posts.indexWhere((p) => p.id == postId);
+        final index = _postIndex(postId);
         if (index != -1) {
           final post = _posts[index];
           if (post.commentList != null) {
@@ -1062,7 +1052,7 @@ class FeedProvider with ChangeNotifier {
               )
               .then((aiScore) {
                 if (aiScore != null) {
-                  final idx = _posts.indexWhere((p) => p.id == postId);
+                  final idx = _postIndex(postId);
                   if (idx != -1) {
                     final post = _posts[idx];
                     if (post.commentList != null) {
@@ -1123,7 +1113,7 @@ class FeedProvider with ChangeNotifier {
 
   // Add reply locally (for optimistic updates from UI)
   void addReplyLocally(String postId, String commentId, Comment reply) {
-    final postIndex = _posts.indexWhere((p) => p.id == postId);
+    final postIndex = _postIndex(postId);
     if (postIndex == -1) return;
 
     final post = _posts[postIndex];
@@ -1172,7 +1162,7 @@ class FeedProvider with ChangeNotifier {
 
       // Update the local reply with the real ID from Supabase
       if (savedReply != null) {
-        final index = _posts.indexWhere((p) => p.id == postId);
+        final index = _postIndex(postId);
         if (index != -1) {
           final post = _posts[index];
           if (post.commentList != null) {
@@ -1196,7 +1186,7 @@ class FeedProvider with ChangeNotifier {
               )
               .then((aiScore) {
                 if (aiScore != null) {
-                  final idx = _posts.indexWhere((p) => p.id == postId);
+                  final idx = _postIndex(postId);
                   if (idx != -1) {
                     final post = _posts[idx];
                     if (post.commentList != null) {
@@ -1271,7 +1261,7 @@ class FeedProvider with ChangeNotifier {
     final userId = _currentUserId;
     if (userId == null) return false;
 
-    final postIndex = _posts.indexWhere((p) => p.id == postId);
+    final postIndex = _postIndex(postId);
     if (postIndex == -1) return false;
 
     final post = _posts[postIndex];
@@ -1321,7 +1311,7 @@ class FeedProvider with ChangeNotifier {
     final userId = _currentUserId;
     if (userId == null) return false;
 
-    final postIndex = _posts.indexWhere((p) => p.id == postId);
+    final postIndex = _postIndex(postId);
     if (postIndex == -1) return false;
 
     final post = _posts[postIndex];
@@ -1453,7 +1443,7 @@ class FeedProvider with ChangeNotifier {
     } else {
       _bookmarkedPostIds.add(postId);
       // Add to list from feed if available so it shows immediately
-      final feedIndex = _posts.indexWhere((p) => p.id == postId);
+      final feedIndex = _postIndex(postId);
       if (feedIndex != -1) _bookmarkedPostsList.insert(0, _posts[feedIndex]);
     }
     notifyListeners();
@@ -1464,7 +1454,7 @@ class FeedProvider with ChangeNotifier {
       // Revert on failure
       if (wasBookmarked) {
         _bookmarkedPostIds.add(postId);
-        final feedIndex = _posts.indexWhere((p) => p.id == postId);
+        final feedIndex = _postIndex(postId);
         if (feedIndex != -1) _bookmarkedPostsList.insert(0, _posts[feedIndex]);
       } else {
         _bookmarkedPostIds.remove(postId);
@@ -1622,7 +1612,7 @@ class FeedProvider with ChangeNotifier {
 
     /// Called when the post is detected as an advertisement requiring an ad
     /// fee payment in ROO. Return true if the user successfully paid.
-    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
+    Future<bool> Function(double adConfidence, String? adType, List<String> evidence, String? rationale)? onAdFeeRequired,
     void Function(double progress)? onUploadProgress,
   }) async {
     final userId = _currentUserId;
@@ -1671,7 +1661,7 @@ class FeedProvider with ChangeNotifier {
 
         // Replace optimistic post if present, otherwise add to the beginning
         if (tempId != null) {
-          final idx = _posts.indexWhere((p) => p.id == tempId);
+          final idx = _postIndex(tempId);
           if (idx != -1 && shouldShowInFeed) {
             final optimisticMentions = _posts[idx].mentionedUserIds;
             _posts[idx] =
@@ -1710,7 +1700,7 @@ class FeedProvider with ChangeNotifier {
             );
 
             if (updatedPost != null) {
-              final idx = _posts.indexWhere((p) => p.id == newPost.id);
+              final idx = _postIndex(newPost.id);
               if (idx != -1) {
                 final previousMentions = _posts[idx].mentionedUserIds;
                 final mergedPost =
@@ -1748,7 +1738,7 @@ class FeedProvider with ChangeNotifier {
               // Check if AI score is 95%+ (auto-block threshold)
               // Remove immediately from UI without waiting for backend
               if (confidence >= 95) {
-                final idx = _posts.indexWhere((p) => p.id == newPost.id);
+                final idx = _postIndex(newPost.id);
                 if (idx != -1) {
                   _posts.removeAt(idx);
                   _invalidatePostsCache();
@@ -1763,7 +1753,7 @@ class FeedProvider with ChangeNotifier {
                 updatedPost,
               ) async {
                 if (updatedPost != null) {
-                  final idx = _posts.indexWhere((p) => p.id == newPost.id);
+                  final idx = _postIndex(newPost.id);
                   if (idx != -1) {
                     final previousMentions = _posts[idx].mentionedUserIds;
                     final mergedPost =
@@ -1827,7 +1817,7 @@ class FeedProvider with ChangeNotifier {
 
   // Load comments for a post (filters out blocked users)
   Future<void> loadCommentsForPost(String postId) async {
-    final index = _posts.indexWhere((p) => p.id == postId);
+    final index = _postIndex(postId);
     if (index == -1) return;
 
     try {
@@ -1996,7 +1986,7 @@ class FeedProvider with ChangeNotifier {
       location: location,
     );
     if (success) {
-      final index = _posts.indexWhere((p) => p.id == postId);
+      final index = _postIndex(postId);
       if (index != -1) {
         _posts[index] = _posts[index].copyWith(
           content: body,
@@ -2037,7 +2027,7 @@ class FeedProvider with ChangeNotifier {
 
     /// Called when the edited post is detected as an advertisement requiring
     /// an ad fee payment in ROO. Return true if the user successfully paid.
-    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
+    Future<bool> Function(double adConfidence, String? adType, List<String> evidence, String? rationale)? onAdFeeRequired,
   }) async {
     final userId = _currentUserId;
     if (userId == null) return false;
@@ -2108,7 +2098,7 @@ class FeedProvider with ChangeNotifier {
       );
 
       if (updatedPost != null) {
-        final index = _posts.indexWhere((p) => p.id == postId);
+        final index = _postIndex(postId);
         if (index != -1) {
           if (updatedPost.status == 'under_review' ||
               updatedPost.status == 'deleted' ||
@@ -2136,15 +2126,13 @@ class FeedProvider with ChangeNotifier {
   }
 
   Future<Post?> getPostById(String postId) async {
-    // Check local cache first
-    try {
-      return _posts.firstWhere((p) => p.id == postId);
-    } catch (_) {
-      // Fetch from repository if not in local cache
-      return await _postRepository.getPost(
-        postId,
-        currentUserId: _currentUserId,
-      );
-    }
+    // O(1) check in local feed first
+    final local = getPostFromFeed(postId);
+    if (local != null) return local;
+    // Fetch from repository if not in local feed
+    return await _postRepository.getPost(
+      postId,
+      currentUserId: _currentUserId,
+    );
   }
 }

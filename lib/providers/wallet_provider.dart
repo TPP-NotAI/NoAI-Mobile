@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/extensions/exception_extensions.dart';
 import '../models/wallet.dart';
 import '../repositories/wallet_repository.dart';
@@ -15,6 +16,7 @@ class WalletProvider with ChangeNotifier {
   String? _error;
   bool _isNetworkOnline = true;
   bool _wasWelcomeBonusAwarded = false;
+  RealtimeChannel? _walletChannel;
 
   WalletProvider({WalletRepository? walletRepository})
     : _walletRepository = walletRepository ?? WalletRepository();
@@ -25,6 +27,43 @@ class WalletProvider with ChangeNotifier {
   String? get error => _error;
   bool get isNetworkOnline => _isNetworkOnline;
   bool get wasWelcomeBonusAwarded => _wasWelcomeBonusAwarded;
+
+  @override
+  void dispose() {
+    _stopListening();
+    super.dispose();
+  }
+
+  void _startListening(String userId) {
+    if (_walletChannel != null) return;
+    _walletChannel = Supabase.instance.client
+        .channel('wallet:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'wallets',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            try {
+              final updated = Wallet.fromSupabase(payload.newRecord);
+              _wallet = updated;
+              notifyListeners();
+            } catch (e) {
+              debugPrint('WalletProvider: Real-time parse error: $e');
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  void _stopListening() {
+    _walletChannel?.unsubscribe();
+    _walletChannel = null;
+  }
 
   bool get isWalletActivated {
     final address = _wallet?.walletAddress ?? '';
@@ -60,6 +99,9 @@ class WalletProvider with ChangeNotifier {
 
       // Load transactions
       await fetchTransactions(userId);
+
+      // Start real-time listener for instant balance updates
+      _startListening(userId);
 
       // Sync balance with blockchain in background
       if (_isNetworkOnline) {

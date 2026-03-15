@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:rooverse/providers/user_provider.dart';
-import 'package:rooverse/screens/create/create_post_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_spacing.dart';
@@ -23,7 +22,11 @@ class FeedScreen extends StatefulWidget {
   /// from outside (e.g., when the home tab is re-tapped).
   final ValueNotifier<int>? returnToTopNotifier;
 
-  const FeedScreen({super.key, this.returnToTopNotifier});
+  /// Called when the user taps a create-post entry point in the feed.
+  /// [initialPostType] is null for the generic composer, or 'Photo'/'Video'/'Text'.
+  final void Function({String? initialPostType})? onNavigateToCreate;
+
+  const FeedScreen({super.key, this.returnToTopNotifier, this.onNavigateToCreate});
 
   @override
   State<FeedScreen> createState() => _FeedScreenState();
@@ -39,6 +42,7 @@ class _FeedScreenState extends State<FeedScreen> {
     widget.returnToTopNotifier?.addListener(_onReturnToTop);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      context.read<FeedProvider>().initializeFeed();
       context.read<StoryProvider>().refresh();
     });
   }
@@ -95,8 +99,24 @@ class _FeedScreenState extends State<FeedScreen> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    return Consumer<FeedProvider>(
-      builder: (context, feed, _) {
+    // Selector rebuilds only when structural state changes (list length, loading,
+    // filter, new-posts banner) — NOT on individual post reaction/bookmark updates.
+    return Selector<FeedProvider, _FeedViewState>(
+      selector: (_, feed) => _FeedViewState(
+        postCount: feed.posts.length,
+        isLoading: feed.isLoading,
+        newPostsAvailable: feed.newPostsAvailable,
+        activeFilter: feed.activeFilter,
+        postsIdentity: feed.posts,
+      ),
+      shouldRebuild: (prev, next) =>
+          prev.postCount != next.postCount ||
+          prev.isLoading != next.isLoading ||
+          prev.newPostsAvailable != next.newPostsAvailable ||
+          prev.activeFilter != next.activeFilter ||
+          !identical(prev.postsIdentity, next.postsIdentity),
+      builder: (context, _, __) {
+        final feed = context.read<FeedProvider>();
         return RefreshIndicator(
           color: colors.primary,
           backgroundColor: colors.surface,
@@ -140,7 +160,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     child: Center(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: maxWidth),
-                        child: const CreatePostCard(),
+                        child: CreatePostCard(onNavigateToCreate: widget.onNavigateToCreate),
                       ),
                     ),
                   ),
@@ -220,6 +240,7 @@ class _FeedScreenState extends State<FeedScreen> {
                               onCommentTap: () => _showComments(context, post),
                               onTipTap: () => _showTipModal(context, post),
                               onProfileTap: () {
+                                disposeFeedVideoCache();
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -457,7 +478,9 @@ class _NewPostsBanner extends StatelessWidget {
 /* ───────────────── CREATE POST CARD ───────────────── */
 
 class CreatePostCard extends StatelessWidget {
-  const CreatePostCard({super.key});
+  final void Function({String? initialPostType})? onNavigateToCreate;
+
+  const CreatePostCard({super.key, this.onNavigateToCreate});
 
   @override
   Widget build(BuildContext context) {
@@ -489,10 +512,7 @@ class CreatePostCard extends StatelessWidget {
         children: [
           GestureDetector(
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CreatePostScreen()),
-              );
+              onNavigateToCreate?.call();
             },
             child: Row(
               children: [
@@ -560,43 +580,19 @@ class CreatePostCard extends StatelessWidget {
                 icon: Icons.image_outlined,
                 label: 'Photo',
                 color: colors.primary,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          const CreatePostScreen(initialPostType: 'Photo'),
-                    ),
-                  );
-                },
+                onTap: () => onNavigateToCreate?.call(initialPostType: 'Photo'),
               ),
               _ActionButton(
                 icon: Icons.videocam_outlined,
                 label: 'Video',
                 color: colors.error,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          const CreatePostScreen(initialPostType: 'Video'),
-                    ),
-                  );
-                },
+                onTap: () => onNavigateToCreate?.call(initialPostType: 'Video'),
               ),
               _ActionButton(
                 icon: Icons.article_outlined,
                 label: 'Text',
                 color: colors.tertiary,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          const CreatePostScreen(initialPostType: 'Text'),
-                    ),
-                  );
-                },
+                onTap: () => onNavigateToCreate?.call(initialPostType: 'Text'),
               ),
             ],
           ),
@@ -604,6 +600,24 @@ class CreatePostCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Holds only the structural feed state needed to decide when to rebuild the
+/// feed UI. Individual post mutations (likes, bookmarks) do NOT change this.
+class _FeedViewState {
+  final int postCount;
+  final bool isLoading;
+  final bool newPostsAvailable;
+  final FeedFilter activeFilter;
+  final List<dynamic> postsIdentity;
+
+  const _FeedViewState({
+    required this.postCount,
+    required this.isLoading,
+    required this.newPostsAvailable,
+    required this.activeFilter,
+    required this.postsIdentity,
+  });
 }
 
 class _ActionButton extends StatelessWidget {

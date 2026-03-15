@@ -741,7 +741,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get moderationAppeal => 'Moderation Appeal';
 
   @override
-  String get roobyteWallet => 'Roobyte / Wallet';
+  String get roobitWallet => 'Roobit / Wallet';
 
   @override
   String get technicalProblem => 'Technical Problem';

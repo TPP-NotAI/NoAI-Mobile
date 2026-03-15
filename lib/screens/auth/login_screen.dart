@@ -193,14 +193,17 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: scheme.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: AppSpacing.double_.responsive(context),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(height: 80.responsive(context, min: 60, max: 100)),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final topSpacing = (constraints.maxHeight * 0.08).clamp(24.0, 80.0);
+            return SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.double_.responsive(context),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(height: topSpacing),
 
               // Logo and title
               AppLogo(
@@ -432,19 +435,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
               SizedBox(height: AppSpacing.triple.responsive(context)),
 
-              // Social login buttons
+              // Social login buttons — Google and Phone side by side
               Row(
                 children: [
-                  // Apple login temporarily disabled.
-                  // Expanded(
-                  //   child: _buildSocialButton(
-                  //     context,
-                  //     label: 'Apple',
-                  //     icon: Icons.apple,
-                  //     onPressed: () {},
-                  //   ),
-                  // ),
-                  // SizedBox(width: AppSpacing.standard.responsive(context)),
                   Expanded(
                     child: _buildSocialButton(
                       context,
@@ -453,39 +446,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: _isLoading ? null : _handleGoogleLogin,
                     ),
                   ),
+                  SizedBox(width: AppSpacing.standard.responsive(context)),
+                  Expanded(
+                    child: _buildSocialButton(
+                      context,
+                      label: 'Phone',
+                      icon: Icons.phone_android,
+                      onPressed: _isLoading ? null : _openPhoneLogin,
+                    ),
+                  ),
                 ],
-              ),
-
-              SizedBox(height: AppSpacing.double_.responsive(context)),
-
-              SizedBox(
-                width: double.infinity,
-                height: 56.responsive(context, min: 48, max: 64),
-                child: OutlinedButton.icon(
-                  onPressed: _openPhoneLogin,
-                  icon: Icon(
-                    Icons.phone_android,
-                    color: scheme.onSurface,
-                    size: AppTypography.responsiveIconSize(context, 24),
-                  ),
-                  label: Text('Login with phone number'.tr(context),
-                    style: TextStyle(
-                      color: scheme.onSurface,
-                      fontSize: AppTypography.responsiveFontSize(
-                        context,
-                        AppTypography.base,
-                      ),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: scheme.surface,
-                    side: BorderSide(color: scheme.outline.withOpacity(0.4)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppSpacing.responsiveRadius(context, 28),
-                    ),
-                  ),
-                ),
               ),
 
               SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
@@ -540,9 +510,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
 
-              SizedBox(height: AppSpacing.triple.responsive(context)),
-            ],
-          ),
+                  SizedBox(height: AppSpacing.triple.responsive(context)),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

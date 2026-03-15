@@ -300,9 +300,9 @@ class _NotificationTileState extends State<NotificationTile> {
       case 'reply':
         return 'replied to your comment';
       case 'roocoin_received':
-        return 'sent you Roobyte';
+        return 'sent you Roobit';
       case 'roocoin_sent':
-        return 'successfully sent Roobyte';
+        return 'successfully sent Roobit';
       case 'chat':
       case 'message':
         return 'sent you a message';

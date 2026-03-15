@@ -256,7 +256,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                 ),
                 DropdownMenuItem(
                   value: 'roocoin',
-                  child: Text('Roobyte / Wallet'.tr(context)),
+                  child: Text('Roobit / Wallet'.tr(context)),
                 ),
                 DropdownMenuItem(
                   value: 'technical',

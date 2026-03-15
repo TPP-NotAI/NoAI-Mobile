@@ -38,11 +38,8 @@ class ReactionRepository {
         .eq('reaction_type', 'like')
         .maybeSingle();
 
-    debugPrint('ReactionRepository: Existing reaction = $existing');
-
     if (existing != null) {
       // Unlike - delete the reaction
-      debugPrint('ReactionRepository: Deleting existing reaction');
       await _client
           .from(SupabaseConfig.reactionsTable)
           .delete()
@@ -63,14 +60,12 @@ class ReactionRepository {
       return false;
     } else {
       // Like - insert new reaction (post_id must be NULL for comment reactions)
-      debugPrint('ReactionRepository: Inserting new reaction');
       await _client.from(SupabaseConfig.reactionsTable).insert({
         'post_id': null,
         'comment_id': commentId,
         'user_id': userId,
         'reaction_type': 'like',
       });
-      debugPrint('ReactionRepository: Insert successful');
       unawaited(
         _activityLogService.log(
           userId: userId,
@@ -127,10 +122,6 @@ class ReactionRepository {
     required String postId,
     required String userId,
   }) async {
-    debugPrint(
-      'ReactionRepository: Toggling like for post=$postId, user=$userId',
-    );
-
     // Check if reaction exists (post reactions have comment_id = NULL)
     final existing = await _client
         .from(SupabaseConfig.reactionsTable)
@@ -141,11 +132,8 @@ class ReactionRepository {
         .eq('reaction_type', 'like')
         .maybeSingle();
 
-    debugPrint('ReactionRepository: Existing reaction = $existing');
-
     if (existing != null) {
       // Unlike - delete the reaction
-      debugPrint('ReactionRepository: Deleting existing reaction');
       await _client
           .from(SupabaseConfig.reactionsTable)
           .delete()
@@ -166,14 +154,12 @@ class ReactionRepository {
       return false;
     } else {
       // Like - insert new reaction (comment_id must be NULL for post reactions)
-      debugPrint('ReactionRepository: Inserting new reaction');
       await _client.from(SupabaseConfig.reactionsTable).insert({
         'post_id': postId,
         'comment_id': null,
         'user_id': userId,
         'reaction_type': 'like',
       });
-      debugPrint('ReactionRepository: Insert successful');
       unawaited(
         _activityLogService.log(
           userId: userId,
@@ -236,7 +222,7 @@ class ReactionRepository {
             );
           } catch (e) {
             debugPrint(
-              'ReactionRepository: Error awarding ROO for post like - $e',
+              'ReactionRepository: ROO award skipped - $e',
             );
           }
         }
@@ -390,5 +376,23 @@ class ReactionRepository {
         .maybeSingle();
 
     return response != null;
+  }
+
+  /// Get the list of users who liked a post, with their profile info.
+  Future<List<Map<String, dynamic>>> getPostLikers({
+    required String postId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final response = await _client
+        .from(SupabaseConfig.reactionsTable)
+        .select('user_id, created_at, profiles!inner(user_id, username, display_name, avatar_url, verified_human)')
+        .eq('post_id', postId)
+        .isFilter('comment_id', null)
+        .eq('reaction_type', 'like')
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
+
+    return List<Map<String, dynamic>>.from(response);
   }
 }

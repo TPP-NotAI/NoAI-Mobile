@@ -19,12 +19,12 @@ import '../screens/hashtag_feed_screen.dart';
 import '../screens/post_detail_screen.dart';
 import '../screens/ads/ad_insights_page.dart';
 import '../utils/time_utils.dart';
-import 'video_player_widget.dart';
 import 'full_screen_media_viewer.dart';
 import 'report_sheet.dart';
 import 'shimmer_loading.dart';
 import 'mention_rich_text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -36,8 +36,46 @@ import '../services/kyc_verification_service.dart';
 import 'tip_modal.dart';
 import 'boost_post_modal.dart';
 import '../screens/boost/boost_analytics_page.dart';
+import 'likers_sheet.dart';
 
+import 'package:video_player/video_player.dart';
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
+/// Global mute state shared across all feed video players.
+/// Toggling on one card toggles all — same as Instagram.
+final ValueNotifier<bool> feedVideoMuteNotifier = ValueNotifier<bool>(true);
+
+// ---------------------------------------------------------------------------
+// Feed video controller cache — keeps the last N initialized controllers alive
+// so scrolling back to a video doesn't re-download and re-initialize it.
+// ---------------------------------------------------------------------------
+// Feed video — Instagram-style single-active-player model.
+// Only ONE video plays at a time. Each tile owns its controller (created on
+// scroll-in, disposed on scroll-off). A global serialization lock ensures
+// only one MediaCodec initialize() runs at a time → no SIGABRT.
+// ---------------------------------------------------------------------------
+
+Future<void> _feedInitLock = Future.value();
+
+// The currently playing state instance. Only this one may call play().
+_FeedVideoPlayerState? _activeFeedPlayer;
+
+void _requestFeedPlay(_FeedVideoPlayerState requester) {
+  if (_activeFeedPlayer == requester) return;
+  final prev = _activeFeedPlayer;
+  _activeFeedPlayer = requester;
+  try { prev?._controller?.pause(); } catch (_) {}
+}
+
+void _unregisterFeedPlay(_FeedVideoPlayerState player) {
+  if (_activeFeedPlayer == player) _activeFeedPlayer = null;
+}
+
+/// Pause all feed videos (e.g. when navigating away).
+void disposeFeedVideoCache() {
+  try { _activeFeedPlayer?._controller?.pause(); } catch (_) {}
+  _activeFeedPlayer = null;
+}
 
 // ---------------------------------------------------------------------------
 // Public cache so boost_post_modal.dart can mark a post as boosted immediately
@@ -1432,8 +1470,152 @@ class _FourPlusMediaGrid extends StatelessWidget {
   }
 }
 
+/// Instagram-style feed video: auto-plays muted, mute/unmute button, no controls.
+class _FeedVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+  const _FeedVideoPlayer({required this.videoUrl});
+
+  @override
+  State<_FeedVideoPlayer> createState() => _FeedVideoPlayerState();
+}
+
+class _FeedVideoPlayerState extends State<_FeedVideoPlayer> {
+  VideoPlayerController? _controller;
+  bool _initialized = false;
+  bool _hasError = false;
+  bool _disposed = false; // guard against calling setState after dispose
+
+  @override
+  void initState() {
+    super.initState();
+    feedVideoMuteNotifier.addListener(_onMuteChanged);
+    _initPlayer(widget.videoUrl);
+  }
+
+  @override
+  void didUpdateWidget(_FeedVideoPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoUrl != widget.videoUrl) {
+      _disposeController();
+      if (mounted) setState(() { _initialized = false; _hasError = false; });
+      _initPlayer(widget.videoUrl);
+    }
+  }
+
+  void _disposeController() {
+    final c = _controller;
+    _controller = null;
+    if (c != null) {
+      try { c.pause(); } catch (_) {}
+      // Chain dispose through the global lock so we don't dispose while
+      // another initialize() is in progress on the same thread.
+      _feedInitLock = _feedInitLock.then((_) async {
+        try { c.dispose(); } catch (_) {}
+      });
+    }
+  }
+
+  Future<void> _initPlayer(String url) async {
+    // Chain everything — init AND play — inside the global lock.
+    // This prevents dispose() from interleaving with any in-progress call.
+    _feedInitLock = _feedInitLock.then((_) async {
+      if (_disposed) return;
+
+      VideoPlayerController? controller;
+      try {
+        controller = VideoPlayerController.networkUrl(Uri.parse(url));
+        await controller.initialize();
+      } catch (_) {
+        try { controller?.dispose(); } catch (_) {}
+        if (!_disposed && mounted) setState(() => _hasError = true);
+        return;
+      }
+
+      if (_disposed) {
+        try { controller.dispose(); } catch (_) {}
+        return;
+      }
+
+      try {
+        await controller.setLooping(true);
+        await controller.setVolume(feedVideoMuteNotifier.value ? 0.0 : 1.0);
+      } catch (_) {
+        try { controller.dispose(); } catch (_) {}
+        if (!_disposed && mounted) setState(() => _hasError = true);
+        return;
+      }
+
+      if (_disposed) {
+        try { controller.dispose(); } catch (_) {}
+        return;
+      }
+
+      if (mounted) {
+        setState(() {
+          _controller = controller;
+          _initialized = true;
+        });
+      }
+
+      _requestFeedPlay(this);
+      if (!_disposed) {
+        try { controller.play(); } catch (_) {}
+      }
+    });
+  }
+
+  void _onMuteChanged() {
+    if (_controller != null && _initialized && !_disposed) {
+      try { _controller!.setVolume(feedVideoMuteNotifier.value ? 0.0 : 1.0); } catch (_) {}
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _unregisterFeedPlay(this);
+    feedVideoMuteNotifier.removeListener(_onMuteChanged);
+    _disposeController();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: Icon(Icons.videocam_outlined, size: 40, color: Colors.white54),
+        ),
+      );
+    }
+
+    if (!_initialized || _controller == null) {
+      return const ShimmerLoading(
+        isLoading: true,
+        child: ShimmerBox(width: double.infinity, height: double.infinity, borderRadius: 0),
+      );
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        FittedBox(
+          fit: BoxFit.cover,
+          clipBehavior: Clip.hardEdge,
+          child: SizedBox(
+            width: _controller!.value.size.width,
+            height: _controller!.value.size.height,
+            child: VideoPlayer(_controller!),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Individual media tile (image or video thumbnail)
-class _MediaTile extends StatelessWidget {
+class _MediaTile extends StatefulWidget {
   final _MediaItem item;
   final double? height;
   final Post post;
@@ -1446,18 +1628,55 @@ class _MediaTile extends StatelessWidget {
     required this.index,
   });
 
+  @override
+  State<_MediaTile> createState() => _MediaTileState();
+}
+
+class _MediaTileState extends State<_MediaTile>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _heartController;
+  late final Animation<double> _heartScale;
+  late final Animation<double> _heartOpacity;
+  bool _showHeart = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _heartController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _heartScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.3), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 20),
+    ]).animate(_heartController);
+    _heartOpacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 30),
+    ]).animate(_heartController);
+  }
+
+  @override
+  void dispose() {
+    _heartController.dispose();
+    super.dispose();
+  }
+
   void _openFullScreen(BuildContext context) {
     Navigator.push(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
             FullScreenMediaViewer(
-              post: post,
-              mediaUrl: item.url,
-              isVideo: item.isVideo,
-              heroTag: '${post.id}_$index',
-              mediaList: post.mediaList,
-              initialIndex: index,
+              post: widget.post,
+              mediaUrl: widget.item.url,
+              isVideo: widget.item.isVideo,
+              heroTag: '${widget.post.id}_${widget.index}',
+              mediaList: widget.post.mediaList,
+              initialIndex: widget.index,
             ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
@@ -1466,50 +1685,50 @@ class _MediaTile extends StatelessWidget {
     );
   }
 
+  Future<void> _handleDoubleTap(BuildContext context) async {
+    // Show heart animation regardless
+    setState(() => _showHeart = true);
+    _heartController.forward(from: 0.0).then((_) {
+      if (mounted) setState(() => _showHeart = false);
+    });
+
+    // Only like if not already liked (Instagram style: double-tap only likes)
+    final feedProvider = context.read<FeedProvider>();
+    final currentPost = feedProvider.getPostFromFeed(widget.post.id) ?? widget.post;
+    if (currentPost.isLiked) return;
+
+    try {
+      await feedProvider.toggleLike(currentPost.id);
+    } catch (_) {
+      // Silently ignore errors from double-tap like
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final item = widget.item;
+    final post = widget.post;
+    final index = widget.index;
+    final height = widget.height;
 
     return GestureDetector(
       onTap: () => _openFullScreen(context),
+      onDoubleTap: () => _handleDoubleTap(context),
       child: SizedBox(
         height: height,
         child: Stack(
           fit: StackFit.expand,
           children: [
             if (item.isVideo)
-              Container(
-                color: Colors.black,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Video thumbnail — contain keeps aspect ratio, black bars on sides
-                    VideoPlayerWidget(
-                      videoUrl: item.url,
-                      boxFit: BoxFit.contain,
-                    ),
-                    // Play button overlay
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
+              RepaintBoundary(child: _FeedVideoPlayer(videoUrl: item.url))
             else
               CachedNetworkImage(
                 imageUrl: item.url,
                 fit: BoxFit.cover,
+                // Limit in-memory decode size to reduce RAM usage (~40-60 MB → ~8 MB)
+                memCacheWidth: 600,
+                memCacheHeight: 600,
                 placeholder: (context, url) => const ShimmerLoading(
                   isLoading: true,
                   child: ShimmerBox(
@@ -1525,6 +1744,30 @@ class _MediaTile extends StatelessWidget {
                       Icons.broken_image_outlined,
                       size: 32,
                       color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            // Mute/unmute button for videos — bottom left, above everything
+            if (item.isVideo)
+              Positioned(
+                bottom: 10,
+                left: 10,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: feedVideoMuteNotifier,
+                  builder: (_, muted, __) => GestureDetector(
+                    onTap: () => feedVideoMuteNotifier.value = !feedVideoMuteNotifier.value,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        muted ? Icons.volume_off : Icons.volume_up,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ),
@@ -1560,6 +1803,31 @@ class _MediaTile extends StatelessWidget {
                   ),
                 ),
               ),
+            // Instagram-style double-tap heart animation
+            if (_showHeart)
+              Center(
+                child: AnimatedBuilder(
+                  animation: _heartController,
+                  builder: (context, child) => Opacity(
+                    opacity: _heartOpacity.value,
+                    child: Transform.scale(
+                      scale: _heartScale.value,
+                      child: child,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.favorite,
+                    color: Colors.red,
+                    size: 80,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black38,
+                        blurRadius: 12,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -1584,8 +1852,7 @@ class _ActionsState extends State<_Actions> {
   Post? _postOverride;
 
   Post _resolvedPost(FeedProvider feedProvider) {
-    final index = feedProvider.posts.indexWhere((p) => p.id == widget.post.id);
-    final providerPost = index != -1 ? feedProvider.posts[index] : null;
+    final providerPost = feedProvider.getPostFromFeed(widget.post.id);
     final localOverride = _postOverride;
 
     if (localOverride != null) {
@@ -1636,6 +1903,9 @@ class _ActionsState extends State<_Actions> {
             label: _format(post.likes),
             isLiked: post.isLiked,
             onTap: () => _handleLike(context, feedProvider, post),
+            onLabelTap: post.likes > 0
+                ? () => showLikersSheet(context, post.id, post.likes)
+                : null,
           ),
           SizedBox(width: 4),
           _ActionButton(
@@ -1900,7 +2170,7 @@ class _ActionsState extends State<_Actions> {
   void _handleShare(BuildContext context) async {
     try {
       final appName = PlatformConfigProvider.current.platformName;
-      final postUrl = 'https://rooverse.com/post/${widget.post.id}';
+      final postUrl = 'https://web.rooverse.app/post/${widget.post.id}';
       final subject = widget.post.title ?? 'Check out this post on $appName';
       final shareText =
           widget.post.title != null && widget.post.title!.isNotEmpty
@@ -1950,6 +2220,7 @@ class _ActionButton extends StatelessWidget {
   final bool isBookmarked;
   final bool isReposted;
   final VoidCallback? onTap;
+  final VoidCallback? onLabelTap;
 
   const _ActionButton({
     required this.icon,
@@ -1958,6 +2229,7 @@ class _ActionButton extends StatelessWidget {
     this.isBookmarked = false,
     this.isReposted = false,
     this.onTap,
+    this.onLabelTap,
   });
 
   @override
@@ -1980,6 +2252,34 @@ class _ActionButton extends StatelessWidget {
     } else {
       iconColor = colors.onSurfaceVariant;
       textColor = colors.onSurfaceVariant;
+    }
+
+    // If onLabelTap is provided, split icon and label into separate tap targets
+    if (onLabelTap != null && label != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Icon(icon, size: 18, color: iconColor),
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: onLabelTap,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              child: Text(label!, style: TextStyle(fontSize: 13, color: textColor)),
+            ),
+          ),
+        ],
+      );
     }
 
     return Material(

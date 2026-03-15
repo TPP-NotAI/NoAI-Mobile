@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:video_compress/video_compress.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
 
@@ -27,55 +26,8 @@ class MediaRepository {
     void Function(double progress)? onProgress,
   }) async {
     File uploadFile = file;
-    File? compressedFile;
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-
-      // Compress video before upload (0–20% of progress bar)
-      // Only attempt if file is over 10MB — smaller files rarely benefit.
-      if (mediaType == 'video' && await file.length() > 10 * 1024 * 1024) {
-        debugPrint('MediaRepository: Compressing video...');
-
-        // Animate 0→18% while compression runs
-        double compressProgress = 0.0;
-        final compressTimer = onProgress == null ? null : Timer.periodic(
-          const Duration(milliseconds: 300),
-          (_) {
-            if (compressProgress < 0.18) {
-              compressProgress = (compressProgress + 0.01).clamp(0.0, 0.18);
-              onProgress(compressProgress);
-            }
-          },
-        );
-
-        final origSize = await file.length();
-        final info = await VideoCompress.compressVideo(
-          file.path,
-          quality: VideoQuality.MediumQuality,
-          deleteOrigin: false,
-          includeAudio: true,
-        );
-        compressTimer?.cancel();
-        final compressedPath = info?.file?.path;
-
-        if (compressedPath != null) {
-          final candidate = File(compressedPath);
-          final compSize = await candidate.length();
-          final origMB = origSize / 1024 / 1024;
-          final compMB = compSize / 1024 / 1024;
-          debugPrint('MediaRepository: Compressed ${origMB.toStringAsFixed(1)}MB → ${compMB.toStringAsFixed(1)}MB');
-          // Only use compressed file if it actually reduced the size
-          if (compSize < origSize) {
-            compressedFile = candidate;
-            uploadFile = compressedFile;
-            debugPrint('MediaRepository: Using compressed file (${((1 - compSize / origSize) * 100).toStringAsFixed(0)}% smaller)');
-          } else {
-            debugPrint('MediaRepository: Compression did not reduce size — using original');
-            try { candidate.delete(); } catch (_) {}
-          }
-        }
-        onProgress?.call(0.20);
-      }
 
       final extension = uploadFile.path.split('.').last.toLowerCase();
       final fileName = '$timestamp-$index.$extension';
@@ -103,15 +55,9 @@ class MediaRepository {
       }
 
       debugPrint('MediaRepository: Uploaded media to $storagePath');
-      // Return the compressed file so the caller can pass it to AI detection.
-      // Caller is responsible for deleting it after AI analysis completes.
-      return (path: storagePath, aiFile: compressedFile);
+      return (path: storagePath, aiFile: null);
     } catch (e) {
       debugPrint('MediaRepository: Error uploading media - $e');
-      // Clean up compressed file on upload failure
-      if (compressedFile != null) {
-        try { await compressedFile.delete(); } catch (_) {}
-      }
       return (path: null, aiFile: null);
     }
   }

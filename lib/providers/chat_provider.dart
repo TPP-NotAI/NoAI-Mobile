@@ -7,7 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
 import '../services/chat_service.dart';
+import '../services/push_notification_service.dart';
 import '../services/supabase_service.dart';
+import '../config/supabase_config.dart';
 
 class ChatProvider extends ChangeNotifier {
   static const _recentlyReadRetention = Duration(days: 30);
@@ -178,9 +180,25 @@ class ChatProvider extends ChangeNotifier {
       _conversations.insert(0, updatedConversation);
       notifyListeners();
 
-      // Local push + snackbar are handled by NotificationProvider's realtime
-      // listener when ChatService inserts the notification row to DB.
-      // No direct showLocalNotification call here to avoid duplicates.
+      // Show local notification for incoming messages directly here so the
+      // user is notified even if AI moderation delays/skips the notification row.
+      if (isFromOther) {
+        final other = conversation.otherParticipant(_currentUserId ?? '');
+        final senderName = other.displayName.trim().isNotEmpty
+            ? other.displayName.trim()
+            : other.username;
+        final preview = newMessage.displayContent;
+        PushNotificationService().showLocalNotification(
+          title: senderName,
+          body: preview.isEmpty ? 'Sent you a message' : preview,
+          type: 'message',
+          data: {
+            'type': 'message',
+            'thread_id': threadId,
+            'sender_id': senderId,
+          },
+        );
+      }
     } else {
       // New conversation we don't have yet - refresh the list
       loadConversations();

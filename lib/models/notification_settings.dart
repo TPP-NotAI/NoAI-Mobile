@@ -7,6 +7,9 @@ class NotificationSettings {
   final bool notifyComments;
   final bool notifyLikes;
   final bool notifyMentions;
+  final bool notifyMessages;
+  final bool notifyReposts;
+  final bool notifyTips;
 
   NotificationSettings({
     required this.userId,
@@ -17,6 +20,9 @@ class NotificationSettings {
     this.notifyComments = true,
     this.notifyLikes = true,
     this.notifyMentions = true,
+    this.notifyMessages = true,
+    this.notifyReposts = true,
+    this.notifyTips = true,
   });
 
   factory NotificationSettings.fromSupabase(Map<String, dynamic> json) {
@@ -36,6 +42,9 @@ class NotificationSettings {
         (json['inapp_mentions'] as bool?) ??
         (json['notify_mentions'] as bool?) ??
         true;
+    final inappMessages = (json['inapp_messages'] as bool?) ?? true;
+    final inappReposts = (json['inapp_reposts'] as bool?) ?? true;
+    final inappTips = (json['inapp_tips'] as bool?) ?? true;
 
     return NotificationSettings(
       userId: json['user_id'] as String? ?? '',
@@ -48,6 +57,9 @@ class NotificationSettings {
       notifyComments: inappComments,
       notifyLikes: inappReactions,
       notifyMentions: inappMentions,
+      notifyMessages: inappMessages,
+      notifyReposts: inappReposts,
+      notifyTips: inappTips,
     );
   }
 
@@ -61,6 +73,9 @@ class NotificationSettings {
       'inapp_comments': inAppEnabled ? notifyComments : false,
       'inapp_reactions': inAppEnabled ? notifyLikes : false,
       'inapp_mentions': inAppEnabled ? notifyMentions : false,
+      'inapp_messages': inAppEnabled ? notifyMessages : false,
+      'inapp_reposts': inAppEnabled ? notifyReposts : false,
+      'inapp_tips': inAppEnabled ? notifyTips : false,
     };
   }
 
@@ -74,6 +89,9 @@ class NotificationSettings {
       notifyComments: json['notifyComments'] as bool? ?? true,
       notifyLikes: json['notifyLikes'] as bool? ?? true,
       notifyMentions: json['notifyMentions'] as bool? ?? true,
+      notifyMessages: json['notifyMessages'] as bool? ?? true,
+      notifyReposts: json['notifyReposts'] as bool? ?? true,
+      notifyTips: json['notifyTips'] as bool? ?? true,
     );
   }
 
@@ -87,6 +105,9 @@ class NotificationSettings {
       'notifyComments': notifyComments,
       'notifyLikes': notifyLikes,
       'notifyMentions': notifyMentions,
+      'notifyMessages': notifyMessages,
+      'notifyReposts': notifyReposts,
+      'notifyTips': notifyTips,
     };
   }
 
@@ -99,6 +120,9 @@ class NotificationSettings {
     bool? notifyComments,
     bool? notifyLikes,
     bool? notifyMentions,
+    bool? notifyMessages,
+    bool? notifyReposts,
+    bool? notifyTips,
   }) {
     return NotificationSettings(
       userId: userId ?? this.userId,
@@ -109,6 +133,9 @@ class NotificationSettings {
       notifyComments: notifyComments ?? this.notifyComments,
       notifyLikes: notifyLikes ?? this.notifyLikes,
       notifyMentions: notifyMentions ?? this.notifyMentions,
+      notifyMessages: notifyMessages ?? this.notifyMessages,
+      notifyReposts: notifyReposts ?? this.notifyReposts,
+      notifyTips: notifyTips ?? this.notifyTips,
     );
   }
 }

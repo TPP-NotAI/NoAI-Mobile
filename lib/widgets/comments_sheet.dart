@@ -85,7 +85,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
   void _onCommentTextChanged() {
     _textModerationTimer?.cancel();
-    _textModerationTimer = Timer(const Duration(milliseconds: 800), () {
+    _textModerationTimer = Timer(const Duration(milliseconds: 1500), () {
       _moderateText();
     });
   }

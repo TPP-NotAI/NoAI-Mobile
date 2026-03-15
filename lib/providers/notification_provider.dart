@@ -54,13 +54,39 @@ class NotificationProvider with ChangeNotifier {
             debugPrint(
               'NotificationProvider: New notification received via real-time',
             );
-            // When a new notification arrives, it won't have the joined profiles/posts.
-            // We could either fetch just that one notification or just refresh the list.
-            // Refreshing the list is safer to get the joins.
-            await refreshNotifications(userId);
+            final newRecord = payload.newRecord;
+
+            // Optimistically prepend the notification from the raw payload so
+            // the badge and list update immediately without a DB round-trip.
+            // Join data (actor profile, post preview) is filled in by the
+            // background refresh below.
+            final rawId = newRecord['id'] as String?;
+            if (rawId != null && _notifications.every((n) => n.id != rawId)) {
+              final optimistic = NotificationModel(
+                id: rawId,
+                userId: userId,
+                type: newRecord['type'] as String? ?? 'social',
+                title: newRecord['title'] as String?,
+                body: newRecord['body'] as String?,
+                isRead: false,
+                actorId: newRecord['actor_id'] as String?,
+                postId: newRecord['post_id'] as String?,
+                commentId: newRecord['comment_id'] as String?,
+                ticketId: newRecord['ticket_id'] as String?,
+                createdAt: DateTime.tryParse(
+                      newRecord['created_at'] as String? ?? '',
+                    ) ??
+                    DateTime.now(),
+              );
+              _notifications = [optimistic, ..._notifications];
+              _unreadCount++;
+              notifyListeners();
+            }
+
+            // Refresh in background to get full join data (actor avatar, post info)
+            unawaited(refreshNotifications(userId));
 
             // Show local push notification with sound
-            final newRecord = payload.newRecord;
             final title = newRecord['title'] as String? ?? PlatformConfigProvider.current.platformName;
             final body = newRecord['body'] as String? ?? 'You have a new notification';
             final type = newRecord['type'] as String? ?? 'social';

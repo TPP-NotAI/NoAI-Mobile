@@ -231,7 +231,7 @@ String? _translateExact(AppLocalizations l10n, String value) {
       return l10n.userNotLoggedIn;
     case 'Your verification is pending. You can tip once approved.':
       return l10n.verificationPendingTip;
-    case 'Insufficient Roobyte balance':
+    case 'Insufficient Roobit balance':
       return l10n.insufficientRooBalance;
     case 'You cannot tip your own post':
       return l10n.cannotTipOwnPost;

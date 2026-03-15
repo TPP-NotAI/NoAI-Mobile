@@ -759,7 +759,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get moderationAppeal => 'Apelacion de moderacion';
 
   @override
-  String get roobyteWallet => 'Roobyte / Billetera';
+  String get roobitWallet => 'Roobit / Billetera';
 
   @override
   String get technicalProblem => 'Problema tecnico';

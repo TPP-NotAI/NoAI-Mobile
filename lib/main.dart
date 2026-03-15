@@ -110,11 +110,21 @@ void main() async {
         );
       };
 
-      await dotenv.load(fileName: '.env');
-      await StorageService().init();
+      // Increase image memory cache limits (default: 100 images / 20MB)
+      PaintingBinding.instance.imageCache.maximumSize = 200;
+      PaintingBinding.instance.imageCache.maximumSizeBytes = 80 * 1024 * 1024;
+
+      // Parallel: dotenv, storage, and connectivity are independent
+      await Future.wait([
+        dotenv.load(fileName: '.env'),
+        StorageService().init(),
+        ConnectivityService().initialize(),
+      ]);
+      // Supabase must come after dotenv (needs env vars)
       await SupabaseService().initialize();
+      // Push notifications depend on Supabase for token storage
       await PushNotificationService().initialize();
-      await ConnectivityService().initialize();
+      // Fire-and-forget services (no await needed)
       PresenceService().start();
       ShareIntentService().initialize();
 
@@ -802,6 +812,7 @@ class _MainShellState extends State<MainShell> {
   int _index = 0;
   bool _updateCheckTriggered = false;
   final ValueNotifier<int> _feedReturnToTopNotifier = ValueNotifier(0);
+  final ValueNotifier<String?> _createPostTypeNotifier = ValueNotifier(null);
 
   @override
   void initState() {
@@ -816,6 +827,7 @@ class _MainShellState extends State<MainShell> {
   @override
   void dispose() {
     _feedReturnToTopNotifier.dispose();
+    _createPostTypeNotifier.dispose();
     super.dispose();
   }
 
@@ -848,14 +860,24 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _onPostCreated() {
-    // Navigate back to feed after creating a post
     setState(() => _index = 0);
   }
 
+  void _onFeedNavigateToCreate({String? initialPostType}) {
+    _createPostTypeNotifier.value = initialPostType ?? 'Text';
+    setState(() => _index = 2);
+  }
+
   List<Widget> get _screens => [
-    FeedScreen(returnToTopNotifier: _feedReturnToTopNotifier),
+    FeedScreen(
+      returnToTopNotifier: _feedReturnToTopNotifier,
+      onNavigateToCreate: _onFeedNavigateToCreate,
+    ),
     const ExploreScreen(),
-    CreatePostScreen(onPostCreated: _onPostCreated),
+    CreatePostScreen(
+      onPostCreated: _onPostCreated,
+      postTypeNotifier: _createPostTypeNotifier,
+    ),
     const WalletScreen(),
     const ProfileScreen(),
   ];

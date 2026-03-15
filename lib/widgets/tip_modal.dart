@@ -89,7 +89,7 @@ class _TipModalState extends State<TipModal> {
 
     final availableBalance = walletProvider.wallet?.balanceRc ?? user.balance;
     if (_selectedAmount > availableBalance) {
-      _showError('Insufficient Roobyte balance'.tr(context));
+      _showError('Insufficient Roobit balance'.tr(context));
       return;
     }
 
@@ -292,7 +292,7 @@ class _TipModalState extends State<TipModal> {
                     ),
                     const SizedBox(height: 16),
 
-                    Text('Send Roobyte Tip'.tr(context),
+                    Text('Send Roobit Tip'.tr(context),
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: colors.onSurface,

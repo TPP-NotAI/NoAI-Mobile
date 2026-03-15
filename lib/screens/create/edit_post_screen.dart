@@ -67,6 +67,23 @@ class _EditPostScreenState extends State<EditPostScreen> {
             );
 
       if (file != null) {
+        if (isVideo) {
+          const int maxVideoBytes = 500 * 1024 * 1024; // 500 MB
+          final videoSize = await File(file.path).length();
+          if (videoSize > maxVideoBytes) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Video is too large (${(videoSize / (1024 * 1024)).toStringAsFixed(0)} MB). Maximum size is 500 MB.'.tr(context),
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return;
+          }
+        }
         setState(() {
           _newMediaFiles.add(File(file.path));
           _newMediaTypes.add(isVideo ? 'video' : 'image');
@@ -97,7 +114,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
 
   /// Shows a dialog when the edited post is detected as an advertisement.
   /// Returns true if the user paid the ad fee, false otherwise.
-  Future<bool> _showAdFeeDialog(double adConfidence, String? adType) async {
+  Future<bool> _showAdFeeDialog(double adConfidence, String? adType, List<String> evidence, String? rationale) async {
     const double adFeeRoo = 5.0;
 
     if (!mounted) return false;
@@ -121,11 +138,39 @@ class _EditPostScreenState extends State<EditPostScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Our system detected this post as promotional content '
-              '(${adConfidence.toStringAsFixed(0)}% confidence'
-              '${adType != null ? " · ${adType.replaceAll('_', ' ')}" : ""}).',
-            ),
+            Text('Our system detected this post as promotional content. Here is what it found:'),
+            if (evidence.isNotEmpty || rationale != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (rationale != null && rationale.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(rationale, style: const TextStyle(fontSize: 13)),
+                      ),
+                    ...evidence.map(
+                      (e) => Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('• ', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            Expanded(child: Text(e, style: const TextStyle(fontSize: 13))),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             Text(
               'To publish it, an advertising fee is required.'.tr(context),
@@ -232,8 +277,8 @@ class _EditPostScreenState extends State<EditPostScreen> {
         newMediaFiles: _newMediaFiles,
         newMediaTypes: _newMediaTypes,
         originalBody: widget.post.content,
-        onAdFeeRequired: (adConfidence, adType) =>
-            _showAdFeeDialog(adConfidence, adType),
+        onAdFeeRequired: (adConfidence, adType, evidence, rationale) =>
+            _showAdFeeDialog(adConfidence, adType, evidence, rationale),
       );
 
       if (success && mounted) {

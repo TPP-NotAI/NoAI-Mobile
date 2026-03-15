@@ -29,6 +29,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/supabase_service.dart';
 import '../l10n/app_localizations.dart';
+import '../providers/wallet_provider.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SettingsScreen extends StatelessWidget {
@@ -60,7 +61,7 @@ class SettingsScreen extends StatelessWidget {
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text('${currentUser?.balance.toStringAsFixed(0) ?? '0'} ROO',
+              child: Text('${(context.watch<WalletProvider>().wallet?.balanceRc ?? currentUser?.balance ?? 0).toStringAsFixed(2)} ROO',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -216,7 +217,7 @@ class SettingsScreen extends StatelessWidget {
 
           _buildSectionHeader(
             context,
-            _localizedSettingsText(context, 'sectionRoobyteWallet'),
+            _localizedSettingsText(context, 'sectionRoobitWallet'),
           ),
           _buildSettingsTile(
             context,
@@ -984,19 +985,19 @@ class SettingsScreen extends StatelessWidget {
         'ar': 'الحساب',
         'hi': 'खाता',
       },
-      'sectionRoobyteWallet': {
-        'en': 'ROOBYTE WALLET',
-        'es': 'CARTERA ROOBYTE',
-        'fr': 'PORTEFEUILLE ROOBYTE',
-        'de': 'ROOBYTE-WALLET',
-        'it': 'PORTAFOGLIO ROOBYTE',
-        'pt': 'CARTEIRA ROOBYTE',
-        'ru': 'КОШЕЛЁК ROOBYTE',
-        'zh': 'ROOBYTE 钱包',
-        'ja': 'ROOBYTEウォレット',
-        'ko': 'ROOBYTE 지갑',
-        'ar': 'محفظة ROOBYTE',
-        'hi': 'ROOBYTE वॉलेट',
+      'sectionRoobitWallet': {
+        'en': 'ROOBIT WALLET',
+        'es': 'CARTERA ROOBIT',
+        'fr': 'PORTEFEUILLE ROOBIT',
+        'de': 'ROOBIT-WALLET',
+        'it': 'PORTAFOGLIO ROOBIT',
+        'pt': 'CARTEIRA ROOBIT',
+        'ru': 'КОШЕЛЁК ROOBIT',
+        'zh': 'ROOBIT 钱包',
+        'ja': 'ROOBITウォレット',
+        'ko': 'ROOBIT 지갑',
+        'ar': 'محفظة ROOBIT',
+        'hi': 'ROOBIT वॉलेट',
       },
       'sectionPreferences': {
         'en': 'PREFERENCES',

@@ -25,16 +25,19 @@ class RoobitService {
       payload['body'] = body;
     }
 
-    final session = _supabase.client.auth.currentSession;
+    // Refresh the session if it's expired or close to expiry
+    Session? session = _supabase.client.auth.currentSession;
+    if (session != null) {
+      final expiresAt = session.expiresAt;
+      final nowSecs = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      if (expiresAt != null && expiresAt - nowSecs < 60) {
+        try {
+          final refreshed = await _supabase.client.auth.refreshSession();
+          session = refreshed.session;
+        } catch (_) {}
+      }
+    }
     final accessToken = session?.accessToken;
-
-    debugPrint(
-      'RoobitService: current user = ${_supabase.client.auth.currentUser?.id}',
-    );
-    debugPrint(
-      'RoobitService: has access token = ${accessToken != null && accessToken.isNotEmpty}',
-    );
-    debugPrint('RoobitService: proxy path = $path');
 
     if (accessToken == null || accessToken.isEmpty) {
       throw Exception('User is not authenticated');
@@ -49,9 +52,6 @@ class RoobitService {
           'Content-Type': 'application/json',
         },
       );
-
-      debugPrint('RoobitService: proxy status = ${response.status}');
-      debugPrint('RoobitService: proxy raw data = ${response.data}');
 
       if (response.data == null) {
         throw Exception('roocoin-proxy returned no data');
@@ -77,14 +77,12 @@ class RoobitService {
 
       return data;
     } on FunctionException catch (e) {
-      debugPrint('RoobitService FunctionException: ${e.details}');
       throw Exception(
         e.details?.toString().isNotEmpty == true
             ? e.details.toString()
             : 'Edge Function error: ${e.reasonPhrase ?? 'Unknown error'}',
       );
     } catch (e) {
-      debugPrint('RoobitService proxy error: $e');
       rethrow;
     }
   }

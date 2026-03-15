@@ -20,6 +20,7 @@ import '../widgets/verification_required_widget.dart';
 import '../services/viral_content_service.dart';
 import '../widgets/comment_card.dart';
 import '../widgets/boost_post_modal.dart';
+import '../widgets/likers_sheet.dart';
 import '../widgets/post_card.dart'
     show
         PostMediaGridView,
@@ -66,10 +67,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     super.initState();
     _post = widget.post;
     _editController = TextEditingController(text: _post.content);
-    _loadComments();
-    _checkViralReward();
-    _loadBoostStatus();
+    // Subscribe synchronously (no network call, just channel setup)
     _subscribeToComments();
+    // Defer network calls until after first frame so the screen renders immediately
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadComments();
+      _checkViralReward();
+      _loadBoostStatus();
+    });
   }
 
   void _subscribeToComments() {
@@ -431,12 +437,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final feedProvider = context.watch<FeedProvider>();
     final isAuthor = authProvider.currentUser?.id == _post.authorId;
     final colors = Theme.of(context).colorScheme;
-    final providerPostIndex = feedProvider.posts.indexWhere(
-      (p) => p.id == _post.id,
-    );
-    final providerComments = providerPostIndex != -1
-        ? feedProvider.posts[providerPostIndex].commentList
-        : null;
+    final providerComments = feedProvider.getPostFromFeed(_post.id)?.commentList;
     final displayComments = providerComments ?? _comments;
     final totalCommentCount = _countCommentsWithReplies(displayComments);
     final isAdvert = _isAdvertPost;
@@ -932,7 +933,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                               : colors.onSurfaceVariant,
                                         ),
                                         SizedBox(width: 4),
-                                        Text('${_post.likes}'.tr(context)),
+                                        GestureDetector(
+                                          onTap: _post.likes > 0
+                                              ? () => showLikersSheet(context, _post.id, _post.likes)
+                                              : null,
+                                          behavior: HitTestBehavior.opaque,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                                            child: Text('${_post.likes}'.tr(context)),
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1331,7 +1341,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   void _handleShare(BuildContext context) async {
     try {
       final appName = PlatformConfigProvider.current.platformName;
-      final postUrl = 'https://rooverse.com/post/${_post.id}';
+      final postUrl = 'https://web.rooverse.app/post/${_post.id}';
       final subject = _post.title ?? 'Check out this post on $appName';
       final shareText = _post.title != null && _post.title!.isNotEmpty
           ? '${_post.title}\n\n${_post.content}\n\n$postUrl'

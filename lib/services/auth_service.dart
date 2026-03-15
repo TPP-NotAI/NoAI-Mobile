@@ -102,8 +102,14 @@ class AuthService {
   }
 
   /// Sign in with OAuth provider (Google, Apple, etc.).
+  /// Uses an in-app browser (Custom Tab / SFSafariViewController) so the
+  /// redirect back to the app works reliably without leaving the app.
   Future<bool> signInWithOAuth(OAuthProvider provider) async {
-    return await _supabase.auth.signInWithOAuth(provider);
+    return await _supabase.auth.signInWithOAuth(
+      provider,
+      redirectTo: 'rooverse://login-callback/',
+      authScreenLaunchMode: LaunchMode.inAppWebView,
+    );
   }
 
   /// Update the current user's password.

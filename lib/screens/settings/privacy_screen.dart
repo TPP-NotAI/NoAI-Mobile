@@ -5,6 +5,7 @@ import '../../config/app_colors.dart';
 import 'blocked_muted_users_screen.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 class PrivacyScreen extends StatefulWidget {
   const PrivacyScreen({super.key});
 
@@ -13,28 +14,35 @@ class PrivacyScreen extends StatefulWidget {
 }
 
 class _PrivacyScreenState extends State<PrivacyScreen> {
-  late String _postsVisibility; // everyone, followers, private
+  late String _postsVisibility;
   late String _commentsVisibility;
   late String _messagesVisibility;
   bool _isSaving = false;
 
+  // Private account = posts & comments locked to 'followers'
+  bool get _isPrivateAccount => _postsVisibility == 'followers';
+
   @override
   void initState() {
     super.initState();
-    final userProvider = context.read<UserProvider>();
-    final currentUser = userProvider.currentUser;
-    if (currentUser != null) {
-      // Load current privacy settings from the user model
-      _postsVisibility = currentUser.postsVisibility ?? 'everyone';
-      _commentsVisibility = currentUser.commentsVisibility ?? 'everyone';
-      _messagesVisibility = currentUser.messagesVisibility ?? 'everyone';
-    } else {
-      // Default values if no user is logged in (shouldn't happen if screen is protected)
-      _postsVisibility =
-          'everyone'; // Default to everyone if no user or setting
-      _commentsVisibility = 'everyone';
-      _messagesVisibility = 'everyone';
-    }
+    final currentUser = context.read<UserProvider>().currentUser;
+    _postsVisibility = currentUser?.postsVisibility ?? 'everyone';
+    _commentsVisibility = currentUser?.commentsVisibility ?? 'everyone';
+    _messagesVisibility = currentUser?.messagesVisibility ?? 'everyone';
+  }
+
+  void _setPrivateAccount(bool isPrivate) {
+    setState(() {
+      if (isPrivate) {
+        _postsVisibility = 'followers';
+        _commentsVisibility = 'followers';
+        _messagesVisibility = 'followers';
+      } else {
+        _postsVisibility = 'everyone';
+        _commentsVisibility = 'everyone';
+        _messagesVisibility = 'everyone';
+      }
+    });
   }
 
   @override
@@ -42,10 +50,11 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: scheme.background,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         backgroundColor: scheme.surface,
-        title: Text('Privacy Settings'.tr(context),
+        title: Text(
+          'Privacy Settings'.tr(context),
           style: TextStyle(color: scheme.onSurface),
         ),
         centerTitle: true,
@@ -54,32 +63,46 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
+          // ── Account Type ─────────────────────────────────────────
+          _buildSectionHeader('ACCOUNT TYPE'),
+          _buildPrivateAccountTile(scheme),
+
+          const SizedBox(height: 28),
+
+          // ── Posts ─────────────────────────────────────────────────
           _buildSectionHeader('POSTS'),
           _buildVisibilitySelector(
             title: 'Who can see my posts?',
             value: _postsVisibility,
-            onChanged: (value) => setState(() => _postsVisibility = value),
+            enabled: !_isPrivateAccount,
+            onChanged: (v) => setState(() => _postsVisibility = v),
           ),
 
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
 
+          // ── Comments ──────────────────────────────────────────────
           _buildSectionHeader('COMMENTS'),
           _buildVisibilitySelector(
             title: 'Who can see my comments?',
             value: _commentsVisibility,
-            onChanged: (value) => setState(() => _commentsVisibility = value),
+            enabled: !_isPrivateAccount,
+            onChanged: (v) => setState(() => _commentsVisibility = v),
           ),
 
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
 
+          // ── Messages ──────────────────────────────────────────────
+          _buildSectionHeader('MESSAGES'),
           _buildVisibilitySelector(
             title: 'Who can send me messages?',
             value: _messagesVisibility,
-            onChanged: (value) => setState(() => _messagesVisibility = value),
+            enabled: !_isPrivateAccount,
+            onChanged: (v) => setState(() => _messagesVisibility = v),
           ),
 
-          SizedBox(height: 32),
+          const SizedBox(height: 32),
 
+          // ── Safety ────────────────────────────────────────────────
           _buildSectionHeader('SAFETY'),
           _buildSettingsLink(
             title: 'Blocked Users',
@@ -93,7 +116,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
             ),
           ),
 
-          SizedBox(height: 48),
+          const SizedBox(height: 48),
 
           ElevatedButton(
             onPressed: _isSaving ? null : _saveSettings,
@@ -107,6 +130,75 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
             ),
             child: Text(_isSaving ? 'Saving...' : 'Save Settings'),
           ),
+
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrivateAccountTile(ColorScheme scheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _isPrivateAccount
+              ? AppColors.primary.withValues(alpha: 0.4)
+              : scheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _isPrivateAccount
+                  ? AppColors.primary.withValues(alpha: 0.12)
+                  : scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _isPrivateAccount ? Icons.lock : Icons.lock_open,
+              color: _isPrivateAccount
+                  ? AppColors.primary
+                  : scheme.onSurfaceVariant,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Private Account',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _isPrivateAccount
+                      ? 'Only your followers can see your content'
+                      : 'Anyone can see your posts and profile',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: _isPrivateAccount,
+            onChanged: _setPrivateAccount,
+            activeThumbColor: AppColors.primary,
+            activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
+          ),
         ],
       ),
     );
@@ -115,13 +207,13 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
   Widget _buildSectionHeader(String title) {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         title,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: scheme.onSurface.withOpacity(0.5),
+          color: scheme.onSurface.withValues(alpha: 0.5),
           letterSpacing: 0.5,
         ),
       ),
@@ -131,33 +223,39 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
   Widget _buildVisibilitySelector({
     required String title,
     required String value,
+    required bool enabled,
     required Function(String) onChanged,
   }) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.outline.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: scheme.onSurface,
-            ),
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.45,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.3),
           ),
-          SizedBox(height: 16),
-          _buildRadioOption('Everyone', 'everyone', value, onChanged),
-          _buildRadioOption('Followers only', 'followers', value, onChanged),
-          _buildRadioOption('Private (only me)', 'private', value, onChanged),
-        ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: scheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildRadioOption('Everyone', 'everyone', value, enabled ? onChanged : (_) {}),
+            _buildRadioOption('Followers only', 'followers', value, enabled ? onChanged : (_) {}),
+            _buildRadioOption('Private (only me)', 'private', value, enabled ? onChanged : (_) {}),
+          ],
+        ),
       ),
     );
   }
@@ -175,24 +273,29 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
       child: InkWell(
         onTap: () => onChanged(optionValue),
         child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Radio<String>(
-              value: optionValue,
-              groupValue: currentValue,
-              onChanged: (value) => onChanged(value!),
-              activeColor: AppColors.primary,
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(fontSize: 14, color: scheme.onSurface),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Radio<String>(
+                value: optionValue,
+                groupValue: currentValue,
+                onChanged: (v) => onChanged(v!),
+                fillColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.selected)
+                      ? AppColors.primary
+                      : null,
+                ),
+                visualDensity: VisualDensity.compact,
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 14, color: scheme.onSurface),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -221,9 +324,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
       commentsVisibility: _commentsVisibility,
       messagesVisibility: _messagesVisibility,
     );
-    if (mounted) {
-      setState(() => _isSaving = false);
-    }
+    if (mounted) setState(() => _isSaving = false);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -253,41 +354,46 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: scheme.outline.withOpacity(0.1)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.redAccent, size: 24),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: scheme.onSurface.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.3),
             ),
-            Icon(Icons.chevron_right, color: scheme.onSurface.withOpacity(0.3)),
-          ],
-        ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.redAccent, size: 24),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+              ),
+            ],
+          ),
         ),
       ),
     );

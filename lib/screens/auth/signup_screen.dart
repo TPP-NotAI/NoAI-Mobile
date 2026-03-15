@@ -300,13 +300,16 @@ class _SignupScreenState extends State<SignupScreen> {
     return Scaffold(
       backgroundColor: scheme.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: AppSpacing.double_.responsive(context),
-          ),
-          child: Column(
-            children: [
-              SizedBox(height: 48.responsive(context, min: 36, max: 56)),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final topSpacing = (constraints.maxHeight * 0.06).clamp(20.0, 48.0);
+            return SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.double_.responsive(context),
+              ),
+              child: Column(
+                children: [
+                  SizedBox(height: topSpacing),
 
               // Header
               AppLogo(
@@ -361,7 +364,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const TextSpan(text: ' and start earning Roobyte.'),
+                    const TextSpan(text: ' and start earning Roobit.'),
                   ],
                 ),
               ),
@@ -687,9 +690,11 @@ class _SignupScreenState extends State<SignupScreen> {
                 ],
               ),
 
-              SizedBox(height: AppSpacing.triple.responsive(context)),
-            ],
-          ),
+                  SizedBox(height: AppSpacing.triple.responsive(context)),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

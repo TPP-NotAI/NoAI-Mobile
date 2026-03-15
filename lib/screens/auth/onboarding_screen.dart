@@ -87,7 +87,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.only(top: 48, bottom: 16),
+                padding: const EdgeInsets.only(top: 16, bottom: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -147,7 +147,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
               // Footer
               Padding(
-                padding: const EdgeInsets.only(bottom: 48, top: 24),
+                padding: const EdgeInsets.only(bottom: 24, top: 12),
                 child: Column(
                   children: [
                     // Indicators
@@ -227,25 +227,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildSlide(BuildContext context, OnboardingSlide slide) {
     final scheme = Theme.of(context).colorScheme;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
 
-    // Responsive sizing
-    final imageSize = (screenWidth * 0.6).clamp(200.0, 280.0);
-    final titleFontSize = (screenWidth * 0.08).clamp(24.0, 36.0);
-    final descriptionFontSize = (screenWidth * 0.04).clamp(14.0, 16.0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = constraints.maxHeight;
+        final w = constraints.maxWidth;
 
-    return SingleChildScrollView(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: screenHeight * 0.05),
-        child: Column(
+        // All sizing derived from available space
+        final imageSize = (h * 0.38).clamp(120.0, 260.0);
+        final iconSize = (imageSize * 0.28).clamp(24.0, 52.0);
+        final iconPadding = (imageSize * 0.08).clamp(8.0, 18.0);
+        final imageRadius = (imageSize * 0.16).clamp(16.0, 40.0);
+        final titleFontSize = (h * 0.055).clamp(20.0, 36.0);
+        final descFontSize = (h * 0.028).clamp(12.0, 16.0);
+        final gapAfterImage = h * 0.04;
+        final gapBetweenTitleDesc = h * 0.02;
+
+        return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               width: imageSize,
               height: imageSize,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(40),
+                borderRadius: BorderRadius.circular(imageRadius),
                 color: scheme.surface,
                 border: Border.all(color: scheme.outline),
               ),
@@ -253,7 +258,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   Positioned.fill(
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(40),
+                      borderRadius: BorderRadius.circular(imageRadius),
                       child: Opacity(
                         opacity: 0.4,
                         child: Image.network(
@@ -270,25 +275,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(iconPadding),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(iconPadding),
                             border: Border.all(
                               color: AppColors.primary.withOpacity(0.3),
                             ),
                           ),
                           child: Icon(
                             slide.icon,
-                            size: 48,
+                            size: iconSize,
                             color: scheme.onSurface,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: imageSize * 0.06),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: w * 0.03,
+                            vertical: h * 0.005,
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF10B981).withOpacity(0.15),
@@ -297,11 +302,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               color: const Color(0xFF10B981).withOpacity(0.3),
                             ),
                           ),
-                          child: Text('VERIFIED SYSTEM'.tr(context),
+                          child: Text(
+                            'VERIFIED SYSTEM'.tr(context),
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: (h * 0.014).clamp(8.0, 11.0),
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF10B981),
+                              color: const Color(0xFF10B981),
                               letterSpacing: 1.5,
                             ),
                           ),
@@ -313,15 +319,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            SizedBox(height: screenHeight * 0.04),
+            SizedBox(height: gapAfterImage),
 
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: w * 0.04),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   RichText(
                     textAlign: TextAlign.center,
-                    overflow: TextOverflow.visible,
                     text: TextSpan(
                       style: TextStyle(
                         fontSize: titleFontSize,
@@ -338,14 +344,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: gapBetweenTitleDesc),
                   Text(
                     slide.description,
                     textAlign: TextAlign.center,
                     maxLines: 4,
-                    overflow: TextOverflow.visible,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: descriptionFontSize,
+                      fontSize: descFontSize,
                       color: scheme.onBackground.withOpacity(0.7),
                       height: 1.5,
                     ),
@@ -354,8 +360,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }

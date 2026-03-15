@@ -1,0 +1,2 @@
+[functions.notify-social]
+verify_jwt = false

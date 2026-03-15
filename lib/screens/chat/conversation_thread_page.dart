@@ -48,7 +48,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
   late User _otherUser;
   Message? _replyMessage;
   int _previousMessageCount = 0;
-  Timer? _statusUpdateTimer;
+  // Tracks whether the text field has content — drives send vs mic button.
+  // ValueNotifier avoids rebuilding the entire screen on every keystroke.
+  late final ValueNotifier<bool> _hasText;
   bool _isSendingMedia = false;
   DateTime? _otherUserLastReadAt;
 
@@ -69,8 +71,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
     final currentUserId = authProvider.currentUser?.id ?? '';
     _otherUser = widget.conversation.otherParticipant(currentUserId);
 
+    _hasText = ValueNotifier(_controller.text.isNotEmpty);
     _controller.addListener(() {
-      if (mounted) setState(() {});
+      _hasText.value = _controller.text.isNotEmpty;
     });
 
     // Real-time online/offline status listener
@@ -93,14 +96,8 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       }
     });
 
-    // Periodically update online/offline status (every 10 seconds)
-    _statusUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      if (mounted) {
-        setState(() {
-          // Trigger rebuild to recalculate online status
-        });
-      }
-    });
+    // Online status is kept fresh by _profileSubscription stream above —
+    // no periodic timer needed.
 
     // Subscribe to the other user's last_read_at for real-time read receipts.
     // Supabase stream() with a composite PK only supports .eq() on one column,
@@ -138,9 +135,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
   void dispose() {
     _profileSubscription?.cancel();
     _readReceiptSubscription?.cancel();
-    _statusUpdateTimer?.cancel();
     _recordingTimer?.cancel();
     _audioRecorder.dispose();
+    _hasText.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -1174,8 +1171,13 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                 ),
               ),
               const SizedBox(width: 8),
-              _isSendingMedia
-                  ? SizedBox(
+              // ValueListenableBuilder rebuilds only this button, not the
+              // entire screen, when the user types.
+              ValueListenableBuilder<bool>(
+                valueListenable: _hasText,
+                builder: (context, hasText, _) {
+                  if (_isSendingMedia) {
+                    return SizedBox(
                       width: 40,
                       height: 40,
                       child: Padding(
@@ -1185,30 +1187,34 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                           color: colors.primary,
                         ),
                       ),
-                    )
-                  : _controller.text.isNotEmpty
-                  ? IconButton.filled(
+                    );
+                  }
+                  if (hasText) {
+                    return IconButton.filled(
                       onPressed: _sendMessage,
                       icon: const Icon(Icons.send_rounded),
                       style: IconButton.styleFrom(
                         backgroundColor: colors.primary,
                         foregroundColor: colors.onPrimary,
                       ),
-                    )
-                  : GestureDetector(
-                      onLongPressStart: (_) => _startRecording(),
-                      onLongPressEnd: (_) => _stopAndSendRecording(),
-                      child: IconButton.filled(
-                        onPressed: null,
-                        icon: const Icon(Icons.mic),
-                        style: IconButton.styleFrom(
-                          backgroundColor: colors.primary,
-                          foregroundColor: colors.onPrimary,
-                          disabledBackgroundColor: colors.primary,
-                          disabledForegroundColor: colors.onPrimary,
-                        ),
+                    );
+                  }
+                  return GestureDetector(
+                    onLongPressStart: (_) => _startRecording(),
+                    onLongPressEnd: (_) => _stopAndSendRecording(),
+                    child: IconButton.filled(
+                      onPressed: null,
+                      icon: const Icon(Icons.mic),
+                      style: IconButton.styleFrom(
+                        backgroundColor: colors.primary,
+                        foregroundColor: colors.onPrimary,
+                        disabledBackgroundColor: colors.primary,
+                        disabledForegroundColor: colors.onPrimary,
                       ),
                     ),
+                  );
+                },
+              ),
             ],
           ),
         ),

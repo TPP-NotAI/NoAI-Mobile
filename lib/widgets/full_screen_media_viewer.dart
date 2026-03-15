@@ -7,6 +7,7 @@ import '../models/post.dart';
 import '../providers/feed_provider.dart';
 import '../utils/time_utils.dart';
 import 'comments_sheet.dart';
+import 'post_card.dart' show disposeFeedVideoCache;
 import 'video_player_widget.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -46,6 +47,8 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
     _pageController = PageController(initialPage: widget.initialIndex);
     _isLiked = widget.post.isLiked;
     _likeCount = widget.post.likes;
+    // Free feed video decoders before the viewer allocates its own MediaCodec.
+    disposeFeedVideoCache();
   }
 
   @override
@@ -74,7 +77,7 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
 
   Widget _buildSingleMediaView() {
     final mediaWidget = widget.isVideo
-        ? VideoPlayerWidget(showControls: true, videoUrl:widget.mediaUrl)
+        ? VideoPlayerWidget(showControls: true, autoPlay: true, videoUrl: widget.mediaUrl)
         : InteractiveViewer(
             minScale: 0.5,
             maxScale: 4.0,
@@ -125,7 +128,7 @@ class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
 
               if (isVideo) {
                 return Center(
-                  child: VideoPlayerWidget(showControls: true, videoUrl:url),
+                  child: VideoPlayerWidget(showControls: true, autoPlay: true, videoUrl: url),
                 );
               }
 

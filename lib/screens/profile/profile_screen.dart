@@ -92,7 +92,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _scheduleProfileRealtimeRefresh() {
     _profileRealtimeDebounce?.cancel();
-    _profileRealtimeDebounce = Timer(const Duration(milliseconds: 350), () {
+    _profileRealtimeDebounce = Timer(const Duration(milliseconds: 1200), () {
       if (!mounted) return;
       refreshPosts();
     });
@@ -398,7 +398,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             isOwn: isActuallyOwnProfile,
                             isFollowing: isFollowing,
                           ),
-                          _RoobyteBalance(
+                          _RoobitBalance(
                             user: user,
                             colors: colors,
                             isVisible: isActuallyOwnProfile,
@@ -914,12 +914,12 @@ class _AchievementBadge extends StatelessWidget {
 
 /* ───────────────── ROOBIT BALANCE ───────────────── */
 
-class _RoobyteBalance extends StatelessWidget {
+class _RoobitBalance extends StatelessWidget {
   final dynamic user;
   final ColorScheme colors;
   final bool isVisible;
 
-  const _RoobyteBalance({
+  const _RoobitBalance({
     required this.user,
     required this.colors,
     required this.isVisible,
@@ -937,7 +937,7 @@ class _RoobyteBalance extends StatelessWidget {
       children: [
         SizedBox(height: 16),
         Text(
-          'Roobyte Balance'.tr(context),
+          'Roobit Balance'.tr(context),
           style: TextStyle(
             fontSize: 13,
             color: colors.onSurfaceVariant,
@@ -950,7 +950,7 @@ class _RoobyteBalance extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                displayBalance.toStringAsFixed(1),
+                displayBalance.toStringAsFixed(2),
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -1720,8 +1720,8 @@ class _Statistics extends StatelessWidget {
           SizedBox(height: 12),
           if (isOwnProfile) ...[
             _StatItem(
-              label: _profileText(context, 'roobyteBalance'),
-              value: user.balance.toStringAsFixed(1),
+              label: _profileText(context, 'roobitBalance'),
+              value: (context.watch<WalletProvider>().wallet?.balanceRc ?? user.balance).toStringAsFixed(2),
               colors: colors,
             ),
             SizedBox(height: 12),
@@ -2837,7 +2837,7 @@ String _profileText(
     'view': {'en': 'View'},
     'trustScore': {'en': 'Trust Score'},
     'aiLikelihood': {'en': 'AI Likelihood'},
-    'roobyteBalance': {'en': 'Roobyte Balance'},
+    'roobitBalance': {'en': 'Roobit Balance'},
     'verificationStatus': {'en': 'Verification Status'},
     'verified': {'en': 'Verified'},
     'pending': {'en': 'Pending'},

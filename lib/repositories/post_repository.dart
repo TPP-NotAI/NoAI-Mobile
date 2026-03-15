@@ -30,6 +30,20 @@ class PostRepository {
   /// Key: postId. Cleared by [runAiDetection] after use.
   final Map<String, List<File>> _pendingAiFiles = {};
 
+  // Following IDs cache — avoids a DB round-trip on every feed page load.
+  // Invalidated after 5 minutes or explicitly via [invalidateFollowingCache].
+  Set<String>? _cachedFollowingIds;
+  String? _cachedFollowingUserId;
+  DateTime? _followingCacheTime;
+  static const _followingCacheTtl = Duration(minutes: 5);
+
+  /// Invalidate the following IDs cache (call after follow/unfollow).
+  void invalidateFollowingCache() {
+    _cachedFollowingIds = null;
+    _cachedFollowingUserId = null;
+    _followingCacheTime = null;
+  }
+
   /// Fetch paginated feed of published posts.
   /// Respects privacy settings: filters posts based on author's posts_visibility setting.
   Future<List<Post>> getFeed({
@@ -37,8 +51,8 @@ class PostRepository {
     int offset = 0,
     String? currentUserId,
   }) async {
-    // Fetch more posts than needed to account for privacy filtering
-    final fetchLimit = limit * 2;
+    // Small buffer for privacy filtering (most public posts pass through)
+    final fetchLimit = limit + 5;
 
     // Fetch original posts
     var postsFuture = _client.from(SupabaseConfig.postsTable).select('''
@@ -210,7 +224,7 @@ class PostRepository {
     final followingIds = await _getFollowingIds(currentUserId);
     if (followingIds.isEmpty) return [];
 
-    final fetchLimit = limit * 2;
+    final fetchLimit = limit + 5;
 
     var query = _client.from(SupabaseConfig.postsTable).select('''
           *,
@@ -366,7 +380,7 @@ class PostRepository {
     int offset = 0,
     String? currentUserId,
   }) async {
-    final fetchLimit = limit * 2;
+    final fetchLimit = limit + 5;
 
     final postData = await _client
         .from(SupabaseConfig.postsTable)
@@ -480,16 +494,28 @@ class PostRepository {
   }
 
   /// Get list of user IDs that the current user follows.
+  /// Result is cached for [_followingCacheTtl] to avoid repeated DB calls.
   Future<Set<String>> _getFollowingIds(String userId) async {
+    final now = DateTime.now();
+    if (_cachedFollowingIds != null &&
+        _cachedFollowingUserId == userId &&
+        _followingCacheTime != null &&
+        now.difference(_followingCacheTime!) < _followingCacheTtl) {
+      return _cachedFollowingIds!;
+    }
     try {
       final response = await _client
           .from(SupabaseConfig.followsTable)
           .select('following_id')
           .eq('follower_id', userId);
 
-      return (response as List)
+      final ids = (response as List)
           .map((row) => row['following_id'] as String)
           .toSet();
+      _cachedFollowingIds = ids;
+      _cachedFollowingUserId = userId;
+      _followingCacheTime = now;
+      return ids;
     } catch (e) {
       debugPrint('PostRepository: Error fetching following list - $e');
       return {};
@@ -565,8 +591,8 @@ class PostRepository {
     int offset = 0,
     String? currentUserId,
   }) async {
-    // Fetch more items than needed to account for privacy filtering
-    final fetchLimit = limit * 2;
+    // Small buffer for privacy filtering
+    final fetchLimit = limit + 5;
 
     // Fetch user's original posts
     dynamic postsFuture = _client
@@ -1814,7 +1840,7 @@ class PostRepository {
     required String authorId,
     required String body,
     List<File>? mediaFiles,
-    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
+    Future<bool> Function(double adConfidence, String? adType, List<String> evidence, String? rationale)? onAdFeeRequired,
   }) async {
     // Prefer compressed files stored during upload (smaller = faster AI check).
     // Fall back to the original files passed by the caller.
@@ -1829,9 +1855,6 @@ class PostRepository {
       final detectionModels = hasMedia ? 'gpt-4.1' : 'gpt-5.2,o3';
 
       if (!hasText && !hasMedia) {
-        debugPrint(
-          'PostRepository: Cannot run AI detection - no content for post $postId',
-        );
         return null;
       }
       debugPrint(
@@ -2019,7 +2042,12 @@ class PostRepository {
 
           bool feePaid = false;
           if (onAdFeeRequired != null) {
-            feePaid = await onAdFeeRequired(adConfidence, adType);
+            feePaid = await onAdFeeRequired(
+              adConfidence,
+              adType,
+              ad?.evidence ?? [],
+              ad?.rationale,
+            );
           }
 
           if (feePaid) {

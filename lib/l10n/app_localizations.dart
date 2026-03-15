@@ -1576,11 +1576,11 @@ abstract class AppLocalizations {
   /// **'Moderation Appeal'**
   String get moderationAppeal;
 
-  /// No description provided for @roobyteWallet.
+  /// No description provided for @roobitWallet.
   ///
   /// In en, this message translates to:
-  /// **'Roobyte / Wallet'**
-  String get roobyteWallet;
+  /// **'Roobit / Wallet'**
+  String get roobitWallet;
 
   /// No description provided for @technicalProblem.
   ///

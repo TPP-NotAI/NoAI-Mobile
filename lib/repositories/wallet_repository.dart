@@ -1227,8 +1227,8 @@ class WalletRepository {
         'encrypted_private_key': localKey,
         'updated_at': DateTime.now().toIso8601String(),
       });
-    } catch (e) {
-      debugPrint('WalletRepository: ensure key backup failed for $userId: $e');
+    } catch (_) {
+      // Silently ignore — duplicate key or transient errors are non-critical
     }
   }
 

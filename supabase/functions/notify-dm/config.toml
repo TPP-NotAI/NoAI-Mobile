@@ -1,0 +1,2 @@
+[functions.notify-dm]
+verify_jwt = false

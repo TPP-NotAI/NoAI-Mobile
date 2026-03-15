@@ -219,13 +219,9 @@ class NotificationRepository {
   }) async {
     try {
       final normalizedType = _normalizeType(type);
-      debugPrint(
-        'NotificationRepository: Creating notification type=$type (normalized=$normalizedType) for user=$userId from actor=$actorId',
-      );
 
       // Don't create notification if user is notifying themselves
       if (actorId == userId) {
-        debugPrint('NotificationRepository: Skipping self-notification');
         return false;
       }
 
@@ -322,7 +318,6 @@ class NotificationRepository {
         }
       }
 
-      debugPrint('NotificationRepository: Notification created successfully');
       return true;
     } catch (e) {
       debugPrint(

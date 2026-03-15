@@ -86,7 +86,7 @@ class WelcomeDialog extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text('Your human-only social platform powered by Roobyte'.tr(context),
+                  Text('Your human-only social platform powered by Roobit'.tr(context),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 14,

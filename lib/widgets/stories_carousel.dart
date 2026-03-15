@@ -9,7 +9,6 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:image/image.dart' as img;
 
-import 'package:video_compress/video_compress.dart';
 import '../config/supabase_config.dart';
 import '../config/app_spacing.dart';
 import '../utils/responsive_extensions.dart';
@@ -844,47 +843,8 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
     File file, {
     void Function(double progress)? onProgress,
   }) async {
-    File uploadFile = file;
-    File? compressedFile;
     try {
       final extension = file.path.split('.').last.toLowerCase();
-      final isVideo = <String>{'mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv'}.contains(extension);
-
-      // Compress video before upload if >10MB
-      if (isVideo && await file.length() > 10 * 1024 * 1024) {
-        debugPrint('StoriesCarousel: Compressing video...');
-        double compressProgress = 0.0;
-        final compressTimer = onProgress == null ? null : Timer.periodic(
-          const Duration(milliseconds: 300),
-          (_) {
-            if (compressProgress < 0.18) {
-              compressProgress = (compressProgress + 0.01).clamp(0.0, 0.18);
-              onProgress(compressProgress);
-            }
-          },
-        );
-        final origSize = await file.length();
-        final info = await VideoCompress.compressVideo(
-          file.path,
-          quality: VideoQuality.MediumQuality,
-          deleteOrigin: false,
-          includeAudio: true,
-        );
-        compressTimer?.cancel();
-        final compressedPath = info?.file?.path;
-        if (compressedPath != null) {
-          final candidate = File(compressedPath);
-          final compSize = await candidate.length();
-          if (compSize < origSize) {
-            compressedFile = candidate;
-            uploadFile = compressedFile;
-            debugPrint('StoriesCarousel: Using compressed file (${((1 - compSize / origSize) * 100).toStringAsFixed(0)}% smaller)');
-          } else {
-            try { candidate.delete(); } catch (_) {}
-          }
-        }
-        onProgress?.call(0.20);
-      }
 
       final fileName =
           '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('\\').last.split('/').last}';
@@ -893,35 +853,28 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
 
       String? url;
       if (onProgress != null) {
-        final uploadStart = isVideo ? 0.20 : 0.0;
         url = await FileUploadUtils.uploadFileWithProgress(
-          file: uploadFile,
+          file: file,
           bucket: bucket,
           fileName: fileName,
           mimeType: mimeType,
-          // Map [0,1] from the upload timer into [uploadStart, 1.0]
-          onProgress: (p) => onProgress(uploadStart + p * (1.0 - uploadStart)),
+          onProgress: onProgress,
         );
       } else {
         final response = await SupabaseService().client.storage
             .from(bucket)
-            .upload(fileName, uploadFile)
+            .upload(fileName, file)
             .timeout(const Duration(minutes: 10));
         if (response.isNotEmpty) {
           url = SupabaseService().client.storage.from(bucket).getPublicUrl(fileName);
         }
       }
 
-      if (url == null) {
-        if (compressedFile != null) try { await compressedFile.delete(); } catch (_) {}
-        return null;
-      }
+      if (url == null) return null;
       final media = FileUploadUtils.mediaResult(url: url, fileExtension: extension);
-      // Return compressed file for AI; caller deletes it after AI completes
-      return (media: media, aiFile: compressedFile);
+      return (media: media, aiFile: null);
     } catch (e) {
       debugPrint('StoriesCarousel: Failed to upload camera media - $e');
-      if (compressedFile != null) try { await compressedFile.delete(); } catch (_) {}
       return null;
     }
   }

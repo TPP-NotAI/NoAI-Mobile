@@ -1,0 +1,8 @@
+[functions.notify-social]
+verify_jwt = false
+
+[functions.notify-dm]
+verify_jwt = false
+
+[functions.notify-wallet]
+verify_jwt = false

@@ -26,7 +26,9 @@ import '../../services/supabase_service.dart';
 import '../../services/local_post_draft_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/kyc_verification_service.dart';
+import '../../services/push_notification_service.dart';
 import '../../utils/verification_utils.dart';
+import '../../widgets/post_card.dart' show disposeFeedVideoCache;
 import '../../widgets/verification_required_widget.dart';
 import '../../config/global_keys.dart';
 import '../profile/edit_profile_screen.dart';
@@ -40,6 +42,9 @@ class CreatePostScreen extends StatefulWidget {
   final String? initialText;
   /// Pre-filled media file paths from an incoming share intent.
   final List<String>? initialMediaPaths;
+  /// When incremented from outside (e.g. bottom nav tab), switches post type.
+  /// The notifier's string value is the desired post type ('Text'/'Photo'/'Video').
+  final ValueNotifier<String?>? postTypeNotifier;
 
   const CreatePostScreen({
     super.key,
@@ -47,6 +52,7 @@ class CreatePostScreen extends StatefulWidget {
     this.onPostCreated,
     this.initialText,
     this.initialMediaPaths,
+    this.postTypeNotifier,
   });
 
   @override
@@ -110,6 +116,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   void initState() {
     super.initState();
     _postType = widget.initialPostType ?? 'Text';
+    widget.postTypeNotifier?.addListener(_onPostTypeNotifier);
     _draftService = LocalPostDraftService(storage: _storageService);
     _loadCachedPostCost();
     WidgetsBinding.instance.addPostFrameCallback(
@@ -182,6 +189,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   @override
   void dispose() {
+    widget.postTypeNotifier?.removeListener(_onPostTypeNotifier);
     _contentController.removeListener(_onContentChanged);
     _titleController.removeListener(_onContentChanged);
     _contentController.dispose();
@@ -192,6 +200,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       file.delete().ignore();
     }
     super.dispose();
+  }
+
+  void _onPostTypeNotifier() {
+    final type = widget.postTypeNotifier?.value;
+    if (type != null && mounted) {
+      setState(() => _postType = type);
+    }
   }
 
   void _onContentChanged() {
@@ -248,12 +263,26 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           final filesToAdd = <File>[];
           final typesToAdd = <String>[];
 
+          const int maxVideoBytes = 500 * 1024 * 1024; // 500 MB
           for (final media in pickedMedia) {
             final mediaType = _detectMediaType(media.path);
             if (mediaType == null) continue;
             if (_selectedMediaFiles.length + filesToAdd.length >= maxImages)
               break;
-            filesToAdd.add(File(media.path));
+            final file = File(media.path);
+            if (mediaType == 'video' && await file.length() > maxVideoBytes) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('One or more videos exceed the 500 MB limit and were skipped.'.tr(context)),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              }
+              continue;
+            }
+            filesToAdd.add(file);
             typesToAdd.add(mediaType);
           }
 
@@ -316,6 +345,24 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
         if (video != null) {
           File videoFile = File(video.path);
+
+          // Reject videos that are too large to handle safely on device.
+          const int maxVideoBytes = 500 * 1024 * 1024; // 500 MB
+          final videoSize = await videoFile.length();
+          if (videoSize > maxVideoBytes) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Video is too large (${(videoSize / (1024 * 1024)).toStringAsFixed(0)} MB). Maximum size is 500 MB.'.tr(context),
+                  ),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
+            return;
+          }
 
           // If from camera, copy to a permanent location to ensure file accessibility
           if (fromCamera) {
@@ -1266,7 +1313,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 videoFile: _selectedMediaFiles[0],
                 showControls: false,
               )
-            : Image.file(_selectedMediaFiles[0], fit: BoxFit.cover),
+            : Image.file(
+                _selectedMediaFiles[0],
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Center(
+                  child: Icon(Icons.broken_image_outlined, size: 40, color: Colors.grey),
+                ),
+              ),
       );
     }
 
@@ -1297,7 +1350,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   /// Shows a dialog informing the user their post was detected as an
   /// advertisement and they must pay a ROO fee before it goes live.
   /// Returns true if the fee was successfully charged, false otherwise.
-  Future<bool> _showAdFeeDialog(double adConfidence, String? adType) async {
+  Future<bool> _showAdFeeDialog(double adConfidence, String? adType, List<String> evidence, String? rationale) async {
     const double adFeeRoo = 5.0; // flat advertising fee in ROO
 
     if (!mounted) return false;
@@ -1322,10 +1375,44 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Our system detected this post as promotional content '
-              '(${adConfidence.toStringAsFixed(0)}% confidence'
-              '${adType != null ? " · ${adType.replaceAll('_', ' ')}" : ""}).',
+              'Our system detected this post as promotional content. '
+              'Here is what it found:',
             ),
+            if (evidence.isNotEmpty || rationale != null) ...[
+              SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (rationale != null && rationale.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          rationale,
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ...evidence.map(
+                      (e) => Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('• ', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            Expanded(child: Text(e, style: TextStyle(fontSize: 13))),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             SizedBox(height: 12),
             Text(
               'To publish it, an advertising fee is required.'.tr(context),
@@ -1533,12 +1620,22 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         optimisticAuthor: optimisticAuthor,
         optimisticTags: optimisticTags,
         waitForAi: false,
-        onAdFeeRequired: (adConfidence, adType) =>
-            _showAdFeeDialog(adConfidence, adType),
+        onAdFeeRequired: (adConfidence, adType, evidence, rationale) =>
+            _showAdFeeDialog(adConfidence, adType, evidence, rationale),
         onUploadProgress: (p) {
           if (mounted) setState(() => _uploadProgress = p);
+          // Mirror progress to the Android notification shade (Facebook-style).
+          final pct = (p * 100).clamp(0, 100).toInt();
+          PushNotificationService().showUploadProgress(
+            progress: pct,
+            title: 'Uploading post…',
+            body: pct > 0 ? '$pct%' : '',
+          );
         },
       );
+
+      // Dismiss the upload notification now that upload is finished.
+      await PushNotificationService().cancelUploadNotification();
 
       if (!mounted) return;
 
@@ -1634,6 +1731,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         );
       }
     } on KycNotVerifiedException catch (e) {
+      PushNotificationService().cancelUploadNotification();
       if (!mounted) return;
       setState(() { _isPosting = false; _uploadProgress = null; });
       if (context.mounted) {
@@ -1655,6 +1753,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         );
       }
     } on NotActivatedException catch (e) {
+      PushNotificationService().cancelUploadNotification();
       if (!mounted) return;
       setState(() { _isPosting = false; _uploadProgress = null; });
       if (context.mounted) {
@@ -1676,6 +1775,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         );
       }
     } catch (e) {
+      PushNotificationService().cancelUploadNotification();
       debugPrint('Error creating post: $e');
       if (mounted) {
         setState(() { _isPosting = false; _uploadProgress = null; });
@@ -3311,54 +3411,89 @@ class _VideoPreviewWidgetState extends State<_VideoPreviewWidget> {
   VideoPlayerController? _controller;
   ChewieController? _chewieController;
   bool _isInitialized = false;
+  bool _hasError = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeVideo();
+    // Schedule after first frame so Theme.of(context) is safe.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _initializeVideo(widget.videoFile);
+    });
   }
 
-  Future<void> _initializeVideo() async {
-    _controller = VideoPlayerController.file(widget.videoFile);
-    await _controller!.initialize();
+  @override
+  void didUpdateWidget(_VideoPreviewWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoFile.path != widget.videoFile.path) {
+      _chewieController?.dispose();
+      _controller?.dispose();
+      _chewieController = null;
+      _controller = null;
+      setState(() { _isInitialized = false; _hasError = false; });
+      _initializeVideo(widget.videoFile);
+    }
+  }
 
-    final aspectRatio =
-        _controller!.value.aspectRatio.isFinite &&
-            _controller!.value.aspectRatio > 0
-        ? _controller!.value.aspectRatio
-        : 16 / 9;
+  Future<void> _initializeVideo(File videoFile) async {
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
-    _chewieController = ChewieController(
-      videoPlayerController: _controller!,
-      autoPlay: false,
-      looping: false,
-      showControls: widget.showControls,
-      allowFullScreen: false,
-      allowMuting: false,
-      allowPlaybackSpeedChanging: false,
-      aspectRatio: aspectRatio,
-      materialProgressColors: ChewieProgressColors(
-        playedColor: Theme.of(context).colorScheme.primary,
-        handleColor: Theme.of(context).colorScheme.primary,
-        backgroundColor: Colors.grey,
-        bufferedColor: Colors.grey.shade300,
-      ),
-      placeholder: Container(
-        color: Colors.black,
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      errorBuilder: (context, errorMessage) {
-        return Container(
+    try {
+      // Skip preview for files over 50 MB — loading them into VideoPlayer
+      // on device causes OOM crashes. Show a safe placeholder instead.
+      const int previewLimit = 50 * 1024 * 1024; // 50 MB
+      final fileSize = await videoFile.length();
+      if (fileSize > previewLimit) {
+        if (mounted) setState(() { _isInitialized = false; _hasError = true; });
+        return;
+      }
+
+      // Free feed video decoders before allocating a new MediaCodec instance.
+      // Hardware decoder slots are limited (often 3–4 on budget devices).
+      disposeFeedVideoCache();
+
+      _controller = VideoPlayerController.file(videoFile);
+      await _controller!.initialize();
+
+      if (!mounted) return;
+
+      final aspectRatio =
+          _controller!.value.aspectRatio.isFinite &&
+              _controller!.value.aspectRatio > 0
+          ? _controller!.value.aspectRatio
+          : 16 / 9;
+
+      _chewieController = ChewieController(
+        videoPlayerController: _controller!,
+        autoPlay: false,
+        looping: false,
+        showControls: widget.showControls,
+        allowFullScreen: false,
+        allowMuting: false,
+        allowPlaybackSpeedChanging: false,
+        aspectRatio: aspectRatio,
+        materialProgressColors: ChewieProgressColors(
+          playedColor: primaryColor,
+          handleColor: primaryColor,
+          backgroundColor: Colors.grey,
+          bufferedColor: Colors.grey.shade300,
+        ),
+        placeholder: Container(
           color: Colors.black,
-          child: Center(child: Icon(Icons.error, color: Colors.white)),
-        );
-      },
-    );
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        errorBuilder: (context, errorMessage) {
+          return Container(
+            color: Colors.black,
+            child: Center(child: Icon(Icons.error, color: Colors.white)),
+          );
+        },
+      );
 
-    if (mounted) {
-      setState(() {
-        _isInitialized = true;
-      });
+      if (mounted) setState(() => _isInitialized = true);
+    } catch (e) {
+      debugPrint('VideoPreviewWidget: failed to initialize video - $e');
+      if (mounted) setState(() { _isInitialized = false; _hasError = true; });
     }
   }
 
@@ -3371,13 +3506,34 @@ class _VideoPreviewWidgetState extends State<_VideoPreviewWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = Container(
-      color: Colors.black,
-      child: Center(child: CircularProgressIndicator()),
-    );
+    if (_hasError) {
+      return SizedBox(
+        height: 240,
+        width: double.infinity,
+        child: Container(
+          color: Colors.black,
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.videocam_outlined, color: Colors.white54, size: 48),
+              SizedBox(height: 8),
+              Text(
+                'Video ready to upload\n(preview unavailable for large files)',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     if (!_isInitialized || _chewieController == null) {
-      return SizedBox(height: 240, width: double.infinity, child: fallback);
+      return SizedBox(
+        height: 240,
+        width: double.infinity,
+        child: Container(color: Colors.black, child: const Center(child: CircularProgressIndicator())),
+      );
     }
 
     // Guard against invalid aspect ratios that can throw width.isFinite errors.

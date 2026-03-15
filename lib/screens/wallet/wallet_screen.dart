@@ -185,7 +185,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         ? null
                         : () {
                             Share.share(
-                              'Join me on ROOVERSE and start earning ROO! Use my referral code: $_referralCode\nDownload at: https://rooverse.com',
+                              'Join me on ROOVERSE and start earning ROO! Use my referral code: $_referralCode\nDownload at: https://web.rooverse.app',
                               subject: 'Join ROOVERSE - The Human Network',
                             );
                           },
@@ -501,7 +501,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             SizedBox(
                               height: AppSpacing.extraSmall.responsive(context),
                             ),
-                            Text('Manage your Roobyte assets and track yield performance.'.tr(context),
+                            Text('Manage your Roobit assets and track yield performance.'.tr(context),
                               style: TextStyle(
                                 color: colors.onSurfaceVariant,
                                 fontSize: AppTypography.responsiveFontSize(
@@ -686,7 +686,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           ],
                         ),
                         SizedBox(height: 12),
-                        Text('Invite your friends to ROOVERSE and earn extra Roobyte for every verified human you refer!'.tr(context),
+                        Text('Invite your friends to ROOVERSE and earn extra Roobit for every verified human you refer!'.tr(context),
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 13,
