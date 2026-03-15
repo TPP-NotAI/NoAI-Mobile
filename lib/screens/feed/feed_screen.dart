@@ -585,13 +585,13 @@ class CreatePostCard extends StatelessWidget {
               _ActionButton(
                 icon: Icons.videocam_outlined,
                 label: 'Video',
-                color: colors.error,
+                color: colors.primary,
                 onTap: () => onNavigateToCreate?.call(initialPostType: 'Video'),
               ),
               _ActionButton(
                 icon: Icons.article_outlined,
                 label: 'Text',
-                color: colors.tertiary,
+                color: colors.primary,
                 onTap: () => onNavigateToCreate?.call(initialPostType: 'Text'),
               ),
             ],

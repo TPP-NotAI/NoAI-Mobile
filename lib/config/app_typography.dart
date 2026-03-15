@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../utils/responsive_utils.dart';
 
-/// Typography system matching web application specs
-/// Base font: system-ui, Avenir, Helvetica, Arial, sans-serif
+/// Typography system — Rooverse Brand (official style guide)
 ///
-/// For responsive font sizes, use:
-/// ```dart
-/// fontSize: AppTypography.responsiveFontSize(context, AppTypography.base)
-/// ```
-/// Or with TextStyles:
-/// ```dart
-/// style: AppTypography.responsiveStyle(context, AppTypography.postContent)
-/// ```
+/// Primary font:   Be Vietnam Pro  — UI, body, buttons, labels
+/// Secondary font: Playfair Display — headings, display, editorial
+///
 class AppTypography {
-  // Font Sizes (matching web rem values, 1rem = 16px)
+  // ─────────────────────────────────────────────────────────────────────────
+  // FONT FAMILIES
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static String get primaryFamily => GoogleFonts.beVietnamPro().fontFamily!;
+  static String get secondaryFamily => GoogleFonts.playfairDisplay().fontFamily!;
+
+  /// Full Montserrat-based TextTheme for ThemeData — uses Be Vietnam Pro
+  static TextTheme get textTheme => GoogleFonts.beVietnamProTextTheme();
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FONT SIZES (1rem = 16px)
+  // ─────────────────────────────────────────────────────────────────────────
+
   static const double extraLargeHeading = 51.2; // 3.2em
   static const double largeHeading = 40.0; // 2.5rem
   static const double sectionHeading = 32.0; // 2rem
@@ -30,166 +38,178 @@ class AppTypography {
   static const double badgeText = 12.0; // 0.75rem
 
   // Icon Sizes
-  static const double tinyIcon = 11.2; // 0.7rem
-  static const double smallIcon = 17.6; // 1.1rem
-  static const double mediumIcon = 19.2; // 1.2rem
-  static const double largeIcon = 20.8; // 1.3rem
-  static const double extraLargeIcon = 24.0; // 1.5rem
-  static const double logoShield = 28.8; // 1.8rem
-  static const double authShield = 40.0; // 2.5rem
-  static const double modalClose = 32.0; // 2rem
-  static const double walletBalance = 32.0; // 2rem
+  static const double tinyIcon = 11.2;
+  static const double smallIcon = 17.6;
+  static const double mediumIcon = 19.2;
+  static const double largeIcon = 20.8;
+  static const double extraLargeIcon = 24.0;
+  static const double logoShield = 28.8;
+  static const double authShield = 40.0;
+  static const double modalClose = 32.0;
+  static const double walletBalance = 32.0;
 
-  // Font Weights
+  // ─────────────────────────────────────────────────────────────────────────
+  // FONT WEIGHTS
+  // ─────────────────────────────────────────────────────────────────────────
+
   static const FontWeight normal = FontWeight.w400;
   static const FontWeight medium = FontWeight.w500;
   static const FontWeight semiBold = FontWeight.w600;
   static const FontWeight bold = FontWeight.w700;
+  static const FontWeight extraBold = FontWeight.w800;
 
   // Line Heights
   static const double defaultLineHeight = 1.5;
   static const double tightLineHeight = 1.1;
   static const double relaxedLineHeight = 1.7;
 
-  // Text Styles matching web components
+  // ─────────────────────────────────────────────────────────────────────────
+  // TEXT STYLES
+  // Uses Playfair Display for display/heading, Be Vietnam Pro for everything else
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // Auth page heading
-  static const TextStyle authHeading = TextStyle(
-    fontSize: largeHeading,
-    fontWeight: bold,
-    height: tightLineHeight,
-  );
+  /// Auth page main heading — Playfair Display (editorial)
+  static TextStyle get authHeading => GoogleFonts.playfairDisplay(
+        fontSize: largeHeading,
+        fontWeight: bold,
+        height: tightLineHeight,
+      );
 
-  // Logo text
-  static const TextStyle logoText = TextStyle(
-    fontSize: mediumHeading,
-    fontWeight: bold,
-  );
+  /// Logo wordmark — Be Vietnam Pro extra bold
+  static TextStyle get logoText => GoogleFonts.beVietnamPro(
+        fontSize: mediumHeading,
+        fontWeight: extraBold,
+        letterSpacing: 1.5,
+      );
 
-  // Profile name
-  static const TextStyle profileName = TextStyle(
-    fontSize: sectionHeading,
-    fontWeight: bold,
-  );
+  /// Profile display name — Playfair Display
+  static TextStyle get profileName => GoogleFonts.playfairDisplay(
+        fontSize: sectionHeading,
+        fontWeight: bold,
+      );
 
-  // Modal header
-  static const TextStyle modalHeader = TextStyle(
-    fontSize: subheading,
-    fontWeight: bold,
-  );
+  /// Modal / sheet header — Be Vietnam Pro
+  static TextStyle get modalHeader => GoogleFonts.beVietnamPro(
+        fontSize: subheading,
+        fontWeight: bold,
+      );
 
-  // Card heading
-  static const TextStyle cardTitle = TextStyle(
-    fontSize: cardHeading,
-    fontWeight: bold,
-  );
+  /// Card heading — Be Vietnam Pro
+  static TextStyle get cardTitle => GoogleFonts.beVietnamPro(
+        fontSize: cardHeading,
+        fontWeight: bold,
+      );
 
-  // Post username
-  static const TextStyle postUsername = TextStyle(
-    fontSize: base,
-    fontWeight: semiBold,
-  );
+  /// Post username — Be Vietnam Pro
+  static TextStyle get postUsername => GoogleFonts.beVietnamPro(
+        fontSize: base,
+        fontWeight: semiBold,
+      );
 
-  // Post content
-  static const TextStyle postContent = TextStyle(
-    fontSize: base,
-    height: relaxedLineHeight,
-  );
+  /// Post body text — Be Vietnam Pro
+  static TextStyle get postContent => GoogleFonts.beVietnamPro(
+        fontSize: base,
+        fontWeight: normal,
+        height: relaxedLineHeight,
+      );
 
-  // Post meta (timestamp, etc.)
-  static const TextStyle postMeta = TextStyle(
-    fontSize: extraSmall,
-  );
+  /// Timestamp / meta — Be Vietnam Pro
+  static TextStyle get postMeta => GoogleFonts.beVietnamPro(
+        fontSize: extraSmall,
+        fontWeight: normal,
+      );
 
-  // Button text
-  static const TextStyle buttonText = TextStyle(
-    fontSize: base,
-    fontWeight: semiBold,
-  );
+  /// Button label — Be Vietnam Pro
+  static TextStyle get buttonText => GoogleFonts.beVietnamPro(
+        fontSize: base,
+        fontWeight: semiBold,
+        letterSpacing: 0.3,
+      );
 
-  // Action button text
-  static const TextStyle actionButtonText = TextStyle(
-    fontSize: mediumText,
-    fontWeight: semiBold,
-  );
+  /// Smaller action button — Be Vietnam Pro
+  static TextStyle get actionButtonText => GoogleFonts.beVietnamPro(
+        fontSize: mediumText,
+        fontWeight: semiBold,
+      );
 
-  // Form label
-  static const TextStyle formLabel = TextStyle(
-    fontSize: small,
-    fontWeight: semiBold,
-  );
+  /// Form label — Be Vietnam Pro
+  static TextStyle get formLabel => GoogleFonts.beVietnamPro(
+        fontSize: small,
+        fontWeight: semiBold,
+      );
 
-  // Input text
-  static const TextStyle inputText = TextStyle(
-    fontSize: base,
-  );
+  /// Input field text — Be Vietnam Pro
+  static TextStyle get inputText => GoogleFonts.beVietnamPro(
+        fontSize: base,
+        fontWeight: normal,
+      );
 
-  // Error message
-  static const TextStyle errorText = TextStyle(
-    fontSize: extraSmall,
-  );
+  /// Error message — Be Vietnam Pro
+  static TextStyle get errorText => GoogleFonts.beVietnamPro(
+        fontSize: extraSmall,
+        fontWeight: normal,
+      );
 
-  // Verified badge
-  static const TextStyle verifiedBadge = TextStyle(
-    fontSize: extraSmall,
-    fontWeight: medium,
-  );
+  /// Verified badge label — Be Vietnam Pro
+  static TextStyle get verifiedBadge => GoogleFonts.beVietnamPro(
+        fontSize: extraSmall,
+        fontWeight: medium,
+      );
 
-  // Human badge
-  static const TextStyle humanBadge = TextStyle(
-    fontSize: badgeText,
-    fontWeight: semiBold,
-  );
+  /// Human badge — Be Vietnam Pro
+  static TextStyle get humanBadge => GoogleFonts.beVietnamPro(
+        fontSize: badgeText,
+        fontWeight: semiBold,
+      );
 
-  // Trending item
-  static const TextStyle trendingItem = TextStyle(
-    fontSize: smallHeading,
-    fontWeight: bold,
-  );
+  /// Trending item title — Playfair Display
+  static TextStyle get trendingItem => GoogleFonts.playfairDisplay(
+        fontSize: smallHeading,
+        fontWeight: bold,
+      );
 
-  // Trending description
-  static const TextStyle trendingDescription = TextStyle(
-    fontSize: tiny,
-  );
+  /// Trending description — Be Vietnam Pro
+  static TextStyle get trendingDescription => GoogleFonts.beVietnamPro(
+        fontSize: tiny,
+        fontWeight: normal,
+      );
 
-  // Wallet balance amount
-  static const TextStyle walletBalanceAmount = TextStyle(
-    fontSize: sectionHeading,
-    fontWeight: bold,
-  );
+  /// Wallet balance — Playfair Display (display number)
+  static TextStyle get walletBalanceAmount => GoogleFonts.playfairDisplay(
+        fontSize: sectionHeading,
+        fontWeight: bold,
+      );
 
-  // Wallet value
-  static const TextStyle walletValue = TextStyle(
-    fontSize: small,
-  );
+  /// Wallet secondary value — Be Vietnam Pro
+  static TextStyle get walletValue => GoogleFonts.beVietnamPro(
+        fontSize: small,
+        fontWeight: normal,
+      );
 
-  // Feature text
-  static const TextStyle featureText = TextStyle(
-    fontSize: extraSmall,
-    fontWeight: medium,
-  );
+  /// Feature label — Be Vietnam Pro
+  static TextStyle get featureText => GoogleFonts.beVietnamPro(
+        fontSize: extraSmall,
+        fontWeight: medium,
+      );
 
-  // Link text
-  static const TextStyle linkText = TextStyle(
-    fontSize: base,
-    fontWeight: medium,
-  );
+  /// Link text — Be Vietnam Pro
+  static TextStyle get linkText => GoogleFonts.beVietnamPro(
+        fontSize: base,
+        fontWeight: medium,
+      );
 
   // ─────────────────────────────────────────────────────────────────────────
   // RESPONSIVE HELPER METHODS
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Create a responsive font size (dampened scaling for readability)
   static double responsiveFontSize(BuildContext context, double size) {
     return ResponsiveUtils.scaleText(context, size);
   }
 
-  /// Create a responsive icon size
   static double responsiveIconSize(BuildContext context, double size) {
     return ResponsiveUtils.scale(context, size);
   }
 
-  /// Create a responsive TextStyle from a base style
   static TextStyle responsiveStyle(BuildContext context, TextStyle style) {
     if (style.fontSize == null) return style;
     return style.copyWith(
@@ -197,48 +217,30 @@ class AppTypography {
     );
   }
 
-  /// Get responsive authHeading style
-  static TextStyle responsiveAuthHeading(BuildContext context) {
-    return responsiveStyle(context, authHeading);
-  }
+  static TextStyle responsiveAuthHeading(BuildContext context) =>
+      responsiveStyle(context, authHeading);
 
-  /// Get responsive logoText style
-  static TextStyle responsiveLogoText(BuildContext context) {
-    return responsiveStyle(context, logoText);
-  }
+  static TextStyle responsiveLogoText(BuildContext context) =>
+      responsiveStyle(context, logoText);
 
-  /// Get responsive profileName style
-  static TextStyle responsiveProfileName(BuildContext context) {
-    return responsiveStyle(context, profileName);
-  }
+  static TextStyle responsiveProfileName(BuildContext context) =>
+      responsiveStyle(context, profileName);
 
-  /// Get responsive modalHeader style
-  static TextStyle responsiveModalHeader(BuildContext context) {
-    return responsiveStyle(context, modalHeader);
-  }
+  static TextStyle responsiveModalHeader(BuildContext context) =>
+      responsiveStyle(context, modalHeader);
 
-  /// Get responsive cardTitle style
-  static TextStyle responsiveCardTitle(BuildContext context) {
-    return responsiveStyle(context, cardTitle);
-  }
+  static TextStyle responsiveCardTitle(BuildContext context) =>
+      responsiveStyle(context, cardTitle);
 
-  /// Get responsive postUsername style
-  static TextStyle responsivePostUsername(BuildContext context) {
-    return responsiveStyle(context, postUsername);
-  }
+  static TextStyle responsivePostUsername(BuildContext context) =>
+      responsiveStyle(context, postUsername);
 
-  /// Get responsive postContent style
-  static TextStyle responsivePostContent(BuildContext context) {
-    return responsiveStyle(context, postContent);
-  }
+  static TextStyle responsivePostContent(BuildContext context) =>
+      responsiveStyle(context, postContent);
 
-  /// Get responsive postMeta style
-  static TextStyle responsivePostMeta(BuildContext context) {
-    return responsiveStyle(context, postMeta);
-  }
+  static TextStyle responsivePostMeta(BuildContext context) =>
+      responsiveStyle(context, postMeta);
 
-  /// Get responsive buttonText style
-  static TextStyle responsiveButtonText(BuildContext context) {
-    return responsiveStyle(context, buttonText);
-  }
+  static TextStyle responsiveButtonText(BuildContext context) =>
+      responsiveStyle(context, buttonText);
 }

@@ -51,10 +51,17 @@
 	<string>We need permission to save photos to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>We need access to your gallery to let you share photos in chat.</string>
+	<key>NSFilesSharingUsageDescription</key>
+	<string>We need access to files so you can share them in chat.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>ShareMedia</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>audio</string>
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>

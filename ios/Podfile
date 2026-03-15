@@ -35,6 +35,12 @@ target 'Runner' do
   end
 end
 
+# Share Extension — no Flutter pods needed, just plain Swift
+target 'ShareExtension' do
+  use_frameworks!
+  inherit! :search_paths
+end
+
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)

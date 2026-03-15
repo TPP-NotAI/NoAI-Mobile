@@ -36,9 +36,9 @@ class _WalletScreenState extends State<WalletScreen> {
   bool _isResolvingTxUsers = false;
   final Set<String> _resolvedTxUserIds = <String>{};
 
-  // ROO brand colors (consistent across light/dark)
-  static const Color _rooOrange = Color(0xFFFF8C00);
-  static const Color _rooGold = Color(0xFFFFD700);
+  // Rooverse brand colors (official style guide)
+  static const Color _rooOrange = AppColors.primary;
+  static const Color _rooGold = AppColors.primary;
 
   @override
   void initState() {
@@ -102,7 +102,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 const Icon(
                   Icons.card_giftcard,
                   size: 48,
-                  color: Color(0xFF4A00E0),
+                  color: AppColors.primary,
                 ),
                 SizedBox(height: 16),
                 Text('Invite Friends'.tr(context),
@@ -152,7 +152,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                     style: theme.textTheme.titleLarge?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 2,
-                                      color: const Color(0xFF4A00E0),
+                                      color: AppColors.primary,
                                     ),
                                   ),
                           ],
@@ -192,7 +192,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     icon: const Icon(Icons.share),
                     label: Text('Share Code'.tr(context)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4A00E0),
+                      backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -655,11 +655,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       AppSpacing.extraLarge,
                     ),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      gradient: AppColors.primaryGradient,
                       borderRadius: AppSpacing.responsiveRadius(
                         context,
                         AppSpacing.radiusExtraLarge,
@@ -700,7 +696,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                 _showReferralSheet(context, user.id),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF4A00E0),
+                              foregroundColor: AppColors.primary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),

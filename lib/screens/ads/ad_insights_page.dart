@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../config/app_colors.dart';
 import '../../models/post.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -45,7 +46,7 @@ class AdInsightsPage extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.campaign, color: Color(0xFFFF8C00)),
+                      const Icon(Icons.campaign, color: AppColors.primary),
                       SizedBox(width: 8),
                       Text('Advertisement'.tr(context),
                         style: TextStyle(fontWeight: FontWeight.w700),
@@ -54,11 +55,11 @@ class AdInsightsPage extends StatelessWidget {
                       Chip(
                         label: Text(_isAdvert ? 'AD' : 'NOT AD'),
                         backgroundColor: _isAdvert
-                            ? const Color(0xFFFF8C00).withValues(alpha: 0.12)
+                            ? AppColors.primary.withValues(alpha: 0.12)
                             : colors.surfaceContainerHighest,
                         side: BorderSide(
                           color: _isAdvert
-                              ? const Color(0xFFFF8C00)
+                              ? AppColors.primary
                               : colors.outlineVariant,
                         ),
                       ),

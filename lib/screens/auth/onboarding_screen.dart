@@ -296,10 +296,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             vertical: h * 0.005,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withOpacity(0.15),
+                            color: AppColors.primarySoft,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(0xFF10B981).withOpacity(0.3),
+                              color: AppColors.primary.withValues(alpha: 0.3),
                             ),
                           ),
                           child: Text(
@@ -307,7 +307,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             style: TextStyle(
                               fontSize: (h * 0.014).clamp(8.0, 11.0),
                               fontWeight: FontWeight.bold,
-                              color: const Color(0xFF10B981),
+                              color: AppColors.primary,
                               letterSpacing: 1.5,
                             ),
                           ),

@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.rooverse</string>
+	<string>com.theprescientpachyderm.rooverse</string>
 	<key>PROJECT_ID</key>
 	<string>rooverse-production-760d4</string>
 	<key>STORAGE_BUCKET</key>

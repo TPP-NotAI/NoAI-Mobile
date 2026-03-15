@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../config/app_colors.dart';
 import '../../config/app_spacing.dart';
 import '../../config/app_typography.dart';
 import '../../utils/responsive_extensions.dart';
@@ -673,7 +674,7 @@ class _ProfileHeader extends StatelessWidget {
                   width: 32.responsive(context, min: 28, max: 36),
                   height: 32.responsive(context, min: 28, max: 36),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981),
+                    color: AppColors.primary,
                     shape: BoxShape.circle,
                     border: Border.all(color: colors.surface, width: 3),
                   ),
@@ -1036,7 +1037,7 @@ class _HumanityMetricsCompact extends StatelessWidget {
             value: '${user.humanVerifiedPostsCount}',
             subLabel: 'verified',
             icon: Icons.verified,
-            iconColor: const Color(0xFF10B981),
+            iconColor: AppColors.primary,
             colors: colors,
           ),
           SizedBox(height: 12),

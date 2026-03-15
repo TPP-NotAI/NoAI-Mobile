@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/post.dart';
 import '../../providers/auth_provider.dart';
+import '../../config/app_colors.dart';
 import '../../repositories/boost_repository.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -150,15 +151,11 @@ class _SummaryHeader extends StatelessWidget {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF97316), Color(0xFFFBBF24)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: AppColors.primaryGradient,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withValues(alpha: 0.3),
+            color: AppColors.primary.withValues(alpha: 0.3),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -293,12 +290,12 @@ class _BoostCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.12),
+                  color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.rocket_launch,
-                  color: Color(0xFFF97316),
+                  color: AppColors.primary,
                   size: 18,
                 ),
               ),
@@ -332,12 +329,12 @@ class _BoostCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.12),
+                  color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text('${boost.amountRoo.toStringAsFixed(0)} ROO'.tr(context),
                   style: const TextStyle(
-                    color: Color(0xFFF97316),
+                    color: AppColors.primary,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),

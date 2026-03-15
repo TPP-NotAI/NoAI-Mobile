@@ -10,6 +10,7 @@ import '../providers/wallet_provider.dart';
 import '../repositories/boost_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../utils/snackbar_utils.dart';
+import '../config/app_colors.dart';
 import '../providers/platform_config_provider.dart';
 import 'post_card.dart' show PostBoostCache;
 
@@ -100,7 +101,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
       ..showSnackBar(
         SnackBar(
           content: Text(confirmingText),
-          backgroundColor: Colors.blue.shade700,
+          backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -203,7 +204,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
         showDialog<void>(
           context: ctx,
           builder: (_) => AlertDialog(
-            icon: const Icon(Icons.rocket_launch, color: Color(0xFFF97316), size: 36),
+            icon: const Icon(Icons.rocket_launch, color: AppColors.primary, size: 36),
             title: Text(successTitle),
             content: Text(successBody),
             actions: [
@@ -298,7 +299,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Colors.orange.withValues(alpha: 0.10),
+                      AppColors.primary.withValues(alpha: 0.10),
                       Colors.transparent,
                     ],
                     begin: Alignment.topCenter,
@@ -324,12 +325,10 @@ class _BoostPostModalState extends State<BoostPostModal> {
                       height: 64,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFF97316), Color(0xFFFBBF24)],
-                        ),
+                        gradient: AppColors.primaryGradient,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.orange.withValues(alpha: 0.35),
+                            color: AppColors.primary.withValues(alpha: 0.35),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
@@ -433,7 +432,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
                               text: _targetUsers.toInt().toString(),
                               style: theme.textTheme.displaySmall?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFFF97316),
+                                color: AppColors.primary,
                               ),
                             ),
                             TextSpan(
@@ -451,10 +450,10 @@ class _BoostPostModalState extends State<BoostPostModal> {
 
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: const Color(0xFFF97316),
+                        activeTrackColor: AppColors.primary,
                         inactiveTrackColor: colors.surfaceContainerHighest,
-                        thumbColor: const Color(0xFFF97316),
-                        overlayColor: Colors.orange.withValues(alpha: 0.15),
+                        thumbColor: AppColors.primary,
+                        overlayColor: AppColors.primary.withValues(alpha: 0.15),
                         trackHeight: 6,
                       ),
                       child: Slider(
@@ -495,12 +494,12 @@ class _BoostPostModalState extends State<BoostPostModal> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: canAfford
-                        ? Colors.orange.withValues(alpha: 0.08)
+                        ? AppColors.primary.withValues(alpha: 0.08)
                         : Colors.red.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: canAfford
-                          ? Colors.orange.withValues(alpha: 0.3)
+                          ? AppColors.primary.withValues(alpha: 0.3)
                           : Colors.red.withValues(alpha: 0.3),
                     ),
                   ),
@@ -547,8 +546,8 @@ class _BoostPostModalState extends State<BoostPostModal> {
                   child: ElevatedButton(
                     onPressed: (canAfford && !_isProcessing) ? _boost : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF97316),
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.black,
                       disabledBackgroundColor: colors.surfaceContainerHighest,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(28),
@@ -572,7 +571,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
                               Text('Boost for ${_cost.toStringAsFixed(0)} ROO'.tr(context),
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: Colors.black,
                                 ),
                               ),
                             ],
@@ -619,7 +618,7 @@ class _SummaryRow extends StatelessWidget {
     final valueColor = error
         ? Colors.red.shade400
         : highlight
-        ? const Color(0xFFF97316)
+        ? AppColors.primary
         : colors.onSurface;
 
     return Row(

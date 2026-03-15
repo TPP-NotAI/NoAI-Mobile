@@ -923,9 +923,11 @@ class _MainShellState extends State<MainShell> {
       body: Consumer2<AuthProvider, WalletProvider>(
         builder: (context, auth, wallet, _) {
           final user = auth.currentUser;
+          // Only show after wallet has loaded — avoids flash during initial fetch
+          final walletLoaded = wallet.wallet != null;
           final balance = wallet.wallet?.balanceRc ?? 0.0;
-          // Show banner when user has 0 ROO balance (regardless of verification status)
-          final needsActivation = user != null && balance <= 0;
+          // Show banner only when wallet is loaded and balance is exactly 0
+          final needsActivation = user != null && walletLoaded && balance <= 0;
 
           return Column(
             children: [
@@ -969,18 +971,23 @@ class _ActivationBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: Colors.orange.shade800,
+      decoration: const BoxDecoration(
+        color: Color(0xFF26262A), // AppColors.surfaceVariantDark
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFDEA331), width: 1.5), // AppColors.primary
+        ),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          const Icon(Icons.lock_open, color: Colors.white, size: 16),
+          const Icon(Icons.lock_outline, color: Color(0xFFDEA331), size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               "Buy ROO to unlock posting, commenting, and all platform features."
                   .tr(context),
               style: const TextStyle(
-                color: Colors.white,
+                color: Color(0xFFEEEDE8), // AppColors.textPrimaryDark
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -995,8 +1002,8 @@ class _ActivationBanner extends StatelessWidget {
             ),
             child: Text(
               'Buy ROO'.tr(context),
-              style: TextStyle(
-                color: Colors.white,
+              style: const TextStyle(
+                color: Color(0xFFDEA331), // AppColors.primary
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),

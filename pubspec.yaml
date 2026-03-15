@@ -97,6 +97,7 @@ dependencies:
   receive_sharing_intent: ^1.8.1
 
   connectivity_plus: ^6.1.1
+  google_fonts: ^6.2.1
 
   # KYC Verification (Didit)
   url_launcher: ^6.2.5
@@ -168,6 +169,7 @@ flutter:
 flutter_icons:
   android: true
   ios: true
+  remove_alpha_ios: true
   image_path: "assets/icon.png"
-  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_background: "#1E1E21"
   adaptive_icon_foreground: "assets/icon.png"

@@ -5,6 +5,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:flutter/foundation.dart';
 import '../providers/user_provider.dart';
 import '../utils/responsive_extensions.dart';
+import '../config/app_colors.dart';
 import '../config/app_spacing.dart';
 import '../config/app_typography.dart';
 
@@ -929,10 +930,10 @@ class PostSponsoredBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFF97316).withValues(alpha: 0.12),
+        color: AppColors.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: const Color(0xFFF97316).withValues(alpha: 0.5),
+          color: AppColors.primary.withValues(alpha: 0.5),
         ),
       ),
       child: Text(
@@ -940,7 +941,7 @@ class PostSponsoredBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w700,
-          color: Color(0xFFF97316),
+          color: AppColors.primary,
           letterSpacing: 0.2,
         ),
       ),
@@ -956,10 +957,10 @@ class PostAdBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF8C00).withValues(alpha: 0.12),
+        color: AppColors.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: const Color(0xFFFF8C00).withValues(alpha: 0.5),
+          color: AppColors.primary.withValues(alpha: 0.5),
         ),
       ),
       child: Text(
@@ -967,7 +968,7 @@ class PostAdBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w700,
-          color: Color(0xFFFF8C00),
+          color: AppColors.primary,
           letterSpacing: 0.3,
         ),
       ),
@@ -983,10 +984,10 @@ class PostSponsoredAdBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFF97316).withValues(alpha: 0.12),
+        color: AppColors.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: const Color(0xFFF97316).withValues(alpha: 0.5),
+          color: AppColors.primary.withValues(alpha: 0.5),
         ),
       ),
       child: Text(
@@ -994,7 +995,7 @@ class PostSponsoredAdBadge extends StatelessWidget {
         style: const TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w700,
-          color: Color(0xFFF97316),
+          color: AppColors.primary,
           letterSpacing: 0.2,
         ),
       ),
@@ -1022,7 +1023,7 @@ class _MlScoreBadge extends StatelessWidget {
     final String label;
 
     // Theme-aware colors
-    const greenAccent = Color(0xFF10B981);
+    const greenAccent = AppColors.primary;
     const amberAccent = Color(0xFFF59E0B);
     const redAccent = Color(0xFFEF4444);
     const grayAccent = Color(0xFF9CA3AF);
@@ -1282,7 +1283,7 @@ class _MediaItem {
   _MediaItem({required this.url, this.isVideo = false});
 }
 
-/// Single media - full width
+/// Single media - full width, aspect-ratio constrained to avoid horizontal stretching
 class _SingleMediaView extends StatelessWidget {
   final _MediaItem item;
   final Post post;
@@ -1291,7 +1292,11 @@ class _SingleMediaView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _MediaTile(item: item, height: 300, post: post, index: 0);
+    // 4:3 keeps portraits from being squashed and landscapes from being clipped
+    return AspectRatio(
+      aspectRatio: 4 / 3,
+      child: _MediaTile(item: item, post: post, index: 0),
+    );
   }
 }
 
@@ -1617,13 +1622,11 @@ class _FeedVideoPlayerState extends State<_FeedVideoPlayer> {
 /// Individual media tile (image or video thumbnail)
 class _MediaTile extends StatefulWidget {
   final _MediaItem item;
-  final double? height;
   final Post post;
   final int index;
 
   const _MediaTile({
     required this.item,
-    this.height,
     required this.post,
     required this.index,
   });
@@ -1710,13 +1713,11 @@ class _MediaTileState extends State<_MediaTile>
     final item = widget.item;
     final post = widget.post;
     final index = widget.index;
-    final height = widget.height;
 
     return GestureDetector(
       onTap: () => _openFullScreen(context),
       onDoubleTap: () => _handleDoubleTap(context),
-      child: SizedBox(
-        height: height,
+      child: SizedBox.expand(
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -1783,7 +1784,7 @@ class _MediaTileState extends State<_MediaTile>
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981),
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
@@ -2247,8 +2248,8 @@ class _ActionButton extends StatelessWidget {
       iconColor = colors.primary;
       textColor = colors.primary;
     } else if (isReposted) {
-      iconColor = const Color(0xFF10B981);
-      textColor = const Color(0xFF10B981);
+      iconColor = AppColors.primary;
+      textColor = AppColors.primary;
     } else {
       iconColor = colors.onSurfaceVariant;
       textColor = colors.onSurfaceVariant;

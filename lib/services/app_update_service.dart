@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../config/global_keys.dart';
 import '../config/supabase_config.dart';
 import 'supabase_service.dart';
@@ -26,12 +27,10 @@ class AppUpdateService {
     _isChecking = true;
 
     try {
-      if (!Platform.isAndroid) {
-        if (manual) {
-          _showSnackBar(
-            context,
-            'Update check is currently supported on Android Play Store builds.',
-          );
+      if (Platform.isIOS) {
+        final mustForce = force && await _isBelowMinimumRequiredVersion();
+        if (mustForce || manual) {
+          await _showIosUpdateDialog(context, force: mustForce);
         }
         return;
       }
@@ -139,6 +138,60 @@ class AppUpdateService {
             ),
           );
         },
+      );
+    } finally {
+      _isDialogShowing = false;
+    }
+  }
+
+  Future<void> _showIosUpdateDialog(
+    BuildContext context, {
+    bool force = false,
+  }) async {
+    if (_isDialogShowing) return;
+    final dialogContext = _dialogHostContext(context);
+    if (dialogContext == null || !dialogContext.mounted) return;
+    _isDialogShowing = true;
+
+    try {
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!dialogContext.mounted) return;
+
+      await showDialog<void>(
+        context: dialogContext,
+        useRootNavigator: true,
+        barrierDismissible: !force,
+        builder: (popupContext) => PopScope(
+          canPop: !force,
+          child: AlertDialog(
+            title: Text('Update available'.tr(context)),
+            content: Text(
+              force
+                  ? 'A required update is available. Please update ${PlatformConfigProvider.current.platformName} to continue.'
+                  : 'A newer version of ${PlatformConfigProvider.current.platformName} is available. Update now for the latest improvements.',
+            ),
+            actions: [
+              if (!force)
+                TextButton(
+                  onPressed: () => Navigator.of(popupContext).pop(),
+                  child: Text('Later'.tr(context)),
+                ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.of(popupContext).pop();
+                  // Replace with your actual App Store URL / Apple ID
+                  const appStoreUrl =
+                      'https://apps.apple.com/app/id6748699564';
+                  final uri = Uri.parse(appStoreUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: const Text('Update now'),
+              ),
+            ],
+          ),
+        ),
       );
     } finally {
       _isDialogShowing = false;
