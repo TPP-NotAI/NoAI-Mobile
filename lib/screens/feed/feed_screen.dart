@@ -313,44 +313,35 @@ class _FeedFilterTabs extends StatelessWidget {
     required this.onFilterChanged,
   });
 
+  static const _filters = [FeedFilter.forYou, FeedFilter.following, FeedFilter.trending];
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final activeIndex = _filters.indexOf(activeFilter);
 
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: AppSpacing.largePlus.responsive(context),
-        vertical: AppSpacing.small.responsive(context),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _FilterTab(
-              label: 'For You'.tr(context),
-              icon: Icons.auto_awesome_outlined,
-              isActive: activeFilter == FeedFilter.forYou,
-              onTap: () => onFilterChanged(FeedFilter.forYou),
-              colors: colors,
-            ),
-            SizedBox(width: AppSpacing.standard.responsive(context)),
-            _FilterTab(
-              label: 'Following'.tr(context),
-              icon: Icons.people_outline,
-              isActive: activeFilter == FeedFilter.following,
-              onTap: () => onFilterChanged(FeedFilter.following),
-              colors: colors,
-            ),
-            SizedBox(width: AppSpacing.standard.responsive(context)),
-            _FilterTab(
-              label: 'Trending'.tr(context),
-              icon: Icons.trending_up,
-              isActive: activeFilter == FeedFilter.trending,
-              onTap: () => onFilterChanged(FeedFilter.trending),
-              colors: colors,
-            ),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: colors.outlineVariant, width: 1),
         ),
+      ),
+      child: Row(
+        children: [
+          for (int i = 0; i < _filters.length; i++)
+            Expanded(
+              child: _FilterTab(
+                label: switch (_filters[i]) {
+                  FeedFilter.forYou => 'For You'.tr(context),
+                  FeedFilter.following => 'Following'.tr(context),
+                  FeedFilter.trending => 'Trending'.tr(context),
+                },
+                isActive: i == activeIndex,
+                onTap: () => onFilterChanged(_filters[i]),
+                colors: colors,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -358,14 +349,12 @@ class _FeedFilterTabs extends StatelessWidget {
 
 class _FilterTab extends StatelessWidget {
   final String label;
-  final IconData icon;
   final bool isActive;
   final VoidCallback onTap;
   final ColorScheme colors;
 
   const _FilterTab({
     required this.label,
-    required this.icon,
     required this.isActive,
     required this.onTap,
     required this.colors,
@@ -375,41 +364,31 @@ class _FilterTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(
-          horizontal: AppSpacing.largePlus.responsive(context),
-          vertical: AppSpacing.mediumSmall.responsive(context),
-        ),
-        decoration: BoxDecoration(
-          color: isActive ? colors.primary : colors.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: AppSpacing.responsiveRadius(context, 20),
-          border: Border.all(
-            color: isActive ? colors.primary : colors.outlineVariant,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: AppTypography.responsiveIconSize(context, 16),
-              color: isActive ? colors.onPrimary : colors.onSurfaceVariant,
-            ),
-            SizedBox(width: AppSpacing.small.responsive(context)),
-            Text(
-              label,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 180),
               style: TextStyle(
-                fontSize: AppTypography.responsiveFontSize(
-                  context,
-                  AppTypography.small,
-                ),
+                fontSize: AppTypography.small,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? colors.onPrimary : colors.onSurfaceVariant,
+                color: isActive ? colors.primary : colors.onSurfaceVariant,
               ),
+              child: Text(label),
             ),
-          ],
-        ),
+          ),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 2,
+            decoration: BoxDecoration(
+              color: isActive ? colors.primary : Colors.transparent,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
+            ),
+          ),
+        ],
       ),
     );
   }
