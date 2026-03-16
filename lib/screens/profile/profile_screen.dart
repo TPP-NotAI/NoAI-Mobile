@@ -2076,17 +2076,21 @@ class _AdCardState extends State<_AdCard> {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: colors.surface,
+          color: colors.surfaceContainer,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: accentColor.withValues(alpha: 0.35),
-            width: 1.5,
-          ),
+          border: Theme.of(context).brightness == Brightness.dark
+              ? null
+              : Border.all(
+                  color: accentColor.withValues(alpha: 0.35),
+                  width: 1.5,
+                ),
           boxShadow: [
             BoxShadow(
-              color: colors.shadow.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.black.withValues(alpha: 0.45)
+                  : Colors.black.withValues(alpha: 0.10),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -2381,12 +2385,23 @@ class _AdGridItem extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: colors.surfaceContainer,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: accentColor.withValues(alpha: 0.4),
-            width: 1,
-          ),
+          border: Theme.of(context).brightness == Brightness.dark
+              ? null
+              : Border.all(
+                  color: accentColor.withValues(alpha: 0.4),
+                  width: 1,
+                ),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.black.withValues(alpha: 0.45)
+                  : Colors.black.withValues(alpha: 0.10),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
@@ -2578,12 +2593,23 @@ class _PostGridItemState extends State<_PostGridItem> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: colors.surfaceContainer,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colors.outlineVariant.withValues(alpha: 0.5),
-            width: 1,
-          ),
+          border: Theme.of(context).brightness == Brightness.dark
+              ? null
+              : Border.all(
+                  color: colors.outlineVariant.withValues(alpha: 0.5),
+                  width: 1,
+                ),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.black.withValues(alpha: 0.45)
+                  : Colors.black.withValues(alpha: 0.10),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),

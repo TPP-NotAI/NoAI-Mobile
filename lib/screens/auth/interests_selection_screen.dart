@@ -4,9 +4,7 @@ import '../../config/app_spacing.dart';
 import '../../config/app_typography.dart';
 import '../../repositories/user_interests_repository.dart';
 import '../../providers/user_provider.dart';
-import '../../providers/platform_config_provider.dart';
 import '../../utils/responsive_extensions.dart';
-import '../../widgets/app_logo.dart';
 import 'package:provider/provider.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -229,8 +227,6 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final platformName = context.watch<PlatformConfigProvider>().config.platformName;
-
     return Scaffold(
       backgroundColor: scheme.background,
       body: SafeArea(
@@ -250,30 +246,12 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                         children: [
                           Row(
                             children: [
-                              AppLogo(
-                                size: 32.responsive(context, min: 28, max: 36),
-                                fallbackIcon: Icons.fingerprint,
-                                fallbackIconColor: Colors.white,
-                                containerDecoration: BoxDecoration(
-                                  borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.standard),
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      AppColors.primary,
-                                      Color(0xFF3B82F6),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: AppSpacing.small.responsive(context)),
-                              Text(platformName,
-                                style: TextStyle(
-                                  fontSize: AppTypography.responsiveFontSize(context, AppTypography.mediumHeading),
-                                  fontWeight: FontWeight.bold,
-                                  color: scheme.onBackground,
-                                  letterSpacing: 0.5,
-                                ),
+                              Image.asset(
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? 'assets/auth_logo_dark.png'
+                                    : 'assets/auth_logo_light.png',
+                                height: 24.responsive(context, min: 18, max: 30),
+                                fit: BoxFit.contain,
                               ),
                             ],
                           ),

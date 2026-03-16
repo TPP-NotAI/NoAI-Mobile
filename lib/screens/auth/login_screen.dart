@@ -4,14 +4,12 @@ import '../../config/app_colors.dart';
 import '../../config/app_spacing.dart';
 import '../../config/app_typography.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/platform_config_provider.dart';
 import '../../services/storage_service.dart';
 import '../../services/secure_storage_service.dart';
 import '../../utils/validators.dart';
 import '../../utils/responsive_extensions.dart';
 import '../../utils/snackbar_utils.dart';
 import 'phone_login_screen.dart';
-import '../../widgets/app_logo.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class LoginScreen extends StatefulWidget {
@@ -188,8 +186,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final platformName = context.watch<PlatformConfigProvider>().config.platformName;
-
     return Scaffold(
       backgroundColor: scheme.background,
       body: SafeArea(
@@ -205,54 +201,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   SizedBox(height: topSpacing),
 
-              // Logo and title
-              AppLogo(
-                size: 64.responsive(context, min: 56, max: 72),
-                fallbackIcon: Icons.fingerprint,
-                fallbackIconColor: Colors.white,
-                containerDecoration: BoxDecoration(
-                  borderRadius: AppSpacing.responsiveRadius(
-                    context,
-                    AppSpacing.radiusExtraLarge,
-                  ),
-                  gradient: const LinearGradient(
-                    colors: [AppColors.primary, Color(0xFF3B82F6)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withOpacity(0.25),
-                      blurRadius: 12.responsive(context),
-                      offset: Offset(0, 4.responsive(context)),
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: AppSpacing.largePlus.responsive(context)),
-
-              Text(platformName,
-                style: TextStyle(
-                  fontSize: AppTypography.responsiveFontSize(
-                    context,
-                    AppTypography.largeHeading,
-                  ),
-                  fontWeight: FontWeight.bold,
-                  color: scheme.onBackground,
-                ),
-              ),
-
-              SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
-
-              Text('Authentic Human Connection'.tr(context),
-                style: TextStyle(
-                  color: scheme.onBackground.withOpacity(0.7),
-                  fontSize: AppTypography.responsiveFontSize(
-                    context,
-                    AppTypography.small,
-                  ),
-                ),
+              Image.asset(
+                Theme.of(context).brightness == Brightness.dark
+                    ? 'assets/auth_logo_dark.png'
+                    : 'assets/auth_logo_light.png',
+                height: 48.responsive(context, min: 36, max: 60),
+                fit: BoxFit.contain,
               ),
 
               SizedBox(height: 48.responsive(context, min: 36, max: 56)),

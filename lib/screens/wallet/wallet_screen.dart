@@ -561,6 +561,55 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
               ),
 
+              // Testnet disclaimer banner
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.largePlus.responsive(context),
+                    vertical: AppSpacing.small.responsive(context),
+                  ),
+                  child: Container(
+                    padding: EdgeInsets.all(AppSpacing.standard.responsive(context)),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.12),
+                      borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.radiusLarge),
+                      border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.science_outlined, color: AppColors.warning, size: 18.responsive(context, min: 16, max: 20)),
+                        SizedBox(width: AppSpacing.small.responsive(context)),
+                        Expanded(
+                          child: RichText(
+                            text: TextSpan(
+                              style: TextStyle(
+                                fontSize: AppTypography.responsiveFontSize(context, AppTypography.extraSmall),
+                                color: colors.onSurface.withValues(alpha: 0.85),
+                                height: 1.5,
+                              ),
+                              children: const [
+                                TextSpan(text: 'The Roochip (ROO) tokens currently shown on the platform are '),
+                                TextSpan(
+                                  text: 'testnet tokens',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.warning),
+                                ),
+                                TextSpan(text: ' used for development and testing purposes. '),
+                                TextSpan(
+                                  text: 'THEY ARE NOT MONETARY TOKENS AT THIS STAGE.',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                TextSpan(text: ' Our roadmap includes transitioning to a live mainnet where ROO will become a real asset.'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
               if (walletProvider.isLoading && wallet == null)
                 SliverFillRemaining(
                   child: Center(

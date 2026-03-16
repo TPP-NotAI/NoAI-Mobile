@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
 import '../../providers/platform_config_provider.dart';
-import '../../widgets/app_logo.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SplashScreen extends StatelessWidget {
@@ -14,7 +13,6 @@ class SplashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final config = context.watch<PlatformConfigProvider>().config;
-    final platformName = config.platformName;
     final tagline = (config.platformDescription != null && config.platformDescription!.isNotEmpty)
         ? config.platformDescription!
         : 'Verifiably Human.';
@@ -48,71 +46,13 @@ class SplashScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Animated logo container
-                Container(
-                  width: 128,
-                  height: 128,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
-                    gradient: LinearGradient(
-                      colors: [
-                        scheme.surface,
-                        scheme.surface.withOpacity(0.85),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(color: scheme.outline, width: 1),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.25),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Stack(
-                    children: [
-                      Center(
-                        child: AppLogo(
-                          size: 80,
-                          fallbackIcon: Icons.hub,
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 8,
-                        right: 8,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: scheme.background,
-                              width: 2,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.currency_bitcoin,
-                            size: 16,
-                            color: scheme.onPrimary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
 
-                const SizedBox(height: 32),
-
-                Text(platformName,
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    color: scheme.onBackground,
-                    letterSpacing: -1,
-                  ),
+                Image.asset(
+                  Theme.of(context).brightness == Brightness.dark
+                      ? 'assets/auth_logo_dark.png'
+                      : 'assets/auth_logo_light.png',
+                  height: 40,
+                  fit: BoxFit.contain,
                 ),
 
                 const SizedBox(height: 8),

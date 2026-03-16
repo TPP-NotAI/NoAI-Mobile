@@ -114,6 +114,8 @@ flutter:
     - assets/icon.png
     - assets/logo_light.png
     - assets/logo_dark.png
+    - assets/auth_logo_light.png
+    - assets/auth_logo_dark.png
 
 
 flutter_icons:

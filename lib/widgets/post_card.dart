@@ -192,17 +192,21 @@ class PostCard extends StatelessWidget {
         onTap: openPostDetails,
         child: Container(
           decoration: BoxDecoration(
-            color: colors.surface,
+            color: colors.surfaceContainer,
             borderRadius: AppSpacing.responsiveRadius(
               context,
               AppSpacing.radiusExtraLarge,
             ),
-            border: Border.all(
-              color: colors.outlineVariant.withValues(alpha: 0.6),
-            ),
+            border: Theme.of(context).brightness == Brightness.dark
+                ? null
+                : Border.all(
+                    color: colors.outlineVariant.withValues(alpha: 0.6),
+                  ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.black.withValues(alpha: 0.45)
+                    : Colors.black.withValues(alpha: 0.25),
                 blurRadius: 16.responsive(context),
                 offset: Offset(0, 8.responsive(context)),
               ),
@@ -1266,7 +1270,7 @@ class _MediaItem {
   _MediaItem({required this.url, this.isVideo = false});
 }
 
-/// Single media - full width, aspect-ratio constrained to avoid horizontal stretching
+/// Single media - full width, square crop (works for both portrait and landscape)
 class _SingleMediaView extends StatelessWidget {
   final _MediaItem item;
   final Post post;
@@ -1275,9 +1279,9 @@ class _SingleMediaView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 4:3 keeps portraits from being squashed and landscapes from being clipped
+    // Square crop: universal middle-ground for portrait and landscape images/videos
     return AspectRatio(
-      aspectRatio: 4 / 3,
+      aspectRatio: 1 / 1,
       child: _MediaTile(item: item, post: post, index: 0),
     );
   }
@@ -1710,9 +1714,8 @@ class _MediaTileState extends State<_MediaTile>
               CachedNetworkImage(
                 imageUrl: item.url,
                 fit: BoxFit.cover,
-                // Limit in-memory decode size to reduce RAM usage (~40-60 MB → ~8 MB)
-                memCacheWidth: 600,
-                memCacheHeight: 600,
+                // Limit in-memory decode size — width-keyed so portrait/landscape both look sharp
+                memCacheWidth: 800,
                 placeholder: (context, url) => const ShimmerLoading(
                   isLoading: true,
                   child: ShimmerBox(

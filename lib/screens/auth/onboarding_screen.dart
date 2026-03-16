@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
 import '../../providers/platform_config_provider.dart';
-import '../../widgets/app_logo.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class OnboardingScreen extends StatefulWidget {
@@ -91,31 +90,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        AppLogo(
-                          size: 32,
-                          fallbackIcon: Icons.fingerprint,
-                          fallbackIconColor: Colors.white,
-                          containerDecoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            gradient: const LinearGradient(
-                              colors: [AppColors.primary, Color(0xFF3B82F6)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(platformName,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: scheme.onBackground,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
+                    Image.asset(
+                      Theme.of(context).brightness == Brightness.dark
+                          ? 'assets/auth_logo_dark.png'
+                          : 'assets/auth_logo_light.png',
+                      height: 24,
+                      fit: BoxFit.contain,
                     ),
                     TextButton(
                       onPressed: widget.onComplete,

@@ -13,7 +13,6 @@ import 'package:rooverse/screens/legal/privacy_policy_screen.dart';
 import 'package:rooverse/utils/validators.dart';
 import 'package:rooverse/services/referral_service.dart';
 import 'package:rooverse/services/supabase_service.dart';
-import 'package:rooverse/widgets/app_logo.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class SignupScreen extends StatefulWidget {
@@ -295,8 +294,6 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final platformName = context.watch<PlatformConfigProvider>().config.platformName;
-
     return Scaffold(
       backgroundColor: scheme.background,
       body: SafeArea(
@@ -312,61 +309,12 @@ class _SignupScreenState extends State<SignupScreen> {
                   SizedBox(height: topSpacing),
 
               // Header
-              AppLogo(
-                size: 64.responsive(context, min: 56, max: 72),
-                fallbackIcon: Icons.fingerprint,
-                containerDecoration: BoxDecoration(
-                  color: scheme.surface,
-                  borderRadius: AppSpacing.responsiveRadius(context, 32),
-                  border: Border.all(color: scheme.outline),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 8.responsive(context),
-                      offset: Offset(0, 4.responsive(context)),
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: AppSpacing.largePlus.responsive(context)),
-
-              Text('Join the Human Network'.tr(context),
-                style: TextStyle(
-                  fontSize: AppTypography.responsiveFontSize(
-                    context,
-                    AppTypography.largeHeading,
-                  ),
-                  fontWeight: FontWeight.bold,
-                  color: scheme.onBackground,
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
-
-              RichText(
-                textAlign: TextAlign.center,
-                text: TextSpan(
-                  style: TextStyle(
-                    fontSize: AppTypography.responsiveFontSize(
-                      context,
-                      AppTypography.base,
-                    ),
-                    color: scheme.onBackground.withOpacity(0.7),
-                  ),
-                  children: [
-                    const TextSpan(text: 'Secure your identity on '),
-                    TextSpan(
-                      text: platformName,
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const TextSpan(text: ' and start earning Roochip.'),
-                  ],
-                ),
+              Image.asset(
+                Theme.of(context).brightness == Brightness.dark
+                    ? 'assets/auth_logo_dark.png'
+                    : 'assets/auth_logo_light.png',
+                height: 48.responsive(context, min: 36, max: 60),
+                fit: BoxFit.contain,
               ),
 
               SizedBox(height: 40.responsive(context, min: 32, max: 48)),
