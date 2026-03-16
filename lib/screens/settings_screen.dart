@@ -890,36 +890,24 @@ class SettingsScreen extends StatelessWidget {
                       setDialogState(() => isLoading = true);
                       try {
                         final auth = context.read<AuthProvider>();
-                        final verified = await auth.reAuthenticate(passwordController.text);
-                        if (!verified) {
-                          setDialogState(() => isLoading = false);
-                          if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              const SnackBar(
-                                content: Text('Incorrect password.'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                          return;
-                        }
+                        await auth.requestAccountDeletion(passwordController.text);
                         if (dialogContext.mounted) Navigator.pop(dialogContext);
-                        await auth.requestAccountDeletion();
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text(
-                                'Your account has been scheduled for deletion. You have been signed out.',
-                              ),
+                              content: Text('Your account has been permanently deleted.'),
                             ),
                           );
                         }
-                      } catch (_) {
+                      } catch (e) {
                         setDialogState(() => isLoading = false);
                         if (ctx.mounted) {
+                          final msg = e.toString().contains('Invalid credentials')
+                              ? 'Incorrect password.'
+                              : 'Something went wrong. Please try again.';
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(
-                              content: Text('Something went wrong. Please try again.'),
+                            SnackBar(
+                              content: Text(msg),
                               backgroundColor: Colors.red,
                             ),
                           );

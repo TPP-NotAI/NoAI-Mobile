@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../config/app_colors.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
 class TransactionHistoryScreen extends StatefulWidget {
@@ -399,7 +400,7 @@ class _TransactionItem extends StatelessWidget {
         title = 'Tip Received';
         subtitle = 'From $sender';
         amountStr = '+${amountRc.toStringAsFixed(2)}';
-        amountColor = Colors.green;
+        amountColor = AppColors.primary;
       } else {
         title = 'Tip Sent';
         subtitle = 'To $receiver';
@@ -411,11 +412,11 @@ class _TransactionItem extends StatelessWidget {
         txType == 'daily_bonus' ||
         txType == 'signup_bonus') {
       icon = Icons.card_giftcard;
-      iconColor = Colors.green;
+      iconColor = AppColors.primary;
       title = _rewardLabel(activityType, txType);
       subtitle = memo ?? 'From $sender';
       amountStr = '+${amountRc.toStringAsFixed(2)}';
-      amountColor = Colors.green;
+      amountColor = AppColors.primary;
     } else if (txType == 'fee') {
       icon = activityType == 'post_boost'
           ? Icons.rocket_launch
@@ -434,11 +435,11 @@ class _TransactionItem extends StatelessWidget {
     } else {
       if (isReceived) {
         icon = Icons.arrow_downward;
-        iconColor = Colors.green;
+        iconColor = AppColors.primary;
         title = 'Received ROO';
         subtitle = 'From $sender';
         amountStr = '+${amountRc.toStringAsFixed(2)}';
-        amountColor = Colors.green;
+        amountColor = AppColors.primary;
       } else {
         icon = Icons.arrow_upward;
         iconColor = Colors.red;
@@ -458,7 +459,7 @@ class _TransactionItem extends StatelessWidget {
         : 'Unknown date';
 
     final statusColor = status == 'completed'
-        ? Colors.green
+        ? AppColors.primary
         : status == 'failed'
         ? Colors.red
         : Colors.orange;

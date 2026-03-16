@@ -18,6 +18,7 @@ import 'providers/notification_provider.dart';
 import 'providers/story_provider.dart';
 import 'providers/wallet_provider.dart';
 import 'providers/platform_config_provider.dart';
+import 'config/app_colors.dart';
 import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'services/presence_service.dart';
@@ -214,7 +215,8 @@ class MyApp extends StatelessWidget {
                   .watch<PlatformConfigProvider>()
                   .config;
               Widget content = Listener(
-                onPointerDown: (_) => context.read<AuthProvider>().resetInactivityTimer(),
+                onPointerDown: (_) =>
+                    context.read<AuthProvider>().resetInactivityTimer(),
                 child: ConnectivityOverlay(
                   child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
                 ),
@@ -376,7 +378,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeHandleDeepLink());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeHandleShareIntent());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _maybeHandleShareIntent(),
+    );
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _maybeHandlePendingNotificationTap(),
     );
@@ -538,7 +542,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
     List<String> mediaPaths = [];
 
     for (final item in shared) {
-      if (item.type == SharedMediaType.text || item.type == SharedMediaType.url) {
+      if (item.type == SharedMediaType.text ||
+          item.type == SharedMediaType.url) {
         text = (text != null ? '$text\n' : '') + item.path;
       } else {
         mediaPaths.add(item.path);
@@ -974,7 +979,10 @@ class _ActivationBanner extends StatelessWidget {
       decoration: const BoxDecoration(
         color: Color(0xFF26262A), // AppColors.surfaceVariantDark
         border: Border(
-          bottom: BorderSide(color: Color(0xFFDEA331), width: 1.5), // AppColors.primary
+          bottom: BorderSide(
+            color: Color(0xFFDEA331),
+            width: 1.5,
+          ), // AppColors.primary
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -1028,7 +1036,10 @@ class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
     final themeProvider = context.watch<ThemeProvider>();
     final user = context.watch<UserProvider>().currentUser;
     final isCompact = ResponsiveUtils.isCompact(context);
-    final platformName = context.watch<PlatformConfigProvider>().config.platformName;
+    final platformName = context
+        .watch<PlatformConfigProvider>()
+        .config
+        .platformName;
 
     return AppBar(
       elevation: 0,
@@ -1044,7 +1055,11 @@ class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
           SizedBox(width: isCompact ? 4 : 8),
           Text(
-            isCompact ? (platformName.length > 3 ? platformName.substring(0, 3).toUpperCase() : platformName.toUpperCase()) : platformName,
+            isCompact
+                ? (platformName.length > 3
+                      ? platformName.substring(0, 3).toUpperCase()
+                      : platformName.toUpperCase())
+                : platformName,
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: isCompact ? 15 : 18,

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:rooverse/models/user.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
@@ -1475,11 +1477,11 @@ class _ActivityItem extends StatelessWidget {
       case UserActivityType.postCommented:
         return const Color(0xFF8B5CF6); // purple
       case UserActivityType.postReposted:
-        return const Color(0xFF10B981); // green
+        return AppColors.primary;
       case UserActivityType.userFollowed:
         return const Color(0xFFF59E0B); // amber
       case UserActivityType.roobitEarned:
-        return const Color(0xFF10B981); // green
+        return AppColors.primary;
       case UserActivityType.roobitSpent:
         return const Color(0xFFEF4444); // red
       case UserActivityType.roobitTransferred:
@@ -1984,7 +1986,7 @@ class _AdSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isPending ? Colors.orange.shade700 : Colors.green.shade700;
+    final color = AppColors.primary;
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 10),
       child: Row(
@@ -2065,9 +2067,7 @@ class _AdCardState extends State<_AdCard> {
     final colors = widget.colors;
     final primaryMediaUrl = post.primaryMediaUrl;
     final hasMedia = primaryMediaUrl != null && primaryMediaUrl.isNotEmpty;
-    final accentColor = widget.isPending
-        ? Colors.orange.shade700
-        : Colors.green.shade700;
+    final accentColor = AppColors.primary;
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -2140,31 +2140,27 @@ class _AdCardState extends State<_AdCard> {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(
-                            0xFFFF8C00,
-                          ).withValues(alpha: 0.12),
+                          color: AppColors.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: const Color(
-                              0xFFFF8C00,
-                            ).withValues(alpha: 0.5),
+                            color: AppColors.primary.withValues(alpha: 0.5),
                           ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.campaign,
                               size: 12,
-                              color: Color(0xFFFF8C00),
+                              color: AppColors.primary,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               _adType.toUpperCase(),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFFFF8C00),
+                                color: AppColors.primary,
                                 letterSpacing: 0.4,
                               ),
                             ),
@@ -2376,7 +2372,7 @@ class _AdGridItem extends StatelessWidget {
     final hasMedia = primaryMediaUrl != null && primaryMediaUrl.isNotEmpty;
     final accentColor = isPending
         ? Colors.orange.shade700
-        : Colors.green.shade700;
+        : AppColors.primary;
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -2504,7 +2500,7 @@ class _PostsGrid extends StatelessWidget {
 
 /* ───────────────── POST GRID ITEM ───────────────── */
 
-class _PostGridItem extends StatelessWidget {
+class _PostGridItem extends StatefulWidget {
   final dynamic post;
   final ColorScheme colors;
   final ValueChanged<Post>? onPostUpdated;
@@ -2515,11 +2511,18 @@ class _PostGridItem extends StatelessWidget {
     this.onPostUpdated,
   });
 
+  @override
+  State<_PostGridItem> createState() => _PostGridItemState();
+}
+
+class _PostGridItemState extends State<_PostGridItem> {
+  String? _videoThumbnailPath;
+  bool _thumbnailLoading = false;
+
   bool _isVideo(dynamic post) {
     if (post.mediaList != null && (post.mediaList as List).isNotEmpty) {
       return (post.mediaList as List).first.mediaType == 'video';
     }
-    // Fallback check by extension if legacy
     if (post.mediaUrl != null) {
       final url = (post.mediaUrl as String).toLowerCase();
       return url.endsWith('.mp4') ||
@@ -2530,19 +2533,47 @@ class _PostGridItem extends StatelessWidget {
   }
 
   @override
+  void initState() {
+    super.initState();
+    final primaryMediaUrl = widget.post.primaryMediaUrl;
+    if (primaryMediaUrl != null && _isVideo(widget.post)) {
+      _generateThumbnail(primaryMediaUrl);
+    }
+  }
+
+  Future<void> _generateThumbnail(String videoUrl) async {
+    if (_thumbnailLoading) return;
+    setState(() => _thumbnailLoading = true);
+    try {
+      final path = await VideoThumbnail.thumbnailFile(
+        video: videoUrl,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 300,
+        quality: 75,
+      );
+      if (mounted) setState(() => _videoThumbnailPath = path);
+    } catch (_) {
+      // Keep null — fallback to dark container
+    } finally {
+      if (mounted) setState(() => _thumbnailLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final primaryMediaUrl = post.primaryMediaUrl;
+    final primaryMediaUrl = widget.post.primaryMediaUrl;
     final hasMedia = primaryMediaUrl != null && primaryMediaUrl.isNotEmpty;
-    final isVideo = _isVideo(post);
+    final isVideo = _isVideo(widget.post);
+    final colors = widget.colors;
 
     return GestureDetector(
       onTap: () async {
         final result = await Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+          MaterialPageRoute(builder: (_) => PostDetailScreen(post: widget.post)),
         );
         if (result is Post) {
-          onPostUpdated?.call(result);
+          widget.onPostUpdated?.call(result);
         }
       },
       child: Container(
@@ -2562,16 +2593,27 @@ class _PostGridItem extends StatelessWidget {
               // Media image or content preview
               if (hasMedia)
                 isVideo
-                    ? Container(
-                        color: Colors.black,
-                        child: Center(
-                          child: Icon(
-                            Icons.play_circle_fill,
-                            color: Colors.white.withOpacity(0.8),
-                            size: 48,
-                          ),
-                        ),
-                      )
+                    ? _videoThumbnailPath != null
+                        ? Image.file(
+                            File(_videoThumbnailPath!),
+                            fit: BoxFit.cover,
+                          )
+                        : Container(
+                            color: colors.surfaceContainerHighest,
+                            child: Center(
+                              child: _thumbnailLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : Icon(
+                                      Icons.play_circle_fill,
+                                      color: colors.onSurfaceVariant.withValues(alpha: 0.6),
+                                      size: 40,
+                                    ),
+                            ),
+                          )
                     : CachedNetworkImage(
                         imageUrl: primaryMediaUrl!,
                         fit: BoxFit.cover,
@@ -2600,15 +2642,16 @@ class _PostGridItem extends StatelessWidget {
               else
                 // Text-only post background
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
+                  color: colors.surfaceContainerHighest,
                   child: Center(
                     child: Text(
-                      post.content.length > 50
-                          ? '${post.content.substring(0, 50)}...'
-                          : post.content,
+                      widget.post.content.length > 50
+                          ? '${widget.post.content.substring(0, 50)}...'
+                          : widget.post.content,
                       style: TextStyle(
                         fontSize: 11,
-                        color: colors.onSurface.withValues(alpha: 0.7),
+                        color: colors.onSurface,
                         height: 1.3,
                       ),
                       textAlign: TextAlign.center,
@@ -2646,7 +2689,7 @@ class _PostGridItem extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    if (post.likes > 0)
+                    if (widget.post.likes > 0)
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -2657,9 +2700,9 @@ class _PostGridItem extends StatelessWidget {
                           ),
                           SizedBox(width: 3),
                           Text(
-                            post.likes > 999
-                                ? '${(post.likes / 1000).toStringAsFixed(1)}k'
-                                : post.likes.toString(),
+                            widget.post.likes > 999
+                                ? '${(widget.post.likes / 1000).toStringAsFixed(1)}k'
+                                : widget.post.likes.toString(),
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
@@ -2668,7 +2711,7 @@ class _PostGridItem extends StatelessWidget {
                           ),
                         ],
                       ),
-                    if (post.comments > 0)
+                    if (widget.post.comments > 0)
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -2679,9 +2722,9 @@ class _PostGridItem extends StatelessWidget {
                           ),
                           SizedBox(width: 3),
                           Text(
-                            post.comments > 999
-                                ? '${(post.comments / 1000).toStringAsFixed(1)}k'
-                                : post.comments.toString(),
+                            widget.post.comments > 999
+                                ? '${(widget.post.comments / 1000).toStringAsFixed(1)}k'
+                                : widget.post.comments.toString(),
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
@@ -2716,10 +2759,10 @@ class _PostGridItem extends StatelessWidget {
                           size: 12,
                           color: Colors.white,
                         ),
-                        if ((post.mediaList?.length ?? 0) > 1) ...[
+                        if ((widget.post.mediaList?.length ?? 0) > 1) ...[
                           const SizedBox(width: 3),
                           Text(
-                            '${post.mediaList!.length}',
+                            '${widget.post.mediaList!.length}',
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -2733,7 +2776,7 @@ class _PostGridItem extends StatelessWidget {
                 ),
 
               // Repost indicator
-              if (post.reposter != null)
+              if (widget.post.reposter != null)
                 Positioned(
                   top: 6,
                   right: 6,

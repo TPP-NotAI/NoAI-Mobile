@@ -1347,13 +1347,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           ? '${_post.title}\n\n${_post.content}\n\n$postUrl'
           : '${_post.content}\n\n$postUrl';
 
-      final imageUrl = _post.primaryMediaUrl;
-      if (imageUrl != null && !imageUrl.contains('.mp4') && !imageUrl.contains('.mov')) {
+      final mediaUrl = _post.primaryMediaUrl;
+      if (mediaUrl != null) {
         try {
-          final response = await http.get(Uri.parse(imageUrl));
+          final response = await http.get(Uri.parse(mediaUrl));
           if (response.statusCode == 200) {
             final dir = await getTemporaryDirectory();
-            final ext = imageUrl.split('.').last.split('?').first;
+            final ext = mediaUrl.split('.').last.split('?').first;
             final file = File('${dir.path}/share_${_post.id}.$ext');
             await file.writeAsBytes(response.bodyBytes);
             await Share.shareXFiles(

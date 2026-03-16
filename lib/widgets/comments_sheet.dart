@@ -116,12 +116,19 @@ class _CommentsSheetState extends State<CommentsSheet> {
     final feedProvider = context.read<FeedProvider>();
     await feedProvider.loadCommentsForPost(widget.post.id);
 
-    // Fallback for posts opened outside feedProvider.posts (e.g. profile grid).
-    final fetchedComments = await feedProvider.fetchCommentsForPost(widget.post.id);
-
     if (mounted) {
+      // loadCommentsForPost already stored results in the post's commentList.
+      // Use that directly; fall back to a fresh fetch only for posts that are
+      // not in the feed (e.g. opened from profile grid).
+      final post = feedProvider.posts.firstWhere(
+        (p) => p.id == widget.post.id,
+        orElse: () => widget.post,
+      );
+      final comments = post.commentList ??
+          await feedProvider.fetchCommentsForPost(widget.post.id);
+
       setState(() {
-        _loadedComments = fetchedComments;
+        _loadedComments = comments;
         _isLoading = false;
       });
     }

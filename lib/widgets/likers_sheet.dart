@@ -236,11 +236,10 @@ class _LikersSheetState extends State<LikersSheet> {
                             return InkWell(
                               onTap: userId.isNotEmpty
                                   ? () {
-                                      Navigator.pop(context);
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => ProfileScreen(userId: userId),
+                                          builder: (_) => ProfileScreen(userId: userId, showAppBar: true),
                                         ),
                                       );
                                     }

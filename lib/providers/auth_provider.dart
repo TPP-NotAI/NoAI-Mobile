@@ -497,14 +497,22 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// Mark account for deletion and sign out.
-  /// Requires `deletion_requested_at` column on `profiles` table.
-  Future<void> requestAccountDeletion() async {
+  /// Permanently delete the account by calling the delete-account edge function,
+  /// then sign out locally. Password is re-verified server-side.
+  Future<void> requestAccountDeletion(String password) async {
     final userId = _currentUser?.id;
-    if (userId == null) return;
-    await _supabase.client.from('profiles').update({
-      'deletion_requested_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('user_id', userId);
+    final email = _supabase.auth.currentUser?.email ?? '';
+    if (userId == null || email.isEmpty) return;
+    final response = await _supabase.client.functions.invoke(
+      'delete-account',
+      body: {'userId': userId, 'email': email, 'password': password},
+    );
+    if (response.status != 200) {
+      final data = response.data;
+      final msg = data is Map ? (data['error'] ?? 'Account deletion failed') : 'Account deletion failed';
+      throw Exception(msg);
+    }
+    // Sign out locally — auth user no longer exists on server
     await signOut();
   }
 

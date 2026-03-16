@@ -2178,13 +2178,13 @@ class _ActionsState extends State<_Actions> {
           ? '${widget.post.title}\n\n${widget.post.content}\n\n$postUrl'
           : '${widget.post.content}\n\n$postUrl';
 
-      final imageUrl = widget.post.primaryMediaUrl;
-      if (imageUrl != null && !imageUrl.contains('.mp4') && !imageUrl.contains('.mov')) {
+      final mediaUrl = widget.post.primaryMediaUrl;
+      if (mediaUrl != null) {
         try {
-          final response = await http.get(Uri.parse(imageUrl));
+          final response = await http.get(Uri.parse(mediaUrl));
           if (response.statusCode == 200) {
             final dir = await getTemporaryDirectory();
-            final ext = imageUrl.split('.').last.split('?').first;
+            final ext = mediaUrl.split('.').last.split('?').first;
             final file = File('${dir.path}/share_${widget.post.id}.$ext');
             await file.writeAsBytes(response.bodyBytes);
             await Share.shareXFiles(

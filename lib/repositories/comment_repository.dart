@@ -33,11 +33,9 @@ class CommentRepository {
     Set<String> blockedByUserIds = const {},
     Set<String> mutedUserIds = const {},
   }) async {
-    debugPrint(
-      'CommentRepository: Fetching comments for post=$postId, currentUserId=$currentUserId',
-    );
-
-    final response = await _client
+    // Fetch all comments for the post in a single query (top-level + replies).
+    // This eliminates the N+1 pattern of fetching replies per comment.
+    final allRows = await _client
         .from(SupabaseConfig.commentsTable)
         .select('''
           *,
@@ -54,69 +52,73 @@ class CommentRepository {
           )
         ''')
         .eq('post_id', postId)
-        .isFilter('parent_comment_id', null) // Only top-level comments
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: true);
 
-    debugPrint('CommentRepository: Raw response = $response');
-
-    // Get following list for privacy filtering
+    // Get following list for privacy filtering (single query, shared across all comments).
     final followingIds = currentUserId != null
         ? await _getFollowingIds(currentUserId)
         : <String>{};
 
-    // Fetch replies for each comment, filtering out blocked users
-    final comments = <Comment>[];
-    for (final json in response) {
+    // Build a map of id -> parsed Comment for all rows that pass visibility filters.
+    final commentById = <String, Comment>{};
+    final childrenOf = <String, List<String>>{}; // parentId -> [childIds]
+    final topLevelIds = <String>[];
+
+    for (final json in allRows) {
       final authorId = json['author_id'] as String?;
       final profile = json['profiles'] as Map<String, dynamic>?;
       final commentsVisibility = profile?['comments_visibility'] as String?;
       final status = json['status'] as String?;
+      final id = json['id'] as String;
+      final parentId = json['parent_comment_id'] as String?;
 
       if (!_canViewCommentStatus(
         status: status,
         authorId: authorId,
         currentUserId: currentUserId,
-      )) {
-        continue;
-      }
+      )) continue;
 
-      // Skip comments from blocked users or users who blocked the current user OR muted users
       if (authorId != null &&
           (blockedUserIds.contains(authorId) ||
               blockedByUserIds.contains(authorId) ||
-              mutedUserIds.contains(authorId))) {
-        continue;
-      }
+              mutedUserIds.contains(authorId))) continue;
 
-      // Check privacy settings
       if (!_canViewComment(
         authorId: authorId,
         commentsVisibility: commentsVisibility,
         currentUserId: currentUserId,
         followingIds: followingIds,
-      )) {
-        continue;
-      }
+      )) continue;
 
-      debugPrint(
-        'CommentRepository: Comment ${json['id']} reactions = ${json['reactions']}',
-      );
-      final comment = Comment.fromSupabase(json, currentUserId: currentUserId);
-      debugPrint(
-        'CommentRepository: Parsed comment isLiked = ${comment.isLiked}, likes = ${comment.likes}',
-      );
-      final replies = await _getReplies(
-        json['id'],
-        currentUserId: currentUserId,
-        blockedUserIds: blockedUserIds,
-        blockedByUserIds: blockedByUserIds,
-        mutedUserIds: mutedUserIds,
-        followingIds: followingIds,
-      );
-      comments.add(
-        comment.copyWith(replies: replies.isNotEmpty ? replies : null),
-      );
+      commentById[id] = Comment.fromSupabase(json, currentUserId: currentUserId);
+
+      if (parentId == null) {
+        topLevelIds.add(id);
+      } else {
+        childrenOf.putIfAbsent(parentId, () => []).add(id);
+      }
     }
+
+    // Recursively attach replies from the in-memory map (no extra DB calls).
+    List<Comment> attachReplies(String id) {
+      final children = childrenOf[id];
+      if (children == null || children.isEmpty) return const [];
+      return children
+          .where((cid) => commentById.containsKey(cid))
+          .map((cid) {
+            final replies = attachReplies(cid);
+            final c = commentById[cid]!;
+            return replies.isEmpty ? c : c.copyWith(replies: replies);
+          })
+          .toList();
+    }
+
+    // Top-level comments ordered newest-first (allRows was ascending, so reverse).
+    final comments = topLevelIds.reversed.map((id) {
+      final replies = attachReplies(id);
+      final c = commentById[id]!;
+      return replies.isEmpty ? c : c.copyWith(replies: replies);
+    }).toList();
 
     return comments;
   }
@@ -175,90 +177,6 @@ class CommentRepository {
       debugPrint('CommentRepository: Error fetching following list - $e');
       return {};
     }
-  }
-
-  /// Fetch replies for a comment.
-  /// Optionally filter out replies from blocked users.
-  Future<List<Comment>> _getReplies(
-    String parentCommentId, {
-    String? currentUserId,
-    Set<String> blockedUserIds = const {},
-    Set<String> blockedByUserIds = const {},
-    Set<String> mutedUserIds = const {},
-    Set<String> followingIds = const {},
-  }) async {
-    final response = await _client
-        .from(SupabaseConfig.commentsTable)
-        .select('''
-          *,
-          profiles!comments_author_id_fkey (
-            user_id,
-            username,
-            display_name,
-            avatar_url,
-            comments_visibility
-          ),
-          reactions!reactions_comment_id_fkey (
-            user_id,
-            reaction_type
-          )
-        ''')
-        .eq('parent_comment_id', parentCommentId)
-        .order('created_at', ascending: true);
-
-    // Filter out replies from blocked users
-    final filteredReplies = <Comment>[];
-    for (final json in response) {
-      final authorId = json['author_id'] as String?;
-      final profile = json['profiles'] as Map<String, dynamic>?;
-      final commentsVisibility = profile?['comments_visibility'] as String?;
-      final status = json['status'] as String?;
-
-      if (!_canViewCommentStatus(
-        status: status,
-        authorId: authorId,
-        currentUserId: currentUserId,
-      )) {
-        continue;
-      }
-
-      // Skip replies from blocked users or users who blocked the current user OR muted users
-      if (authorId != null &&
-          (blockedUserIds.contains(authorId) ||
-              blockedByUserIds.contains(authorId) ||
-              mutedUserIds.contains(authorId))) {
-        continue;
-      }
-
-      // Check privacy settings
-      if (!_canViewComment(
-        authorId: authorId,
-        commentsVisibility: commentsVisibility,
-        currentUserId: currentUserId,
-        followingIds: followingIds,
-      )) {
-        continue;
-      }
-
-      // Recursively fetch replies for this reply
-      final nestedReplies = await _getReplies(
-        json['id'] as String,
-        currentUserId: currentUserId,
-        blockedUserIds: blockedUserIds,
-        blockedByUserIds: blockedByUserIds,
-        mutedUserIds: mutedUserIds,
-        followingIds: followingIds,
-      );
-
-      filteredReplies.add(
-        Comment.fromSupabase(
-          json,
-          currentUserId: currentUserId,
-        ).copyWith(replies: nestedReplies.isNotEmpty ? nestedReplies : null),
-      );
-    }
-
-    return filteredReplies;
   }
 
   /// Add a comment to a post.

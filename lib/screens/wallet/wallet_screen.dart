@@ -869,7 +869,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         tx.createdAt,
                       );
                       final statusColor = tx.status == 'completed'
-                          ? AppColors.success
+                          ? AppColors.primary
                           : tx.status == 'failed'
                           ? AppColors.error
                           : _rooOrange;
@@ -1056,7 +1056,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                   color:
                                       (isSent
                                               ? AppColors.error
-                                              : AppColors.success)
+                                              : AppColors.primary)
                                           .withValues(alpha: 0.15),
                                   borderRadius: AppSpacing.responsiveRadius(
                                     context,
@@ -1067,7 +1067,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                   isSent ? Icons.north_east : Icons.south_west,
                                   color: isSent
                                       ? AppColors.error
-                                      : AppColors.success,
+                                      : AppColors.primary,
                                 ),
                               ),
                               SizedBox(
@@ -1111,7 +1111,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                       fontWeight: FontWeight.bold,
                                       color: isSent
                                           ? AppColors.error
-                                          : AppColors.success,
+                                          : AppColors.primary,
                                     ),
                                   ),
                                   SizedBox(height: 4),
