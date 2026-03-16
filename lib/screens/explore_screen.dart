@@ -616,10 +616,10 @@ class _TabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final tabs = [
-      (_ExploreTab.forYou, Icons.auto_awesome_outlined, 'For You'),
-      (_ExploreTab.trending, Icons.local_fire_department_outlined, 'Trending'),
-      (_ExploreTab.latest, Icons.access_time_outlined, 'Latest'),
-      (_ExploreTab.top, Icons.favorite_border, 'Top'),
+      (_ExploreTab.forYou, 'For You'),
+      (_ExploreTab.trending, 'Trending'),
+      (_ExploreTab.latest, 'Latest'),
+      (_ExploreTab.top, 'Top'),
     ];
 
     return Container(
@@ -630,7 +630,7 @@ class _TabBar extends StatelessWidget {
       ),
       child: Row(
         children: tabs.map((t) {
-          final (tab, icon, label) = t;
+          final (tab, label) = t;
           final isActive = active == tab;
           return Expanded(
             child: GestureDetector(
@@ -644,14 +644,6 @@ class _TabBar extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          icon,
-                          size: 14,
-                          color: isActive
-                              ? AppColors.primary
-                              : colors.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 4),
                         Text(
                           label,
                           style: TextStyle(
