@@ -368,12 +368,44 @@ class _ExploreScreenState extends State<ExploreScreen>
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
-                  child: Text(
-                    isSearching
-                        ? 'No results found.'
-                        : 'No posts to explore yet.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.10),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isSearching ? Icons.search_off_rounded : Icons.explore_outlined,
+                            size: 36,
+                            color: AppColors.primary.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          isSearching ? 'No results found' : 'Nothing to explore yet',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          isSearching
+                              ? 'Try a different name or hashtag'
+                              : 'Be the first — create a post and start the conversation',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -873,69 +905,134 @@ class _SpotlightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Gold spotlight header
-        Container(
-          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          // Glow border — thick gold outline
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: isDark ? 0.75 : 0.55),
+            width: 2,
           ),
-          child: Row(
-            children: [
-              const Icon(Icons.star, size: 14, color: Colors.black),
-              const SizedBox(width: 6),
-              Text(
-                'SPOTLIGHT',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'Top post right now',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Post card with rounded bottom corners only
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.5),
-              ),
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(12),
-              ),
+          boxShadow: [
+            // Ambient glow
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: isDark ? 0.28 : 0.18),
+              blurRadius: 24,
+              spreadRadius: 4,
             ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(12),
+            // Deeper drop shadow
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Dramatic header ──────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary,
+                      AppColors.primary.withValues(alpha: 0.80),
+                      const Color(0xFF8B6014),
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // Star badge
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.star_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'SPOTLIGHT',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: 2.0,
+                          ),
+                        ),
+                        Text(
+                          'Top post right now',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.80),
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    // Live pulse indicator
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        const Text(
+                          'LIVE',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              child: PostCard(
+              // ── Post content ─────────────────────────────
+              PostCard(
                 post: post,
                 onCommentTap: () => onCommentTap(post),
                 onTipTap: () => onTipTap(post),
                 onProfileTap: () => onProfileTap(post.author.userId ?? ''),
                 onHashtagTap: onHashtagTap,
               ),
-            ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

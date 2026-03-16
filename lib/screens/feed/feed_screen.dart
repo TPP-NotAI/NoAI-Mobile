@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:rooverse/providers/user_provider.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/app_colors.dart';
 import '../../config/app_spacing.dart';
 import '../../config/app_typography.dart';
 import '../../providers/feed_provider.dart';
@@ -121,6 +123,7 @@ class _FeedScreenState extends State<FeedScreen> {
           color: colors.primary,
           backgroundColor: colors.surface,
           onRefresh: () async {
+            HapticFeedback.mediumImpact();
             await Future.wait([
               feed.refreshFeed(),
               context.read<StoryProvider>().refresh(),
@@ -196,33 +199,51 @@ class _FeedScreenState extends State<FeedScreen> {
                     SliverFillRemaining(
                       hasScrollBody: false,
                       child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.article_outlined,
-                              size: AppTypography.responsiveIconSize(
-                                context,
-                                64,
-                              ),
-                              color: colors.onSurfaceVariant.withOpacity(0.4),
-                            ),
-                            SizedBox(
-                              height: AppSpacing.largePlus.responsive(context),
-                            ),
-                            Text(
-                              feed.activeFilter == FeedFilter.following
-                                  ? 'Follow people to see their posts here'.tr(context)
-                                  : 'No posts yet'.tr(context),
-                              style: TextStyle(
-                                fontSize: AppTypography.responsiveFontSize(
-                                  context,
-                                  AppTypography.base,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 40),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.10),
+                                  shape: BoxShape.circle,
                                 ),
-                                color: colors.onSurfaceVariant,
+                                child: Icon(
+                                  feed.activeFilter == FeedFilter.following
+                                      ? Icons.people_outline_rounded
+                                      : Icons.dynamic_feed_outlined,
+                                  size: 38,
+                                  color: AppColors.primary.withValues(alpha: 0.65),
+                                ),
                               ),
-                            ),
-                          ],
+                              SizedBox(height: AppSpacing.largePlus.responsive(context)),
+                              Text(
+                                feed.activeFilter == FeedFilter.following
+                                    ? 'Your feed is empty'
+                                    : 'No posts yet',
+                                style: TextStyle(
+                                  fontSize: AppTypography.responsiveFontSize(context, AppTypography.mediumHeading),
+                                  fontWeight: FontWeight.bold,
+                                  color: colors.onSurface,
+                                ),
+                              ),
+                              SizedBox(height: AppSpacing.small.responsive(context)),
+                              Text(
+                                feed.activeFilter == FeedFilter.following
+                                    ? 'Follow people to see their posts here'
+                                    : 'Be the first to post something',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: AppTypography.responsiveFontSize(context, AppTypography.small),
+                                  color: colors.onSurfaceVariant,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     )

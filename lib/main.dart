@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
@@ -953,6 +954,7 @@ class _MainShellState extends State<MainShell> {
         currentIndex: _index,
         destinations: _destinations(context),
         onDestinationSelected: (i) {
+          HapticFeedback.selectionClick();
           if (i == 0 && _index == 0) {
             // Home tapped while already on home — scroll to top and refresh
             _feedReturnToTopNotifier.value++;

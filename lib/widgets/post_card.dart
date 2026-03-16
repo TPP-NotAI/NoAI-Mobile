@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:geocoding/geocoding.dart';
@@ -183,6 +184,10 @@ class PostCard extends StatelessWidget {
       );
     }
 
+    final isTextOnly = !post.hasMedia;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderRadius = AppSpacing.responsiveRadius(context, AppSpacing.radiusExtraLarge);
+
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: AppSpacing.standard.responsive(context),
@@ -192,19 +197,22 @@ class PostCard extends StatelessWidget {
         onTap: openPostDetails,
         child: Container(
           decoration: BoxDecoration(
-            color: colors.surfaceContainer,
-            borderRadius: AppSpacing.responsiveRadius(
-              context,
-              AppSpacing.radiusExtraLarge,
-            ),
-            border: Theme.of(context).brightness == Brightness.dark
-                ? null
-                : Border.all(
-                    color: colors.outlineVariant.withValues(alpha: 0.6),
-                  ),
+            color: isTextOnly
+                ? (isDark
+                    ? AppColors.surfaceVariantDark
+                    : AppColors.surfaceLight)
+                : colors.surfaceContainer,
+            borderRadius: borderRadius,
+            border: isDark
+                ? (isTextOnly
+                    ? Border(
+                        left: BorderSide(color: AppColors.primary.withValues(alpha: 0.6), width: 3),
+                      )
+                    : null)
+                : Border.all(color: colors.outlineVariant.withValues(alpha: 0.6)),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).brightness == Brightness.dark
+                color: isDark
                     ? Colors.black.withValues(alpha: 0.45)
                     : Colors.black.withValues(alpha: 0.25),
                 blurRadius: 16.responsive(context),
@@ -212,7 +220,9 @@ class PostCard extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
+          child: ClipRRect(
+            borderRadius: borderRadius,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (post.reposter != null) _RepostHeader(post: post),
@@ -222,11 +232,21 @@ class PostCard extends StatelessWidget {
               if (post.status == 'under_review')
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.symmetric(
+                  margin: EdgeInsets.symmetric(
                     horizontal: AppSpacing.largePlus.responsive(context),
                     vertical: AppSpacing.mediumSmall.responsive(context),
                   ),
-                  color: colors.errorContainer,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.standard.responsive(context),
+                    vertical: AppSpacing.mediumSmall.responsive(context),
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.errorContainer,
+                    borderRadius: AppSpacing.responsiveRadius(
+                      context,
+                      AppSpacing.radiusLarge,
+                    ),
+                  ),
                   child: Row(
                     children: [
                       Icon(
@@ -319,6 +339,8 @@ class PostCard extends StatelessWidget {
 
               _Content(post: post, onHashtagTap: handleHashtagTap),
 
+              if (post.hasMedia) PostMediaGridView(post: post),
+
               if (post.tags != null && post.tags!.isNotEmpty)
                 Padding(
                   padding: AppSpacing.responsiveLTRB(context, 16, 8, 16, 8),
@@ -344,14 +366,13 @@ class PostCard extends StatelessWidget {
                   ),
                 ),
 
-              if (post.hasMedia) PostMediaGridView(post: post),
-
               _Actions(
                 post: post,
                 onCommentTap: onCommentTap,
                 onTipTap: onTipTap,
               ),
             ],
+          ),
           ),
         ),
       ),
@@ -853,6 +874,7 @@ class _HeaderState extends State<_Header> {
   }
 
   void _showPostMenu(BuildContext context) {
+    HapticFeedback.mediumImpact();
     final colors = Theme.of(context).colorScheme;
 
     showModalBottomSheet(
@@ -880,7 +902,7 @@ class _RepostHeader extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(48, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(68, 8, 16, 0),
       child: Row(
         children: [
           Icon(
@@ -1074,7 +1096,7 @@ class _MlScoreBadge extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(999),
@@ -1084,20 +1106,20 @@ class _MlScoreBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 6,
-            height: 6,
+            width: 5,
+            height: 5,
             decoration: BoxDecoration(
               color: badgeColor,
               shape: BoxShape.circle,
             ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 5),
           Text(
             label,
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
               color: badgeColor,
             ),
           ),
@@ -1882,7 +1904,7 @@ class _ActionsState extends State<_Actions> {
     final isSelf = currentUserId == post.authorId;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
       child: Row(
         children: [
           _ActionButton(
@@ -1894,13 +1916,13 @@ class _ActionsState extends State<_Actions> {
                 ? () => showLikersSheet(context, post.id, post.likes)
                 : null,
           ),
-          SizedBox(width: 4),
+          const SizedBox(width: 8),
           _ActionButton(
             icon: Icons.chat_bubble_outline,
             label: _format(post.comments),
             onTap: widget.onCommentTap,
           ),
-          SizedBox(width: 4),
+          const SizedBox(width: 8),
           _ActionButton(
             icon: Icons.repeat,
             label: repostCount > 0 ? _format(repostCount) : null,
@@ -1908,20 +1930,20 @@ class _ActionsState extends State<_Actions> {
             onTap: () => _handleRepost(context, feedProvider),
           ),
           if (!isSelf) ...[
-            SizedBox(width: 4),
+            const SizedBox(width: 8),
             _ActionButton(
               icon: Icons.toll,
               label: post.tips > 0 ? '${_format(post.tips.toInt())} ROO' : null,
               onTap: widget.onTipTap ?? () => _handleTip(context),
             ),
           ],
-          Spacer(),
+          const Spacer(),
           _ActionButton(
             icon: isBookmarked ? Icons.bookmark : Icons.bookmark_border,
             isBookmarked: isBookmarked,
             onTap: () => _handleBookmark(context, feedProvider, isBookmarked),
           ),
-          SizedBox(width: 4),
+          const SizedBox(width: 8),
           _ActionButton(
             icon: Icons.share_outlined,
             onTap: () => _handleShare(context),
@@ -2200,7 +2222,7 @@ class _ActionsState extends State<_Actions> {
 
 /* ───────────────── SHARED UI ───────────────── */
 
-class _ActionButton extends StatelessWidget {
+class _ActionButton extends StatefulWidget {
   final IconData icon;
   final String? label;
   final bool isLiked;
@@ -2220,20 +2242,54 @@ class _ActionButton extends StatelessWidget {
   });
 
   @override
+  State<_ActionButton> createState() => _ActionButtonState();
+}
+
+class _ActionButtonState extends State<_ActionButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _scaleController;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 140),
+    );
+    _scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.78), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 0.78, end: 1.12), weight: 35),
+      TweenSequenceItem(tween: Tween(begin: 1.12, end: 1.0), weight: 25),
+    ]).animate(CurvedAnimation(parent: _scaleController, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  void _onTap() {
+    if (widget.onTap == null) return;
+    HapticFeedback.lightImpact();
+    _scaleController.forward(from: 0.0);
+    widget.onTap!();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    // Determine color based on state
     Color iconColor;
     Color textColor;
-
-    if (isLiked) {
-      iconColor = Colors.red;
-      textColor = Colors.red;
-    } else if (isBookmarked) {
+    if (widget.isLiked) {
+      iconColor = AppColors.like;
+      textColor = AppColors.like;
+    } else if (widget.isBookmarked) {
       iconColor = colors.primary;
       textColor = colors.primary;
-    } else if (isReposted) {
+    } else if (widget.isReposted) {
       iconColor = AppColors.primary;
       textColor = AppColors.primary;
     } else {
@@ -2241,48 +2297,86 @@ class _ActionButton extends StatelessWidget {
       textColor = colors.onSurfaceVariant;
     }
 
-    // If onLabelTap is provided, split icon and label into separate tap targets
-    if (onLabelTap != null && label != null) {
+    Widget iconWidget = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+      child: Icon(
+        widget.icon,
+        key: ValueKey(widget.icon),
+        size: 20,
+        color: iconColor,
+      ),
+    );
+
+    Widget labelWidget = widget.label != null
+        ? AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.4),
+                  end: Offset.zero,
+                ).animate(anim),
+                child: child,
+              ),
+            ),
+            child: Text(
+              widget.label!,
+              key: ValueKey(widget.label),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: textColor,
+              ),
+            ),
+          )
+        : const SizedBox.shrink();
+
+    // Split tap targets when onLabelTap is provided
+    if (widget.onLabelTap != null && widget.label != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: onTap,
+          ScaleTransition(
+            scale: _scaleAnim,
+            child: GestureDetector(
+              onTap: _onTap,
+              behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Icon(icon, size: 18, color: iconColor),
+                child: iconWidget,
               ),
             ),
           ),
           GestureDetector(
-            onTap: onLabelTap,
+            onTap: widget.onLabelTap,
             behavior: HitTestBehavior.opaque,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              child: Text(label!, style: TextStyle(fontSize: 13, color: textColor)),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: labelWidget,
             ),
           ),
         ],
       );
     }
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
+    return ScaleTransition(
+      scale: _scaleAnim,
+      child: GestureDetector(
+        onTap: _onTap,
+        behavior: HitTestBehavior.opaque,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: iconColor),
-              if (label != null) ...[
-                SizedBox(width: 6),
-                Text(label!, style: TextStyle(fontSize: 13, color: textColor)),
+              iconWidget,
+              if (widget.label != null) ...[
+                const SizedBox(width: 5),
+                labelWidget,
               ],
             ],
           ),

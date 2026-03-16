@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/app_colors.dart';
 import '../config/app_spacing.dart';
 import '../config/app_typography.dart';
 import '../utils/responsive_extensions.dart';
@@ -31,56 +32,59 @@ class StoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final avatarSize = 62.responsive(context, min: 54, max: 70);
+    final cardWidth = 72.responsive(context, min: 64, max: 82);
+
+    // Ring: gold gradient for unviewed/own, muted outline for viewed
+    final hasRing = isCurrentUser || !isViewed;
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 80.responsive(context, min: 70, max: 90),
-        margin: EdgeInsets.only(right: AppSpacing.standard.responsive(context)),
+      child: SizedBox(
+        width: cardWidth,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
-                // Avatar with gradient border
+                // Outer ring
                 Container(
-                  width: 64.responsive(context, min: 56, max: 72),
-                  height: 64.responsive(context, min: 56, max: 72),
+                  width: avatarSize,
+                  height: avatarSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: isCurrentUser || !isViewed
-                        ? const LinearGradient(
+                    gradient: hasRing
+                        ? LinearGradient(
                             colors: [
-                              Color(0xFF6366F1), // primary-ish
-                              Color(0xFF3B82F6),
-                              Color(0xFF8B5CF6),
+                              AppColors.primary,
+                              AppColors.primary.withValues(alpha: 0.65),
+                              const Color(0xFFBB8620),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           )
                         : null,
-                    border: isCurrentUser || !isViewed
+                    border: hasRing
                         ? null
-                        : Border.all(color: colors.outlineVariant, width: 2),
-                    boxShadow: isCurrentUser || !isViewed
-                        ? [
-                            BoxShadow(
-                              color: colors.primary.withOpacity(0.25),
-                              blurRadius: 8.responsive(context),
-                              offset: Offset(0, 2.responsive(context)),
-                            ),
-                          ]
-                        : null,
+                        : Border.all(
+                            color: colors.outlineVariant,
+                            width: 1.5,
+                          ),
                   ),
+                  // White gap between ring and avatar
                   child: Padding(
-                    padding: EdgeInsets.all(2.5.responsive(context)),
+                    padding: const EdgeInsets.all(2.5),
                     child: Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: colors.surface,
                       ),
                       child: Padding(
-                        padding: EdgeInsets.all(2.5.responsive(context)),
+                        padding: const EdgeInsets.all(1.5),
                         child: ClipOval(
                           child: isTextStory
                               ? _buildTextStoryPreview(colors)
@@ -89,19 +93,17 @@ class StoryCard extends StatelessWidget {
                                       ? storyPreviewUrl!
                                       : avatar,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: colors.surfaceVariant,
-                                      child: Icon(
-                                        Icons.person,
-                                        color: colors.onSurfaceVariant,
-                                        size: AppTypography.responsiveIconSize(
-                                          context,
-                                          28,
-                                        ),
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: colors.surfaceContainerHighest,
+                                    child: Icon(
+                                      Icons.person,
+                                      color: colors.onSurfaceVariant,
+                                      size: AppTypography.responsiveIconSize(
+                                        context,
+                                        26,
                                       ),
-                                    );
-                                  },
+                                    ),
+                                  ),
                                 ),
                         ),
                       ),
@@ -109,7 +111,7 @@ class StoryCard extends StatelessWidget {
                   ),
                 ),
 
-                // Add button for current user
+                // Add badge for current user
                 if (isCurrentUser)
                   Positioned(
                     bottom: 0,
@@ -118,26 +120,27 @@ class StoryCard extends StatelessWidget {
                       behavior: HitTestBehavior.opaque,
                       onTap: onAddTap ?? onTap,
                       child: Container(
-                        width: 22.responsive(context, min: 18, max: 26),
-                        height: 22.responsive(context, min: 18, max: 26),
+                        width: 20,
+                        height: 20,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: colors.primary,
+                          color: AppColors.primary,
                           border: Border.all(color: colors.surface, width: 2),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.add,
-                          color: colors.onPrimary,
-                          size: AppTypography.responsiveIconSize(context, 13),
+                          color: Colors.black,
+                          size: 12,
                         ),
                       ),
                     ),
                   ),
               ],
             ),
+
             SizedBox(height: AppSpacing.small.responsive(context)),
 
-            // Username
+            // Username label
             Text(
               isCurrentUser ? 'Your Story' : username,
               maxLines: 1,
@@ -145,9 +148,9 @@ class StoryCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: theme.textTheme.labelSmall?.copyWith(
                 fontSize: AppTypography.responsiveFontSize(context, 11),
-                fontWeight: FontWeight.w500,
+                fontWeight: isCurrentUser ? FontWeight.w600 : FontWeight.w500,
                 color: colors.onSurface,
-                height: 1.0,
+                height: 1.2,
               ),
             ),
           ],
@@ -157,7 +160,7 @@ class StoryCard extends StatelessWidget {
   }
 
   Widget _buildTextStoryPreview(ColorScheme colors) {
-    Color bgColor = colors.primary;
+    Color bgColor = AppColors.primary;
     if (backgroundColor != null && backgroundColor!.isNotEmpty) {
       try {
         final colorStr = backgroundColor!.replaceFirst('#', '');
@@ -170,8 +173,8 @@ class StoryCard extends StatelessWidget {
       child: Center(
         child: Icon(
           Icons.text_fields,
-          color: Colors.white.withOpacity(0.8),
-          size: 24,
+          color: Colors.white.withValues(alpha: 0.85),
+          size: 22,
         ),
       ),
     );

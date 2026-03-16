@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../config/app_colors.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
@@ -67,6 +69,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
+          HapticFeedback.mediumImpact();
           if (authProvider.currentUser != null) {
             await notificationProvider.refreshNotifications(
               authProvider.currentUser!.id,
@@ -105,26 +108,45 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
 
     if (provider.notifications.isEmpty) {
+      final colors = Theme.of(context).colorScheme;
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.notifications_none_outlined,
-              size: 64,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant.withOpacity(0.3),
-            ),
-            const SizedBox(height: 16),
-            Text('No notifications yet'.tr(context),
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurfaceVariant.withOpacity(0.7),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.notifications_none_rounded,
+                  size: 38,
+                  color: AppColors.primary.withValues(alpha: 0.65),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Text(
+                'All caught up',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You\'ll be notified when someone likes, comments, or interacts with you',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }

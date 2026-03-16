@@ -1429,14 +1429,14 @@ class _MessageBubble extends StatelessWidget {
     final colors = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    // WhatsApp-inspired colors
+    // Rooverse brand colours
     final bubbleColor = isMe
-        ? (isDark ? const Color(0xFF005C4B) : const Color(0xFFE7FFDB))
-        : (isDark ? const Color(0xFF202C33) : Colors.white);
+        ? (isDark ? AppColors.primary : AppColors.primary)
+        : (isDark ? AppColors.surfaceDark : Colors.white);
 
     final textColor = isMe
-        ? (isDark ? Colors.white : Colors.black87)
-        : (isDark ? Colors.white : Colors.black87);
+        ? Colors.black
+        : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
@@ -1705,7 +1705,9 @@ class _MessageBubble extends StatelessWidget {
                               DateFormat.Hm().format(message.createdAt.toLocal()),
                               style: TextStyle(
                                 fontSize: 10,
-                                color: isDark ? Colors.white60 : Colors.black54,
+                                color: isMe
+                                    ? Colors.black54
+                                    : (isDark ? Colors.white54 : Colors.black45),
                               ),
                             ),
                             if (isMe) ...[
@@ -1716,24 +1718,17 @@ class _MessageBubble extends StatelessWidget {
                                   height: 12,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 1.5,
-                                    color: isDark
-                                        ? Colors.white38
-                                        : Colors.black26,
+                                    color: Colors.black38,
                                   ),
                                 )
                               else
                                 Icon(
                                   Icons.done_all,
                                   size: 15,
-                                  color:
-                                      (otherUserLastReadAt != null &&
-                                          !message.createdAt.isAfter(
-                                            otherUserLastReadAt!,
-                                          ))
-                                      ? Colors.blue
-                                      : (isDark
-                                            ? Colors.white38
-                                            : Colors.black26),
+                                  color: (otherUserLastReadAt != null &&
+                                          !message.createdAt.isAfter(otherUserLastReadAt!))
+                                      ? Colors.black87
+                                      : Colors.black38,
                                 ),
                             ],
                           ],

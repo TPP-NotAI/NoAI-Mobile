@@ -24,9 +24,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       highlight: 'Zero Bots.',
       description:
           'Tired of AI spam? $platformName is a verified-human sanctuary where every voice is real and every connection is authentic.',
-      image:
-          'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop',
       icon: Icons.people_outline_rounded,
+      gradientColors: [Color(0xFFDEA331), Color(0xFF1E1E21)],
     ),
     OnboardingSlide(
       stepName: 'Why $platformName',
@@ -34,9 +33,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       highlight: 'Verified.',
       description:
           'We use proof-of-humanity technology to ensure your feed is free from generative garbage. You only interact with real people.',
-      image:
-          'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop',
       icon: Icons.verified_user_outlined,
+      gradientColors: [Color(0xFF1E1E21), Color(0xFF333333)],
     ),
     OnboardingSlide(
       stepName: 'Rewards',
@@ -44,9 +42,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       highlight: 'Value.',
       description:
           'Your attention is valuable. Get rewarded in $platformName for authentic engagement and high-quality human content.',
-      image:
-          'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?q=80&w=2070&auto=format&fit=crop',
       icon: Icons.account_balance_wallet_outlined,
+      gradientColors: [Color(0xFFDEA331), Color(0xFFBB8620)],
     ),
     OnboardingSlide(
       stepName: 'Next Steps',
@@ -54,9 +51,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       highlight: 'Real Talk?',
       description:
           'Join the revolution. Create your human profile, verify your identity, and reclaim social media.',
-      image:
-          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2070&auto=format&fit=crop',
       icon: Icons.rocket_launch_outlined,
+      gradientColors: [Color(0xFF333333), Color(0xFFDEA331)],
     ),
   ];
 
@@ -231,25 +227,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               height: imageSize,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(imageRadius),
-                color: scheme.surface,
-                border: Border.all(color: scheme.outline),
+                gradient: LinearGradient(
+                  colors: [
+                    slide.gradientColors[0].withValues(alpha: 0.85),
+                    slide.gradientColors[1].withValues(alpha: 0.95),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.25),
+                ),
               ),
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(imageRadius),
-                      child: Opacity(
-                        opacity: 0.4,
-                        child: Image.network(
-                          slide.image,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              Container(color: scheme.surface),
-                        ),
-                      ),
-                    ),
-                  ),
                   Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -257,16 +248,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         Container(
                           padding: EdgeInsets.all(iconPadding),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.15),
+                            color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(iconPadding),
                             border: Border.all(
-                              color: AppColors.primary.withOpacity(0.3),
+                              color: Colors.white.withValues(alpha: 0.3),
                             ),
                           ),
                           child: Icon(
                             slide.icon,
                             size: iconSize,
-                            color: scheme.onSurface,
+                            color: Colors.white,
                           ),
                         ),
                         SizedBox(height: imageSize * 0.06),
@@ -351,15 +342,15 @@ class OnboardingSlide {
   final String title;
   final String highlight;
   final String description;
-  final String image;
   final IconData icon;
+  final List<Color> gradientColors;
 
   OnboardingSlide({
     required this.stepName,
     required this.title,
     required this.highlight,
     required this.description,
-    required this.image,
     required this.icon,
+    required this.gradientColors,
   });
 }

@@ -307,15 +307,15 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
 
     // Empty state hint
     if (!hasOtherStories) {
-      cards.add(const SizedBox(width: 12));
       cards.add(
-        Center(
-          child: Text(
-            'Stories from people you follow will appear here'.tr(context),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+        Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Center(
+            child: Text(
+              'Follow people to see their stories',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ),
