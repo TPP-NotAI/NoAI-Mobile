@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../config/app_colors.dart';
 import '../config/global_keys.dart';
 import '../core/errors/app_exception.dart';
 import '../core/errors/error_mapper.dart';
@@ -60,7 +61,7 @@ class SnackBarUtils {
     _show(
       context,
       message: message,
-      backgroundColor: Colors.green.shade700,
+      backgroundColor: AppColors.primary,
       icon: Icons.check_circle_outline,
       duration: duration,
       action: action,

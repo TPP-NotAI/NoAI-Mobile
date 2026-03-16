@@ -89,24 +89,24 @@ class FAQScreen extends StatelessWidget {
 
             _buildFAQCategory(
               context,
-              'Roobit & Rewards',
+              'Roochip & Rewards',
               Icons.toll,
-              const Color(0xFF10B981),
+              AppColors.primary,
               [
                 _FAQItem(
-                  question: 'What is Roobit (ROO)?',
+                  question: 'What is Roochip (ROO)?',
                   answer:
-                      'Roobit is ROOVERSE\'s native cryptocurrency token. You earn ROO by posting quality content, engaging authentically, and contributing to the community.',
+                      'Roochip is ROOVERSE\'s native cryptocurrency token. You earn ROO by posting quality content, engaging authentically, and contributing to the community.',
                 ),
                 _FAQItem(
-                  question: 'How do I earn Roobit?',
+                  question: 'How do I earn Roochip?',
                   answer:
                       'You earn ROO by posting original content, receiving tips, accurate moderation, and participation.',
                 ),
                 _FAQItem(
-                  question: 'Can I convert Roobit to real money?',
+                  question: 'Can I convert Roochip to real money?',
                   answer:
-                      'Roobit can be traded on supported cryptocurrency exchanges, subject to local regulations.',
+                      'Roochip can be traded on supported cryptocurrency exchanges, subject to local regulations.',
                 ),
               ],
             ),

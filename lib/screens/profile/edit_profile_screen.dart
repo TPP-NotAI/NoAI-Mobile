@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../config/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -589,7 +590,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 content: Text(
                   _editProfileText(context, 'profileCompleteReward'),
                 ),
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.primary,
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -870,7 +871,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 ? Icons.check_circle
                                 : Icons.info_outline,
                             color: user.isVerified
-                                ? Colors.green
+                                ? AppColors.primary
                                 : colors.secondary,
                           ),
                         ),

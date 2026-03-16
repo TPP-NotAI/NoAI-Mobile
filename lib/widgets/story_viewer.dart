@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/app_colors.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
@@ -788,8 +789,8 @@ class _AiScoreBadge extends StatelessWidget {
       bgColor = const Color(0xFF451A03);
       label = 'UNDER REVIEW';
     } else {
-      badgeColor = const Color(0xFF10B981); // Green
-      bgColor = const Color(0xFF052E1C);
+      badgeColor = AppColors.primary;
+      bgColor = AppColors.primary.withValues(alpha: 0.18);
       label = 'HUMAN CERT';
     }
 

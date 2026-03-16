@@ -334,7 +334,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                 ? 'Privacy settings saved successfully'
                 : (userProvider.error ?? 'Failed to save privacy settings'),
           ),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success ? AppColors.primary : AppColors.error,
         ),
       );
     }

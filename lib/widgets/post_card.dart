@@ -312,23 +312,6 @@ class PostCard extends StatelessWidget {
                   ),
                 ),
 
-              if (post.title != null && post.title!.isNotEmpty)
-                Padding(
-                  padding: AppSpacing.responsiveLTRB(context, 16, 8, 16, 0),
-                  child: MentionRichText(
-                    text: post.title!,
-                    style: TextStyle(
-                      fontSize: AppTypography.responsiveFontSize(
-                        context,
-                        AppTypography.cardHeading,
-                      ),
-                      fontWeight: FontWeight.bold,
-                    ),
-                    onMentionTap: (username) =>
-                        navigateToMentionedUser(context, username),
-                    onHashtagTap: handleHashtagTap,
-                  ),
-                ),
 
               _Content(post: post, onHashtagTap: handleHashtagTap),
 
@@ -1060,7 +1043,7 @@ class _MlScoreBadge extends StatelessWidget {
       // >40% human (AI <60%) = PASS -> VERIFIED
       badgeColor = greenAccent;
       bgColor = isDark
-          ? const Color(0xFF052E1C)
+          ? greenAccent.withValues(alpha: 0.18)
           : greenAccent.withValues(alpha: 0.15);
       label = 'VERIFIED';
     } else if (humanScore > 25) {

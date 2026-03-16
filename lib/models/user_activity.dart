@@ -5,9 +5,9 @@ enum UserActivityType {
   postCommented,
   postReposted,
   userFollowed,
-  roobitEarned,
-  roobitSpent,
-  roobitTransferred,
+  roochipEarned,
+  roochipSpent,
+  roochipTransferred,
   storyCreated,
   bookmarkAdded,
 }
@@ -63,11 +63,11 @@ class UserActivity {
             ? '@${targetUsername!.trim()}'
             : 'a user';
         return 'Followed $followedLabel';
-      case UserActivityType.roobitEarned:
+      case UserActivityType.roochipEarned:
         return 'Earned ${amount?.toStringAsFixed(2)} ROO';
-      case UserActivityType.roobitSpent:
+      case UserActivityType.roochipSpent:
         return 'Spent ${amount?.toStringAsFixed(2)} ROO';
-      case UserActivityType.roobitTransferred:
+      case UserActivityType.roochipTransferred:
         final recipientLabel =
             (targetDisplayName != null &&
                 targetDisplayName!.trim().isNotEmpty &&
@@ -99,11 +99,11 @@ class UserActivity {
         return 'repeat';
       case UserActivityType.userFollowed:
         return 'person_add';
-      case UserActivityType.roobitEarned:
+      case UserActivityType.roochipEarned:
         return 'add_circle';
-      case UserActivityType.roobitSpent:
+      case UserActivityType.roochipSpent:
         return 'remove_circle';
-      case UserActivityType.roobitTransferred:
+      case UserActivityType.roochipTransferred:
         return 'send';
       case UserActivityType.storyCreated:
         return 'auto_stories';
@@ -122,14 +122,14 @@ class UserActivity {
       case UserActivityType.postCommented:
         return '#8B5CF6'; // purple
       case UserActivityType.postReposted:
-        return '#10B981'; // green
+        return '#DEA331'; // brand gold
       case UserActivityType.userFollowed:
         return '#F59E0B'; // amber
-      case UserActivityType.roobitEarned:
-        return '#10B981'; // green
-      case UserActivityType.roobitSpent:
+      case UserActivityType.roochipEarned:
+        return '#DEA331'; // brand gold
+      case UserActivityType.roochipSpent:
         return '#EF4444'; // red
-      case UserActivityType.roobitTransferred:
+      case UserActivityType.roochipTransferred:
         return '#F59E0B'; // amber
       case UserActivityType.storyCreated:
         return '#EC4899'; // pink

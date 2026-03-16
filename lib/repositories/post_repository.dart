@@ -12,7 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ai_detection_result.dart';
 import '../services/ai_detection_service.dart';
 import 'wallet_repository.dart';
-import '../services/roobit_service.dart';
+import '../services/roochip_service.dart';
 import '../services/activity_log_service.dart';
 
 /// Repository for post-related Supabase operations.
@@ -2455,7 +2455,7 @@ class PostRepository {
     final alreadyRewarded = (todaysTxs as List).any((tx) {
       final metadata = tx['metadata'];
       if (metadata is Map) {
-        return metadata['activityType'] == RoobitActivityType.postCreate;
+        return metadata['activityType'] == RoochipActivityType.postCreate;
       }
       return false;
     });
@@ -2469,7 +2469,7 @@ class PostRepository {
 
     await walletRepo.earnRoo(
       userId: userId,
-      activityType: RoobitActivityType.postCreate,
+      activityType: RoochipActivityType.postCreate,
       referencePostId: postId,
     );
   }

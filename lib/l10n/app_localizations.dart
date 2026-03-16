@@ -148,11 +148,11 @@ abstract class AppLocalizations {
   /// **'Home'**
   String get home;
 
-  /// No description provided for @discover.
+  /// No description provided for @explore.
   ///
   /// In en, this message translates to:
-  /// **'Discover'**
-  String get discover;
+  /// **'Explore'**
+  String get explore;
 
   /// No description provided for @create.
   ///
@@ -417,12 +417,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Feed'**
   String get feed;
-
-  /// No description provided for @explore.
-  ///
-  /// In en, this message translates to:
-  /// **'Explore'**
-  String get explore;
 
   /// No description provided for @chat.
   ///
@@ -1576,11 +1570,11 @@ abstract class AppLocalizations {
   /// **'Moderation Appeal'**
   String get moderationAppeal;
 
-  /// No description provided for @roobitWallet.
+  /// No description provided for @roochipWallet.
   ///
   /// In en, this message translates to:
-  /// **'Roobit / Wallet'**
-  String get roobitWallet;
+  /// **'Roochip / Wallet'**
+  String get roochipWallet;
 
   /// No description provided for @technicalProblem.
   ///

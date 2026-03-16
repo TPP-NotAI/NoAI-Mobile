@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../config/app_colors.dart';
 import '../../models/support_ticket.dart';
 import '../../repositories/support_ticket_repository.dart';
 
@@ -42,7 +43,7 @@ class _SupportTicketsAdminScreenState extends State<SupportTicketsAdminScreen> {
       case 'high':
         return const Color(0xFFEF4444);
       case 'low':
-        return const Color(0xFF10B981);
+        return AppColors.primary;
       default:
         return const Color(0xFF3B82F6);
     }

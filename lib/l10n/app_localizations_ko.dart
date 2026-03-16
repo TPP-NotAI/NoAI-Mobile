@@ -24,7 +24,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get home => '홈';
 
   @override
-  String get discover => '탐색';
+  String get explore => '탐색';
 
   @override
   String get create => '만들기';
@@ -158,9 +158,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get feed => '피드';
-
-  @override
-  String get explore => '탐색';
 
   @override
   String get chat => '채팅';
@@ -740,7 +737,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get moderationAppeal => 'Moderation Appeal';
 
   @override
-  String get roobitWallet => 'Roobit / Wallet';
+  String get roochipWallet => 'Roochip / Wallet';
 
   @override
   String get technicalProblem => 'Technical Problem';

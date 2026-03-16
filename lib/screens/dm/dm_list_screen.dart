@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../config/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -277,7 +278,7 @@ class _DmThreadTile extends StatelessWidget {
               width: 11,
               height: 11,
               decoration: BoxDecoration(
-                color: Colors.green,
+                color: AppColors.primary,
                 shape: BoxShape.circle,
                 border: Border.all(color: colors.surface, width: 2),
               ),

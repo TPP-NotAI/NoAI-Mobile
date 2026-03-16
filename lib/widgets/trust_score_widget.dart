@@ -16,7 +16,7 @@ class TrustScoreWidget extends StatelessWidget {
   });
 
   Color _getScoreColor() {
-    if (score >= 80) return AppColors.success;
+    if (score >= 80) return AppColors.primary;
     if (score >= 50) return AppColors.warning;
     return AppColors.error;
   }
@@ -88,7 +88,7 @@ class TrustScoreBadge extends StatelessWidget {
   const TrustScoreBadge({super.key, required this.score});
 
   Color _getScoreColor() {
-    if (score >= 80) return AppColors.success;
+    if (score >= 80) return AppColors.primary;
     if (score >= 50) return AppColors.warning;
     return AppColors.error;
   }

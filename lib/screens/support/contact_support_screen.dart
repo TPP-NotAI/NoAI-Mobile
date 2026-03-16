@@ -256,7 +256,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                 ),
                 DropdownMenuItem(
                   value: 'roocoin',
-                  child: Text('Roobit / Wallet'.tr(context)),
+                  child: Text('Roochip / Wallet'.tr(context)),
                 ),
                 DropdownMenuItem(
                   value: 'technical',
@@ -286,7 +286,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                   child: _buildPriorityOption(
                     'Low',
                     'low',
-                    const Color(0xFF10B981),
+                    AppColors.primary,
                     scheme,
                   ),
                 ),

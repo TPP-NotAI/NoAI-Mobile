@@ -401,7 +401,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             isOwn: isActuallyOwnProfile,
                             isFollowing: isFollowing,
                           ),
-                          _RoobitBalance(
+                          _RoochipBalance(
                             user: user,
                             colors: colors,
                             isVisible: isActuallyOwnProfile,
@@ -915,14 +915,14 @@ class _AchievementBadge extends StatelessWidget {
   }
 }
 
-/* ───────────────── ROOBIT BALANCE ───────────────── */
+/* ───────────────── ROOCHIP BALANCE ───────────────── */
 
-class _RoobitBalance extends StatelessWidget {
+class _RoochipBalance extends StatelessWidget {
   final dynamic user;
   final ColorScheme colors;
   final bool isVisible;
 
-  const _RoobitBalance({
+  const _RoochipBalance({
     required this.user,
     required this.colors,
     required this.isVisible,
@@ -940,7 +940,7 @@ class _RoobitBalance extends StatelessWidget {
       children: [
         SizedBox(height: 16),
         Text(
-          'Roobit Balance'.tr(context),
+          'Roochip Balance'.tr(context),
           style: TextStyle(
             fontSize: 13,
             color: colors.onSurfaceVariant,
@@ -1410,7 +1410,7 @@ class _ActivityLog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visibleActivities = activities.where((activity) {
-      if (activity.type != UserActivityType.roobitEarned) return true;
+      if (activity.type != UserActivityType.roochipEarned) return true;
       return (activity.amount ?? 0) > 0;
     }).toList();
 
@@ -1455,11 +1455,11 @@ class _ActivityItem extends StatelessWidget {
         return Icons.repeat;
       case UserActivityType.userFollowed:
         return Icons.person_add;
-      case UserActivityType.roobitEarned:
+      case UserActivityType.roochipEarned:
         return Icons.add_circle;
-      case UserActivityType.roobitSpent:
+      case UserActivityType.roochipSpent:
         return Icons.remove_circle;
-      case UserActivityType.roobitTransferred:
+      case UserActivityType.roochipTransferred:
         return Icons.send;
       case UserActivityType.storyCreated:
         return Icons.auto_stories;
@@ -1480,11 +1480,11 @@ class _ActivityItem extends StatelessWidget {
         return AppColors.primary;
       case UserActivityType.userFollowed:
         return const Color(0xFFF59E0B); // amber
-      case UserActivityType.roobitEarned:
+      case UserActivityType.roochipEarned:
         return AppColors.primary;
-      case UserActivityType.roobitSpent:
+      case UserActivityType.roochipSpent:
         return const Color(0xFFEF4444); // red
-      case UserActivityType.roobitTransferred:
+      case UserActivityType.roochipTransferred:
         return const Color(0xFFF59E0B); // amber
       case UserActivityType.storyCreated:
         return const Color(0xFFEC4899); // pink
@@ -1723,7 +1723,7 @@ class _Statistics extends StatelessWidget {
           SizedBox(height: 12),
           if (isOwnProfile) ...[
             _StatItem(
-              label: _profileText(context, 'roobitBalance'),
+              label: _profileText(context, 'roochipBalance'),
               value: (context.watch<WalletProvider>().wallet?.balanceRc ?? user.balance).toStringAsFixed(2),
               colors: colors,
             ),
@@ -2881,7 +2881,7 @@ String _profileText(
     'view': {'en': 'View'},
     'trustScore': {'en': 'Trust Score'},
     'aiLikelihood': {'en': 'AI Likelihood'},
-    'roobitBalance': {'en': 'Roobit Balance'},
+    'roochipBalance': {'en': 'Roochip Balance'},
     'verificationStatus': {'en': 'Verification Status'},
     'verified': {'en': 'Verified'},
     'pending': {'en': 'Pending'},

@@ -22,8 +22,8 @@ String? _translateExact(AppLocalizations l10n, String value) {
       return l10n.selectLanguage;
     case 'Home':
       return l10n.home;
-    case 'Discover':
-      return l10n.discover;
+    case 'Explore':
+      return l10n.explore;
     case 'Create':
       return l10n.create;
     case 'Wallet':
@@ -231,7 +231,7 @@ String? _translateExact(AppLocalizations l10n, String value) {
       return l10n.userNotLoggedIn;
     case 'Your verification is pending. You can tip once approved.':
       return l10n.verificationPendingTip;
-    case 'Insufficient Roobit balance':
+    case 'Insufficient Roochip balance':
       return l10n.insufficientRooBalance;
     case 'You cannot tip your own post':
       return l10n.cannotTipOwnPost;

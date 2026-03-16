@@ -24,7 +24,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get home => 'Home';
 
   @override
-  String get discover => 'Discover';
+  String get explore => 'Explore';
 
   @override
   String get create => 'Create';
@@ -159,9 +159,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get feed => 'Feed';
-
-  @override
-  String get explore => 'Explore';
 
   @override
   String get chat => 'Chat';
@@ -741,7 +738,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moderationAppeal => 'Moderation Appeal';
 
   @override
-  String get roobitWallet => 'Roobit / Wallet';
+  String get roochipWallet => 'Roochip / Wallet';
 
   @override
   String get technicalProblem => 'Technical Problem';

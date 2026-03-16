@@ -1,15 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/wallet.dart';
-import '../services/roobit_service.dart';
+import '../services/roochip_service.dart';
 import '../services/secure_storage_service.dart';
 import '../services/activity_log_service.dart';
 import '../core/extensions/exception_extensions.dart';
 
-/// Repository for managing wallet data and Roobit integration
+/// Repository for managing wallet data and Roochip integration
 class WalletRepository {
   final SupabaseClient _supabase;
-  final RoobitService _roobitService;
+  final RoochipService _roochipService;
   final SecureStorageService _secureStorage;
   final ActivityLogService _activityLogService = ActivityLogService();
   static const String _walletKeysTable = 'user_wallet_keys';
@@ -23,10 +23,10 @@ class WalletRepository {
 
   WalletRepository({
     SupabaseClient? supabase,
-    RoobitService? roobitService,
+    RoochipService? roochipService,
     SecureStorageService? secureStorage,
   }) : _supabase = supabase ?? Supabase.instance.client,
-       _roobitService = roobitService ?? RoobitService(),
+       _roochipService = roochipService ?? RoochipService(),
        _secureStorage = secureStorage ?? SecureStorageService();
 
   /// Get wallet for a user
@@ -51,8 +51,8 @@ class WalletRepository {
   /// This creates both the blockchain wallet and the database entry
   Future<Wallet> createWallet(String userId) async {
     try {
-      // 1. Create blockchain wallet via Roobit API
-      final walletData = await _roobitService.createWallet();
+      // 1. Create blockchain wallet via Roochip API
+      final walletData = await _roochipService.createWallet();
       final address = walletData['address'] as String;
       final privateKey = walletData['privateKey'] as String;
 
@@ -173,7 +173,7 @@ class WalletRepository {
   /// Check if Roocoin API is healthy
   Future<bool> checkApiHealth() async {
     try {
-      final health = await _roobitService.checkHealth();
+      final health = await _roochipService.checkHealth();
       return health['status'] == 'healthy' || health['status'] == 'ok';
     } catch (e) {
       debugPrint('WalletRepository: API Health check failed: $e');
@@ -193,7 +193,7 @@ class WalletRepository {
       }
 
       // 1. Get balance from blockchain
-      final balanceData = await _roobitService.getBalance(wallet.walletAddress);
+      final balanceData = await _roochipService.getBalance(wallet.walletAddress);
 
       // Handle both 'balance' and 'balanceRc' fields for robustness
       final rawBalance =
@@ -263,7 +263,7 @@ class WalletRepository {
 
   Future<Wallet> _repairWallet(String userId) async {
     // 1. Create new blockchain wallet
-    final walletData = await _roobitService.createWallet();
+    final walletData = await _roochipService.createWallet();
     final address = walletData['address'] as String;
     final privateKey = walletData['privateKey'] as String;
 
@@ -413,7 +413,7 @@ class WalletRepository {
     }
 
     // 2. Execute spend transaction on blockchain
-    final result = await _roobitService.spend(
+    final result = await _roochipService.spend(
       userPrivateKey: privateKey,
       amount: amount,
       activityType: activityType,
@@ -458,7 +458,7 @@ class WalletRepository {
     try {
       // 1. Skip check for repeating activities (e.g. Daily Login)
       // These are handled by their own services with date-range logic
-      if (activityType == RoobitActivityType.dailyLogin) {
+      if (activityType == RoochipActivityType.dailyLogin) {
         return false;
       }
 
@@ -466,11 +466,11 @@ class WalletRepository {
       // If no reference ID is provided for content rewards, we allow it (fail open)
       // but warn in debug mode.
       final isContentReward = [
-        RoobitActivityType.postCreate,
-        RoobitActivityType.postComment,
-        RoobitActivityType.postLike,
-        RoobitActivityType.postShare,
-        RoobitActivityType.contentViral,
+        RoochipActivityType.postCreate,
+        RoochipActivityType.postComment,
+        RoochipActivityType.postLike,
+        RoochipActivityType.postShare,
+        RoochipActivityType.contentViral,
       ].contains(activityType);
 
       if (isContentReward &&
@@ -509,8 +509,8 @@ class WalletRepository {
           }
 
           // For strictly one-time rewards without reference IDs
-          if (activityType == RoobitActivityType.profileComplete ||
-              activityType == RoobitActivityType.welcomeBonus) {
+          if (activityType == RoochipActivityType.profileComplete ||
+              activityType == RoochipActivityType.welcomeBonus) {
             return true;
           }
         }
@@ -557,12 +557,12 @@ class WalletRepository {
       // 1. Get wallet (using getOrCreateWallet for automatic repair)
       final wallet = await getOrCreateWallet(userId);
 
-      // 2. Distribute reward via Roobit API
+      // 2. Distribute reward via Roochip API
       if (!_isValidAddress(wallet.walletAddress)) {
         throw Exception('Invalid wallet address: ${wallet.walletAddress}');
       }
 
-      final result = await _roobitService.distributeReward(
+      final result = await _roochipService.distributeReward(
         userAddress: wallet.walletAddress,
         activityType: activityType,
         metadata: metadata,
@@ -583,7 +583,7 @@ class WalletRepository {
       double? authoritativeBalance = _extractBalanceFromResponse(result);
       if (authoritativeBalance == null) {
         try {
-          final balanceData = await _roobitService.getBalance(
+          final balanceData = await _roochipService.getBalance(
             wallet.walletAddress,
           );
           authoritativeBalance = _extractBalanceFromResponse(balanceData);
@@ -696,15 +696,15 @@ class WalletRepository {
         ? amount.toInt().toString()
         : amount.toStringAsFixed(2);
     switch (activityType) {
-      case RoobitActivityType.postLike:
+      case RoochipActivityType.postLike:
         return 'You earned $amtStr ROO for liking a post.';
-      case RoobitActivityType.postCreate:
+      case RoochipActivityType.postCreate:
         return 'You earned $amtStr ROO for your daily post.';
-      case RoobitActivityType.referral:
+      case RoochipActivityType.referral:
         return 'You earned $amtStr ROO for a successful referral!';
-      case RoobitActivityType.profileComplete:
+      case RoochipActivityType.profileComplete:
         return 'You earned $amtStr ROO for completing your profile!';
-      case RoobitActivityType.contentViral:
+      case RoochipActivityType.contentViral:
         return 'Your post hit a viral milestone! You earned $amtStr ROO.';
       default:
         return 'You earned $amtStr ROO.';
@@ -712,7 +712,7 @@ class WalletRepository {
   }
 
   /// Check if user has received their welcome bonus and award it if not
-  /// This handles both new users and existing users from before Roobit
+  /// This handles both new users and existing users from before Roochip
   Future<bool> checkAndAwardWelcomeBonus(
     String userId, {
     String? address,
@@ -731,7 +731,7 @@ class WalletRepository {
         final metadata = tx['metadata'];
         if (metadata is Map) {
           final type = metadata['activityType'] ?? metadata['source'];
-          return type == RoobitActivityType.welcomeBonus ||
+          return type == RoochipActivityType.welcomeBonus ||
               type == 'WELCOME_BONUS';
         }
         return false;
@@ -758,13 +758,13 @@ class WalletRepository {
         walletAddress = wallet.walletAddress;
       }
 
-      // 3. Award reward via Roobit API Faucet (gives 100 ROO)
+      // 3. Award reward via Roochip API Faucet (gives 100 ROO)
       if (!_isValidAddress(walletAddress)) {
         debugPrint('Skipping welcome bonus: Invalid address $walletAddress');
         return false;
       }
 
-      final result = await _roobitService.requestFaucet(
+      final result = await _roochipService.requestFaucet(
         address: walletAddress,
         amount: 100.0,
       );
@@ -779,7 +779,7 @@ class WalletRepository {
         'amount_rc': rewardAmount,
         'tx_hash': result['transactionHash'],
         'metadata': {
-          'activityType': RoobitActivityType.welcomeBonus,
+          'activityType': RoochipActivityType.welcomeBonus,
           'source': 'faucet',
         },
         'completed_at': DateTime.now().toIso8601String(),
@@ -792,7 +792,7 @@ class WalletRepository {
           params: {
             'p_user_id': userId,
             'p_amount': rewardAmount,
-            'p_activity_type': RoobitActivityType.welcomeBonus,
+            'p_activity_type': RoochipActivityType.welcomeBonus,
           },
         );
       } catch (e) {
@@ -880,7 +880,7 @@ class WalletRepository {
       }
 
       // 3. Execute transfer on blockchain using the new peer-to-peer endpoint
-      final result = await _roobitService.send(
+      final result = await _roochipService.send(
         fromPrivateKey: privateKey,
         toAddress: toAddress,
         amount: amount,
@@ -1128,7 +1128,7 @@ class WalletRepository {
   }
 
   /// Get transaction history for a user
-  Future<List<RoobitTransaction>> getTransactions({
+  Future<List<RoochipTransaction>> getTransactions({
     required String userId,
     int limit = 50,
     int offset = 0,
@@ -1141,13 +1141,13 @@ class WalletRepository {
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
-      final List<RoobitTransaction> txs = (response as List)
-          .map((json) => RoobitTransaction.fromSupabase(json))
+      final List<RoochipTransaction> txs = (response as List)
+          .map((json) => RoochipTransaction.fromSupabase(json))
           .toList();
 
       // Deduplicate by txHash if present (prevents double-showing of legacy logic records)
       final Set<String> seenHashes = {};
-      final List<RoobitTransaction> uniqueTxs = [];
+      final List<RoochipTransaction> uniqueTxs = [];
 
       for (final tx in txs) {
         if (tx.txHash != null && tx.txHash!.isNotEmpty) {

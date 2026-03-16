@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/app_colors.dart';
 import '../models/notification_model.dart';
 import '../models/notification_settings.dart';
 import '../repositories/notification_repository.dart';
@@ -275,7 +276,7 @@ class NotificationProvider with ChangeNotifier {
       if (isFlagged) {
         backgroundColor = Colors.red;
       } else if (isPublished) {
-        backgroundColor = Colors.green;
+        backgroundColor = AppColors.primary;
       } else if (isUnderReview) {
         backgroundColor = Colors.amber.shade700;
       } else {

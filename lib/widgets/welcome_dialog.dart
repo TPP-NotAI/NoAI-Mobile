@@ -86,7 +86,7 @@ class WelcomeDialog extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text('Your human-only social platform powered by Roobit'.tr(context),
+                  Text('Your human-only social platform powered by Roochip'.tr(context),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 14,
@@ -108,10 +108,10 @@ class WelcomeDialog extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppColors.success.withValues(alpha: 0.3),
+                        color: AppColors.primary.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
@@ -120,12 +120,12 @@ class WelcomeDialog extends StatelessWidget {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: AppColors.success.withValues(alpha: 0.2),
+                            color: AppColors.primary.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.check_circle,
-                            color: AppColors.success,
+                            color: AppColors.primary,
                             size: 24,
                           ),
                         ),
@@ -136,7 +136,7 @@ class WelcomeDialog extends StatelessWidget {
                             children: [
                               Text('Wallet Created!'.tr(context),
                                 style: TextStyle(
-                                  color: AppColors.success,
+                                  color: AppColors.primary,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -145,7 +145,7 @@ class WelcomeDialog extends StatelessWidget {
                               RichText(
                                 text: const TextSpan(
                                   style: TextStyle(
-                                    color: AppColors.success,
+                                    color: AppColors.primary,
                                     fontSize: 14,
                                   ),
                                   children: [
@@ -255,7 +255,7 @@ class WelcomeDialog extends StatelessWidget {
                                   text: '9 ROO',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.success,
+                                    color: AppColors.primary,
                                   ),
                                 ),
                                 TextSpan(text: ' per post!'),
@@ -348,7 +348,7 @@ class WelcomeDialog extends StatelessWidget {
         Text(
           reward,
           style: const TextStyle(
-            color: AppColors.success,
+            color: AppColors.primary,
             fontSize: 15,
             fontWeight: FontWeight.bold,
           ),

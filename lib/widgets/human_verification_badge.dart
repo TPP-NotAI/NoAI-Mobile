@@ -30,8 +30,8 @@ class HumanVerificationBadge extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: AppColors.success.withValues(alpha: 0.15),
-                border: Border.all(color: AppColors.success, width: 1.5),
+                color: AppColors.primary.withValues(alpha: 0.15),
+                border: Border.all(color: AppColors.primary, width: 1.5),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -40,14 +40,14 @@ class HumanVerificationBadge extends StatelessWidget {
                   const Icon(
                     Icons.check_circle,
                     size: 14,
-                    color: AppColors.success,
+                    color: AppColors.primary,
                   ),
                   const SizedBox(width: 6),
                   Text('HUMAN SCORE: $aiPercentage% [${isPassed ? 'PASS'.tr(context) : 'FAIL'.tr(context)}]',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.success,
+                      color: AppColors.primary,
                       letterSpacing: 0.3,
                     ),
                   ),
@@ -83,13 +83,13 @@ class VerifiedBadge extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.verified, size: isSmall ? 14 : 16, color: AppColors.success),
+        Icon(Icons.verified, size: isSmall ? 14 : 16, color: AppColors.primary),
         SizedBox(width: isSmall ? 3 : 4),
         Text('Verified'.tr(context),
           style: TextStyle(
             fontSize: isSmall ? AppTypography.tiny : AppTypography.extraSmall,
             fontWeight: AppTypography.medium,
-            color: AppColors.success,
+            color: AppColors.primary,
           ),
         ),
       ],

@@ -508,7 +508,7 @@ class _EngagementBar extends StatelessWidget {
             Text('$rateStr%'.tr(context),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: rate >= 5
-                    ? Colors.green.shade600
+                    ? AppColors.primary
                     : rate >= 2
                     ? Colors.orange.shade600
                     : colors.onSurfaceVariant,
@@ -526,7 +526,7 @@ class _EngagementBar extends StatelessWidget {
             backgroundColor: colors.outlineVariant,
             valueColor: AlwaysStoppedAnimation<Color>(
               rate >= 5
-                  ? Colors.green.shade600
+                  ? AppColors.primary
                   : rate >= 2
                   ? Colors.orange.shade600
                   : colors.primary,

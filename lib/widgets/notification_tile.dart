@@ -229,12 +229,12 @@ class _NotificationTileState extends State<NotificationTile> {
       case 'mention':
         return Colors.orangeAccent;
       case 'follow':
-        return Colors.greenAccent;
-      // AI Check - Published (green)
+        return AppColors.primary;
+      // AI Check - Published
       case 'post_published':
       case 'comment_published':
       case 'story_published':
-        return const Color(0xFF10B981);
+        return AppColors.primary;
       // AI Check - Under Review (amber)
       case 'post_review':
       case 'comment_review':
@@ -300,9 +300,9 @@ class _NotificationTileState extends State<NotificationTile> {
       case 'reply':
         return 'replied to your comment';
       case 'roocoin_received':
-        return 'sent you Roobit';
+        return 'sent you Roochip';
       case 'roocoin_sent':
-        return 'successfully sent Roobit';
+        return 'successfully sent Roochip';
       case 'chat':
       case 'message':
         return 'sent you a message';

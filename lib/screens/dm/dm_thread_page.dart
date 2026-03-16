@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../config/app_colors.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -688,7 +689,7 @@ class _DmThreadPageState extends State<DmThreadPage> {
                       width: 10,
                       height: 10,
                       decoration: BoxDecoration(
-                        color: Colors.green,
+                        color: AppColors.primary,
                         shape: BoxShape.circle,
                         border: Border.all(color: colors.surface, width: 1.5),
                       ),

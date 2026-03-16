@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:async';
+import '../../config/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -1686,7 +1687,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
         if (createdPost.status == 'published') {
           message = 'Post published successfully!';
-          backgroundColor = Colors.green;
+          backgroundColor = AppColors.primary;
         } else if (createdPost.status == 'deleted' ||
             createdPost.status == 'hidden') {
           final reason = createdPost.authenticityNotes != null
@@ -2118,7 +2119,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                           vertical: 2,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.green.withOpacity(0.15),
+                                          color: AppColors.primary.withValues(alpha: 0.15),
                                           borderRadius: BorderRadius.circular(
                                             12,
                                           ),
@@ -2128,7 +2129,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                           style: TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.green,
+                                            color: AppColors.primary,
                                           ),
                                         ),
                                       ),
@@ -2146,24 +2147,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       ),
 
                       SizedBox(height: 20),
-
-                      // Optional title
-                      TextField(
-                        controller: _titleController,
-                        textCapitalization: TextCapitalization.sentences,
-                        enableSuggestions: true,
-                        autocorrect: true,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Add a title (optional)',
-                          hintStyle: theme.textTheme.titleMedium?.copyWith(
-                            color: colors.onSurfaceVariant.withOpacity(0.5),
-                          ),
-                          border: InputBorder.none,
-                        ),
-                      ),
 
                       // Text input
                       // Text input

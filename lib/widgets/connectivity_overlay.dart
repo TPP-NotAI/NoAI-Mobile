@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import '../config/app_colors.dart';
 import '../services/connectivity_service.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -99,7 +100,7 @@ class _ConnectivityOverlayState extends State<ConnectivityOverlay> {
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      color: Colors.green.shade700,
+      color: AppColors.primary,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

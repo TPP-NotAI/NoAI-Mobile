@@ -11,7 +11,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const ROOCOIN_BASE_URL =
-  (Deno.env.get('ROOCOIN_BASE_URL') ?? 'https://roobit.rooverse.app').trim();
+  (Deno.env.get('ROOCOIN_BASE_URL') ?? 'https://roochip.rooverse.app').trim();
 const ROOCOIN_API_KEY = (Deno.env.get('ROOCOIN_API_KEY') ?? '').trim();
 const PROXY_BUILD = '2026-03-06-send-debug-1';
 

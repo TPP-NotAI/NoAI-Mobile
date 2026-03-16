@@ -360,7 +360,7 @@ enum WalletErrorType {
   networkOffline,
 }
 
-/// Thrown for wallet/Roobit related errors.
+/// Thrown for wallet/Roochip related errors.
 class WalletException extends AppException {
   final WalletErrorType type;
 

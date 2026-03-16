@@ -44,8 +44,8 @@ Map<String, dynamic> _$WalletToJson(Wallet instance) => <String, dynamic>{
   'updatedAt': instance.updatedAt.toIso8601String(),
 };
 
-RoobitTransaction _$RoobitTransactionFromJson(Map<String, dynamic> json) =>
-    RoobitTransaction(
+RoochipTransaction _$RoochipTransactionFromJson(Map<String, dynamic> json) =>
+    RoochipTransaction(
       id: json['id'] as String,
       txType: json['txType'] as String,
       status: json['status'] as String,
@@ -68,7 +68,7 @@ RoobitTransaction _$RoobitTransactionFromJson(Map<String, dynamic> json) =>
       failureReason: json['failureReason'] as String?,
     );
 
-Map<String, dynamic> _$RoobitTransactionToJson(RoobitTransaction instance) =>
+Map<String, dynamic> _$RoochipTransactionToJson(RoochipTransaction instance) =>
     <String, dynamic>{
       'id': instance.id,
       'txType': instance.txType,

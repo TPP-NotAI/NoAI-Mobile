@@ -280,7 +280,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                     'Enter the email associated with your ROOVERSE account. We\'ll send you a ',
               ),
               TextSpan(
-                text: 'Roobit-secured',
+                text: 'Roochip-secured',
                 style: TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,
@@ -471,7 +471,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('ROOBIT PROTECTED'.tr(context),
+                Text('ROOCHIP PROTECTED'.tr(context),
                   style: TextStyle(
                     fontSize: AppTypography.responsiveFontSize(context, 10),
                     fontWeight: FontWeight.bold,
@@ -502,13 +502,13 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           width: 80.responsive(context, min: 68, max: 92),
           height: 80.responsive(context, min: 68, max: 92),
           decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.1),
+            color: AppColors.primary.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
             Icons.check_circle,
             size: AppTypography.responsiveIconSize(context, 48),
-            color: Colors.green,
+            color: AppColors.primary,
           ),
         ),
         SizedBox(height: AppSpacing.double_.responsive(context)),

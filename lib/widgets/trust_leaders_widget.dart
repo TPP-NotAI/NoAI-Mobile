@@ -148,14 +148,14 @@ class _LeaderCard extends StatelessWidget {
               Icon(
                 Icons.verified,
                 size: 12,
-                color: AppColors.success,
+                color: AppColors.primary,
               ),
               const SizedBox(width: 4),
               Text('${leader.trustScore.toStringAsFixed(1)}%'.tr(context),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.success,
+                  color: AppColors.primary,
                 ),
               ),
             ],

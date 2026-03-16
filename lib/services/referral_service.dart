@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/roobit_service.dart';
+import '../services/roochip_service.dart';
 
 /// Service to track and reward referrals
 class ReferralService {
@@ -183,7 +183,7 @@ class ReferralService {
       // Award ROO to the referrer
       await _walletRepo.earnRoo(
         userId: referrerId,
-        activityType: RoobitActivityType.referral,
+        activityType: RoochipActivityType.referral,
         metadata: {
           'referred_user_id': referredUserId,
           'reward_amount': rewardAmount,

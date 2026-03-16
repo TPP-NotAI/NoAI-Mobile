@@ -89,7 +89,7 @@ class _TipModalState extends State<TipModal> {
 
     final availableBalance = walletProvider.wallet?.balanceRc ?? user.balance;
     if (_selectedAmount > availableBalance) {
-      _showError('Insufficient Roobit balance'.tr(context));
+      _showError('Insufficient Roochip balance'.tr(context));
       return;
     }
 
@@ -132,7 +132,7 @@ class _TipModalState extends State<TipModal> {
       rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text(confirmingText),
-          backgroundColor: Colors.green.shade600,
+          backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -162,7 +162,7 @@ class _TipModalState extends State<TipModal> {
                 rootScaffoldMessengerKey.currentState?.showSnackBar(
                   SnackBar(
                     content: Text(confirmedText),
-                    backgroundColor: Colors.green.shade700,
+                    backgroundColor: AppColors.primary,
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -292,7 +292,7 @@ class _TipModalState extends State<TipModal> {
                     ),
                     const SizedBox(height: 16),
 
-                    Text('Send Roobit Tip'.tr(context),
+                    Text('Send Roochip Tip'.tr(context),
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: colors.onSurface,

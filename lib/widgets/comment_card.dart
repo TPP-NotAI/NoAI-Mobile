@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/app_colors.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../config/app_spacing.dart';
@@ -993,8 +994,8 @@ class _AiCheckBadge extends StatelessWidget {
       bgColor = colors.errorContainer.withValues(alpha: 0.2);
       label = 'AI CHECK: REVIEW';
     } else if (isPassed) {
-      badgeColor = const Color(0xFF10B981); // Green
-      bgColor = const Color(0xFF052E1C);
+      badgeColor = AppColors.primary;
+      bgColor = AppColors.primary.withValues(alpha: 0.18);
       label = 'AI CHECK: PASSED';
     } else {
       badgeColor = colors.onSurfaceVariant;
@@ -1008,7 +1009,7 @@ class _AiCheckBadge extends StatelessWidget {
         width: 8,
         height: 8,
         decoration: const BoxDecoration(
-          color: Color(0xFF10B981),
+          color: AppColors.primary,
           shape: BoxShape.circle,
         ),
       );

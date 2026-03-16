@@ -146,9 +146,9 @@ class NotificationModel {
       case 'reply':
         return '$actorName replied to your comment';
       case 'roocoin_received':
-        return 'Received Roobit';
+        return 'Received Roochip';
       case 'roocoin_sent':
-        return 'Sent Roobit';
+        return 'Sent Roochip';
       case 'chat':
       case 'message':
         return 'New Message';

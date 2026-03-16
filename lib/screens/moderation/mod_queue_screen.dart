@@ -423,10 +423,10 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                     if (post.author.isVerified)
                       Row(
                         children: [
-                          Icon(Icons.verified, size: 12, color: Colors.green),
+                          Icon(Icons.verified, size: 12, color: AppColors.primary),
                           SizedBox(width: 4),
                           Text('Verified Human'.tr(context),
-                            style: TextStyle(fontSize: 12, color: Colors.green),
+                            style: TextStyle(fontSize: 12, color: AppColors.primary),
                           ),
                         ],
                       ),
@@ -488,7 +488,7 @@ class _ModQueueScreenState extends State<ModQueueScreen> {
                     icon: const Icon(Icons.check_circle, size: 18),
                     label: Text('Approve'.tr(context)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
@@ -879,7 +879,7 @@ class _AiAnalysisCardState extends State<_AiAnalysisCard> {
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: widget.safetyScore! > 80
-                        ? Colors.green
+                        ? AppColors.primary
                         : widget.safetyScore! > 50
                         ? Colors.orange
                         : Colors.red,

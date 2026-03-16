@@ -170,8 +170,8 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.verified_user,
             iconColor: currentUser?.verifiedHuman == 'verified'
-                ? Colors.green
-                : Colors.orange,
+                ? AppColors.primary
+                : AppColors.warning,
             title: l10n.humanVerification,
             subtitle: _getVerificationStatus(context, currentUser?.verifiedHuman),
             onTap: () {
@@ -217,7 +217,7 @@ class SettingsScreen extends StatelessWidget {
 
           _buildSectionHeader(
             context,
-            _localizedSettingsText(context, 'sectionRoobitWallet'),
+            _localizedSettingsText(context, 'sectionRoochipWallet'),
           ),
           _buildSettingsTile(
             context,
@@ -633,7 +633,7 @@ class SettingsScreen extends StatelessWidget {
         backgroundColor: scheme.surface,
         title: Row(
           children: [
-            const Icon(Icons.verified_user, color: Colors.green),
+            Icon(Icons.verified_user, color: AppColors.primary),
             const SizedBox(width: 8),
             Text('Verified', style: TextStyle(color: scheme.onSurface)),
           ],
@@ -973,19 +973,19 @@ class SettingsScreen extends StatelessWidget {
         'ar': 'الحساب',
         'hi': 'खाता',
       },
-      'sectionRoobitWallet': {
-        'en': 'ROOBIT WALLET',
-        'es': 'CARTERA ROOBIT',
-        'fr': 'PORTEFEUILLE ROOBIT',
-        'de': 'ROOBIT-WALLET',
-        'it': 'PORTAFOGLIO ROOBIT',
-        'pt': 'CARTEIRA ROOBIT',
-        'ru': 'КОШЕЛЁК ROOBIT',
-        'zh': 'ROOBIT 钱包',
-        'ja': 'ROOBITウォレット',
-        'ko': 'ROOBIT 지갑',
-        'ar': 'محفظة ROOBIT',
-        'hi': 'ROOBIT वॉलेट',
+      'sectionRoochipWallet': {
+        'en': 'ROOCHIP WALLET',
+        'es': 'CARTERA ROOCHIP',
+        'fr': 'PORTEFEUILLE ROOCHIP',
+        'de': 'ROOCHIP-WALLET',
+        'it': 'PORTAFOGLIO ROOCHIP',
+        'pt': 'CARTEIRA ROOCHIP',
+        'ru': 'КОШЕЛЁК ROOCHIP',
+        'zh': 'ROOCHIP 钱包',
+        'ja': 'ROOCHIPウォレット',
+        'ko': 'ROOCHIP 지갑',
+        'ar': 'محفظة ROOCHIP',
+        'hi': 'ROOCHIP वॉलेट',
       },
       'sectionPreferences': {
         'en': 'PREFERENCES',

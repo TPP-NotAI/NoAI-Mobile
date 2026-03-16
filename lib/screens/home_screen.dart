@@ -37,7 +37,7 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Title
-                Text('Discover'.tr(context),
+                Text('Explore'.tr(context),
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: colors.onSurface,
@@ -70,7 +70,7 @@ class HomeScreen extends StatelessWidget {
                       Icon(Icons.info_outline, size: 20, color: colors.primary),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text('Discover is launching in Stage 3.'.tr(context),
+                        child: Text('Explore is launching in Stage 3.'.tr(context),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: colors.onSurfaceVariant,
                           ),

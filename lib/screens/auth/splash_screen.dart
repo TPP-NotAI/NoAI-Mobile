@@ -157,7 +157,7 @@ class SplashScreen extends StatelessWidget {
                   children: [
                     const Icon(Icons.token, size: 14, color: AppColors.primary),
                     const SizedBox(width: 8),
-                    Text('Powered by Roobit'.tr(context),
+                    Text('Powered by Roochip'.tr(context),
                       style: TextStyle(
                         fontSize: 14,
                         color: scheme.onBackground.withOpacity(0.6),

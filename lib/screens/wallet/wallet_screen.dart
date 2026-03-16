@@ -501,7 +501,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             SizedBox(
                               height: AppSpacing.extraSmall.responsive(context),
                             ),
-                            Text('Manage your Roobit assets and track yield performance.'.tr(context),
+                            Text('Manage your Roochip assets and track yield performance.'.tr(context),
                               style: TextStyle(
                                 color: colors.onSurfaceVariant,
                                 fontSize: AppTypography.responsiveFontSize(
@@ -533,7 +533,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               height: 8.responsive(context, min: 6, max: 10),
                               decoration: BoxDecoration(
                                 color: walletProvider.isNetworkOnline
-                                    ? AppColors.success
+                                    ? AppColors.primary
                                     : AppColors.error,
                                 shape: BoxShape.circle,
                               ),
@@ -682,7 +682,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           ],
                         ),
                         SizedBox(height: 12),
-                        Text('Invite your friends to ROOVERSE and earn extra Roobit for every verified human you refer!'.tr(context),
+                        Text('Invite your friends to ROOVERSE and earn extra Roochip for every verified human you refer!'.tr(context),
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 13,
@@ -1341,10 +1341,10 @@ class _WalletScreenState extends State<WalletScreen> {
           // Network Status
           Row(
             children: [
-              const Icon(Icons.circle, color: AppColors.success, size: 8),
+              const Icon(Icons.circle, color: AppColors.primary, size: 8),
               SizedBox(width: 8),
               Text('Connected to Sepolia Testnet'.tr(context),
-                style: TextStyle(color: AppColors.success, fontSize: 12),
+                style: TextStyle(color: AppColors.primary, fontSize: 12),
               ),
             ],
           ),
@@ -1497,7 +1497,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   letterSpacing: 0.5,
                 ),
               ),
-              Icon(Icons.trending_up, color: AppColors.success, size: 16),
+              Icon(Icons.trending_up, color: AppColors.primary, size: 16),
             ],
           ),
           SizedBox(height: 8),
@@ -1520,7 +1520,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text('+0.05%'.tr(context),
                     style: TextStyle(
-                      color: AppColors.success,
+                      color: AppColors.primary,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1620,7 +1620,7 @@ class _WalletScreenState extends State<WalletScreen> {
   void _ensureTransactionUsersLoaded({
     required UserProvider userProvider,
     required String currentUserId,
-    required List<RoobitTransaction> transactions,
+    required List<RoochipTransaction> transactions,
   }) {
     if (_isResolvingTxUsers) return;
 
@@ -1714,7 +1714,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   letterSpacing: 0.5,
                 ),
               ),
-              Icon(Icons.monetization_on, color: AppColors.success, size: 16),
+              Icon(Icons.monetization_on, color: AppColors.primary, size: 16),
             ],
           ),
           SizedBox(height: 8),
@@ -1735,7 +1735,7 @@ class _WalletScreenState extends State<WalletScreen> {
           ),
           SizedBox(height: 4),
           Text('+0 this month'.tr(context),
-            style: TextStyle(color: AppColors.success, fontSize: 11),
+            style: TextStyle(color: AppColors.primary, fontSize: 11),
           ),
         ],
       ),
@@ -1783,7 +1783,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       ? '+${value.toStringAsFixed(1)}'
                       : value.toStringAsFixed(1),
                   style: TextStyle(
-                    color: isReward ? AppColors.success : colors.onSurface,
+                    color: isReward ? AppColors.primary : colors.onSurface,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'monospace',

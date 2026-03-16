@@ -6,7 +6,7 @@ import '../services/supabase_service.dart';
 import '../services/activity_log_service.dart';
 import 'notification_repository.dart';
 import 'wallet_repository.dart';
-import '../services/roobit_service.dart';
+import '../services/roochip_service.dart';
 import '../services/viral_content_service.dart';
 
 /// Repository for reaction (like/unlike) operations.
@@ -217,7 +217,7 @@ class ReactionRepository {
             final walletRepo = WalletRepository();
             await walletRepo.earnRoo(
               userId: userId,
-              activityType: RoobitActivityType.postLike,
+              activityType: RoochipActivityType.postLike,
               referencePostId: postId,
             );
           } catch (e) {

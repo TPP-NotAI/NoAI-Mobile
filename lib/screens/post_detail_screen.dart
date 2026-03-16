@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rooverse/config/app_colors.dart';
 import 'package:rooverse/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -437,7 +438,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final feedProvider = context.watch<FeedProvider>();
     final isAuthor = authProvider.currentUser?.id == _post.authorId;
     final colors = Theme.of(context).colorScheme;
-    final providerComments = feedProvider.getPostFromFeed(_post.id)?.commentList;
+    final providerComments = feedProvider
+        .getPostFromFeed(_post.id)
+        ?.commentList;
     final displayComments = providerComments ?? _comments;
     final totalCommentCount = _countCommentsWithReplies(displayComments);
     final isAdvert = _isAdvertPost;
@@ -778,18 +781,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   ],
                                 ),
                               ),
-                            if (_post.title != null &&
-                                _post.title!.isNotEmpty) ...[
-                              MentionRichText(
-                                text: _post.title!,
-                                style: Theme.of(context).textTheme.headlineSmall
-                                    ?.copyWith(fontWeight: FontWeight.bold),
-                                onMentionTap: (username) =>
-                                    navigateToMentionedUser(context, username),
-                                onHashtagTap: _openHashtagFeed,
-                              ),
-                              SizedBox(height: 8),
-                            ],
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final textStyle = Theme.of(
@@ -935,12 +926,21 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                         SizedBox(width: 4),
                                         GestureDetector(
                                           onTap: _post.likes > 0
-                                              ? () => showLikersSheet(context, _post.id, _post.likes)
+                                              ? () => showLikersSheet(
+                                                  context,
+                                                  _post.id,
+                                                  _post.likes,
+                                                )
                                               : null,
                                           behavior: HitTestBehavior.opaque,
                                           child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                                            child: Text('${_post.likes}'.tr(context)),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 6,
+                                            ),
+                                            child: Text(
+                                              '${_post.likes}'.tr(context),
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -993,7 +993,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                           size: 20,
                                           color:
                                               feedProvider.isReposted(_post.id)
-                                              ? const Color(0xFF10B981)
+                                              ? AppColors.primary
                                               : colors.onSurfaceVariant,
                                         ),
                                         SizedBox(width: 4),
@@ -1364,11 +1364,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             if (context.mounted) {
               ScaffoldMessenger.of(context)
                 ..clearSnackBars()
-                ..showSnackBar(SnackBar(
-                  content: Text('Post shared!'.tr(context)),
-                  duration: const Duration(seconds: 2),
-                  behavior: SnackBarBehavior.floating,
-                ));
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text('Post shared!'.tr(context)),
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
             }
             return;
           }

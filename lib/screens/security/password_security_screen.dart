@@ -68,7 +68,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
           _buildSettingsTile(
             context,
             icon: Icons.phonelink_lock,
-            iconColor: Colors.green,
+            iconColor: AppColors.primary,
             title: 'Two-Factor Authentication (2FA)',
             subtitle: 'Add an extra layer of security with email-based 2FA',
             onTap: () => _show2FASetupDialog(context),
@@ -88,7 +88,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
           _buildInfoTile(
             context,
             icon: Icons.security,
-            iconColor: Colors.green,
+            iconColor: AppColors.primary,
             title: 'Account Security Tips',
             content:
                 '• Use a strong, unique password\n• Never share your password\n• Enable two-factor authentication\n• Log out from shared devices',
@@ -336,13 +336,13 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
+                        color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.shield, color: Colors.green, size: 28),
+                          const Icon(Icons.shield, color: AppColors.primary, size: 28),
                           SizedBox(width: 12),
                           Expanded(
                             child: Text('Protect your account by requiring a verification code when you sign in.'.tr(context),
@@ -419,7 +419,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text('New code sent!'.tr(context)),
-                                        backgroundColor: Colors.green,
+                                        backgroundColor: AppColors.primary,
                                       ),
                                     );
                                   }
@@ -445,12 +445,12 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.1),
+                              color: AppColors.primary.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
                               Icons.check_circle,
-                              color: Colors.green,
+                              color: AppColors.primary,
                               size: 48,
                             ),
                           ),
@@ -772,7 +772,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Password updated successfully'.tr(context)),
-                              backgroundColor: Colors.green,
+                              backgroundColor: AppColors.primary,
                             ),
                           );
                         }
@@ -881,7 +881,7 @@ class _PasswordSecurityScreenState extends State<PasswordSecurityScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Password reset email sent. Check your inbox.'.tr(context)),
-                              backgroundColor: Colors.green,
+                              backgroundColor: AppColors.primary,
                             ),
                           );
                         }

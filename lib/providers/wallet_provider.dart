@@ -5,13 +5,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/extensions/exception_extensions.dart';
 import '../models/wallet.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/roobit_service.dart';
+import '../services/roochip_service.dart';
 
 class WalletProvider with ChangeNotifier {
   final WalletRepository _walletRepository;
 
   Wallet? _wallet;
-  List<RoobitTransaction> _transactions = [];
+  List<RoochipTransaction> _transactions = [];
   bool _isLoading = false;
   String? _error;
   bool _isNetworkOnline = true;
@@ -22,7 +22,7 @@ class WalletProvider with ChangeNotifier {
     : _walletRepository = walletRepository ?? WalletRepository();
 
   Wallet? get wallet => _wallet;
-  List<RoobitTransaction> get transactions => _transactions;
+  List<RoochipTransaction> get transactions => _transactions;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isNetworkOnline => _isNetworkOnline;
@@ -312,7 +312,7 @@ class WalletProvider with ChangeNotifier {
     }
 
     _transactions = [
-      RoobitTransaction(
+      RoochipTransaction(
         id: localId,
         txType: txType,
         status: 'pending',
@@ -336,7 +336,7 @@ class WalletProvider with ChangeNotifier {
     if (index == -1) return;
 
     final original = _transactions[index];
-    _transactions[index] = RoobitTransaction(
+    _transactions[index] = RoochipTransaction(
       id: original.id,
       txType: original.txType,
       status: 'completed',
@@ -445,7 +445,7 @@ class WalletProvider with ChangeNotifier {
     try {
       await _walletRepository.earnRoo(
         userId: userId,
-        activityType: RoobitActivityType.dailyLogin,
+        activityType: RoochipActivityType.dailyLogin,
       );
       await refreshWallet(userId);
     } catch (e) {

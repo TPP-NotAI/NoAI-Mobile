@@ -364,7 +364,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const TextSpan(text: ' and start earning Roobit.'),
+                    const TextSpan(text: ' and start earning Roochip.'),
                   ],
                 ),
               ),
@@ -759,7 +759,7 @@ class _SignupScreenState extends State<SignupScreen> {
           Icon(
             isMet ? Icons.check_circle : Icons.circle_outlined,
             size: AppTypography.responsiveIconSize(context, 16),
-            color: isMet ? Colors.green : Colors.grey,
+            color: isMet ? AppColors.primary : Colors.grey,
           ),
           SizedBox(width: AppSpacing.mediumSmall.responsive(context)),
           Text(
@@ -769,7 +769,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 context,
                 AppTypography.extraSmall,
               ),
-              color: isMet ? Colors.green : Colors.grey,
+              color: isMet ? AppColors.primary : Colors.grey,
               fontWeight: isMet ? FontWeight.w500 : FontWeight.normal,
             ),
           ),
@@ -1043,7 +1043,7 @@ class _SignupScreenState extends State<SignupScreen> {
     if (_usernameError == null) {
       return const Padding(
         padding: EdgeInsets.only(right: 12),
-        child: Icon(Icons.check_circle, color: Colors.green, size: 20),
+        child: Icon(Icons.check_circle, color: AppColors.primary, size: 20),
       );
     }
 

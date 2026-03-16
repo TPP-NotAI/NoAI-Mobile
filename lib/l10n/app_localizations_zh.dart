@@ -24,7 +24,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get home => '首页';
 
   @override
-  String get discover => '发现';
+  String get explore => '探索';
 
   @override
   String get create => '创建';
@@ -158,9 +158,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get feed => '动态';
-
-  @override
-  String get explore => '探索';
 
   @override
   String get chat => '聊天';
@@ -740,7 +737,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get moderationAppeal => 'Moderation Appeal';
 
   @override
-  String get roobitWallet => 'Roobit / Wallet';
+  String get roochipWallet => 'Roochip / Wallet';
 
   @override
   String get technicalProblem => 'Technical Problem';

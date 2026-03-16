@@ -390,10 +390,10 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                 vertical: AppSpacing.small.responsive(context),
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
+                                color: AppColors.primary.withValues(alpha: 0.1),
                                 borderRadius: AppSpacing.responsiveRadius(context, AppSpacing.medium),
                                 border: Border.all(
-                                  color: Colors.green.withOpacity(0.2),
+                                  color: AppColors.primary.withValues(alpha: 0.2),
                                 ),
                               ),
                               child: Row(
@@ -402,14 +402,14 @@ class _InterestsSelectionScreenState extends State<InterestsSelectionScreen> {
                                   Icon(
                                     Icons.check_circle_outline,
                                     size: AppTypography.responsiveIconSize(context, 14),
-                                    color: Colors.green,
+                                    color: AppColors.primary,
                                   ),
                                   SizedBox(width: AppSpacing.small.responsive(context)),
                                   Text('${_selectedInterests.length} selected interests'.tr(context),
                                     style: TextStyle(
                                       fontSize: AppTypography.responsiveFontSize(context, AppTypography.tiny),
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.green,
+                                      color: AppColors.primary,
                                     ),
                                   ),
                                 ],

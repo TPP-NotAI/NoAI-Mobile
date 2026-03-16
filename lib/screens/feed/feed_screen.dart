@@ -332,7 +332,7 @@ class _FeedFilterTabs extends StatelessWidget {
             Expanded(
               child: _FilterTab(
                 label: switch (_filters[i]) {
-                  FeedFilter.forYou => 'For You'.tr(context),
+                  FeedFilter.forYou => 'All'.tr(context),
                   FeedFilter.following => 'Following'.tr(context),
                   FeedFilter.trending => 'Trending'.tr(context),
                 },

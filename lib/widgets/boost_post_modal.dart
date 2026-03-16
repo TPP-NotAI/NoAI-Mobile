@@ -65,7 +65,7 @@ class _BoostPostModalState extends State<BoostPostModal> {
     final availableBalance = walletProvider.wallet?.balanceRc ?? user.balance;
     if (_cost > availableBalance) {
       _showError(
-        'Insufficient Roobit balance. You need ${_cost.toStringAsFixed(0)} ROO.'.tr(context),
+        'Insufficient Roochip balance. You need ${_cost.toStringAsFixed(0)} ROO.'.tr(context),
       );
       return;
     }

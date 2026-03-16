@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
 
-class RoobitService {
+class RoochipService {
   static const Duration _sendTimeout = Duration(seconds: 90);
 
   final SupabaseService _supabase = SupabaseService();
@@ -111,7 +111,7 @@ class RoobitService {
 
         final delay = Duration(milliseconds: 2000 * attempts);
         debugPrint(
-          'RoobitService: $operationName failed (replacement underpriced). '
+          'RoochipService: $operationName failed (replacement underpriced). '
           'Retrying in ${delay.inSeconds}s ($attempts/$maxRetries)',
         );
         await Future.delayed(delay);
@@ -123,7 +123,7 @@ class RoobitService {
     try {
       return await _proxy('/api/wallet/create', method: 'POST', body: {});
     } catch (e) {
-      debugPrint('RoobitService createWallet error: $e');
+      debugPrint('RoochipService createWallet error: $e');
       rethrow;
     }
   }
@@ -143,7 +143,7 @@ class RoobitService {
 
       return data;
     } catch (e) {
-      debugPrint('RoobitService getBalance error: $e');
+      debugPrint('RoochipService getBalance error: $e');
       rethrow;
     }
   }
@@ -240,7 +240,7 @@ class RoobitService {
               : amount.toString();
 
           debugPrint(
-            'RoobitService send payload: '
+            'RoochipService send payload: '
             'toAddress=$cleanedToAddress, amount=$amountStr',
           );
 
@@ -330,13 +330,13 @@ class RoobitService {
     try {
       return await _proxy('/health');
     } catch (e) {
-      debugPrint('RoobitService checkHealth error: $e');
+      debugPrint('RoochipService checkHealth error: $e');
       rethrow;
     }
   }
 }
 
-class RoobitActivityType {
+class RoochipActivityType {
   static const String postCreate = 'POST_CREATE';
   static const String postLike = 'POST_LIKE';
   static const String postComment = 'POST_COMMENT';

@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import '../repositories/wallet_repository.dart';
-import '../services/roobit_service.dart';
+import '../services/roochip_service.dart';
 
 /// Helper service to track and reward profile completion milestones
 class ProfileRewardService {
@@ -23,7 +23,7 @@ class ProfileRewardService {
           .select('id')
           .eq('to_user_id', userId)
           .contains('metadata', {
-            'activityType': RoobitActivityType.profileComplete,
+            'activityType': RoochipActivityType.profileComplete,
           })
           .maybeSingle();
 
@@ -61,7 +61,7 @@ class ProfileRewardService {
         // Award 5 ROO for profile completion
         await _walletRepo.earnRoo(
           userId: userId,
-          activityType: RoobitActivityType.profileComplete,
+          activityType: RoochipActivityType.profileComplete,
           metadata: {'completion_date': DateTime.now().toIso8601String()},
         );
         debugPrint(

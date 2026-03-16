@@ -190,7 +190,7 @@ class _HumanVerificationScreenState extends State<HumanVerificationScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('✅ Identity verified successfully!'.tr(context)),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.primary,
           ),
         );
         if (!_onVerifyCalled) {

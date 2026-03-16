@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../config/app_colors.dart';
 import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -971,7 +972,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                           width: 8,
                           height: 8,
                           decoration: BoxDecoration(
-                            color: isOnline ? Colors.green : Colors.grey,
+                            color: isOnline ? AppColors.primary : Colors.grey,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -2137,7 +2138,7 @@ class _AiScoreBadge extends StatelessWidget {
           width: 6,
           height: 6,
           decoration: const BoxDecoration(
-            color: Color(0xFF10B981), // Green
+            color: AppColors.primary,
             shape: BoxShape.circle,
           ),
         ),

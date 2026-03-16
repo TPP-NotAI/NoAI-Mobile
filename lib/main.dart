@@ -56,6 +56,7 @@ import 'config/global_keys.dart';
 import 'widgets/adaptive/adaptive_navigation.dart';
 import 'screens/auth/banned_screen.dart';
 import 'services/push_notification_service.dart';
+import 'services/analytics_service.dart';
 import 'services/app_update_service.dart';
 import 'widgets/connectivity_overlay.dart';
 import 'widgets/welcome_dialog.dart';
@@ -170,6 +171,7 @@ class MyApp extends StatelessWidget {
             scaffoldMessengerKey: rootScaffoldMessengerKey,
             navigatorKey: rootNavigatorKey,
             debugShowCheckedModeBanner: false,
+            navigatorObservers: [AnalyticsService().observer],
             theme: themeProvider.theme,
             locale: Locale(languageProvider.currentLanguage),
             localizationsDelegates: const [
@@ -898,7 +900,7 @@ class _MainShellState extends State<MainShell> {
       AdaptiveNavigationDestination(
         icon: const Icon(Icons.explore_outlined),
         selectedIcon: const Icon(Icons.explore),
-        label: l10n.discover,
+        label: l10n.explore,
       ),
       AdaptiveNavigationDestination(
         icon: const Icon(Icons.add_circle_outline),
@@ -1036,37 +1038,19 @@ class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
     final themeProvider = context.watch<ThemeProvider>();
     final user = context.watch<UserProvider>().currentUser;
     final isCompact = ResponsiveUtils.isCompact(context);
-    final platformName = context
-        .watch<PlatformConfigProvider>()
-        .config
-        .platformName;
-
     return AppBar(
       elevation: 0,
       backgroundColor: colors.surface,
       surfaceTintColor: colors.surface,
+      centerTitle: false,
       titleSpacing: isCompact ? 8 : 16,
-      title: Row(
-        children: [
-          AppLogo(
-            size: isCompact ? 28 : 32,
-            fallbackIcon: Icons.hub,
-            fallbackIconColor: colors.onSurface,
-          ),
-          SizedBox(width: isCompact ? 4 : 8),
-          Text(
-            isCompact
-                ? (platformName.length > 3
-                      ? platformName.substring(0, 3).toUpperCase()
-                      : platformName.toUpperCase())
-                : platformName,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: isCompact ? 15 : 18,
-              color: colors.onSurface,
-            ),
-          ),
-        ],
+      title: Image.asset(
+        themeProvider.isDarkMode
+            ? 'assets/logo_dark.png'
+            : 'assets/logo_light.png',
+        height: isCompact ? 22 : 26,
+        fit: BoxFit.contain,
+        alignment: Alignment.centerLeft,
       ),
       actions: [
         IconTheme(

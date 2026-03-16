@@ -45,7 +45,7 @@ class DailyTransparencyWidget extends StatelessWidget {
           _StatRow(
             label: 'Verified Human Content',
             value: _formatNumber(verifiedHumanContent),
-            color: AppColors.success,
+            color: AppColors.primary,
             icon: Icons.verified_user,
           ),
           const SizedBox(height: 12),
@@ -70,7 +70,7 @@ class DailyTransparencyWidget extends StatelessWidget {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: systemOperational ? AppColors.success : AppColors.error,
+                  color: systemOperational ? AppColors.primary : AppColors.error,
                   shape: BoxShape.circle,
                 ),
               ),

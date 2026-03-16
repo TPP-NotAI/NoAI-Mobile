@@ -1,5 +1,5 @@
 import '../repositories/wallet_repository.dart';
-import '../services/roobit_service.dart';
+import '../services/roochip_service.dart';
 
 /// Comprehensive wallet verification utility
 /// Use this to test wallet operations before deployment
@@ -227,7 +227,7 @@ class WalletVerificationService {
         final metadata = tx.metadata ?? {};
         final activityType = metadata['activityType'] ?? '';
         return activityType == 'WELCOME_BONUS' ||
-            activityType == RoobitActivityType.welcomeBonus;
+            activityType == RoochipActivityType.welcomeBonus;
       }).toList();
 
       return {

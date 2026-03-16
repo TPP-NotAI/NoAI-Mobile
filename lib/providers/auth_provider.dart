@@ -10,6 +10,7 @@ import 'package:rooverse/services/referral_service.dart';
 import 'package:rooverse/services/activity_log_service.dart';
 import 'package:rooverse/core/errors/error_mapper.dart';
 import 'package:rooverse/core/errors/app_exception.dart';
+import 'package:rooverse/services/analytics_service.dart';
 
 /// Authentication status states.
 enum AuthStatus { initial, loading, authenticated, unauthenticated, banned }
@@ -199,6 +200,8 @@ class AuthProvider with ChangeNotifier {
           ? 'Your account has been suspended. Some features are restricted.'
           : null;
 
+      AnalyticsService().setUserId(userId);
+
       // Note: Wallet initialization is handled by WalletProvider.initWallet()
       // which is called from main.dart after auth state changes.
       // Don't call getOrCreateWallet here to avoid race conditions
@@ -288,6 +291,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       await _authService.signIn(email: normalizedEmail, password: password);
+      unawaited(AnalyticsService().logLogin());
       // Auth state listener will handle the rest
     } catch (e, stack) {
       final appException = ErrorMapper.map(e, stack);
@@ -349,6 +353,7 @@ class AuthProvider with ChangeNotifier {
 
       // If session exists, user is auto-confirmed
       // Auth state listener will handle loading the user
+      unawaited(AnalyticsService().logSignUp());
     } catch (e, stack) {
       final appException = ErrorMapper.map(e, stack);
       _error = appException.userMessage;
@@ -547,6 +552,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       await _authService.signOut();
+      unawaited(AnalyticsService().setUserId(null));
       // Manually update status to ensure UI responds immediately
       _currentUser = null;
       _status = AuthStatus.unauthenticated;
