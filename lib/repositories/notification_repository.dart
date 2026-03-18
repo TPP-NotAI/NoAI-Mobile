@@ -216,6 +216,7 @@ class NotificationRepository {
     String? commentId,
     String? storyId,
     String? ticketId,
+    Map<String, dynamic>? metadata,
   }) async {
     try {
       final normalizedType = _normalizeType(type);
@@ -287,6 +288,7 @@ class NotificationRepository {
         'comment_id': commentId,
         'ticket_id': ticketId,
         'story_id': storyId,
+        if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
         'is_read': false,
       };
 

@@ -82,13 +82,16 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
         .from('profiles')
         .stream(primaryKey: ['user_id'])
         .eq('user_id', _otherUser.id)
-        .listen((data) {
-          if (data.isNotEmpty && mounted) {
-            setState(() {
-              _otherUser = User.fromSupabase(data.first);
-            });
-          }
-        });
+        .listen(
+          (data) {
+            if (data.isNotEmpty && mounted) {
+              setState(() {
+                _otherUser = User.fromSupabase(data.first);
+              });
+            }
+          },
+          onError: (e) => debugPrint('Profile stream error: $e'),
+        );
 
     // Scroll to bottom when messages first load
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -107,22 +110,25 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
         .from('dm_participants')
         .stream(primaryKey: ['thread_id', 'user_id'])
         .eq('thread_id', widget.conversation.id)
-        .listen((data) {
-          if (!mounted) return;
-          final rows = data.cast<Map<String, dynamic>>();
-          final row = rows.firstWhere(
-            (r) => r['user_id'] == _otherUser.id,
-            orElse: () => {},
-          );
-          if (row.isNotEmpty) {
-            final raw = row['last_read_at'] as String?;
-            setState(() {
-              _otherUserLastReadAt = raw != null
-                  ? DateTime.tryParse(raw)
-                  : null;
-            });
-          }
-        });
+        .listen(
+          (data) {
+            if (!mounted) return;
+            final rows = data.cast<Map<String, dynamic>>();
+            final row = rows.firstWhere(
+              (r) => r['user_id'] == _otherUser.id,
+              orElse: () => {},
+            );
+            if (row.isNotEmpty) {
+              final raw = row['last_read_at'] as String?;
+              setState(() {
+                _otherUserLastReadAt = raw != null
+                    ? DateTime.tryParse(raw)
+                    : null;
+              });
+            }
+          },
+          onError: (e) => debugPrint('Read receipt stream error: $e'),
+        );
 
     // Mark as read on entry if there are unread messages
     if (widget.conversation.unreadCount > 0) {
@@ -1712,7 +1718,7 @@ class _MessageBubble extends StatelessWidget {
                             ),
                             if (isMe) ...[
                               const SizedBox(width: 4),
-                              if (message.status == 'sending')
+                              if (message.status == 'sending' || message.aiScoreStatus == null)
                                 SizedBox(
                                   width: 12,
                                   height: 12,

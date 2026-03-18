@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -27,7 +28,6 @@ import 'services/connectivity_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/share_intent_service.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
-import 'core/extensions/exception_extensions.dart';
 import 'models/view_enum.dart';
 import 'screens/auth/splash_screen.dart';
 import 'screens/auth/onboarding_screen.dart';
@@ -61,7 +61,6 @@ import 'services/analytics_service.dart';
 import 'services/app_update_service.dart';
 import 'widgets/connectivity_overlay.dart';
 import 'widgets/welcome_dialog.dart';
-import 'widgets/app_logo.dart';
 import 'utils/responsive_utils.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
@@ -71,46 +70,23 @@ void main() async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
-      // Set up global Flutter error handling (for framework errors)
+      // Route Flutter framework errors to Crashlytics
       FlutterError.onError = (FlutterErrorDetails details) {
-        FlutterError.presentError(details);
         debugPrint('Flutter Error: ${details.exception}');
-        // You could also report to Sentry/Firebase Crashlytics here
+        FirebaseCrashlytics.instance.recordFlutterFatalError(details);
       };
 
-      // Set up global platform error handling (for async errors)
+      // Route async/platform errors (Dart zone errors) to Crashlytics
       PlatformDispatcher.instance.onError = (error, stack) {
         debugPrint('Platform Error: $error');
-        // You could also report to Sentry/Firebase Crashlytics here
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
         return true; // Error was handled
       };
 
-      // Replace the default Flutter error widget with a more user-friendly one
+      // Show nothing when a widget build fails — silent in production.
       ErrorWidget.builder = (FlutterErrorDetails details) {
-        return Material(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Oops! Something went wrong',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    details.exception.userMessage,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
+        debugPrint('ErrorWidget: ${details.exception}');
+        return const SizedBox.shrink();
       };
 
       // Increase image memory cache limits (default: 100 images / 20MB)
@@ -136,6 +112,7 @@ void main() async {
     (error, stackTrace) {
       debugPrint('Zoned Guarded Error: $error');
       debugPrint('Stack trace: $stackTrace');
+      FirebaseCrashlytics.instance.recordError(error, stackTrace, fatal: true);
     },
   );
 }
@@ -217,12 +194,8 @@ class MyApp extends StatelessWidget {
               final platformConfig = context
                   .watch<PlatformConfigProvider>()
                   .config;
-              Widget content = Listener(
-                onPointerDown: (_) =>
-                    context.read<AuthProvider>().resetInactivityTimer(),
-                child: ConnectivityOverlay(
-                  child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
-                ),
+              Widget content = ConnectivityOverlay(
+                child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
               );
               if (platformConfig.maintenanceMode) {
                 content = Column(
@@ -283,8 +256,6 @@ class ErrorBoundary extends StatefulWidget {
 }
 
 class _ErrorBoundaryState extends State<ErrorBoundary> {
-  bool _hasError = false;
-  String? _errorMessage;
 
   @override
   void initState() {
@@ -294,65 +265,11 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
   }
 
   void _handleError(Object error, StackTrace stackTrace) {
-    if (!mounted) return;
-
-    setState(() {
-      _hasError = true;
-      _errorMessage = error.userMessage;
-    });
-
     debugPrint('ErrorBoundary caught error: $error');
-    debugPrint('Stack trace: $stackTrace');
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (_hasError) {
-      return Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.error,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Oops! Something went wrong'.tr(context),
-                  style: Theme.of(context).textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _errorMessage ?? 'An unexpected error occurred',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _hasError = false;
-                      _errorMessage = null;
-                    });
-                  },
-                  child: Text('Retry'.tr(context)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return widget.child;
-  }
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// Wrapper that handles auth state and shows appropriate screen.
@@ -1063,13 +980,24 @@ class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
               Consumer<ChatProvider>(
                 builder: (context, chatProvider, child) {
                   final unreadCount = chatProvider.totalUnreadCount;
+                  final hasUnreadChat = unreadCount > 0;
                   return Badge(
-                    label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
-                    isLabelVisible: unreadCount > 0,
+                    label: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    backgroundColor: AppColors.primary,
+                    isLabelVisible: hasUnreadChat,
                     child: IconButton(
                       icon: Icon(
-                        Icons.chat_bubble_outline,
-                        color: colors.onSurface,
+                        hasUnreadChat
+                            ? Icons.chat_bubble
+                            : Icons.chat_bubble_outline,
+                        color: hasUnreadChat ? AppColors.primary : colors.onSurface,
                       ),
                       onPressed: () {
                         Navigator.push(
@@ -1085,10 +1013,13 @@ class RooverseAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
               Consumer<NotificationProvider>(
                 builder: (context, notificationProvider, child) {
+                  final hasUnread = notificationProvider.unreadCount > 0;
                   return IconButton(
                     icon: Icon(
-                      Icons.notifications_outlined,
-                      color: colors.onSurface,
+                      hasUnread
+                          ? Icons.notifications
+                          : Icons.notifications_outlined,
+                      color: hasUnread ? AppColors.primary : colors.onSurface,
                     ),
                     onPressed: () {
                       Navigator.push(

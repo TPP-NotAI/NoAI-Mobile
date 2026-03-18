@@ -13,9 +13,12 @@ import '../chat/conversation_thread_page.dart';
 import '../support/support_chat_screen.dart';
 import '../../providers/feed_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../models/conversation.dart';
 import '../../models/notification_model.dart';
+import '../../services/supabase_service.dart';
 
 import 'package:rooverse/l10n/hardcoded_l10n.dart';
+
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -23,18 +26,28 @@ class NotificationsScreen extends StatefulWidget {
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsScreenState extends State<NotificationsScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = context.read<AuthProvider>();
       if (authProvider.currentUser != null) {
         context.read<NotificationProvider>().refreshNotifications(
-          authProvider.currentUser!.id,
-        );
+              authProvider.currentUser!.id,
+            );
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -44,30 +57,120 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final notificationProvider = context.watch<NotificationProvider>();
     final authProvider = context.read<AuthProvider>();
 
+    final all = notificationProvider.notifications;
+    final unread = all.where((n) => !n.isRead).toList();
+    final roochip = all
+        .where((n) =>
+            n.type == 'roocoin_received' || n.type == 'roocoin_sent')
+        .toList();
+    final system = all
+        .where((n) =>
+            n.type.startsWith('post_') ||
+            n.type.startsWith('comment_') ||
+            n.type.startsWith('story_') ||
+            n.type == 'support_chat')
+        .toList();
+
     return Scaffold(
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
       appBar: AppBar(
-        title: Text('Notifications'.tr(context),
+        backgroundColor: colors.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          'Notifications'.tr(context),
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         centerTitle: false,
         actions: [
-          if (notificationProvider.unreadCount > 0)
-            TextButton(
-              onPressed: () {
-                if (authProvider.currentUser != null) {
-                  notificationProvider.markAllAsRead(
-                    authProvider.currentUser!.id,
-                  );
-                }
-              },
-              child: Text('Mark all read'.tr(context)),
-            ),
+          // Overflow menu — matches reference design
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Notification settings',
+            onSelected: (value) {
+              switch (value) {
+                case 'mark_all':
+                  if (authProvider.currentUser != null) {
+                    notificationProvider.markAllAsRead(
+                        authProvider.currentUser!.id);
+                  }
+                  break;
+                case 'clear_viewed':
+                  _clearViewed(notificationProvider);
+                  break;
+                case 'clear_all':
+                  _confirmClearAll(context, notificationProvider, authProvider);
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'mark_all',
+                child: Row(
+                  children: [
+                    const Icon(Icons.done_all, size: 18),
+                    const SizedBox(width: 10),
+                    Text('Mark all as read'.tr(context)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'clear_viewed',
+                child: Row(
+                  children: [
+                    const Icon(Icons.visibility_off_outlined, size: 18),
+                    const SizedBox(width: 10),
+                    Text('Clear viewed'.tr(context)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'clear_all',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline,
+                        size: 18, color: colors.error),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Clear all notifications'.tr(context),
+                      style: TextStyle(color: colors.error),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: colors.onSurfaceVariant,
+          indicatorColor: AppColors.primary,
+          indicatorSize: TabBarIndicatorSize.label,
+          indicatorWeight: 2,
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.normal,
+            fontSize: 13,
+          ),
+          tabs: [
+            _TabWithBadge(
+                label: 'All'.tr(context), count: notificationProvider.unreadCount),
+            Tab(text: 'Unread'.tr(context)),
+            Tab(text: 'Roochip'.tr(context)),
+            Tab(text: 'System'.tr(context)),
+          ],
+        ),
       ),
       body: RefreshIndicator(
+        color: AppColors.primary,
         onRefresh: () async {
           HapticFeedback.mediumImpact();
           if (authProvider.currentUser != null) {
@@ -76,12 +179,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             );
           }
         },
-        child: _buildBody(notificationProvider),
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildList(context, notificationProvider, all),
+            _buildList(context, notificationProvider, unread,
+                emptyMessage: 'No unread notifications'.tr(context)),
+            _buildList(context, notificationProvider, roochip,
+                emptyMessage: 'No Roochip notifications'.tr(context)),
+            _buildList(context, notificationProvider, system,
+                emptyMessage: 'No system notifications'.tr(context)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildBody(NotificationProvider provider) {
+  Widget _buildList(
+    BuildContext context,
+    NotificationProvider provider,
+    List<NotificationModel> notifications, {
+    String? emptyMessage,
+  }) {
     if (provider.isLoading && provider.notifications.isEmpty) {
       return const Center(child: LoadingWidget());
     }
@@ -107,55 +226,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       );
     }
 
-    if (provider.notifications.isEmpty) {
-      final colors = Theme.of(context).colorScheme;
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.10),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.notifications_none_rounded,
-                  size: 38,
-                  color: AppColors.primary.withValues(alpha: 0.65),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'All caught up',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colors.onSurface,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'You\'ll be notified when someone likes, comments, or interacts with you',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.onSurfaceVariant,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+    if (notifications.isEmpty) {
+      return _buildEmptyState(context, emptyMessage);
     }
 
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 120),
-      itemCount: provider.notifications.length,
+      itemCount: notifications.length,
       itemBuilder: (context, index) {
-        final notification = provider.notifications[index];
+        final notification = notifications[index];
         return Dismissible(
           key: ValueKey(notification.id),
           direction: DismissDirection.endToStart,
@@ -170,17 +249,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   context: context,
                   builder: (context) => AlertDialog(
                     title: Text('Delete Notification'.tr(context)),
-                    content: Text('Are you sure you want to delete this notification?'.tr(context),
+                    content: Text(
+                      'Are you sure you want to delete this notification?'
+                          .tr(context),
                     ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(false),
-                        child: Text(AppLocalizations.of(context)!.cancel),
+                        child:
+                            Text(AppLocalizations.of(context)!.cancel),
                       ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(true),
-                        child: Text('Delete'.tr(context),
-                          style: TextStyle(color: Colors.red),
+                        child: Text(
+                          'Delete'.tr(context),
+                          style: const TextStyle(color: Colors.red),
                         ),
                       ),
                     ],
@@ -191,7 +274,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           onDismissed: (direction) {
             provider.deleteNotification(notification.id);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Notification deleted'.tr(context))),
+              SnackBar(
+                  content: Text('Notification deleted'.tr(context))),
             );
           },
           child: NotificationTile(
@@ -209,36 +293,126 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
+  Widget _buildEmptyState(BuildContext context, String? message) {
+    final colors = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: const BoxDecoration(
+                color: AppColors.primarySoft,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.notifications_none_rounded,
+                size: 38,
+                color: AppColors.primary.withValues(alpha: 0.65),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              message ?? 'All caught up',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colors.onSurface,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You\'ll be notified when someone likes, comments, or interacts with you',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _clearViewed(NotificationProvider provider) {
+    final read = provider.notifications.where((n) => n.isRead).toList();
+    for (final n in read) {
+      provider.deleteNotification(n.id);
+    }
+  }
+
+  void _confirmClearAll(
+    BuildContext context,
+    NotificationProvider provider,
+    AuthProvider authProvider,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Clear all notifications'.tr(context)),
+        content: Text(
+            'This will permanently delete all your notifications.'.tr(context)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              for (final n in List.of(provider.notifications)) {
+                provider.deleteNotification(n.id);
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text('Clear all'.tr(context)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _handleNotificationNavigation(NotificationModel notification) async {
     final colors = Theme.of(context).colorScheme;
 
-    if (_isAdminAnnouncementNotification(notification)) {
-      return;
-    }
-
-    if (_isAdminProfileNotification(notification)) {
-      return;
-    }
+    if (_isAdminAnnouncementNotification(notification)) return;
+    if (_isAdminProfileNotification(notification)) return;
 
     if (_isSupportChatNotification(notification)) {
       if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => SupportChatScreen(initialTicketId: notification.ticketId),
+          builder: (_) =>
+              SupportChatScreen(initialTicketId: notification.ticketId),
         ),
       );
       return;
     }
 
-    // Direct message/chat notification (message/chat types are normalized to
-    // mention in the repository, so we infer using the metadata shape).
     if (_isDirectMessageNotification(notification) &&
         notification.actorId != null) {
       final chatProvider = context.read<ChatProvider>();
-      final conversation = await chatProvider.startConversation(
-        notification.actorId!,
-      );
+      Conversation? conversation;
+
+      final threadId = await _resolveNotificationThreadId(notification.id);
+      if (threadId != null) {
+        var index =
+            chatProvider.conversations.indexWhere((c) => c.id == threadId);
+        if (index == -1) {
+          await chatProvider.loadConversations();
+          if (!mounted) return;
+          index =
+              chatProvider.conversations.indexWhere((c) => c.id == threadId);
+        }
+        if (index != -1) conversation = chatProvider.conversations[index];
+      }
+
+      conversation ??=
+          await chatProvider.startConversation(notification.actorId!);
 
       if (!mounted) return;
 
@@ -246,7 +420,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ConversationThreadPage(conversation: conversation),
+            builder: (_) =>
+                ConversationThreadPage(conversation: conversation!),
           ),
         );
       } else {
@@ -260,12 +435,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return;
     }
 
-    // Navigate to post or comment
     if (notification.postId != null) {
-      // Find the post first
       final feedProvider = context.read<FeedProvider>();
       final post = await feedProvider.getPostById(notification.postId!);
-
       if (post != null && mounted) {
         Navigator.push(
           context,
@@ -279,29 +451,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         );
       }
-    }
-    // Navigate to user profile
-    else if (notification.actorId != null) {
+    } else if (notification.actorId != null) {
       if (mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) =>
-                ProfileScreen(userId: notification.actorId, showAppBar: true),
+            builder: (_) => ProfileScreen(
+                userId: notification.actorId, showAppBar: true),
           ),
         );
       }
     }
   }
 
+  Future<String?> _resolveNotificationThreadId(String notificationId) async {
+    try {
+      final row = await SupabaseService().client
+          .from('notifications')
+          .select('metadata')
+          .eq('id', notificationId)
+          .maybeSingle();
+      final metadata = row?['metadata'];
+      if (metadata is Map<String, dynamic>) {
+        final threadId = metadata['thread_id']?.toString().trim();
+        if (threadId != null && threadId.isNotEmpty) return threadId;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   bool _isDirectMessageNotification(NotificationModel notification) {
     final rawType = notification.type.toLowerCase();
-    if (rawType == 'message' || rawType == 'chat') {
-      return true;
-    }
-
-    // message/chat notifications are currently normalized to `mention`
-    // before insert, but they keep sender title and actor_id and have no post/comment.
+    if (rawType == 'message' || rawType == 'chat') return true;
     return rawType == 'mention' &&
         notification.actorId != null &&
         notification.postId == null &&
@@ -312,8 +493,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _isSupportChatNotification(NotificationModel notification) {
     final rawType = notification.type.toLowerCase();
     if (rawType == 'support_chat') return true;
-
-    // `support_chat` may be normalized to `mention` in the repository.
     final title = (notification.title ?? '').toLowerCase();
     final body = (notification.body ?? '').toLowerCase();
     final actorName = (notification.actor?.displayName ?? '').toLowerCase();
@@ -322,7 +501,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         actorName.contains('support') ||
         actorUsername.contains('admin') ||
         actorUsername.contains('support');
-
     return rawType == 'mention' &&
         notification.postId == null &&
         notification.commentId == null &&
@@ -337,22 +515,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _isAdminAnnouncementNotification(NotificationModel notification) {
     final rawType = notification.type.toLowerCase();
     if (rawType == 'support_chat') return false;
-
     final title = (notification.title ?? '').toLowerCase();
-    final body = (notification.body ?? '').toLowerCase();
     final actorName = (notification.actor?.displayName ?? '').toLowerCase();
     final actorUsername = (notification.actor?.username ?? '').toLowerCase();
     final isAdminLikeActor = actorName.contains('admin') ||
         actorName.contains('support') ||
         actorUsername.contains('admin') ||
         actorUsername.contains('support');
-
     final looksAnnouncement = title.contains('update') ||
         title.contains('announcement') ||
         title.contains('notice') ||
         title.contains('maintenance') ||
         title.contains('new update');
-
     return rawType == 'mention' &&
         notification.postId == null &&
         notification.commentId == null &&
@@ -363,27 +537,62 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   bool _isAdminProfileNotification(NotificationModel notification) {
     if (notification.actorId == null) return false;
-    if (notification.postId != null) return false; // opens post
-    if (_isSupportChatNotification(notification)) return false; // opens support chat
-    if (_isDirectMessageNotification(notification)) return false; // opens chat
-
+    if (notification.postId != null) return false;
+    if (_isSupportChatNotification(notification)) return false;
+    if (_isDirectMessageNotification(notification)) return false;
     final actorName = (notification.actor?.displayName ?? '').toLowerCase();
     final actorUsername = (notification.actor?.username ?? '').toLowerCase();
     final title = (notification.title ?? '').toLowerCase();
     final body = (notification.body ?? '').toLowerCase();
-
     final actorLooksAdmin = actorName.contains('admin') ||
         actorName.contains('support') ||
         actorUsername.contains('admin') ||
         actorUsername.contains('support');
-
     final contentLooksAdmin = title.contains('admin') ||
         title.contains('support') ||
         body.contains('admin') ||
         body.contains('support');
-
     return actorLooksAdmin || contentLooksAdmin;
   }
 }
 
+/// Tab with an optional unread count badge
+class _TabWithBadge extends StatelessWidget {
+  final String label;
+  final int count;
 
+  const _TabWithBadge({required this.label, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          if (count > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              constraints: const BoxConstraints(minWidth: 18),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Text(
+                '$count',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}

@@ -127,9 +127,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
       await authProvider.updateVerificationStatus('phone');
       if (!mounted) return;
       widget.onLogin();
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      if (mounted) Navigator.pop(context);
     } else {
       setState(() {
         _error = authProvider.error ?? 'Invalid verification code'.tr(context);
@@ -163,292 +161,248 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: scheme.surface,
       body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned(
-              top: -80.responsive(context),
-              right: -80.responsive(context),
-              child: Container(
-                width: 260.responsive(context, min: 220, max: 300),
-                height: 260.responsive(context, min: 220, max: 300),
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.primary.withOpacity(0.12),
-                      Colors.transparent,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.double_.responsive(context),
+          ),
+          child: Column(
+            children: [
+              SizedBox(height: AppSpacing.double_.responsive(context)),
+
+              // Close button — top left
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close, color: scheme.onSurface),
+                    style: IconButton.styleFrom(
+                      backgroundColor: scheme.surfaceContainerHighest,
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: AppSpacing.double_.responsive(context)),
+
+              // Logo — same as login screen
+              Image.asset(
+                isDark ? 'assets/auth_logo_dark.png' : 'assets/auth_logo_light.png',
+                height: 48.responsive(context, min: 36, max: 60),
+                fit: BoxFit.contain,
+              ),
+
+              SizedBox(height: 32.responsive(context, min: 24, max: 40)),
+
+              Text(
+                'Login with Phone'.tr(context),
+                style: TextStyle(
+                  fontSize: AppTypography.responsiveFontSize(
+                    context,
+                    AppTypography.largeHeading,
+                  ),
+                  fontWeight: FontWeight.bold,
+                  color: scheme.onSurface,
+                ),
+              ),
+
+              SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
+
+              Text(
+                'Enter your number to receive a one-time code. This also completes the human verification requirement.'
+                    .tr(context),
+                style: TextStyle(
+                  fontSize: AppTypography.responsiveFontSize(
+                    context,
+                    AppTypography.base,
+                  ),
+                  color: scheme.onSurface.withValues(alpha: 0.7),
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              SizedBox(height: AppSpacing.triple.responsive(context)),
+
+              if (!_codeSent) _buildPhoneInput(scheme),
+              if (_codeSent) ...[
+                _buildOtpInput(scheme),
+                SizedBox(height: AppSpacing.largePlus.responsive(context)),
+              ],
+
+              if (_error != null) ...[
+                SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
+                Container(
+                  padding: AppSpacing.responsiveAll(
+                    context,
+                    AppSpacing.standard,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: AppSpacing.responsiveRadius(
+                      context,
+                      AppSpacing.radiusMedium,
+                    ),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: AppTypography.responsiveIconSize(context, 20),
+                      ),
+                      SizedBox(
+                        width: AppSpacing.mediumSmall.responsive(context),
+                      ),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: AppTypography.responsiveFontSize(
+                              context,
+                              AppTypography.small,
+                            ),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
-            ),
-            SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.double_.responsive(context),
-              ),
-              child: Column(
-                children: [
-                  SizedBox(height: AppSpacing.double_.responsive(context)),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: Icon(Icons.close, color: scheme.onSurface),
-                        style: IconButton.styleFrom(
-                          backgroundColor: scheme.surfaceContainerHighest,
-                        ),
-                      ),
-                    ],
-                  ),
+                SizedBox(height: AppSpacing.largePlus.responsive(context)),
+              ],
 
-                  SizedBox(height: AppSpacing.double_.responsive(context)),
+              SizedBox(height: AppSpacing.largePlus.responsive(context)),
 
-                  Container(
-                    width: 96.responsive(context, min: 80, max: 112),
-                    height: 96.responsive(context, min: 80, max: 112),
-                    decoration: BoxDecoration(
-                      borderRadius: AppSpacing.responsiveRadius(context, 32),
-                      gradient: const LinearGradient(
-                        colors: [AppColors.primary, Color(0xFF3B82F6)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.35),
-                          blurRadius: 30.responsive(context),
-                          offset: Offset(0, 10.responsive(context)),
-                        ),
-                      ],
+              SizedBox(
+                width: double.infinity,
+                height: 56.responsive(context, min: 48, max: 64),
+                child: ElevatedButton(
+                  onPressed: _isLoading
+                      ? null
+                      : _codeSent
+                      ? _verifyCode
+                      : _sendCode,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppSpacing.responsiveRadius(context, 28),
                     ),
-                    child: Icon(
-                      Icons.phone_android,
-                      size: AppTypography.responsiveIconSize(context, 48),
-                      color: Colors.white,
-                    ),
+                    elevation: 0,
+                    disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
                   ),
-
-                  SizedBox(height: AppSpacing.double_.responsive(context)),
-
-                  Text(
-                    'Login with Phone'.tr(context),
-                    style: TextStyle(
-                      fontSize: AppTypography.responsiveFontSize(
-                        context,
-                        AppTypography.largeHeading,
-                      ),
-                      fontWeight: FontWeight.bold,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-
-                  SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
-
-                  Text(
-                    'Enter your number to receive a one-time code. This also completes the human verification requirement.'
-                        .tr(context),
-                    style: TextStyle(
-                      fontSize: AppTypography.responsiveFontSize(
-                        context,
-                        AppTypography.base,
-                      ),
-                      color: scheme.onSurface.withOpacity(0.7),
-                      height: 1.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-
-                  SizedBox(height: AppSpacing.triple.responsive(context)),
-
-                  if (!_codeSent) _buildPhoneInput(scheme),
-                  if (_codeSent) ...[
-                    _buildOtpInput(scheme),
-                    SizedBox(height: AppSpacing.largePlus.responsive(context)),
-                  ],
-
-                  if (_error != null) ...[
-                    Container(
-                      padding: AppSpacing.responsiveAll(
-                        context,
-                        AppSpacing.standard,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        borderRadius: AppSpacing.responsiveRadius(
-                          context,
-                          AppSpacing.radiusMedium,
-                        ),
-                        border: Border.all(color: Colors.red.withOpacity(0.5)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            color: Colors.red,
-                            size: AppTypography.responsiveIconSize(context, 20),
+                  child: _isLoading
+                      ? SizedBox(
+                          height: 24.responsive(context, min: 20, max: 28),
+                          width: 24.responsive(context, min: 20, max: 28),
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
-                          SizedBox(
-                            width: AppSpacing.mediumSmall.responsive(context),
-                          ),
-                          Expanded(
-                            child: Text(
-                              _error!,
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _codeSent
+                                  ? 'Verify & Login'.tr(context)
+                                  : 'Send Code'.tr(context),
                               style: TextStyle(
-                                color: Colors.red,
                                 fontSize: AppTypography.responsiveFontSize(
                                   context,
-                                  AppTypography.small,
+                                  AppTypography.smallHeading,
                                 ),
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                        ],
+                            SizedBox(
+                              width: AppSpacing.mediumSmall.responsive(context),
+                            ),
+                            Icon(
+                              Icons.arrow_forward,
+                              size: AppTypography.responsiveIconSize(context, 20),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+
+              if (_codeSent) ...[
+                SizedBox(height: AppSpacing.largePlus.responsive(context)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Didn't receive the code? ".tr(context),
+                      style: TextStyle(
+                        fontSize: AppTypography.responsiveFontSize(
+                          context,
+                          AppTypography.base,
+                        ),
+                        color: scheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
-                    SizedBox(height: AppSpacing.largePlus.responsive(context)),
-                  ],
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56.responsive(context, min: 48, max: 64),
-                    child: ElevatedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : _codeSent
-                          ? _verifyCode
-                          : _sendCode,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: AppSpacing.responsiveRadius(
-                            context,
-                            28,
-                          ),
-                        ),
-                        elevation: 0,
-                        disabledBackgroundColor: AppColors.primary.withOpacity(
-                          0.6,
-                        ),
-                      ),
-                      child: _isLoading
-                          ? SizedBox(
-                              height: 24.responsive(context, min: 20, max: 28),
-                              width: 24.responsive(context, min: 20, max: 28),
-                              child: const CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  _codeSent ? 'Verify & Login'.tr(context) : 'Send Code'.tr(context),
-                                  style: TextStyle(
-                                    fontSize: AppTypography.responsiveFontSize(
-                                      context,
-                                      AppTypography.smallHeading,
-                                    ),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: AppSpacing.mediumSmall.responsive(
-                                    context,
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.arrow_forward,
-                                  size: AppTypography.responsiveIconSize(
-                                    context,
-                                    20,
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
-
-                  if (_codeSent) ...[
-                    SizedBox(height: AppSpacing.largePlus.responsive(context)),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Didn't receive the code? ".tr(context),
-                          style: TextStyle(
-                            fontSize: AppTypography.responsiveFontSize(
-                              context,
-                              AppTypography.base,
-                            ),
-                            color: scheme.onSurface.withOpacity(0.7),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _resendCooldown > 0 ? null : _resendCode,
-                          child: Text(
-                            'Resend'.tr(context),
-                            style: TextStyle(
-                              fontSize: AppTypography.responsiveFontSize(
-                                context,
-                                AppTypography.base,
-                              ),
-                              color: _resendCooldown > 0
-                                  ? Colors.grey
-                                  : AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                              decoration: _resendCooldown > 0
-                                  ? TextDecoration.none
-                                  : TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                        if (_resendCooldown > 0)
-                          Text(
-                            ' (${_resendCooldown}s)'.tr(context),
-                            style: TextStyle(
-                              fontSize: AppTypography.responsiveFontSize(
-                                context,
-                                AppTypography.base,
-                              ),
-                              color: Colors.grey,
-                            ),
-                          ),
-                      ],
-                    ),
-
-                    SizedBox(
-                      height: AppSpacing.mediumSmall.responsive(context),
-                    ),
-
-                    TextButton(
-                      onPressed: _changePhoneNumber,
+                    GestureDetector(
+                      onTap: _resendCooldown > 0 ? null : _resendCode,
                       child: Text(
-                        'Change phone number'.tr(context),
+                        'Resend'.tr(context),
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(
                             context,
-                            AppTypography.extraSmall,
+                            AppTypography.base,
                           ),
+                          color: _resendCooldown > 0
+                              ? Colors.grey
+                              : AppColors.primary,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+                          decoration: _resendCooldown > 0
+                              ? TextDecoration.none
+                              : TextDecoration.underline,
                         ),
                       ),
                     ),
+                    if (_resendCooldown > 0)
+                      Text(
+                        ' (${_resendCooldown}s)',
+                        style: TextStyle(
+                          fontSize: AppTypography.responsiveFontSize(
+                            context,
+                            AppTypography.base,
+                          ),
+                          color: Colors.grey,
+                        ),
+                      ),
                   ],
+                ),
 
-                  SizedBox(height: AppSpacing.triple.responsive(context)),
-                ],
-              ),
-            ),
-          ],
+                SizedBox(height: AppSpacing.mediumSmall.responsive(context)),
+
+                TextButton(
+                  onPressed: _changePhoneNumber,
+                  child: Text(
+                    'Change phone number'.tr(context),
+                    style: TextStyle(
+                      fontSize: AppTypography.responsiveFontSize(
+                        context,
+                        AppTypography.extraSmall,
+                      ),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
+
+              SizedBox(height: AppSpacing.triple.responsive(context)),
+            ],
+          ),
         ),
       ),
     );
@@ -462,71 +416,77 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
           context,
           AppSpacing.radiusLarge,
         ),
-        border: Border.all(color: scheme.outline.withOpacity(0.3)),
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
+          // Country code picker — shows "+263 ZW"
           SizedBox(
-            width: 132.responsive(context, min: 108, max: 148),
+            width: 110.responsive(context, min: 96, max: 124),
             child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.standard.responsive(context),
+            padding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.standard.responsive(context),
+            ),
+            decoration: BoxDecoration(
+              border: Border(
+                right: BorderSide(color: scheme.outline.withValues(alpha: 0.3)),
               ),
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: scheme.outline.withOpacity(0.3)),
-                ),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedCountryCode,
-                  isExpanded: true,
-                  items: _countryCodes.map((country) {
-                    return DropdownMenuItem(
-                      value: country['code'],
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedCountryCode,
+                isExpanded: true,
+                isDense: true,
+                items: _countryCodes.map((country) {
+                  final iso = country['iso'] ?? '';
+                  return DropdownMenuItem(
+                    value: country['code'],
+                    child: Text(
+                      '${country['code']}  $iso',
+                      style: TextStyle(
+                        fontSize: AppTypography.responsiveFontSize(
+                          context,
+                          AppTypography.small,
+                        ),
+                        color: scheme.onSurface,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                selectedItemBuilder: (context) {
+                  return _countryCodes.map((country) {
+                    final iso = country['iso'] ?? '';
+                    return Align(
+                      alignment: Alignment.centerLeft,
                       child: Text(
-                        '${country['code']} ${country['country']}',
+                        '${country['code']} $iso',
                         style: TextStyle(
                           fontSize: AppTypography.responsiveFontSize(
                             context,
-                            AppTypography.base,
+                            AppTypography.small,
                           ),
                           color: scheme.onSurface,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     );
-                  }).toList(),
-                  selectedItemBuilder: (context) {
-                    return _countryCodes.map((country) {
-                      return Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          country['code'] ?? '',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: AppTypography.responsiveFontSize(
-                              context,
-                              AppTypography.base,
-                            ),
-                            color: scheme.onSurface,
-                          ),
-                        ),
-                      );
-                    }).toList();
-                  },
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedCountryCode = value);
-                    }
-                  },
-                  dropdownColor: scheme.surface,
-                  icon: Icon(
-                    Icons.arrow_drop_down,
-                    color: scheme.onSurface.withOpacity(0.5),
-                  ),
+                  }).toList();
+                },
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedCountryCode = value);
+                  }
+                },
+                dropdownColor: scheme.surface,
+                icon: Icon(
+                  Icons.arrow_drop_down,
+                  color: scheme.onSurface.withValues(alpha: 0.5),
+                  size: 18,
                 ),
               ),
             ),
+          ),
           ),
           Expanded(
             child: TextField(
@@ -542,7 +502,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
               ),
               decoration: InputDecoration(
                 hintText: 'Phone number',
-                hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.4)),
+                hintStyle: TextStyle(color: scheme.onSurface.withValues(alpha: 0.4)),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.largePlus.responsive(context),
@@ -586,7 +546,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
               filled: true,
               fillColor: scheme.surfaceContainerHighest,
               hintText: '-',
-              hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.4)),
+              hintStyle: TextStyle(color: scheme.onSurface.withValues(alpha: 0.4)),
               border: OutlineInputBorder(
                 borderRadius: AppSpacing.responsiveRadius(
                   context,

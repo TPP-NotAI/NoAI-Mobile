@@ -178,7 +178,9 @@ class _ExploreScreenState extends State<ExploreScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final posts = context.watch<FeedProvider>().posts;
+    final feedProvider = context.watch<FeedProvider>();
+    final posts = feedProvider.posts;
+    final isLoadingFeed = feedProvider.isLoading && posts.isEmpty;
     final filteredPosts = _getFilteredPosts(posts);
     final isSearching = _searchController.text.isNotEmpty;
 
@@ -364,7 +366,17 @@ class _ExploreScreenState extends State<ExploreScreen>
                   child: _buildTrendingSection(colors, theme)),
 
             // ── Feed
-            if (filteredPosts.isEmpty)
+            if (isLoadingFeed)
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (_, __) => const ShimmerLoading(
+                    isLoading: true,
+                    child: PostCardShimmer(),
+                  ),
+                  childCount: 4,
+                ),
+              )
+            else if (filteredPosts.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(

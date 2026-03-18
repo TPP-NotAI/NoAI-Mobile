@@ -77,14 +77,33 @@ class RoochipService {
 
       return data;
     } on FunctionException catch (e) {
-      throw Exception(
-        e.details?.toString().isNotEmpty == true
-            ? e.details.toString()
-            : 'Edge Function error: ${e.reasonPhrase ?? 'Unknown error'}',
-      );
+      final msg = e.details?.toString().isNotEmpty == true
+          ? e.details.toString()
+          : 'Edge Function error: ${e.reasonPhrase ?? 'Unknown error'}';
+      throw Exception(_friendlyError(Exception(msg)));
     } catch (e) {
-      rethrow;
+      throw Exception(_friendlyError(e));
     }
+  }
+
+  /// Maps raw blockchain/backend error strings to user-friendly messages.
+  static String _friendlyError(Object e) {
+    final raw = e.toString();
+    final t = raw.toLowerCase();
+    if (t.contains('already submitted') || t.contains('-32000') || t.contains('already known')) {
+      return 'Transaction already submitted. Please check your wallet and wait a moment before trying again.';
+    }
+    if (t.contains('already in progress')) {
+      return 'A transaction is already in progress for this wallet. Please wait for it to complete.';
+    }
+    if (t.contains('nonce conflict') || t.contains('nonce too low')) {
+      return 'Transaction conflict detected. Please try again in a few seconds.';
+    }
+    if (t.contains('insufficient eth') || t.contains('insufficient funds for gas')) {
+      return 'Insufficient ETH for gas fees. Please contact support.';
+    }
+    // Strip "Exception: " prefix Flutter adds so UIs see a clean message.
+    return raw.startsWith('Exception: ') ? raw.substring(11) : raw;
   }
 
   Future<dynamic> _retryRequest(
@@ -106,7 +125,8 @@ class RoochipService {
             errorText.contains('replacement transaction underpriced');
 
         if (attempts >= maxRetries || !isReplacementError) {
-          rethrow;
+          // Re-throw with a friendly message so all callers get clean text.
+          throw Exception(_friendlyError(e));
         }
 
         final delay = Duration(milliseconds: 2000 * attempts);

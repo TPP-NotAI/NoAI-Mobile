@@ -203,6 +203,16 @@ class PostCard extends StatelessWidget {
                     : AppColors.surfaceLight)
                 : colors.surfaceContainer,
             borderRadius: borderRadius,
+            gradient: isTextOnly && isDark
+                ? RadialGradient(
+                    center: const Alignment(-0.85, -0.85),
+                    radius: 1.4,
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.10),
+                      Colors.transparent,
+                    ],
+                  )
+                : null,
             border: isDark
                 ? (isTextOnly
                     ? Border(
@@ -785,26 +795,21 @@ class _HeaderState extends State<_Header> {
                               ),
                             ),
                           ),
-                          SizedBox(width: AppSpacing.small.responsive(context)),
+                        ],
+                      ),
+                      SizedBox(height: 3.responsive(context)),
+                      Row(
+                        children: [
                           if (!isAdvert && !isSponsored)
                             _MlScoreBadge(
                               score: post.aiConfidenceScore,
                               isModerated: post.status == 'under_review',
                             ),
                           if (isAdvert && isSponsored) ...[
-                            SizedBox(
-                              width: AppSpacing.small.responsive(context),
-                            ),
                             const PostSponsoredAdBadge(),
                           ] else if (isAdvert) ...[
-                            SizedBox(
-                              width: AppSpacing.small.responsive(context),
-                            ),
                             const PostAdBadge(),
                           ] else if (isSponsored) ...[
-                            SizedBox(
-                              width: AppSpacing.small.responsive(context),
-                            ),
                             const PostSponsoredBadge(),
                           ],
                         ],

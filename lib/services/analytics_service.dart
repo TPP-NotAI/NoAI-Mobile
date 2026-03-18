@@ -1,4 +1,5 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class AnalyticsService {
   static final AnalyticsService _instance = AnalyticsService._internal();
@@ -6,6 +7,7 @@ class AnalyticsService {
   AnalyticsService._internal();
 
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
   FirebaseAnalyticsObserver get observer =>
       FirebaseAnalyticsObserver(analytics: _analytics);
@@ -18,8 +20,10 @@ class AnalyticsService {
   Future<void> logSignUp({String method = 'email'}) =>
       _analytics.logSignUp(signUpMethod: method);
 
-  Future<void> setUserId(String? userId) =>
-      _analytics.setUserId(id: userId);
+  Future<void> setUserId(String? userId) async {
+    await _analytics.setUserId(id: userId);
+    await _crashlytics.setUserIdentifier(userId ?? '');
+  }
 
   // ── Content ───────────────────────────────────────────────────────────────
 

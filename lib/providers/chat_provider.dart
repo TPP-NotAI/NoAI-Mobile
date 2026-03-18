@@ -154,9 +154,10 @@ class ChatProvider extends ChangeNotifier {
 
     final isFromOther = senderId != _currentUserId;
 
-    // Never surface flagged messages, and keep review messages sender-only.
+    // Flagged (AI/nudity/hate) hidden from everyone.
     if (aiScoreStatus == 'flagged') return;
-    if (aiScoreStatus == 'review' && isFromOther) return;
+    // Pending check (null) — don't surface to receiver yet.
+    if (aiScoreStatus == null && isFromOther) return;
 
     // Find the conversation
     final index = _conversations.indexWhere((c) => c.id == threadId);
@@ -243,6 +244,7 @@ class ChatProvider extends ChangeNotifier {
     _recentlyReadAt.clear();
     _locallyDeletedMessageIds.clear();
     _hiddenConversationIds.clear();
+    _pendingMessages.clear();
     notifyListeners();
   }
 
@@ -571,16 +573,21 @@ class ChatProvider extends ChangeNotifier {
     // Init Read Cache
     final cachedRead = _preferences?.getString(_readCacheKey);
     if (cachedRead != null) {
-      final decoded = jsonDecode(cachedRead) as Map<String, dynamic>;
-      _recentlyReadAt.clear();
-      decoded.forEach((key, value) {
-        if (value is String) {
-          final parsed = DateTime.tryParse(value);
-          if (parsed != null) {
-            _recentlyReadAt[key] = parsed;
+      try {
+        final decoded = jsonDecode(cachedRead) as Map<String, dynamic>;
+        _recentlyReadAt.clear();
+        decoded.forEach((key, value) {
+          if (value is String) {
+            final parsed = DateTime.tryParse(value);
+            if (parsed != null) {
+              _recentlyReadAt[key] = parsed;
+            }
           }
-        }
-      });
+        });
+      } catch (e) {
+        debugPrint('ChatProvider: Corrupted read cache, clearing. Error: $e');
+        _preferences?.remove(_readCacheKey);
+      }
     }
 
     // Init Deleted Messages Cache

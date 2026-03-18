@@ -305,7 +305,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
       );
     }
 
-    // Empty state hint
+    // Empty state hint with CTA
     if (!hasOtherStories) {
       cards.add(
         Padding(
@@ -316,6 +316,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
+              textAlign: TextAlign.center,
             ),
           ),
         ),

@@ -32,13 +32,12 @@ class AuthProvider with ChangeNotifier {
   bool _isPasswordResetPending = false; // For recovery flow
   RecoveryStep _recoveryStep = RecoveryStep.email;
 
-  // Inactivity auto-logout
-  Timer? _inactivityTimer;
-  static const _inactivityDuration = Duration(minutes: 30);
-
   // Realtime subscription for profile changes (verified_human, etc.)
   RealtimeChannel? _profileChannel;
   String? _subscribedUserId;
+
+  // Guard against concurrent _loadCurrentUser calls
+  bool _isLoadingUser = false;
 
   /// Current authentication status.
   AuthStatus get status => _status;
@@ -96,7 +95,6 @@ class AuthProvider with ChangeNotifier {
               ),
             );
             _loadCurrentUser(event.session!.user.id);
-            resetInactivityTimer();
           }
           break;
         case AuthChangeEvent.signedOut:
@@ -125,6 +123,10 @@ class AuthProvider with ChangeNotifier {
 
   /// Load the current user's profile from Supabase.
   Future<void> _loadCurrentUser(String userId, {int retryCount = 0}) async {
+    if (retryCount == 0) {
+      if (_isLoadingUser) return;
+      _isLoadingUser = true;
+    }
     try {
       if (!_isPasswordResetPending) {
         _status = AuthStatus.loading;
@@ -217,6 +219,8 @@ class AuthProvider with ChangeNotifier {
       _currentUser = null;
       _status = AuthStatus.authenticated;
       _error = null;
+    } finally {
+      if (retryCount == 0) _isLoadingUser = false;
     }
     notifyListeners();
   }
@@ -521,21 +525,8 @@ class AuthProvider with ChangeNotifier {
     await signOut();
   }
 
-  /// Reset the 30-minute inactivity timer. Call on any user interaction.
-  void resetInactivityTimer() {
-    if (!isAuthenticated) return;
-    _inactivityTimer?.cancel();
-    _inactivityTimer = Timer(_inactivityDuration, () => signOut());
-  }
-
-  void _stopInactivityTimer() {
-    _inactivityTimer?.cancel();
-    _inactivityTimer = null;
-  }
-
   /// Sign out the current user.
   Future<void> signOut() async {
-    _stopInactivityTimer();
     // Cancel profile realtime subscription before signing out.
     _unsubscribeFromProfileChanges();
     final signingOutUserId = _currentUser?.id;

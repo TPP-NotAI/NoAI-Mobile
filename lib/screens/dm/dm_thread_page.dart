@@ -70,13 +70,16 @@ class _DmThreadPageState extends State<DmThreadPage> {
         .from('profiles')
         .stream(primaryKey: ['user_id'])
         .eq('user_id', _otherUser.id)
-        .listen((data) {
-          if (data.isNotEmpty && mounted) {
-            setState(() {
-              _otherUser = User.fromSupabase(data.first);
-            });
-          }
-        });
+        .listen(
+          (data) {
+            if (data.isNotEmpty && mounted) {
+              setState(() {
+                _otherUser = User.fromSupabase(data.first);
+              });
+            }
+          },
+          onError: (e) => debugPrint('DM profile stream error: $e'),
+        );
 
     // Real-time read receipt: watch dm_participants for the other user's last_read_at
     _readReceiptSubscription = SupabaseService()
@@ -84,21 +87,24 @@ class _DmThreadPageState extends State<DmThreadPage> {
         .from('dm_participants')
         .stream(primaryKey: ['thread_id', 'user_id'])
         .eq('thread_id', widget.thread.id)
-        .listen((data) {
-          if (!mounted) return;
-          final rows = data.cast<Map<String, dynamic>>();
-          final row = rows.firstWhere(
-            (r) => r['user_id'] == _otherUser.id,
-            orElse: () => {},
-          );
-          if (row.isNotEmpty) {
-            final raw = row['last_read_at'] as String?;
-            setState(() {
-              _otherUserLastReadAt =
-                  raw != null ? DateTime.tryParse(raw) : null;
-            });
-          }
-        });
+        .listen(
+          (data) {
+            if (!mounted) return;
+            final rows = data.cast<Map<String, dynamic>>();
+            final row = rows.firstWhere(
+              (r) => r['user_id'] == _otherUser.id,
+              orElse: () => {},
+            );
+            if (row.isNotEmpty) {
+              final raw = row['last_read_at'] as String?;
+              setState(() {
+                _otherUserLastReadAt =
+                    raw != null ? DateTime.tryParse(raw) : null;
+              });
+            }
+          },
+          onError: (e) => debugPrint('DM read receipt stream error: $e'),
+        );
 
     // Real-time typing indicator: watch dm_typing for the other user
     _typingSubscription = SupabaseService()
@@ -106,19 +112,22 @@ class _DmThreadPageState extends State<DmThreadPage> {
         .from('dm_typing')
         .stream(primaryKey: ['thread_id', 'user_id'])
         .eq('thread_id', widget.thread.id)
-        .listen((data) {
-          if (!mounted) return;
-          final rows = data.cast<Map<String, dynamic>>();
-          final otherTyping = rows.any((r) {
-            if (r['user_id'] != _otherUser.id) return false;
-            final updatedAt = r['updated_at'] as String?;
-            if (updatedAt == null) return false;
-            final t = DateTime.tryParse(updatedAt);
-            if (t == null) return false;
-            return DateTime.now().difference(t).inSeconds < 5;
-          });
-          setState(() => _isOtherUserTyping = otherTyping);
-        });
+        .listen(
+          (data) {
+            if (!mounted) return;
+            final rows = data.cast<Map<String, dynamic>>();
+            final otherTyping = rows.any((r) {
+              if (r['user_id'] != _otherUser.id) return false;
+              final updatedAt = r['updated_at'] as String?;
+              if (updatedAt == null) return false;
+              final t = DateTime.tryParse(updatedAt);
+              if (t == null) return false;
+              return DateTime.now().difference(t).inSeconds < 5;
+            });
+            setState(() => _isOtherUserTyping = otherTyping);
+          },
+          onError: (e) => debugPrint('DM typing stream error: $e'),
+        );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -324,6 +333,7 @@ class _DmThreadPageState extends State<DmThreadPage> {
       _isRecording = true;
       _recordingSeconds = 0;
     });
+    _recordingTimer?.cancel();
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _recordingSeconds++);
     });
@@ -1442,15 +1452,25 @@ class _DmBubble extends StatelessWidget {
                             ),
                             if (isMe) ...[
                               SizedBox(width: 4),
-                              Icon(
-                                Icons.done_all,
-                                size: 15,
-                                color: isRead
-                                    ? Colors.blue
-                                    : (isDark
-                                        ? Colors.white38
-                                        : Colors.black26),
-                              ),
+                              if (message.aiScoreStatus == null)
+                                SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: isDark ? Colors.white38 : Colors.black26,
+                                  ),
+                                )
+                              else
+                                Icon(
+                                  Icons.done_all,
+                                  size: 15,
+                                  color: isRead
+                                      ? Colors.blue
+                                      : (isDark
+                                          ? Colors.white38
+                                          : Colors.black26),
+                                ),
                             ],
                           ],
                         ),

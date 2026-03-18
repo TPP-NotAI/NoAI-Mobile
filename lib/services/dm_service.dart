@@ -8,7 +8,6 @@ import '../models/dm_message.dart';
 import '../models/user.dart';
 import '../repositories/notification_repository.dart';
 import 'ai_detection_service.dart';
-import '../providers/platform_config_provider.dart';
 
 class DmService {
   static final DmService _instance = DmService._internal();
@@ -133,32 +132,16 @@ class DmService {
           .eq('user_id', otherUserId)
           .inFilter('thread_id', myThreadIds);
 
-      if ((commonThreads as List).isNotEmpty) {
-        final threadId = commonThreads.first['thread_id'] as String;
-
-        final threadData = await _supabase
-            .from(SupabaseConfig.dmThreadsTable)
-            .select('''
-              *,
-              ${SupabaseConfig.dmParticipantsTable}!inner(
-                user_id,
-                muted,
-                profiles:user_id(*)
-              )
-            ''')
-            .eq('id', threadId)
-            .single();
-
-        final participants =
-            (threadData[SupabaseConfig.dmParticipantsTable] as List)
-                .map(
-                  (p) =>
-                      User.fromSupabase(p['profiles'] as Map<String, dynamic>),
-                )
-                .toList();
-
-        return DmThread.fromSupabase(threadData, participants: participants);
-      }
+      final commonThreadIds = (commonThreads as List)
+          .map((row) => row['thread_id'])
+          .whereType<String>()
+          .toList();
+      final existing = await _findBestExistingDirectThread(
+        currentUserId: currentUserId,
+        otherUserId: otherUserId,
+        candidateThreadIds: commonThreadIds,
+      );
+      if (existing != null) return existing;
     }
 
     // 3. Create new thread
@@ -189,12 +172,73 @@ class DmService {
     );
   }
 
+  Future<DmThread?> _findBestExistingDirectThread({
+    required String currentUserId,
+    required String otherUserId,
+    required List<String> candidateThreadIds,
+  }) async {
+    if (candidateThreadIds.isEmpty) return null;
+
+    final response = await _supabase
+        .from(SupabaseConfig.dmThreadsTable)
+        .select('''
+          *,
+          ${SupabaseConfig.dmParticipantsTable}!inner(
+            user_id,
+            muted,
+            profiles:user_id(*)
+          )
+        ''')
+        .inFilter('id', candidateThreadIds);
+
+    final wantedUsers = {currentUserId, otherUserId};
+    Map<String, dynamic>? bestThread;
+    DateTime? bestSortTime;
+
+    for (final row in (response as List)) {
+      final threadData = row as Map<String, dynamic>;
+      final participantsData =
+          threadData[SupabaseConfig.dmParticipantsTable] as List? ?? [];
+      final participantIds = participantsData
+          .map((p) => (p as Map<String, dynamic>)['user_id'] as String?)
+          .whereType<String>()
+          .toSet();
+
+      if (participantIds.length != 2 || !participantIds.containsAll(wantedUsers)) {
+        continue;
+      }
+
+      final sortTime = _threadSortTime(threadData);
+      if (bestSortTime == null || sortTime.isAfter(bestSortTime)) {
+        bestSortTime = sortTime;
+        bestThread = threadData;
+      }
+    }
+
+    if (bestThread == null) return null;
+    final participants = (bestThread[SupabaseConfig.dmParticipantsTable] as List)
+        .map(
+          (p) => User.fromSupabase((p as Map<String, dynamic>)['profiles'] as Map<String, dynamic>),
+        )
+        .toList();
+
+    return DmThread.fromSupabase(bestThread, participants: participants);
+  }
+
+  DateTime _threadSortTime(Map<String, dynamic> threadData) {
+    final lastMessageAt = DateTime.tryParse(
+      (threadData['last_message_at'] ?? '').toString(),
+    );
+    if (lastMessageAt != null) return lastMessageAt;
+    final createdAt = DateTime.tryParse((threadData['created_at'] ?? '').toString());
+    return createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
   static const double _aiReviewThreshold = 50;
-  static double get _aiFlagThreshold =>
-      PlatformConfigProvider.current.aiFlagThreshold;
 
   /// Send a message in a DM thread.
-  /// Runs AI detection pre-check before inserting; blocks flagged content.
+  /// Inserts immediately as 'under_review'; AI check runs in the background.
+  /// The receiver won't see it until the background check clears it to 'sent'.
   Future<DmMessage> sendMessage(
     String threadId,
     String body, {
@@ -205,54 +249,10 @@ class DmService {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
 
-    final text = body.trim();
-
-    // Run AI detection before inserting the message
-    final precheck = await _runAiPrecheckText(text);
-
-    if (precheck == null) {
-      throw Exception(
-        'Message blocked: AI verification did not complete. Please try again.',
-      );
-    }
-
-    if (precheck.aiScoreStatus == 'flagged') {
-      throw Exception(
-        'Message blocked: content detected as likely AI-generated.',
-      );
-    }
-
-    bool adFeePaid = false;
-    if (precheck.isAdvertisement) {
-      if (precheck.requiresPayment) {
-        final adMeta = precheck.aiMetadata['advertisement'];
-        final adConfidence =
-            adMeta is Map ? (adMeta['confidence'] as num?)?.toDouble() ?? 0.0 : 0.0;
-        final adType = adMeta is Map ? adMeta['type'] as String? : null;
-        adFeePaid =
-            onAdFeeRequired != null &&
-            await onAdFeeRequired(adConfidence, adType);
-        if (!adFeePaid) {
-          throw Exception(
-            'Advertisement detected. Message was not sent because the ad fee was not paid.',
-          );
-        }
-      }
-      if (!precheck.requiresPayment) {
-        throw Exception(
-          'Message blocked: advertisement content is not allowed in chats.',
-        );
-      }
-    }
-
     final insertData = <String, dynamic>{
       'thread_id': threadId,
       'sender_id': userId,
       'body': body,
-      'ai_score': precheck.aiScore,
-      'ai_score_status': precheck.aiScoreStatus,
-      'ai_metadata': precheck.aiMetadata,
-      'verification_session_id': precheck.analysisId,
       if (replyToId != null) 'reply_to_id': replyToId,
     };
 
@@ -270,25 +270,132 @@ class DmService {
 
     final dmMessage = DmMessage.fromSupabase(response);
 
-    // Create moderation case if score warrants review
-    await _createModerationCaseIfNeeded(
-      messageId: dmMessage.id,
-      senderId: dmMessage.senderId,
-      aiScore: precheck.aiScore,
-      aiMetadata: precheck.aiMetadata,
-    );
-
-    // Notify thread recipients on normal pass, or when advert fee was paid
-    // (advert messages go only to the conversation recipient, not broadcast to all)
-    if (precheck.aiScoreStatus.toLowerCase() == 'pass' || adFeePaid) {
-      await _notifyThreadRecipients(
-        threadId: threadId,
-        senderId: userId,
-        previewContent: text,
-      );
-    }
+    // Run AI detection in the background — updates status to 'sent' on pass.
+    unawaited(_runBackgroundAiCheck(dmMessage, onAdFeeRequired: onAdFeeRequired));
 
     return dmMessage;
+  }
+
+  Future<void> _runBackgroundAiCheck(
+    DmMessage message, {
+    Future<bool> Function(double adConfidence, String? adType)? onAdFeeRequired,
+  }) async {
+    try {
+      final text = message.body.trim();
+      if (text.isEmpty) {
+        await _supabase
+            .from(SupabaseConfig.dmMessagesTable)
+            .update({'ai_score_status': 'pass'})
+            .eq('id', message.id);
+        await _notifyThreadRecipients(
+          threadId: message.threadId,
+          senderId: message.senderId,
+          previewContent: text,
+        );
+        return;
+      }
+
+      final result = await _aiService.detectFull(
+        content: text,
+        models: 'gpt-5.2,o3',
+      );
+
+      if (result == null) {
+        await _supabase
+            .from(SupabaseConfig.dmMessagesTable)
+            .update({'ai_score_status': 'pass'})
+            .eq('id', message.id);
+        await _notifyThreadRecipients(
+          threadId: message.threadId,
+          senderId: message.senderId,
+          previewContent: text,
+        );
+        return;
+      }
+
+      final normalizedResult = result.result.trim().toUpperCase();
+      final isAiResult =
+          normalizedResult == 'AI-GENERATED' ||
+          normalizedResult == 'LIKELY AI-GENERATED';
+      final labelConfidence = result.confidence.clamp(0, 100);
+      final aiProbability = isAiResult
+          ? labelConfidence.toDouble()
+          : (100 - labelConfidence).toDouble();
+      final aiMetadata = <String, dynamic>{
+        'analysis_id': result.analysisId,
+        'rationale': result.rationale,
+        'combined_evidence': result.combinedEvidence,
+        'consensus_strength': result.consensusStrength,
+        'moderation': result.moderation?.toJson(),
+        'safety_score': result.safetyScore,
+        if (result.advertisement != null)
+          'advertisement': result.advertisement!.toJson(),
+      };
+
+      final mod = result.moderation;
+      final bool isModerationFlagged = mod?.flagged ?? false;
+      final ad = result.advertisement;
+
+      String scoreStatus = 'pass';
+
+      if (isModerationFlagged) {
+        scoreStatus = 'flagged'; // Nudity / hate / harmful
+      } else if (isAiResult && labelConfidence >= 75) {
+        scoreStatus = 'flagged'; // High-confidence AI-generated
+      } else if (isAiResult && labelConfidence >= 60) {
+        scoreStatus = 'review'; // Borderline — visible but labelled
+      } else {
+        scoreStatus = 'pass';
+      }
+
+      if (!isModerationFlagged &&
+          ad != null &&
+          (ad.requiresPayment || ad.flaggedForReview)) {
+        bool adFeePaid = false;
+        if (ad.requiresPayment && onAdFeeRequired != null) {
+          adFeePaid = await onAdFeeRequired(ad.confidence, ad.type);
+        }
+        if (!adFeePaid && scoreStatus == 'pass') scoreStatus = 'review';
+      }
+
+      await _supabase
+          .from(SupabaseConfig.dmMessagesTable)
+          .update({
+            'ai_score': aiProbability,
+            'ai_score_status': scoreStatus,
+            'ai_metadata': aiMetadata,
+            'verification_session_id': result.analysisId,
+          })
+          .eq('id', message.id);
+
+      await _createModerationCaseIfNeeded(
+        messageId: message.id,
+        senderId: message.senderId,
+        aiScore: aiProbability,
+        aiMetadata: aiMetadata,
+      );
+
+      if (scoreStatus != 'flagged') {
+        await _notifyThreadRecipients(
+          threadId: message.threadId,
+          senderId: message.senderId,
+          previewContent: text,
+        );
+      }
+
+      debugPrint(
+        'DmService: AI check for message ${message.id} — '
+        'score=$aiProbability, scoreStatus=$scoreStatus',
+      );
+    } catch (e) {
+      debugPrint('DmService: Background AI check failed - $e');
+      try {
+        await _supabase
+            .from(SupabaseConfig.dmMessagesTable)
+            .update({'ai_score_status': 'pass'})
+            .eq('id', message.id);
+      } catch (_) {}
+    }
   }
 
   Future<void> _notifyThreadRecipients({
@@ -332,6 +439,7 @@ class DmService {
           title: senderName,
           body: body,
           actorId: senderId,
+          metadata: {'thread_id': threadId},
         );
       }
     } catch (e) {
@@ -339,61 +447,6 @@ class DmService {
     }
   }
 
-  Future<_DmPrecheckResult?> _runAiPrecheckText(String text) async {
-    try {
-      if (text.isEmpty) return null;
-      final result = await _aiService.detectFull(
-        content: text,
-        models: 'gpt-5.2,o3',
-      );
-      if (result == null) return null;
-
-      final normalizedResult = result.result.trim().toUpperCase();
-      final isAiResult =
-          normalizedResult == 'AI-GENERATED' ||
-          normalizedResult == 'LIKELY AI-GENERATED';
-      final labelConfidence = result.confidence.clamp(0, 100);
-      final aiScore = isAiResult
-          ? labelConfidence.toDouble()
-          : (100 - labelConfidence).toDouble();
-      final aiScoreStatus = _resolveAiScoreStatus(aiScore);
-      final aiMetadata = <String, dynamic>{
-        'analysis_id': result.analysisId,
-        'rationale': result.rationale,
-        'combined_evidence': result.combinedEvidence,
-        'consensus_strength': result.consensusStrength,
-        'moderation': result.moderation?.toJson(),
-        'safety_score': result.safetyScore,
-        if (result.advertisement != null)
-          'advertisement': result.advertisement!.toJson(),
-      };
-      final ad = result.advertisement;
-      final isAd = ad != null && ad.detected;
-      final adRequiresPayment =
-          isAd &&
-          (ad.requiresPayment ||
-              ad.action == 'require_payment' ||
-              result.policyRequiresPayment);
-
-      return _DmPrecheckResult(
-        aiScore: aiScore,
-        aiScoreStatus: aiScoreStatus,
-        aiMetadata: aiMetadata,
-        analysisId: result.analysisId,
-        isAdvertisement: isAd,
-        requiresPayment: adRequiresPayment,
-      );
-    } catch (e) {
-      debugPrint('DmService: Pre-send AI detection failed - $e');
-      return null;
-    }
-  }
-
-  String _resolveAiScoreStatus(double aiScore) {
-    if (aiScore >= _aiFlagThreshold) return 'flagged';
-    if (aiScore >= _aiReviewThreshold) return 'review';
-    return 'pass';
-  }
 
   Future<void> _createModerationCaseIfNeeded({
     required String messageId,
@@ -442,8 +495,8 @@ class DmService {
   }
 
   /// Stream messages for a DM thread (real-time).
-  /// Filters out flagged messages entirely; review messages are only visible
-  /// to the sender.
+  /// Flagged (AI/nudity/hate) messages are hidden from everyone.
+  /// Pending check (null ai_score_status) is hidden from the receiver until cleared.
   Stream<List<DmMessage>> subscribeToMessages(String threadId) {
     final currentUserId = _supabase.auth.currentUser?.id;
     return _supabase
@@ -456,10 +509,7 @@ class DmService {
               .map((m) => DmMessage.fromSupabase(m))
               .where((m) {
                 if (m.aiScoreStatus == 'flagged') return false;
-                if (m.aiScoreStatus == 'review' &&
-                    m.senderId != currentUserId) {
-                  return false;
-                }
+                if (m.aiScoreStatus == null && m.senderId != currentUserId) return false;
                 return true;
               })
               .toList();
@@ -508,22 +558,4 @@ class DmService {
 
     return response?['muted'] as bool? ?? false;
   }
-}
-
-class _DmPrecheckResult {
-  final double aiScore;
-  final String aiScoreStatus;
-  final Map<String, dynamic> aiMetadata;
-  final String analysisId;
-  final bool isAdvertisement;
-  final bool requiresPayment;
-
-  const _DmPrecheckResult({
-    required this.aiScore,
-    required this.aiScoreStatus,
-    required this.aiMetadata,
-    required this.analysisId,
-    this.isAdvertisement = false,
-    this.requiresPayment = false,
-  });
 }
