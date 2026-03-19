@@ -182,13 +182,40 @@ class AuthProvider with ChangeNotifier {
         'AuthProvider: User displayName after parse: ${_currentUser?.displayName}',
       );
 
-      // Check user account status - enforce bans/suspensions
+      // Check user account status - enforce bans/suspensions/deactivations
       if (_currentUser != null && _currentUser!.isBanned) {
         debugPrint('AuthProvider: User is banned');
         _error = 'Your account has been banned. Please contact support.';
         _status = AuthStatus.banned;
         notifyListeners();
         return;
+      }
+
+      // pending_deletion: allow sign-in so the user can cancel — but surface
+      // the countdown via _error so the UI can show a warning banner.
+      if (_currentUser != null && _currentUser!.isPendingDeletion) {
+        debugPrint('AuthProvider: User has pending deletion scheduled');
+        final deadline = _currentUser!.deletionScheduledAt;
+        final daysLeft = deadline != null
+            ? deadline.difference(DateTime.now()).inDays
+            : 30;
+        _status = AuthStatus.authenticated;
+        _error = 'Your account is scheduled for deletion in $daysLeft day${daysLeft == 1 ? '' : 's'}. '
+            'Go to Settings to cancel.';
+        _subscribeToProfileChanges(userId);
+        notifyListeners();
+        return;
+      }
+
+      // If the account was previously deactivated, reactivate it on sign-in.
+      if (_currentUser != null && _currentUser!.status == 'deactivated') {
+        debugPrint('AuthProvider: Reactivating deactivated account');
+        await _supabase.client
+            .from(SupabaseConfig.profilesTable)
+            .update({'status': 'active'})
+            .eq('user_id', userId);
+        // Reload so _currentUser reflects the new active status.
+        return _loadCurrentUser(userId, retryCount: retryCount + 1);
       }
 
       if (_currentUser != null && _currentUser!.isSuspended) {
@@ -506,23 +533,64 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// Permanently delete the account by calling the delete-account edge function,
-  /// then sign out locally. Password is re-verified server-side.
+  /// Deactivate the account — sets status to 'deactivated' in the profiles
+  /// table, making the account dormant (no posting, no activity).
+  /// The user is signed out afterwards. They can reactivate by signing back in.
+  Future<void> deactivateAccount(String password) async {
+    final userId = _currentUser?.id;
+    final email = _supabase.auth.currentUser?.email ?? '';
+    if (userId == null || email.isEmpty) return;
+
+    // Re-authenticate to confirm identity before deactivating.
+    final authenticated = await reAuthenticate(password);
+    if (!authenticated) {
+      throw Exception('Incorrect password.');
+    }
+
+    await _supabase.client
+        .from(SupabaseConfig.profilesTable)
+        .update({'status': 'deactivated'})
+        .eq('user_id', userId);
+
+    await signOut();
+  }
+
+  /// Schedule account deletion in 30 days.
+  ///
+  /// Calls the request-account-deletion edge function which:
+  ///  - Sets status = 'pending_deletion' with a 30-day countdown
+  ///  - Sends push notification, email, and DM warning to the user
+  ///
+  /// After scheduling, the user is signed out. They can cancel before the
+  /// deadline via [cancelAccountDeletion].
   Future<void> requestAccountDeletion(String password) async {
     final userId = _currentUser?.id;
     final email = _supabase.auth.currentUser?.email ?? '';
     if (userId == null || email.isEmpty) return;
     final response = await _supabase.client.functions.invoke(
-      'delete-account',
+      'request-account-deletion',
       body: {'userId': userId, 'email': email, 'password': password},
     );
     if (response.status != 200) {
       final data = response.data;
-      final msg = data is Map ? (data['error'] ?? 'Account deletion failed') : 'Account deletion failed';
+      final msg = data is Map ? (data['error'] ?? 'Failed to schedule account deletion') : 'Failed to schedule account deletion';
       throw Exception(msg);
     }
-    // Sign out locally — auth user no longer exists on server
+    // Sign out — account is now in pending_deletion state
     await signOut();
+  }
+
+  /// Cancel a previously scheduled account deletion.
+  ///
+  /// Restores status to 'active' and clears deletion_scheduled_at.
+  Future<void> cancelAccountDeletion() async {
+    final userId = _currentUser?.id;
+    if (userId == null) return;
+    await _supabase.client
+        .from(SupabaseConfig.profilesTable)
+        .update({'status': 'active', 'deletion_scheduled_at': null})
+        .eq('user_id', userId);
+    await reloadCurrentUser();
   }
 
   /// Sign out the current user.

@@ -471,12 +471,30 @@ class SettingsScreen extends StatelessWidget {
           ),
           _buildSettingsTile(
             context,
-            icon: Icons.delete_forever,
-            iconColor: Colors.red,
-            title: l10n.deleteAccount,
-            subtitle: l10n.permanentlyDeleteAccount,
-            onTap: () => _showDeleteAccountDialog(context),
+            icon: Icons.pause_circle_outline,
+            iconColor: Colors.orange,
+            title: _localizedSettingsText(context, 'deactivateAccount'),
+            subtitle: _localizedSettingsText(context, 'deactivateAccountSubtitle'),
+            onTap: () => _showDeactivateAccountDialog(context),
           ),
+          if (currentUser?.isPendingDeletion == true)
+            _buildSettingsTile(
+              context,
+              icon: Icons.cancel_schedule_send,
+              iconColor: Colors.green,
+              title: _localizedSettingsText(context, 'cancelDeletion'),
+              subtitle: _buildCancelDeletionSubtitle(context, currentUser?.deletionScheduledAt),
+              onTap: () => _showCancelDeletionDialog(context),
+            ),
+          if (currentUser?.isPendingDeletion != true)
+            _buildSettingsTile(
+              context,
+              icon: Icons.delete_forever,
+              iconColor: Colors.red,
+              title: l10n.deleteAccount,
+              subtitle: l10n.permanentlyDeleteAccount,
+              onTap: () => _showDeleteAccountDialog(context),
+            ),
 
           const SizedBox(height: 16),
 
@@ -801,6 +819,189 @@ class SettingsScreen extends StatelessWidget {
                       }
                     },
               child: const Text('Export'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static void _showDeactivateAccountDialog(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final passwordController = TextEditingController();
+    bool isLoading = false;
+    bool obscurePassword = true;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: scheme.surface,
+          title: Row(
+            children: [
+              const Icon(Icons.pause_circle_outline, color: Colors.orange),
+              const SizedBox(width: 8),
+              Text(
+                _localizedSettingsText(context, 'deactivateAccount'),
+                style: TextStyle(color: scheme.onSurface),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _localizedSettingsText(context, 'deactivateAccountDescription'),
+                  style: TextStyle(color: scheme.onSurface.withOpacity(0.7), fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: _localizedSettingsText(context, 'enterPasswordToConfirm'),
+                    filled: true,
+                    fillColor: scheme.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+              child: Text(_localizedSettingsText(context, 'cancel')),
+            ),
+            TextButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      if (passwordController.text.isEmpty) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(content: Text(_localizedSettingsText(context, 'enterPasswordToConfirm'))),
+                        );
+                        return;
+                      }
+                      setDialogState(() => isLoading = true);
+                      try {
+                        final auth = context.read<AuthProvider>();
+                        await auth.deactivateAccount(passwordController.text);
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      } catch (e) {
+                        setDialogState(() => isLoading = false);
+                        if (ctx.mounted) {
+                          final msg = e.toString().contains('Incorrect password')
+                              ? _localizedSettingsText(context, 'incorrectPassword')
+                              : _localizedSettingsText(context, 'somethingWentWrong');
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text(msg), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+              child: isLoading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(
+                      _localizedSettingsText(context, 'deactivate'),
+                      style: const TextStyle(color: Colors.orange),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(() => passwordController.dispose());
+  }
+
+  static String _buildCancelDeletionSubtitle(BuildContext context, DateTime? deadline) {
+    if (deadline == null) return _localizedSettingsText(context, 'cancelDeletionSubtitle');
+    final daysLeft = deadline.difference(DateTime.now()).inDays;
+    final code = Localizations.localeOf(context).languageCode;
+    final templates = <String, String>{
+      'en': 'Account deletes in $daysLeft day${daysLeft == 1 ? '' : 's'} — tap to cancel',
+      'es': 'La cuenta se elimina en $daysLeft día${daysLeft == 1 ? '' : 's'} — toca para cancelar',
+      'fr': 'Suppression dans $daysLeft jour${daysLeft == 1 ? '' : 's'} — appuyez pour annuler',
+      'de': 'Konto wird in $daysLeft Tag${daysLeft == 1 ? '' : 'en'} gelöscht — zum Abbrechen tippen',
+      'it': 'L\'account verrà eliminato tra $daysLeft giorno${daysLeft == 1 ? '' : 'i'} — tocca per annullare',
+      'pt': 'Conta excluída em $daysLeft dia${daysLeft == 1 ? '' : 's'} — toque para cancelar',
+      'ru': 'Аккаунт будет удалён через $daysLeft д${daysLeft == 1 ? 'ень' : 'ней'} — нажмите для отмены',
+      'zh': '账户将在 $daysLeft 天后删除 — 点击取消',
+      'ja': '$daysLeft 日後に削除されます — タップしてキャンセル',
+      'ko': '$daysLeft 일 후 삭제됩니다 — 취소하려면 탭',
+      'ar': 'الحساب يُحذف خلال $daysLeft يوم — اضغط للإلغاء',
+      'hi': '$daysLeft दिन में खाता हटाया जाएगा — रद्द करने के लिए टैप करें',
+    };
+    return templates[code] ?? templates['en']!;
+  }
+
+  static void _showCancelDeletionDialog(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: scheme.surface,
+          title: Row(
+            children: [
+              const Icon(Icons.cancel_schedule_send, color: Colors.green),
+              const SizedBox(width: 8),
+              Text(
+                _localizedSettingsText(context, 'cancelDeletion'),
+                style: TextStyle(color: scheme.onSurface),
+              ),
+            ],
+          ),
+          content: Text(
+            _localizedSettingsText(context, 'cancelDeletionDescription'),
+            style: TextStyle(color: scheme.onSurface.withOpacity(0.7), fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+              child: Text(_localizedSettingsText(context, 'cancel')),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.green),
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      setDialogState(() => isLoading = true);
+                      try {
+                        await context.read<AuthProvider>().cancelAccountDeletion();
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(_localizedSettingsText(context, 'cancelDeletionSuccess')),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => isLoading = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text(_localizedSettingsText(context, 'somethingWentWrong')),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              child: isLoading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(_localizedSettingsText(context, 'keepMyAccount')),
             ),
           ],
         ),
@@ -1182,6 +1383,188 @@ class SettingsScreen extends StatelessWidget {
         'ko': '위험 구역',
         'ar': 'منطقة الخطر',
         'hi': 'खतरे का क्षेत्र',
+      },
+      'deactivateAccount': {
+        'en': 'Deactivate Account',
+        'es': 'Desactivar cuenta',
+        'fr': 'Désactiver le compte',
+        'de': 'Konto deaktivieren',
+        'it': 'Disattiva account',
+        'pt': 'Desativar conta',
+        'ru': 'Деактивировать аккаунт',
+        'zh': '停用账户',
+        'ja': 'アカウントを無効化',
+        'ko': '계정 비활성화',
+        'ar': 'تعطيل الحساب',
+        'hi': 'खाता निष्क्रिय करें',
+      },
+      'deactivateAccountSubtitle': {
+        'en': 'Temporarily disable your account',
+        'es': 'Deshabilitar temporalmente tu cuenta',
+        'fr': 'Désactiver temporairement votre compte',
+        'de': 'Konto vorübergehend deaktivieren',
+        'it': 'Disabilita temporaneamente il tuo account',
+        'pt': 'Desabilitar temporariamente sua conta',
+        'ru': 'Временно отключить аккаунт',
+        'zh': '暂时禁用您的账户',
+        'ja': 'アカウントを一時的に無効化',
+        'ko': '계정을 일시적으로 비활성화',
+        'ar': 'تعطيل حسابك مؤقتاً',
+        'hi': 'अपना खाता अस्थायी रूप से अक्षम करें',
+      },
+      'deactivateAccountDescription': {
+        'en': 'Your account will become dormant — no posts, no activities. You can reactivate it anytime by signing back in.',
+        'es': 'Tu cuenta quedará inactiva: sin publicaciones ni actividad. Puedes reactivarla iniciando sesión nuevamente.',
+        'fr': 'Votre compte deviendra inactif — aucun post, aucune activité. Vous pouvez le réactiver en vous reconnectant.',
+        'de': 'Dein Konto wird inaktiv — keine Beiträge, keine Aktivitäten. Du kannst es jederzeit durch erneutes Anmelden reaktivieren.',
+        'it': 'Il tuo account diventerà inattivo — nessun post, nessuna attività. Puoi riattivarlo accedendo di nuovo.',
+        'pt': 'Sua conta ficará inativa — sem publicações, sem atividades. Você pode reativá-la fazendo login novamente.',
+        'ru': 'Ваш аккаунт станет неактивным — никаких публикаций и действий. Вы можете реактивировать его, снова войдя в систему.',
+        'zh': '您的账户将变为休眠状态——无法发帖、无法活动。您可以随时重新登录来激活账户。',
+        'ja': 'アカウントが休止状態になります。投稿や活動はできません。再度サインインすることでいつでも再有効化できます。',
+        'ko': '계정이 휴면 상태가 됩니다 — 게시물 없음, 활동 없음. 다시 로그인하면 언제든지 재활성화할 수 있습니다.',
+        'ar': 'سيصبح حسابك خاملاً — لا منشورات، لا نشاط. يمكنك إعادة تفعيله في أي وقت بتسجيل الدخول مجدداً.',
+        'hi': 'आपका खाता निष्क्रिय हो जाएगा — कोई पोस्ट नहीं, कोई गतिविधि नहीं। आप दोबारा साइन इन करके इसे कभी भी पुनः सक्रिय कर सकते हैं।',
+      },
+      'deactivate': {
+        'en': 'Deactivate',
+        'es': 'Desactivar',
+        'fr': 'Désactiver',
+        'de': 'Deaktivieren',
+        'it': 'Disattiva',
+        'pt': 'Desativar',
+        'ru': 'Деактивировать',
+        'zh': '停用',
+        'ja': '無効化',
+        'ko': '비활성화',
+        'ar': 'تعطيل',
+        'hi': 'निष्क्रिय करें',
+      },
+      'enterPasswordToConfirm': {
+        'en': 'Enter your password to confirm',
+        'es': 'Ingresa tu contraseña para confirmar',
+        'fr': 'Entrez votre mot de passe pour confirmer',
+        'de': 'Passwort zur Bestätigung eingeben',
+        'it': 'Inserisci la tua password per confermare',
+        'pt': 'Digite sua senha para confirmar',
+        'ru': 'Введите пароль для подтверждения',
+        'zh': '输入密码以确认',
+        'ja': '確認のためパスワードを入力',
+        'ko': '확인을 위해 비밀번호를 입력하세요',
+        'ar': 'أدخل كلمة المرور للتأكيد',
+        'hi': 'पुष्टि के लिए अपना पासवर्ड दर्ज करें',
+      },
+      'incorrectPassword': {
+        'en': 'Incorrect password.',
+        'es': 'Contraseña incorrecta.',
+        'fr': 'Mot de passe incorrect.',
+        'de': 'Falsches Passwort.',
+        'it': 'Password errata.',
+        'pt': 'Senha incorreta.',
+        'ru': 'Неверный пароль.',
+        'zh': '密码错误。',
+        'ja': 'パスワードが違います。',
+        'ko': '잘못된 비밀번호입니다.',
+        'ar': 'كلمة المرور غير صحيحة.',
+        'hi': 'गलत पासवर्ड।',
+      },
+      'somethingWentWrong': {
+        'en': 'Something went wrong. Please try again.',
+        'es': 'Algo salió mal. Inténtalo de nuevo.',
+        'fr': 'Quelque chose a mal tourné. Veuillez réessayer.',
+        'de': 'Etwas ist schief gelaufen. Bitte versuche es erneut.',
+        'it': 'Qualcosa è andato storto. Riprova.',
+        'pt': 'Algo deu errado. Por favor, tente novamente.',
+        'ru': 'Что-то пошло не так. Пожалуйста, попробуйте ещё раз.',
+        'zh': '出了点问题，请重试。',
+        'ja': '問題が発生しました。もう一度お試しください。',
+        'ko': '문제가 발생했습니다. 다시 시도해 주세요.',
+        'ar': 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
+        'hi': 'कुछ गलत हो गया। कृपया फिर से प्रयास करें।',
+      },
+      'cancel': {
+        'en': 'Cancel',
+        'es': 'Cancelar',
+        'fr': 'Annuler',
+        'de': 'Abbrechen',
+        'it': 'Annulla',
+        'pt': 'Cancelar',
+        'ru': 'Отмена',
+        'zh': '取消',
+        'ja': 'キャンセル',
+        'ko': '취소',
+        'ar': 'إلغاء',
+        'hi': 'रद्द करें',
+      },
+      'cancelDeletion': {
+        'en': 'Cancel Account Deletion',
+        'es': 'Cancelar eliminación de cuenta',
+        'fr': 'Annuler la suppression du compte',
+        'de': 'Kontolöschung abbrechen',
+        'it': 'Annulla eliminazione account',
+        'pt': 'Cancelar exclusão da conta',
+        'ru': 'Отменить удаление аккаунта',
+        'zh': '取消删除账户',
+        'ja': 'アカウント削除をキャンセル',
+        'ko': '계정 삭제 취소',
+        'ar': 'إلغاء حذف الحساب',
+        'hi': 'खाता हटाना रद्द करें',
+      },
+      'cancelDeletionSubtitle': {
+        'en': 'Your account is scheduled for deletion — tap to cancel',
+        'es': 'Tu cuenta está programada para eliminarse — toca para cancelar',
+        'fr': 'Votre compte est programmé pour être supprimé — appuyez pour annuler',
+        'de': 'Dein Konto ist zur Löschung vorgesehen — tippen zum Abbrechen',
+        'it': 'Il tuo account è programmato per l\'eliminazione — tocca per annullare',
+        'pt': 'Sua conta está agendada para exclusão — toque para cancelar',
+        'ru': 'Ваш аккаунт запланирован к удалению — нажмите для отмены',
+        'zh': '您的账户已安排删除 — 点击取消',
+        'ja': 'アカウントの削除が予定されています — タップしてキャンセル',
+        'ko': '계정 삭제가 예약되었습니다 — 취소하려면 탭',
+        'ar': 'حسابك مجدول للحذف — اضغط للإلغاء',
+        'hi': 'आपका खाता हटाने के लिए निर्धारित है — रद्द करने के लिए टैप करें',
+      },
+      'cancelDeletionDescription': {
+        'en': 'Your account deletion will be cancelled and your account will be fully restored.',
+        'es': 'La eliminación de tu cuenta se cancelará y tu cuenta se restaurará completamente.',
+        'fr': 'La suppression de votre compte sera annulée et votre compte sera entièrement restauré.',
+        'de': 'Die Kontolöschung wird abgebrochen und dein Konto wird vollständig wiederhergestellt.',
+        'it': 'L\'eliminazione dell\'account verrà annullata e il tuo account sarà completamente ripristinato.',
+        'pt': 'A exclusão da sua conta será cancelada e sua conta será totalmente restaurada.',
+        'ru': 'Удаление аккаунта будет отменено, и ваш аккаунт будет полностью восстановлен.',
+        'zh': '您的账户删除将被取消，账户将完全恢复。',
+        'ja': 'アカウントの削除がキャンセルされ、アカウントが完全に復元されます。',
+        'ko': '계정 삭제가 취소되고 계정이 완전히 복원됩니다.',
+        'ar': 'سيتم إلغاء حذف حسابك واستعادة حسابك بالكامل.',
+        'hi': 'आपके खाते को हटाना रद्द कर दिया जाएगा और आपका खाता पूरी तरह से बहाल हो जाएगा।',
+      },
+      'cancelDeletionSuccess': {
+        'en': 'Account deletion cancelled. Welcome back!',
+        'es': 'Eliminación de cuenta cancelada. ¡Bienvenido de nuevo!',
+        'fr': 'Suppression du compte annulée. Bon retour !',
+        'de': 'Kontolöschung abgebrochen. Willkommen zurück!',
+        'it': 'Eliminazione account annullata. Bentornato!',
+        'pt': 'Exclusão de conta cancelada. Bem-vindo de volta!',
+        'ru': 'Удаление аккаунта отменено. С возвращением!',
+        'zh': '账户删除已取消。欢迎回来！',
+        'ja': 'アカウント削除がキャンセルされました。おかえりなさい！',
+        'ko': '계정 삭제가 취소되었습니다. 다시 오신 것을 환영합니다!',
+        'ar': 'تم إلغاء حذف الحساب. مرحباً بعودتك!',
+        'hi': 'खाता हटाना रद्द कर दिया गया। वापस स्वागत है!',
+      },
+      'keepMyAccount': {
+        'en': 'Keep My Account',
+        'es': 'Mantener mi cuenta',
+        'fr': 'Conserver mon compte',
+        'de': 'Konto behalten',
+        'it': 'Mantieni il mio account',
+        'pt': 'Manter minha conta',
+        'ru': 'Оставить аккаунт',
+        'zh': '保留我的账户',
+        'ja': 'アカウントを保持',
+        'ko': '계정 유지',
+        'ar': 'الاحتفاظ بحسابي',
+        'hi': 'मेरा खाता रखें',
       },
       'typeDeleteHint': {
         'en': 'Type DELETE',

@@ -63,20 +63,22 @@ class _DmListScreenState extends State<DmListScreen>
         .where((t) => _isSupportThread(t, currentUserId))
         .toList();
 
+    void _onNewMessage() {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Start a DM from a user\'s profile!'.tr(context)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: colors.surface,
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.black,
         tooltip: 'New message',
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Start a DM from a user\'s profile!'.tr(context)),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        },
+        onPressed: _onNewMessage,
         child: const Icon(Icons.edit_outlined),
       ),
       appBar: AppBar(
@@ -84,13 +86,29 @@ class _DmListScreenState extends State<DmListScreen>
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
+        titleSpacing: 16,
+        title: Text(
+          'Messages'.tr(context),
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colors.onSurface,
+              ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'New message',
+            onPressed: _onNewMessage,
+          ),
+          const SizedBox(width: 4),
+        ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(108),
+          preferredSize: const Size.fromHeight(112),
           child: Column(
             children: [
               // Search bar
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
                 child: TextField(
                   controller: _searchController,
                   style: Theme.of(context).textTheme.bodyMedium,
@@ -116,8 +134,16 @@ class _DmListScreenState extends State<DmListScreen>
                     fillColor: colors.surfaceContainerHighest,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(color: AppColors.primary, width: 1.5),
                     ),
                   ),
                 ),
@@ -341,41 +367,44 @@ class _DmThreadTile extends StatelessWidget {
           }
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _buildAvatar(otherUser, colors),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       otherUser.displayName,
                       style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight:
-                            hasUnread ? FontWeight.bold : FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                         color: colors.onSurface,
+                        fontSize: 15,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       _lastMessagePreview(thread),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
+                      style: theme.textTheme.bodyMedium?.copyWith(
                         color: hasUnread
                             ? colors.onSurface
                             : colors.onSurfaceVariant,
                         fontWeight: hasUnread
                             ? FontWeight.w500
                             : FontWeight.normal,
+                        fontSize: 13,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -385,14 +414,15 @@ class _DmThreadTile extends StatelessWidget {
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: hasUnread
                           ? AppColors.primary
-                          : colors.onSurfaceVariant.withValues(alpha: 0.7),
+                          : colors.onSurfaceVariant,
                       fontWeight: hasUnread
-                          ? FontWeight.bold
+                          ? FontWeight.w600
                           : FontWeight.normal,
+                      fontSize: 12,
                     ),
                   ),
                   if (hasUnread) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Container(
                       constraints: const BoxConstraints(minWidth: 20),
                       padding: const EdgeInsets.symmetric(
@@ -433,7 +463,7 @@ class _DmThreadTile extends StatelessWidget {
     return Stack(
       children: [
         CircleAvatar(
-          radius: 26,
+          radius: 28,
           backgroundColor: colors.surfaceContainerHighest,
           backgroundImage:
               otherUser.avatar != null ? NetworkImage(otherUser.avatar!) : null,
@@ -463,8 +493,9 @@ class _DmThreadTile extends StatelessWidget {
     final now = DateTime.now();
     final local = dateTime.toLocal();
     final diff = now.difference(local);
-    if (diff.inDays == 0) return DateFormat.Hm().format(local);
-    if (diff.inDays < 7) return DateFormat.E().format(local);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    if (diff.inDays < 7) return DateFormat('d MMM').format(local);
     return DateFormat.Md().format(local);
   }
 }

@@ -75,6 +75,7 @@ class User {
   final int onboardingStep;
   final String? referralCode;
   final String? referredBy;
+  final DateTime? deletionScheduledAt;
 
   User({
     required this.id,
@@ -112,10 +113,14 @@ class User {
     this.onboardingStep = 0,
     this.referralCode,
     this.referredBy,
+    this.deletionScheduledAt,
   });
 
   /// Whether the user account is active.
   bool get isActive => status == 'active';
+
+  /// Whether the account is pending deletion (30-day countdown running).
+  bool get isPendingDeletion => status == 'pending_deletion';
 
   /// Whether the user account is suspended.
   bool get isSuspended => status == 'suspended';
@@ -196,6 +201,9 @@ class User {
       onboardingStep: profile['onboarding_step'] as int? ?? 0,
       referralCode: profile['referral_code'] as String?,
       referredBy: profile['referred_by'] as String?,
+      deletionScheduledAt: profile['deletion_scheduled_at'] != null
+          ? DateTime.tryParse(profile['deletion_scheduled_at'].toString())
+          : null,
     );
   }
 
@@ -238,6 +246,7 @@ class User {
     int? onboardingStep,
     String? referralCode,
     String? referredBy,
+    DateTime? deletionScheduledAt,
   }) {
     return User(
       id: id ?? this.id,
@@ -276,6 +285,7 @@ class User {
       onboardingStep: onboardingStep ?? this.onboardingStep,
       referralCode: referralCode ?? this.referralCode,
       referredBy: referredBy ?? this.referredBy,
+      deletionScheduledAt: deletionScheduledAt ?? this.deletionScheduledAt,
     );
   }
 }

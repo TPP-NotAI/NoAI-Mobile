@@ -385,16 +385,25 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
             });
           }
 
-          Future<void> capturePhotoFromCamera() async {
+          Future<void> _captureFromCamera({required bool video}) async {
             setState(() {
               isUploading = true;
               uploadProgress = null;
             });
 
             try {
-              final XFile? picked = await _imagePicker.pickImage(
-                source: ImageSource.camera,
-              );
+              XFile? picked;
+              if (video) {
+                picked = await _imagePicker.pickVideo(
+                  source: ImageSource.camera,
+                  maxDuration: const Duration(seconds: 15),
+                );
+              } else {
+                picked = await _imagePicker.pickImage(
+                  source: ImageSource.camera,
+                );
+              }
+
               if (picked == null) {
                 if (!mounted) return;
                 setState(() { isUploading = false; uploadProgress = null; });
@@ -422,9 +431,45 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
               if (!mounted) return;
               setState(() { isUploading = false; uploadProgress = null; });
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to capture photo. Please try again.'.tr(context))),
+                SnackBar(
+                  content: Text(
+                    video
+                        ? 'Failed to capture video. Please try again.'.tr(context)
+                        : 'Failed to capture photo. Please try again.'.tr(context),
+                  ),
+                ),
               );
             }
+          }
+
+          Future<void> openCameraSheet() async {
+            await showModalBottomSheet<void>(
+              context: dialogStateCtx,
+              builder: (_) => SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.photo_camera_outlined),
+                      title: Text('Take Photo'.tr(context)),
+                      onTap: () {
+                        Navigator.pop(dialogStateCtx);
+                        _captureFromCamera(video: false);
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.videocam_outlined),
+                      title: Text('Record Video (max 15s)'.tr(context)),
+                      onTap: () {
+                        Navigator.pop(dialogStateCtx);
+                        _captureFromCamera(video: true);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            );
           }
 
           int wordCount = captionController.text
@@ -683,7 +728,7 @@ class _StoriesCarouselState extends State<StoriesCarousel> {
                             child: OutlinedButton.icon(
                               onPressed: isUploading
                                   ? null
-                                  : capturePhotoFromCamera,
+                                  : openCameraSheet,
                               icon: const Icon(Icons.camera_alt_outlined),
                               label: const Text('Camera'),
                             ),
